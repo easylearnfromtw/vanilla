@@ -105,6 +105,7 @@ export default function CloudFiles(){
  }
  async function rename(file:WorkspaceFile){
   if(!token||busy)return;
+  if(editor&&editor.text!==editor.baseline&&!window.confirm("編輯器仍有未儲存內容。重新命名會關閉編輯器，確定捨棄嗎？"))return;
   const name=window.prompt("新的檔案名稱",file.name);
   if(!name||!name.trim()||name===file.name)return;
   setBusy(true);
@@ -141,6 +142,7 @@ export default function CloudFiles(){
   if(command.kind==="trash"){await trash(command.file);return;}
   if(command.kind==="rename"){
    if(!token)return;
+   if(editor&&editor.text!==editor.baseline&&!window.confirm("目前編輯器有未儲存內容，繼續將捨棄它。確定嗎？"))return;
    setBusy(true);
    try{await renameWorkspaceFile(token,command.file,command.name);await refresh(token);setEditor(null);setStatus("已重新命名："+command.name);}
    catch(e){setStatus(e instanceof Error?e.message:String(e));}

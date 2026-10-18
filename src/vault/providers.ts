@@ -16,14 +16,16 @@ export function chooseProvider(question:string):Provider|"local"{
  if(configs.has("deepseek"))return "deepseek";
  return "local";
 }
-export async function generateCloudReply(provider:Provider,history:ChatTurn[]):Promise<string>{
+export type ImageInput={mimeType:string;data:string};
+export async function generateCloudReply(provider:Provider,history:ChatTurn[],image?:ImageInput):Promise<string>{
+ if(image&&provider!=="gemini")throw new Error("圖片辨識目前僅支援 Gemini，請切換至 Gemini API");
  const config=configs.get(provider);if(!config)throw new Error("尚未連接 "+provider+" API");
- const system="你是 Vanilla，臺灣繁體中文家庭 AI。回答一律使用臺灣繁體中文，準確、具體，不捏造。";
+ const system="你是 Vanilla，臺灣繁體中文家庭 AI。回答一律使用臺灣繁體中文，準確、具體，不捏造。適合比較時輸出標準 Markdown 表格（含標題與分隔列）；數據趨勢可輸出 Markdown 表格供視覺化；使用者要求文件時輸出清晰標題與段落。不要聲稱已建立尚未產生的檔案。";
  let res:Response;
  if(provider==="gemini"){
   res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(config.model)+":generateContent",{
    method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":config.key},
-   body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:history.slice(-20).map(x=>({role:x.role==="assistant"?"model":"user",parts:[{text:x.content}]})),generationConfig:{maxOutputTokens:2048}})
+   body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:history.slice(-20).map(x=>({role:x.role==="assistant"?"model":"user",parts:x.role==="user"&&image&&x===history[history.length-1]?[{text:x.content},{inlineData:{mimeType:image.mimeType,data:image.data}}]:[{text:x.content}]})),generationConfig:{maxOutputTokens:2048}})
   });
  }else{
   res=await fetch("https://api.deepseek.com/chat/completions",{

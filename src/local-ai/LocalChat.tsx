@@ -81,21 +81,34 @@ async function initialize(){
  }catch(error){setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
  finally{setLoadingModel(false);}
 }
+const canReply=ready||(!privateMode&&providers.length>0&&routeMode!=="local");
 async function send(value=draft){
-const question=value.trim();
-if(!question||busy||(!ready&&(privateMode||providers.length===0)))return;
-if(!privateMode&&routeMode!=="auto"&&routeMode!=="local"&&!providers.includes(routeMode)){setLastRoute("尚未設定所選 API");return;}
-const next:ChatTurn[]=[...history,{role:"user",content:question}];
-setHistory([...next,{role:"assistant",content:""}]);setDraft("");setBusy(true);
-try{
-const route=privateMode?"local":image?"gemini":routeMode==="auto"?chooseProvider(question):routeMode;
-if(image&&privateMode)throw new Error("私密模式尚未支援本地圖片辨識，請先移除圖片");
-if(image&&!providers.includes("gemini"))throw new Error("圖片辨識需要先在設定連接 Gemini API");
-setLastRoute(route==="local"?"本地 AI":route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API");
-const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text}])):await generateCloudReply(route,next,image||undefined);
-setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）"}]);setImage(null);setImageName("");
-}catch(error){setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:"未知錯誤")}]);}
-finally{setBusy(false);}
+ const question=value.trim();
+ if(!question||busy||!canReply)return;
+ const route=privateMode?"local":image?"gemini":routeMode==="auto"?chooseProvider(question,{localReady:ready,online}):routeMode;
+ if(route==="local"&&!ready){setLastRoute("本地模型尚未載入，請開啟「裝置端 AI」設定並下載");return;}
+ if(route!=="local"&&!providers.includes(route)){setLastRoute("尚未連接所選雲端模型");return;}
+ if(!online&&route!=="local"){setLastRoute("目前離線，請切換本地 AI");return;}
+ if(image&&!providers.includes("gemini")){setLastRoute("圖片辨識需要先連接 Gemini API");return;}
+ if(route!=="local"){
+  let consent=false;
+  try{consent=localStorage.getItem("vanilla.cloud.consent.v1")==="yes";}catch{}
+  if(!consent){
+   if(!window.confirm("一般模式使用雲端模型時，這則訊息、近期聊天上下文及附加圖片（如有）會送至 Gemini 或 DeepSeek 處理。若不希望上傳，請取消並切換本地 AI／私密模式。是否同意？"))return;
+   try{localStorage.setItem("vanilla.cloud.consent.v1","yes");}catch{}
+  }
+ }
+ const next:ChatTurn[]=[...history,{role:"user",content:question}];
+ setHistory([...next,{role:"assistant",content:""}]);setDraft("");setBusy(true);
+ setLastRoute("正在使用："+(route==="local"?"本地 "+selectedLocalModel.split("-")[1]:route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API"));
+ try{
+  const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text}])):await generateCloudReply(route,next,image||undefined);
+  setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）"}]);setImage(null);setImageName("");
+  setLastRoute("上一則由 "+(route==="local"?"本地 AI":route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API")+" 回答");
+ }catch(error){
+  setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:"未知錯誤")}]);
+  setLastRoute("生成失敗，請檢查所選模型或網路連線");
+ }finally{setBusy(false);}
 }
 async function copyMessage(content:string,index:number){try{await navigator.clipboard.writeText(content);setCopied(index);}catch{setCopied(null);}}
 return <section className="chat">

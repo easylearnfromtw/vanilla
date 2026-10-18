@@ -121,3 +121,15 @@
 .compare-bottom button{font-size:12px;padding:8px 10px;background:none;border:0;color:#606977;white-space:nowrap}
 .compare-bottom button:disabled{opacity:.45}
 @media(max-width:760px){.model-selection-row{gap:8px;padding:6px 14px 9px}.model-selection-row select{max-width:calc(100vw - 50px)}.model-selection-status{flex-basis:100%;min-width:0}.model-connection-panel{padding:15px}.connection-preferences{align-items:start;flex-direction:column}.compare-answers{padding:12px;border-radius:15px}.compare-grid{grid-template-columns:1fr}.compare-heading h3{font-size:17px}.compare-card-body{max-height:340px;min-height:110px}.compare-bottom{flex-wrap:wrap}}
+
+/* Multi-model pool and budget controls */
+.ollama-model-pool{margin:13px 0 18px;padding:12px 14px;border:1px solid #e5e8ee;background:#fff;border-radius:12px}
+.ollama-model-pool legend{font-size:12px;font-weight:650;color:#333b46;padding:0 7px}
+.ollama-model-pool p{font-size:11px;line-height:1.6;color:#79828f;margin:0 0 8px}
+.ollama-model-pool label{display:flex;gap:9px;align-items:flex-start;cursor:pointer;padding:8px 3px;font-size:12px;line-height:1.4;color:#414956;overflow-wrap:anywhere}
+.ollama-model-pool label+label{border-top:1px solid #f1f2f4}
+.ollama-model-pool input{width:16px;height:16px;margin:0;flex:none;accent-color:#333b47}
+.ollama-model-pool input:disabled{opacity:.4}
+.model-id-suffix{font-size:10px;overflow-wrap:anywhere;opacity:.8}
+.model-selection-row .compare-toggle{min-height:36px}
+@media(max-width:760px){.model-selection-row>.compare-toggle{font-size:11px;padding:8px 9px}.ollama-model-pool{padding:12px}}

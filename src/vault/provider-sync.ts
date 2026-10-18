@@ -39,7 +39,7 @@ async function upload(token:string,doc:Doc,id?:string):Promise<void>{
 export async function loadProviderConfigs(token:string):Promise<number>{
  activeToken=token;
  const id=await locate(token);
- if(!id)return 0;
+ if(!id){for(const p of ["gemini","deepseek"] as Provider[])removeProvider(p);return 0;}
  const doc=await download(token,id);
  const incoming=doc.configs.filter(valid);
  for(const provider of ["gemini","deepseek"] as Provider[]){

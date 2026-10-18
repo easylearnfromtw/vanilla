@@ -388,3 +388,18 @@
 .sidebar{overflow-y:auto;overscroll-behavior:contain}
 .sidebar .nav{min-width:0}
 .sidebar .nav span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Offline Self-Build and portable module backups */
+.builder-offline{background:#f6f8fa;border:1px solid #e5eaf0;border-radius:11px;padding:12px 14px;margin-bottom:17px}
+.builder-offline p{font-size:11px;line-height:1.7;color:#7a8491;margin:0 0 9px}
+.builder-offline button,.builder-backup-actions button,.builder-backup-preview button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #dbe1e8;border-radius:9px;padding:9px 12px;background:#fff;color:#485667;font-size:12px;min-height:38px}
+.builder-offline button:disabled,.builder-backup-actions button:disabled{opacity:.42}
+.builder-offline-note{padding:9px 11px;background:#eef6f0;color:#50765c;border-radius:9px;font-size:11px;line-height:1.65}
+.builder-backup>p{font-size:12px;line-height:1.7;color:#6d7886}
+.builder-backup-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:12px 0}
+.builder-backup-preview{margin-top:15px;border:1px solid #dfe8e2;border-radius:12px;padding:14px;background:#f8fbf9}
+.builder-backup-preview strong{display:block;font-size:13px;color:#405b49}
+.builder-backup-preview small{display:block;font-size:11px;color:#85938a;margin-top:5px}
+.builder-backup-preview ul{padding-left:19px;margin:12px 0;display:grid;gap:5px;font-size:11px;color:#576a5c;overflow-wrap:anywhere}
+.builder-backup-preview>div{display:flex;flex-wrap:wrap;gap:9px}
+.builder-backup-warning{font-size:11px!important;color:#9b7055!important}

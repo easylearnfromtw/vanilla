@@ -23,6 +23,9 @@ test("Conversation tools create real editable sheets, not fabricated Markdown",(
   assert.equal(result.workbook.sheets.length,1);
   assert.equal(result.workbook.sheets[0].cells.A1.raw,"日期");
   assert.equal(result.workbook.sheets[0].cells.E1.raw,"支出");
+  assert.equal(result.workbook.sheets[0].cells.F2.raw,"=SUM(D2:D2)-SUM(E2:E2)");
+  assert.equal(result.workbook.sheets[0].cells.B30.raw,"合計");
+  assert.equal(result.workbook.sheets[0].cells.F30.raw,"=D30-E30");
  }
  assert.equal(planAppIntent("表格是什麼意思"),null);
  assert.equal(planAppIntent("開啟雲端檔案")?.kind,"open");

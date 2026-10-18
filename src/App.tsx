@@ -1,10 +1,11 @@
 import LocalChat from "./local-ai/LocalChat";
+import SheetsWorkspace from "./sheets/SheetsWorkspace";
 import DriveConnection from "./vault/DriveConnection";
 import ModelConnections from "./ai/ModelConnections";
 import {useState,useEffect} from "react";
 import {loadProviderConfigs} from "./vault/provider-sync";
-import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole} from "lucide-react";
-type Section="chat"|"agents"|"tasks"|"memory"|"travel"|"health"|"line"|"settings";
+import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole,Table2} from "lucide-react";
+type Section="chat"|"agents"|"tasks"|"memory"|"travel"|"health"|"sheets"|"line"|"settings";
 const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string}[]=[
 {id:"chat",label:"AI 對話",icon:MessageCircle,description:"你的私人裝置端 AI 助手"},
 {id:"agents",label:"AI 團隊",icon:Users,description:"多領域 AI Agent 工作台"},
@@ -12,6 +13,7 @@ const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string
 {id:"memory",label:"永久記憶",icon:Database,description:"加密知識庫與個人記憶"},
 {id:"travel",label:"旅行與導遊",icon:Plane,description:"家庭旅行規劃與即時導覽"},
 {id:"health",label:"健康中心",icon:HeartPulse,description:"個人健康與研究助手"},
+{id:"sheets",label:"Vanilla Sheets",icon:Table2,description:"由 Vanilla AI 驅動的智慧試算表"},
 {id:"line",label:"LINE 匯入",icon:Upload,description:"手動匯入聊天紀錄"},
 {id:"settings",label:"系統設定",icon:Settings2,description:"模型、隱私與雲端授權"}
 ];
@@ -23,6 +25,7 @@ useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");
 const [menuOpen,setMenuOpen]=useState(false);
 const [filename,setFilename]=useState("");
 const [chatKey,setChatKey]=useState(0);
+useEffect(()=>{const open=()=>{setSection("sheets");setMenuOpen(false);};window.addEventListener("vanilla-open-sheets",open);return()=>window.removeEventListener("vanilla-open-sheets",open);},[]);
 const selected=items.find(x=>x.id===section)!;
 function navigate(next:Section){setSection(next);setMenuOpen(false);}
 return <div className="shell">
@@ -39,7 +42,7 @@ return <div className="shell">
 <div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?"Vanilla AI":selected.label}<span className="topbar-chevron"> ▾</span></div></div>
 <div className="privacy-chip"><LockKeyhole size={14}/> 裝置端優先</div>
 </header>
-{section==="chat"?<LocalChat key={chatKey}/>:
+{section==="chat"?<LocalChat key={chatKey}/>:section==="sheets"?<SheetsWorkspace/>:
 <div className="content-page"><div className="eyebrow">VANILLA / WORKSPACE</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p>
 {section==="settings"?<section className="panel"><h2>系統設定</h2><p>全家共用同一個 Google Drive 加密保險庫；私密模式只儲存在本機。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ModelConnections/><DriveConnection/></section>:
 section==="line"?<section className="panel"><h2>LINE Intelligence</h2><p>LINE 為選用的輔助匯入工具，不是 Vanilla 的主要對話介面。</p><label className="upload">選擇 LINE .txt 紀錄<input type="file" accept=".txt,text/plain" onChange={e=>setFilename(e.target.files?.[0]?.name||"")}/></label>{filename&&<p className="file-note">已選取：{filename}（尚未上傳）</p>}</section>:

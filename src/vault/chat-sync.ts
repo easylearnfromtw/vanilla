@@ -104,7 +104,18 @@ export async function pushChatSync():Promise<void>{
   const snapshot:Snapshot={version:2,owner:who,device:id,updatedAt:new Date().toISOString(),turns};
   const bodyText=JSON.stringify(snapshot);
   if(bodyText.length>6*1024*1024)throw Error("聊天快照超過 6MB，請先匯出重要對話");
-  const current=(await files()).find(x=>x.name===name);
+  const snapshots=await files();
+  const newest=snapshots[0]?await read(session.token,snapshots[0].id):null;
+  if(newest?.turns.length){
+   const expectedPrefix=turns.slice(0,newest.turns.length);
+   const samePrefix=JSON.stringify(newest.turns)===JSON.stringify(expectedPrefix);
+   if(!samePrefix){
+    active=false;
+    notice("偵測到其他裝置的新對話或不同版本，已停止寫入。請先在兩台裝置匯出並合併，沒有覆蓋任何雲端訊息");
+    return;
+   }
+  }
+  const current=snapshots.find(x=>x.name===name);
   if(current){
    const response=await fetch(UPLOAD+"/"+encodeURIComponent(current.id)+"?uploadType=media",{
     method:"PATCH",headers:{Authorization:"Bearer "+session.token,"Content-Type":"application/json"},body:bodyText

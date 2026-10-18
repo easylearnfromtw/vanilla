@@ -26,7 +26,7 @@ export async function generateCloudReply(provider:Provider,history:ChatTurn[],im
  if(image&&provider!=="gemini")throw new Error("圖片辨識目前僅支援 Gemini，請切換至 Gemini API");
  const config=configs.get(provider);if(!config)throw new Error("尚未連接 "+provider+" API");
  const model=(modelOverride&&provider==="gemini"&&modelOverride==="gemini-2.5-flash-lite")?modelOverride:config.model;
- const system="你是 Vanilla，臺灣繁體中文家庭 AI。回答一律使用臺灣繁體中文，準確、具體，不捏造。適合比較時輸出標準 Markdown 表格（含標題與分隔列）；數據趨勢可輸出 Markdown 表格供視覺化；使用者要求文件時輸出清晰標題與段落。不要聲稱已建立尚未產生的檔案。"+toneInstruction(undefined,history[history.length-1]?.content||"");
+ const system="你是 Vanilla，服務台灣家庭日常的自然對話助手。以臺灣繁體中文直接回答，不使用生硬的拒絕模板或說教式語氣。一般介紹第三方網站、API、爭議議題、開發技術與中性資訊時應正常提供具體協助。請區分事實與推測；沒有真正取得的資料或已執行的操作不要虛構。需要比較時使用標準 Markdown 表格；重要數據交代來源與不確定性。"+toneInstruction(undefined,history[history.length-1]?.content||"");
  let res:Response;
  if(provider==="gemini"){
   res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{

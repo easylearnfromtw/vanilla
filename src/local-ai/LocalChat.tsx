@@ -1,5 +1,5 @@
 import {useState,useRef,useEffect} from "react";
-import {ArrowUp,Download,RotateCcw,Sparkles,Copy,Check,ChevronDown} from "lucide-react";
+import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ChevronDown} from "lucide-react";
 import {chooseProvider,generateCloudReply,availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
 import {generateLocalReply,isLocalModelReady,loadLocalModel,type ChatTurn,LOCAL_MODEL} from "./engine";
@@ -16,7 +16,6 @@ const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(restoreMode()
 const [draft,setDraft]=useState("");
 const [busy,setBusy]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
-const [progress,setProgress]=useState(0);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
 const [ready,setReady]=useState(isLocalModelReady());
 const [modelExpanded,setModelExpanded]=useState(false);
@@ -33,8 +32,8 @@ useEffect(()=>{
   setLoadingModel(true);
   setModelError(false);
   setStatus("正在背景準備本地模型…");
-  void loadLocalModel((message,value)=>{
-    if(active){setStatus(message);setProgress(value);}
+  void loadLocalModel((message)=>{
+    if(active){setStatus(message);}
   }).then(()=>{
     if(active){setReady(true);setStatus("模型已就緒 · 本地推論");setLoadingModel(false);}
   }).catch(error=>{

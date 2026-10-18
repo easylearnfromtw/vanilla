@@ -73,6 +73,7 @@ export default function Sheets(){
  const [cell,setSelectedCell]=useState("A1");
  const [formula,setFormula]=useState("");
  const [rowsShown,setRowsShown]=useState(32);
+ const [rowOffset,setRowOffset]=useState(0);
  const [colsShown,setColsShown]=useState(12);
  const [notice,setNotice]=useState("");
  const [aiPrompt,setAiPrompt]=useState("");
@@ -101,7 +102,7 @@ export default function Sheets(){
   }catch(e){setNotice("開啟表格失敗："+(e instanceof Error?e.message:String(e)));}
  },[]);
  function resetUndo(){undo.current=[];redo.current=[];setUndoCount(0);setRedoCount(0);}
- function chooseBook(id:string){setSelectedId(id);setSelectedCell("A1");setAiPending([]);resetUndo();}
+ function chooseBook(id:string){setSelectedId(id);setSelectedCell("A1");setRowOffset(0);setAiPending([]);resetUndo();}
  function commit(next:Workbook){
   undo.current=[...undo.current,book].slice(-40);redo.current=[];setUndoCount(undo.current.length);setRedoCount(0);
   setBooks(prev=>prev.map(x=>x.id===book.id?next:x));
@@ -245,12 +246,12 @@ export default function Sheets(){
    <button title="標記底色" aria-label="標記底色" type="button" onClick={()=>changeStyle({fill:getCell(book,cell).style?.fill==="accent"?"none":"accent"})}><Palette size={16}/></button>
   </div>
   <div className="sheet-grid-scroller" role="region" aria-label="工作表可編輯網格" tabIndex={0}><table className="sheet-grid"><thead><tr><th className="sheet-corner">#</th>{Array.from({length:colsShown},(_,i)=><th key={i}>{columnName(i)}</th>)}</tr></thead><tbody>
-   {Array.from({length:rowsShown},(_,row)=><tr key={row}><th>{row+1}</th>{Array.from({length:colsShown},(_,col)=>{
+   {Array.from({length:Math.min(rowsShown,200-rowOffset)},(_,index)=>{const row=rowOffset+index;return <tr key={row}><th>{row+1}</th>{Array.from({length:colsShown},(_,col)=>{
     const address=cellAddress(row,col);
     return <td key={address} className={cell===address?"sheet-active":""}><CellInput address={address} raw={getCell(book,address).raw} display={cellDisplay(book,address)} active={cell===address} style={getCell(book,address).style} onFocus={addr=>setSelectedCell(addr)} onCommit={updateCell} onPaste={paste}/></td>;
-   })}</tr>)}
+   })}</tr>;})}
   </tbody></table></div>
-  <div className="sheet-bottom"><div className="sheet-tabs">{book.sheets.map(x=><button type="button" key={x.id} className={x.id===book.active?"selected":""} onClick={()=>{commit({...book,active:x.id});setSelectedCell("A1");}}>{x.name}</button>)}<button type="button" onClick={addSheet} title="新增工作表"><Plus size={16}/></button><button type="button" onClick={renameSheet} title="重新命名此工作表">重新命名</button><button type="button" onClick={removeSheet} title="刪除目前工作表"><Trash2 size={14}/></button></div><div className="sheet-size"><button type="button" disabled={rowsShown>=200} onClick={()=>setRowsShown(Math.min(200,rowsShown+20))}>+20 列</button><button type="button" disabled={colsShown>=26} onClick={()=>setColsShown(Math.min(26,colsShown+4))}>+4 欄</button></div></div>
+  <div className="sheet-bottom"><div className="sheet-tabs">{book.sheets.map(x=><button type="button" key={x.id} className={x.id===book.active?"selected":""} onClick={()=>{commit({...book,active:x.id});setSelectedCell("A1");}}>{x.name}</button>)}<button type="button" onClick={addSheet} title="新增工作表"><Plus size={16}/></button><button type="button" onClick={renameSheet} title="重新命名此工作表">重新命名</button><button type="button" onClick={removeSheet} title="刪除目前工作表"><Trash2 size={14}/></button></div><div className="sheet-size"><button type="button" disabled={rowOffset===0} onClick={()=>setRowOffset(Math.max(0,rowOffset-rowsShown))}>上一頁</button><span>{rowOffset+1}–{Math.min(200,rowOffset+rowsShown)} / 200</span><button type="button" disabled={rowOffset+rowsShown>=200} onClick={()=>setRowOffset(Math.min(200-rowsShown,rowOffset+rowsShown))}>下一頁</button><button type="button" disabled={rowsShown>=80} onClick={()=>setRowsShown(Math.min(80,rowsShown+20))}>+20 列</button><button type="button" disabled={colsShown>=26} onClick={()=>setColsShown(Math.min(26,colsShown+4))}>+4 欄</button></div></div>
   <section className="sheet-ai"><div className="sheet-ai-heading"><Sparkles size={19}/><div><h3>Vanilla AI 表格助手</h3><p>例：A1=品項；B1=金額，或「替我做一份旅行預算表」。只有你確認後才改動工作簿。</p></div></div>
    <div className="sheet-template-list">{TEMPLATE_LIST.map(x=><button type="button" key={x.id} onClick={()=>newBook(x.id)}><FileSpreadsheet size={14}/>{x.label}</button>)}</div>
    <textarea value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)} placeholder="描述你想建立的表格或修改：例如在 A1 輸入月份；在 B1 輸入營收" rows={3}/>

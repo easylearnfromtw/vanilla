@@ -10,7 +10,7 @@ const STORAGE_KEY="vanilla.sheets.workbook.v1";
 const ADDR=/^([A-Z]{1,2})([1-9]\d{0,2})$/;
 export const COLORS=["#ffffff","#f3f4f6","#e8edfa","#e3f4ec","#fff0d6","#fce8e6","#171717","#286ed8","#138354","#b45309"];
 export const now=()=>new Date().toISOString();
-export function colName(index:number):string{let n=index+1,s="";do{s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26)-1;}while(n>=0);return s;}
+export function colName(index:number):string{let n=index+1,s="";while(n>0){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}return s;}
 export function parseAddress(address:string):{row:number;col:number}|null{
  const m=ADDR.exec(address.trim().toUpperCase());if(!m)return null;
  let col=0;for(const char of m[1])col=col*26+char.charCodeAt(0)-64;

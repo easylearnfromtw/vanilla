@@ -54,7 +54,7 @@ function switchPrivacy(){
 async function initialize(){
 setLoadingModel(true);setModelError(false);
 try{await loadLocalModel((message)=>{setStatus(message);});setReady(true);setStatus("模型已就緒 · 本地推論");setModelExpanded(false);}
-catch(error){setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true;}
+catch(error){setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
 finally{setLoadingModel(false);}
 }
 async function send(value=draft){

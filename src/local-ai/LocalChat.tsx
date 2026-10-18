@@ -186,6 +186,9 @@ async function executeIntent(question:string):Promise<boolean>{
   const eventName=intent.section==="mobile"?"vanilla-open-mobile":intent.section==="sheets"?"vanilla-open-sheets":intent.section==="files"?"vanilla-open-files":intent.section==="builder"?"vanilla-open-builder":"vanilla-open-settings";
   window.dispatchEvent(new Event(eventName));setDraft("");return true;
  }
+ if(intent.kind==="mobile"){
+  window.dispatchEvent(new CustomEvent("vanilla-open-mobile",{detail:{goal:intent.goal}}));setDraft("");return true;
+ }
  if(intent.kind==="integration"){
   if(privateMode&&!window.confirm("要把私密模式的 API 串接構想帶入一般 Self-Build 工作室嗎？你沒有貼入金鑰才應繼續。"))return true;
   toolReply(question,"已將「"+intent.name+"」API 串接加入 Self-Build 需求。這需要釐清授權範圍、回呼網址、API 使用限制及安全後端；尚未連接服務，也不要在聊天欄貼上金鑰。接下來可產生工程需求與 GitHub Issue 供審查。");

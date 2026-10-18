@@ -26,6 +26,7 @@ test("Conversation tools create real editable sheets, not fabricated Markdown",(
  }
  assert.equal(planAppIntent("表格是什麼意思"),null);
  assert.equal(planAppIntent("開啟雲端檔案")?.kind,"open");
+ assert.equal(planAppIntent("幫我串接 Canva API")?.kind,"integration");
  assert.equal(planAppIntent("記住：我喜歡直接回答")?.kind,"memory-save");
  assert.equal(planAppIntent("搜尋：臺灣醫療指引")?.kind,"search");
 });

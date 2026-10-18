@@ -27,7 +27,7 @@ const [modelProgress,setModelProgress]=useState(0);
 const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(()=>{const v=localStorage.getItem("vanilla.local.model");return LOCAL_MODELS.find(m=>m.id===v)?.id||LOCAL_MODEL;});
 const [online,setOnline]=useState(()=>navigator.onLine);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
-const [ready,setReady]=useState(()=>isLocalModelReady(LOCAL_MODEL));
+const [ready,setReady]=useState(()=>{const v=localStorage.getItem("vanilla.local.model");const selected=LOCAL_MODELS.find(m=>m.id===v)?.id||LOCAL_MODEL;return isLocalModelReady(selected);});
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
@@ -99,7 +99,7 @@ async function send(value=draft){
  }
  const next:ChatTurn[]=[...history,{role:"user",content:question}];
  setHistory([...next,{role:"assistant",content:""}]);setDraft("");setBusy(true);
- setLastRoute("正在使用："+(route==="local"?"本地 "+selectedLocalModel.split("-")[1]:route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API"));
+ setLastRoute("正在使用："+(route==="local"?"本地 "+(LOCAL_MODELS.find(m=>m.id===selectedLocalModel)?.label||"AI"):route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API"));
  try{
   const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text}])):await generateCloudReply(route,next,image||undefined);
   setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）"}]);setImage(null);setImageName("");

@@ -10,7 +10,7 @@ const leakage=/(?:傳送|上傳|外洩|匯出|回傳|揭露|顯示|偷取|send|p
 const roleHijack=/(?:ignore (?:all |the )?(?:previous|prior|above) instructions|disregard (?:system|developer)|you are now (?:the )?(?:system|developer|admin)|system\s*:\s*|developer\s*:\s*|優先級最高|忽略(?:上述|先前|之前|所有)(?:指令|規則|設定)|覆蓋(?:系統|開發者)(?:提示|指令)|切換(?:系統|管理員)模式|無視(?:系統|安全)規則)/i;
 const toolHijack=/(?:工具|tool|function|github|drive|權限|permission|admin|管理員|檔案|file).{0,65}(?:執行|修改|刪除|讀取|開啟|授權|execute|delete|write|read|chmod|override)/i;
 const spoofedRole=/(?:\[\s*(?:SYSTEM|DEVELOPER|ADMIN)\s*\]|<\s*(?:system|developer|admin|tool_call|function_call)[\s>]|(?:^|\n)\s*(?:###\s*)?(?:system|developer)\s*(?:message|instructions?)\s*:)/i;
-const encodedSuspicion=/(?:atob\s*\(|base64\s*decode|decodeURIComponent\s*\(|rot13|unicode\s*escape|零寬字元|zero.width|base64解碼)/i;
+const encodedSuspicion=/(?:atob\s*\(|base64\s*decode|decodeURIComponent\s*\(|decode\s+base64|rot13|unicode\s*escape|零寬字元|zero.width|base64解碼)/i;
 function decodeLimited(input:string):string{
  let value=input;
  for(let i=0;i<2;i++){

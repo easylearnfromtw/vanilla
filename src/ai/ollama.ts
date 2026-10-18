@@ -12,7 +12,7 @@ function stored():OllamaConfig{
   if(!raw)return {endpoint:"",model:"",models:[]};
   const value=JSON.parse(raw) as Partial<OllamaConfig>;
   return {endpoint:typeof value.endpoint==="string"?value.endpoint:"",model:typeof value.model==="string"?value.model:"",models:Array.isArray(value.models)?value.models.filter((m):m is string=>typeof m==="string").slice(0,4):[]};
- }catch{return {endpoint:"",model:""};}
+ }catch{return {endpoint:"",model:"",models:[]};}
 }
 let config=stored();
 let token="";

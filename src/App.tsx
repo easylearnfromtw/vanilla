@@ -52,6 +52,7 @@ useEffect(()=>{
   try{localStorage.setItem("vanilla.sheets.pending-import.v1",JSON.stringify(detail));setSection("sheets");setMenuOpen(false);}catch{window.alert("無法暫存表格，請檢查裝置儲存空間");}
  };
  const openFiles=()=>{setSection("files");setMenuOpen(false);};
+ const openSettings=()=>{setSection("settings");setMenuOpen(false);};
  const openSheets=()=>{setSection("sheets");setMenuOpen(false);};
  const openBuilder=(event:Event)=>{
   const detail=(event as CustomEvent<{idea?:string}>).detail;
@@ -60,9 +61,10 @@ useEffect(()=>{
  };
  window.addEventListener("vanilla-open-sheet",openSheet);
  window.addEventListener("vanilla-open-files",openFiles);
+ window.addEventListener("vanilla-open-settings",openSettings);
  window.addEventListener("vanilla-open-sheets",openSheets);
  window.addEventListener("vanilla-open-builder",openBuilder);
- return()=>{window.removeEventListener("vanilla-open-sheet",openSheet);window.removeEventListener("vanilla-open-files",openFiles);window.removeEventListener("vanilla-open-sheets",openSheets);window.removeEventListener("vanilla-open-builder",openBuilder);};
+ return()=>{window.removeEventListener("vanilla-open-sheet",openSheet);window.removeEventListener("vanilla-open-files",openFiles);window.removeEventListener("vanilla-open-settings",openSettings);window.removeEventListener("vanilla-open-sheets",openSheets);window.removeEventListener("vanilla-open-builder",openBuilder);};
 },[]);
 const activeFeature=features.find(x=>x.id===activeFeatureId);
 const selected=items.find(x=>x.id===section)||{id:"feature" as const,label:activeFeature?.name||"自建工具",icon:Puzzle,description:activeFeature?.description||"Vanilla 自建模組"};

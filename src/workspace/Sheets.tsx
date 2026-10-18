@@ -136,7 +136,13 @@ export default function Sheets(){
   let fresh=newWorkbook(templateId?TEMPLATE_LIST.find(x=>x.id===templateId)?.label||"新表格":"新表格");
   if(templateId){
    const template=TEMPLATE_LIST.find(x=>x.id===templateId);
-   if(template)fresh=importRows(fresh,template.rows.map(x=>x.map(String)));
+   if(template){
+    let rows:string[][]=template.rows.map(x=>x.map(String));
+    if(template.id==="budget"){
+     rows=[rows[0],rows[1],...Array.from({length:27},()=>["","","","","",""]),["","總計","","=SUM(D2:D29)","=SUM(E2:E29)","=D30-E30"]];
+    }
+    fresh=importRows(fresh,rows);
+   }
   }
   setBooks(prev=>[...prev,fresh]);chooseBook(fresh.id);setNotice("已建立："+fresh.name);
  }

@@ -117,7 +117,14 @@ function dismissComparison(){
 }
 async function send(value=draft){
  const question=value.trim();
- if(!question||busy||comparison||!canReply)return;
+ if(!question||busy||comparison)return;
+ if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:表格|Sheets)(?:編輯器)?[！!。.?？\s]*$/i.test(question)){
+  window.dispatchEvent(new Event("vanilla-open-sheets"));setDraft("");return;
+ }
+ if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:雲端檔案|Cloud\s*Files)(?:管理)?[！!。.?？\s]*$/i.test(question)){
+  window.dispatchEvent(new Event("vanilla-open-files"));setDraft("");return;
+ }
+ if(!canReply)return;
  const task=classifyTask(question,Boolean(image));
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  const discovered=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode:localOnly});

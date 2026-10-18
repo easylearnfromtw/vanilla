@@ -2,16 +2,16 @@ import type {ChatTurn} from "../local-ai/engine";
 
 const KEY="vanilla.ollama.connection.v1";
 const SECRET_KEY="vanilla.ollama.proxy-token.v1";
-export type OllamaConfig={endpoint:string;model:string};
+export type OllamaConfig={endpoint:string;model:string;models:string[]};
 export type OllamaModel={name:string;size?:number;details?:{parameter_size?:string;family?:string}};
 export type OllamaTest={models:OllamaModel[];url:string};
 
 function stored():OllamaConfig{
  try{
   const raw=localStorage.getItem(KEY);
-  if(!raw)return {endpoint:"",model:""};
+  if(!raw)return {endpoint:"",model:"",models:[]};
   const value=JSON.parse(raw) as Partial<OllamaConfig>;
-  return {endpoint:typeof value.endpoint==="string"?value.endpoint:"",model:typeof value.model==="string"?value.model:""};
+  return {endpoint:typeof value.endpoint==="string"?value.endpoint:"",model:typeof value.model==="string"?value.model:"",models:Array.isArray(value.models)?value.models.filter((m):m is string=>typeof m==="string").slice(0,4):[]};
  }catch{return {endpoint:"",model:""};}
 }
 let config=stored();
@@ -24,7 +24,8 @@ export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  const endpoint=next.endpoint.trim().replace(/\/+$/,"");
  const model=next.model.trim();
  if(endpoint)normalizeOllamaUrl(endpoint);
- config={endpoint,model};
+ const names=[model,...(next.models||[])].filter(Boolean);
+ config={endpoint,model,models:[...new Set(names)].slice(0,4)};
  if(accessToken!==undefined)token=accessToken.trim();
  try{
   localStorage.setItem(KEY,JSON.stringify(config));
@@ -34,7 +35,7 @@ export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  window.dispatchEvent(new Event("vanilla-ollama-changed"));
 }
 export function clearOllamaConfig(){
- config={endpoint:"",model:""};token="";
+ config={endpoint:"",model:"",models:[]};token="";
  try{localStorage.removeItem(KEY);sessionStorage.removeItem(SECRET_KEY);}catch{}
  window.dispatchEvent(new Event("vanilla-ollama-changed"));
 }

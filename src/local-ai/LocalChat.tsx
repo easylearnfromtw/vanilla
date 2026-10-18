@@ -129,9 +129,10 @@ async function send(value=draft){
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{}}));setDraft("");return;
  }
  const buildRequest=/^(?:新增功能|製作功能|建立功能|功能需求)\s*[：:]\s*(.{3,1800})$/s.exec(question);
- if(buildRequest){
+ const conversationalBuild=/^(?:(?:我想|我要|幫我|幫Vanilla|請|讓Vanilla).{0,25})?(?:新增|建立|製作|做一個|設計一個).{2,150}(?:功能|模組|小工具|工具)$/i.test(question)&&/(?:Vanilla|功能|工具|模組)/i.test(question);
+ if(buildRequest||conversationalBuild){
   if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
-  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:buildRequest[1]}}));setDraft("");return;
+  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:buildRequest?.[1]||question}}));setDraft("");return;
  }
   if(!canReply){setLastRoute("AI 模型尚未就緒。可以先開啟 Vanilla 表格或雲端檔案；若要聊天請載入本地 AI 或連線 Ollama／API。");return;}
  const task=classifyTask(question,Boolean(image));

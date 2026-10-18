@@ -86,6 +86,18 @@ export default function Sheets(){
  const undo=useRef<Workbook[]>([]),redo=useRef<Workbook[]>([]);
  const importRef=useRef<HTMLInputElement>(null);
  const tab=activeSheet(book);
+ useEffect(()=>{
+  const reload=()=>{
+   setBooks(loadBooks());
+   setSelectedId(localStorage.getItem(CURRENT_KEY)||"");
+   setAiPending([]);
+   undo.current=[];redo.current=[];
+   setUndoCount(0);setRedoCount(0);
+   setNotice("已從 Vanilla 對話載入最新儲存格修改");
+  };
+  window.addEventListener("vanilla-sheet-external-changed",reload);
+  return()=>window.removeEventListener("vanilla-sheet-external-changed",reload);
+ },[]);
  useEffect(()=>{const wait=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(books));localStorage.setItem(CURRENT_KEY,book.id);}catch{setNotice("本機儲存空間不足，請先匯出 JSON 備份");}},450);return()=>clearTimeout(wait);},[books,book.id]);
  useEffect(()=>{setFormula(getCell(book,cell).raw);},[book,cell]);
  useEffect(()=>{

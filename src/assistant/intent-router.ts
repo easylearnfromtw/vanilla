@@ -32,7 +32,7 @@ export function planAppIntent(prompt:string):AppIntent|null{
  if(/^(?:開啟|打開|前往|進入)(?:Self[- ]?Build|自建功能|功能工作室)[!！。?？\s]*$/i.test(q))return {kind:"open",section:"builder",message:"正在開啟自建功能"};
  let m=/^(?:學習|研究|保存|儲存|記錄|讀取)(?:這個|該)?(?:網站|網址|網頁|影片|連結)?\s*[：:]?\s*(https:\/\/\S{4,1800})$/si.exec(q);
  if(m)return {kind:"memory-save",content:m[1].trim(),message:"將網站或影片連結加入個人記憶（能否解析取決於來源的瀏覽器授權）"};
-  let m=/^(?:記住|請記住|幫我記下|加入(?:永久)?記憶)\s*[：:]?\s*(.{3,2500})$/s.exec(q);
+  m=/^(?:記住|請記住|幫我記下|加入(?:永久)?記憶)\s*[：:]?\s*(.{3,2500})$/s.exec(q);
  if(m)return {kind:"memory-save",content:m[1].trim(),message:"準備儲存你的記憶"};
  m=/^(?:忘記|刪除記憶|移除記憶)\s*[：:]?\s*(.{2,180})$/s.exec(q);
  if(m)return {kind:"memory-delete",query:m[1].trim(),message:"準備檢查要刪除的雲端記憶"};

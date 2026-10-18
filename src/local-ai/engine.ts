@@ -1,7 +1,7 @@
 import {Converter} from "opencc-js";
 import * as webllm from "@mlc-ai/web-llm";
 import {toneInstruction} from "../ai/tone-adaptation";
-import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,isSystemPromptOrderError} from "./chat-messages";
+import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError} from "./chat-messages";
 
 const toTraditionalChinese=Converter({from:"cn",to:"tw"});
 const baseModels=[
@@ -81,15 +81,14 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   }
   return toTraditionalChinese(answer);
  }
- try{
-  return await streamReply(messages);
- }catch(error){
-  if(!isSystemPromptOrderError(error))throw error;
-  // Some engines keep stale internal chat state. Reset it, then retry once
-  // without a "system" role. This does not contact a cloud service.
-  await currentEngine.resetChat(false,loadedModel||undefined);
-  onText("");
-  const recovery=buildSystemlessRecoveryMessages(history,style);
-  return await streamReply(recovery);
- }
+ return retryOnSystemPromptError(
+  ()=>streamReply(messages),
+  async()=>{
+   // Reset the stale KV/context state, then retry locally just once.
+   await currentEngine.resetChat(false,loadedModel||undefined);
+   onText("");
+   const recovery=buildSystemlessRecoveryMessages(history,style);
+   return streamReply(recovery);
+  }
+ );
 }

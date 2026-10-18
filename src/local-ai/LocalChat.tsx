@@ -1,10 +1,11 @@
 import {useState,useRef,useEffect} from "react";
+import LocalModelPanel from "./LocalModelPanel";
 import {renderTable,exportText} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
 import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ChevronDown} from "lucide-react";
 import {chooseProvider,generateCloudReply,availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
-import {generateLocalReply,isLocalModelReady,loadLocalModel,type ChatTurn,LOCAL_MODEL} from "./engine";
+import {generateLocalReply,isLocalModelReady,loadLocalModel,getLoadedLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,LOCAL_MODEL} from "./engine";
 const STORAGE_KEY="vanilla.chat.history.v1";
 const PRIVATE_KEY="vanilla.chat.private.v1";
 const MODE_KEY="vanilla.chat.private.enabled";
@@ -22,8 +23,11 @@ const fileRef=useRef<HTMLInputElement>(null);
 async function attachImage(file?:File){if(!file)return;if(!file.type.startsWith("image/")){setLastRoute("僅支援圖片格式");return;}if(file.size>8*1024*1024){setLastRoute("圖片不得超過 8MB");return;}const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(new Error("讀取圖片失敗"));reader.readAsDataURL(file);});setImage({mimeType:file.type,data});setImageName(file.name);}
 const [busy,setBusy]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
+const [modelProgress,setModelProgress]=useState(0);
+const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(()=>{const v=localStorage.getItem("vanilla.local.model");return LOCAL_MODELS.find(m=>m.id===v)?.id||LOCAL_MODEL;});
+const [online,setOnline]=useState(()=>navigator.onLine);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
-const [ready,setReady]=useState(isLocalModelReady());
+const [ready,setReady]=useState(()=>isLocalModelReady(LOCAL_MODEL));
 const [modelExpanded,setModelExpanded]=useState(false);
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
@@ -35,20 +39,30 @@ const [copied,setCopied]=useState<number|null>(null);
 const bottomRef=useRef<HTMLDivElement>(null);
 const capabilities=detectLocalAICapabilities();
 useEffect(()=>{
-  if(!capabilities.webgpu||isLocalModelReady())return;
-  let active=true;
-  setLoadingModel(true);
-  setModelError(false);
-  setStatus("正在背景準備本地模型…");
-  void loadLocalModel((message)=>{
-    if(active){setStatus(message);}
-  }).then(()=>{
-    if(active){setReady(true);setStatus("模型已就緒 · 本地推論");setLoadingModel(false);}
-  }).catch(error=>{
-    if(active){setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);setLoadingModel(false);}
-  });
-  return ()=>{active=false;};
+ const onNetwork=()=>setOnline(navigator.onLine);
+ window.addEventListener("online",onNetwork);window.addEventListener("offline",onNetwork);
+ return()=>{window.removeEventListener("online",onNetwork);window.removeEventListener("offline",onNetwork);};
+},[]);
+useEffect(()=>{
+ if(!capabilities.webgpu||selectedLocalModel!==LOCAL_MODEL||isLocalModelReady(selectedLocalModel))return;
+ let active=true;
+ setLoadingModel(true);setModelError(false);setStatus("正在載入輕量本地模型…");
+ void loadLocalModel((message,progress)=>{if(active){setStatus(message);setModelProgress(Math.round(progress*100));}},selectedLocalModel).then(()=>{
+  if(active){setReady(true);setStatus("本地模型已就緒");setLoadingModel(false);}
+ }).catch(error=>{
+  if(active){setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);setLoadingModel(false);}
+ });
+ return()=>{active=false;};
 },[capabilities.webgpu]);
+function selectLocalModel(model:LocalModelId){
+ if(busy||loadingModel)return;
+ setSelectedLocalModel(model);
+ try{localStorage.setItem("vanilla.local.model",model);}catch{}
+ const already=isLocalModelReady(model);
+ setReady(already);setModelError(false);
+ setStatus(already?"本地模型已就緒":"請按「下載／載入」啟用所選模型");
+ setModelProgress(0);
+}
 useEffect(()=>{try{localStorage.setItem(privateMode?PRIVATE_KEY:STORAGE_KEY,JSON.stringify(history));setStorageError(false);}catch{setStorageError(true);}},[history,privateMode]);
 useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth",block:"end"});},[history]);
 function switchPrivacy(){
@@ -60,10 +74,12 @@ function switchPrivacy(){
   setDraft("");
 }
 async function initialize(){
-setLoadingModel(true);setModelError(false);
-try{await loadLocalModel((message)=>{setStatus(message);});setReady(true);setStatus("模型已就緒 · 本地推論");setModelExpanded(false);}
-catch(error){setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
-finally{setLoadingModel(false);}
+ setLoadingModel(true);setModelError(false);setModelProgress(0);
+ try{
+  await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},selectedLocalModel);
+  setReady(true);setStatus("本地模型已就緒");setModelExpanded(false);
+ }catch(error){setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
+ finally{setLoadingModel(false);}
 }
 async function send(value=draft){
 const question=value.trim();

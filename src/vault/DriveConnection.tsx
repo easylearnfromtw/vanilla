@@ -3,16 +3,17 @@ import {loadProviderConfigs,queueProviderSync,stopProviderSync} from "./provider
 import {setProvider,removeProvider,availableProviders,getConfigs,type Provider} from "./providers";
 import {revokeDrive} from "./google-auth";
 import {connectWorkspaceDrive} from "../workspace/cloud-drive";
+import {chatStorageKey} from "./chat-sync";
 import {listVaultFiles,downloadVault,uploadVaultSnapshot} from "./drive";
 import {encryptVault,decryptVault} from "./crypto";
-const STORAGE_KEY="vanilla.chat.history.v1";
+
 const SESSION_KEY="vanilla.drive.session.v1";
 type DriveSession={token:string;expiresAt:number;email:string};
 function readSession():DriveSession|null{try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const v=JSON.parse(raw) as DriveSession;if(typeof v.token==="string"&&typeof v.expiresAt==="number"&&v.expiresAt>Date.now()+60000)return v;sessionStorage.removeItem(SESSION_KEY);}catch{}return null;}
 function saveSession(v:DriveSession){try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(v));}catch{}}
 function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch{}}
 type Turn={role:"user"|"assistant";content:string};
-function readLocal():Turn[]{try{const v:unknown=JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]");return Array.isArray(v)?v.filter((x):x is Turn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];}catch{return [];}}
+function readLocal():Turn[]{try{const v:unknown=JSON.parse(localStorage.getItem(chatStorageKey(false))||"[]");return Array.isArray(v)?v.filter((x):x is Turn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];}catch{return [];}}
 export default function DriveConnection(){
  const [token,setToken]=useState(()=>readSession()?.token||"");
  const [email,setEmail]=useState(()=>readSession()?.email||"");
@@ -59,7 +60,7 @@ export default function DriveConnection(){
    if(data.kind!=="vanilla-family-chat-v1"||!Array.isArray(data.turns))throw new Error("備份資料格式不符");
    const incoming=data.turns.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string");
    if(!window.confirm("即將以 Google Drive 備份取代本機一般對話（"+readLocal().length+" 則）。私密對話不受影響。確定繼續？"))return;
-   localStorage.setItem(STORAGE_KEY,JSON.stringify(incoming));
+   localStorage.setItem(chatStorageKey(false),JSON.stringify(incoming));
    for(const config of data.providers||[]){if((config.provider==="gemini"||config.provider==="deepseek")&&typeof config.key==="string"&&typeof config.model==="string")setProvider(config);}
    setConnected(availableProviders());
    await persistProviders();

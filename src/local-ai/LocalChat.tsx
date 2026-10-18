@@ -3,7 +3,7 @@ import LocalModelPanel from "./LocalModelPanel";
 import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
 import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,saveAnswerRating,type ModelCandidate} from "../ai/model-orchestrator";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
-import {learnToneFromMessage,toneFeedback,type ToneFeedback} from "../ai/tone-adaptation";
+import {learnToneFromMessage,toneFeedback,applyExplicitToneRequest,type ToneFeedback} from "../ai/tone-adaptation";
 import {renderTable,exportText,parseTable} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
 import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ThumbsUp,ThumbsDown} from "lucide-react";
@@ -133,6 +133,12 @@ async function send(value=draft){
  if(buildRequest||conversationalBuild){
   if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:buildRequest?.[1]||question}}));setDraft("");return;
+ }
+  const toneChange=applyExplicitToneRequest(question,privateMode);
+ if(toneChange){
+  setHistory(prev=>[...prev,{role:"user",content:question},{role:"assistant",content:toneChange}]);
+  setDraft("");setLastRoute("已在本裝置調整語氣設定，不需要使用 AI API");
+  return;
  }
   if(!canReply){setLastRoute("AI 模型尚未就緒。可以先開啟 Vanilla 表格或雲端檔案；若要聊天請載入本地 AI 或連線 Ollama／API。");return;}
  const task=classifyTask(question,Boolean(image));

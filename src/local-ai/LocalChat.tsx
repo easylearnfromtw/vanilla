@@ -41,6 +41,7 @@ async function attachFile(file?:File){
  setFileName(file.name);setFileStatus("");setFileContext("");
  if(file.size>15*1024*1024){setFileStatus("檔案超過 15 MB，目前無法直接存進 Vanilla；影片需要日後分段上傳。");return;}
  setAssetBusy(true);
+ let suspiciousAttachment=false;
  try{
   if(file.type.startsWith("image/")){
    if(file.size>8*1024*1024)throw Error("圖片辨識單張上限 8 MB");
@@ -49,14 +50,14 @@ async function attachFile(file?:File){
   }else if(file.size<=1.5*1024*1024&&(/^(text\/|application\/json)/.test(file.type)||/\.(txt|md|csv|json)$/i.test(file.name))){
    const raw=(await file.text()).slice(0,10000);
    const inspection=inspectExternalText(raw,"document");
-   if(inspection.blocked){setFileContext("");setFileStatus("已偵測附件內的提示詞注入，文字已隔離，不會交給 AI 執行。"+inspection.signals.join("、"));}
+   if(inspection.blocked){suspiciousAttachment=true;setFileContext("");setFileStatus("已偵測附件內的提示詞注入，文字已隔離，不會交給 AI 執行。"+inspection.signals.join("、"));}
    else setFileContext(wrapExternalText(raw,"document"));
   }
   if(!privateMode&&driveSession()){
    const record=await rememberFile(file);
-   setFileStatus("已儲存到你的 Google Drive："+record.title);
+   setFileStatus("已儲存到你的 Google Drive："+record.title+(suspiciousAttachment?"。注意：附件包含疑似 Prompt Injection，已隔離文字索引，原始檔案仍在 Drive。":""));
   }else{
-   setFileStatus(privateMode?"私密模式：附件未上傳，僅在本次對話使用":"尚未登入 Google Drive：附件未永久保存；請先登入再重新上傳");
+   setFileStatus((privateMode?"私密模式：附件未上傳，僅在本次對話使用":"尚未登入 Google Drive：附件未永久保存；請先登入再重新上傳")+(suspiciousAttachment?"。附件文字含疑似 Prompt Injection，已隔離。":""));
   }
  }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
  finally{setAssetBusy(false);}

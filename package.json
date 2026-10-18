@@ -10,7 +10,8 @@
     "test:workspace": "node --experimental-strip-types --test tests/workspace.test.mjs",
     "test:builder": "node --experimental-strip-types --test tests/builder.test.mjs",
     "test:assistant": "node --experimental-strip-types --test tests/assistant.test.mjs",
-    "test:security": "node --experimental-strip-types --test tests/security-language.test.mjs"
+    "test:security": "node --experimental-strip-types --test tests/security-language.test.mjs",
+    "test:mobile": "node --experimental-strip-types --test tests/mobile-automation.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

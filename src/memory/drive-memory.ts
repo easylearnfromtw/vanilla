@@ -1,3 +1,4 @@
+import {inspectExternalText,wrapExternalText} from "../security/trust-boundary";
 import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,uploadWorkspaceFile,trashWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
 
 export type MemoryKind="note"|"image"|"video"|"file"|"website"|"chat";
@@ -95,7 +96,9 @@ export async function rememberURL(input:string,note=""):Promise<MemoryRecord>{
  if(!description)description=kind==="video"?
   "已保存影片連結；未下載或轉錄影片音訊，尚未取得完整字幕或內容":
   "僅儲存原始網址。對方網站可能限制瀏覽器擷取，尚未取得可用的文字內容";
- return saveRecord({kind,title:safeTitle(title),description:description.slice(0,SUMMARY_MAX),sourceUrl:url.toString(),labels:[kind==="video"?"影片連結":"網頁"]});
+ const inspection=kind==="website"?inspectExternalText(description,"web"):null;
+ if(inspection?.blocked)description="網站文字含疑似 Prompt Injection，已隔離正文，不加入 AI 上下文。可保留來源網址供人工查看。";
+ return saveRecord({kind,title:safeTitle(title),description:description.slice(0,SUMMARY_MAX),sourceUrl:url.toString(),labels:[kind==="video"?"影片連結":"網頁",...(inspection?.blocked?["安全隔離"]:[])]});
 }
 
 export async function rememberFile(file:File,description=""):Promise<MemoryRecord>{
@@ -109,7 +112,9 @@ export async function rememberFile(file:File,description=""):Promise<MemoryRecor
   summary=(await file.text()).slice(0,SUMMARY_MAX);
  }
  if(!summary)summary="已儲存檔案。尚未完成內容解析；模型不能聲稱已讀過其全部內容";
- return saveRecord({kind,title:safeTitle(file.name),description:summary.slice(0,SUMMARY_MAX),fileId:saved.id,fileName:file.name,fileMimeType:file.type,labels:[]});
+ const inspected=inspectExternalText(summary,"document");
+ if(inspected.blocked)summary="附件已保存在你的 Drive，但文字含疑似提示詞注入，已隔離索引，不會將可疑指令交給模型。";
+ return saveRecord({kind,title:safeTitle(file.name),description:summary.slice(0,SUMMARY_MAX),fileId:saved.id,fileName:file.name,fileMimeType:file.type,labels:inspected.blocked?["安全隔離"]:[]});
 }
 async function allRecords():Promise<MemoryRecord[]>{
  const {token,email}=session();
@@ -141,7 +146,7 @@ export async function searchMemories(query:string):Promise<MemoryRecord[]>{
 export async function knowledgeContext(query:string):Promise<string>{
  const found=await searchMemories(query);
  if(!found.length)return "";
- return found.slice(0,4).map(x=>"- "+x.title+"："+x.description.slice(0,800)+(x.sourceUrl?" ("+x.sourceUrl+")":"")).join("\n");
+ return found.slice(0,4).map(x=>wrapExternalText(x.title+"："+x.description.slice(0,800)+(x.sourceUrl?" (來源："+x.sourceUrl+")":""),"memory")).join("\n\n");
 }
 
 export async function forgetMemory(query:string):Promise<MemoryRecord>{

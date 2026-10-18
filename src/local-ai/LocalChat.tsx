@@ -3,6 +3,7 @@ import LocalModelPanel from "./LocalModelPanel";
 import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
 import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,saveAnswerRating,type ModelCandidate} from "../ai/model-orchestrator";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
+import {learnToneFromMessage,toneFeedback,type ToneFeedback} from "../ai/tone-adaptation";
 import {renderTable,exportText,parseTable} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
 import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ThumbsUp,ThumbsDown} from "lucide-react";
@@ -124,7 +125,15 @@ async function send(value=draft){
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:雲端檔案|Cloud\s*Files)(?:管理)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-files"));setDraft("");return;
  }
- if(!canReply){setLastRoute("AI 模型尚未就緒。可以先開啟 Vanilla 表格或雲端檔案；若要聊天請載入本地 AI 或連線 Ollama／API。");return;}
+ if(/^(?:開啟|打開|前往)(?:Vanilla\\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?[！!。.?？\\s]*$/i.test(question)){
+  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{}}));setDraft("");return;
+ }
+ const buildRequest=/^(?:新增功能|製作功能|建立功能|功能需求)\\s*[：:]\\s*(.{3,1800})$/s.exec(question);
+ if(buildRequest){
+  if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
+  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:buildRequest[1]}}));setDraft("");return;
+ }
+  if(!canReply){setLastRoute("AI 模型尚未就緒。可以先開啟 Vanilla 表格或雲端檔案；若要聊天請載入本地 AI 或連線 Ollama／API。");return;}
  const task=classifyTask(question,Boolean(image));
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  const discovered=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode:localOnly});
@@ -162,6 +171,7 @@ async function send(value=draft){
    try{localStorage.setItem(key,"yes");}catch{}
   }
  }
+ if(!privateMode)learnToneFromMessage(question,false);
  const next:ChatTurn[]=[...history,{role:"user",content:question}];
  setDraft("");setBusy(true);
  if(chosen.length===2){
@@ -228,6 +238,11 @@ function openTableInSheets(content:string){
  if(privateMode&&!window.confirm("這份表格來自私密對話。要將其複製到一般本機表格工作區嗎？不會自動上傳 Google Drive。"))return;
  window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows}}));
 }
+function reportTone(kind:ToneFeedback){
+ if(privateMode)return;
+ toneFeedback(kind);
+ setLastRoute("已更新語氣偏好。下一則回答會參考你的回饋，原文不會存進語氣學習資料。");
+}
 function rateAnswer(index:number,liked:boolean){
  const answer=history[index];
  if(!answer||answer.role!=="assistant"||!answer.source||!answer.model||answer.rating||answer.content.startsWith("生成失敗："))return;
@@ -268,7 +283,9 @@ return <section className="chat">
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>
- </span>}</div></div>)}<div ref={bottomRef}/></div>}
+ </span>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>
+   <option value="">調整語氣…</option><option value="match">語氣很像我</option><option value="formal">太正式／太官腔</option><option value="verbose">太囉嗦</option><option value="cold">太冷淡</option>
+  </select>}</div></div>)}<div ref={bottomRef}/></div>}
 {comparison&&<CompareAnswers comparison={comparison} onChoose={chooseAnswer} onCancel={dismissComparison}/>}
 </div>
 <div className="composer-wrap">{imageName&&<div className="image-attachment">圖片：{imageName} <button type="button" onClick={()=>{setImage(null);setImageName("");}}>移除</button></div>}<input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{void attachImage(e.target.files?.[0]);e.target.value="";}}/><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…（也可以說「開啟表格」）" value={draft} disabled={busy||Boolean(comparison)} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><button type="button" onClick={()=>fileRef.current?.click()} disabled={busy||privateMode} title="將圖片傳送至 Gemini 辨識（需同意雲端傳輸）">＋ 圖片</button><Sparkles size={14}/> {privateMode?"本地私密":providers.length?"Vanilla · 智慧路由":"Vanilla AI"}</span><button type="submit" className="send-button" title="傳送" disabled={busy||Boolean(comparison)||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前保存在此瀏覽器；模型選擇與偏好紀錄留在此裝置"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>{setHistory([]);setComparison(null);}}><RotateCcw size={13}/> 清除本次對話</button>}</div>

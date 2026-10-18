@@ -1,4 +1,5 @@
 import type {ChatTurn} from "../local-ai/engine";
+import {toneInstruction} from "./tone-adaptation";
 
 const KEY="vanilla.ollama.connection.v1";
 const SECRET_KEY="vanilla.ollama.proxy-token.v1";
@@ -92,7 +93,7 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
 export async function generateOllamaReply(history:ChatTurn[],model=config.model):Promise<string>{
  if(!config.endpoint||!model)throw new Error("請先在設定中連接 Ollama，並選擇已下載的模型");
  const base=normalizeOllamaUrl(config.endpoint);
- const system="你是 Vanilla 家庭 AI。請用臺灣繁體中文精準回答，尊重使用者要求，不捏造未執行的工具或即時資料。";
+ const system="你是 Vanilla 家庭 AI。請用臺灣繁體中文精準回答，尊重使用者要求，不捏造未執行的工具或即時資料。"+toneInstruction(undefined,history[history.length-1]?.content||"");
  const res=await timedFetch(base+"/api/chat",{
   method:"POST",
   body:JSON.stringify({

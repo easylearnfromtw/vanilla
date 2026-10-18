@@ -7,7 +7,7 @@ declare global {interface Window {google?:GIS}}
 let scriptPromise:Promise<void>|undefined;
 function loadGIS():Promise<void>{
   if(window.google?.accounts?.oauth2)return Promise.resolve();
-  if(!scriptPromise)scriptPromise=new Promise((resolve,reject)=>{
+  if(!scriptPromise)scriptPromise=new Promise<void>((resolve,reject)=>{
     const script=document.createElement("script");
     script.src="https://accounts.google.com/gsi/client";
     script.async=true;
@@ -15,7 +15,7 @@ function loadGIS():Promise<void>{
     script.onerror=()=>reject(new Error("Google 授權元件載入失敗"));
     document.head.appendChild(script);
   }).catch(error=>{scriptPromise=undefined;throw error;});
-  return scriptPromise;
+  return scriptPromise!;
 }
 export async function authorizeDrive():Promise<{token:string;expiresAt:number}>{
   await loadGIS();

@@ -6,6 +6,8 @@ import {proposeSheetAction,commitSheetAction} from "../src/assistant/sheet-actio
 import {getSources,setSources,searchLinks} from "../src/search/source-preferences.ts";
 
 function store(){
+ // The app runs in a browser; node:test needs a minimal event target mock.
+ globalThis.window={dispatchEvent:()=>true};
  const entries=new Map();
  globalThis.localStorage={
   getItem:key=>entries.get(key)??null,

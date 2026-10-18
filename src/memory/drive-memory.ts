@@ -1,4 +1,4 @@
-import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,uploadWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
+import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,uploadWorkspaceFile,trashWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
 
 export type MemoryKind="note"|"image"|"video"|"file"|"website"|"chat";
 export type MemoryRecord={
@@ -9,6 +9,7 @@ export type MemoryRecord={
 const PREFIX="vanilla-memory-";
 const MAX_RESULTS=80;
 const SUMMARY_MAX=8000;
+let cached:{email:string;at:number;records:MemoryRecord[]}|null=null;
 export function currentMemoryAccount(){return driveSession()?.email||"";}
 function session(){
  const item=driveSession();if(!item)throw Error("請先使用 Google 帳號登入；資料尚未儲存，請勿關閉頁面");
@@ -37,6 +38,7 @@ async function saveRecord(entry:Omit<MemoryRecord,"version"|"id"|"createdAt"|"up
  const {token,email}=session(),now=new Date().toISOString();
  const record:MemoryRecord={...entry,version:1,id:crypto.randomUUID(),createdAt:now,updatedAt:now,ownerEmail:email};
  await createWorkspaceText(token,PREFIX+record.id+".json",JSON.stringify(record),"application/json");
+ cached=null;
  window.dispatchEvent(new Event("vanilla-memory-changed"));
  return record;
 }
@@ -69,6 +71,7 @@ export async function rememberFile(file:File,description=""):Promise<MemoryRecor
 }
 async function allRecords():Promise<MemoryRecord[]>{
  const {token,email}=session();
+ if(cached&&cached.email===email&&Date.now()-cached.at<60000)return cached.records;
  const files=await listWorkspaceFiles(token);
  const candidates=files.filter(x=>x.name.startsWith(PREFIX)&&x.name.endsWith(".json")).slice(0,MAX_RESULTS);
  const result:MemoryRecord[]=[];
@@ -78,7 +81,9 @@ async function allRecords():Promise<MemoryRecord[]>{
   }));
   for(const record of group){if(record&&record.ownerEmail===email)result.push(record);}
  }
- return result.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+ const sorted=result.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+ cached={email,at:Date.now(),records:sorted};
+ return sorted;
 }
 export async function listMemories():Promise<MemoryRecord[]>{return allRecords();}
 export async function searchMemories(query:string):Promise<MemoryRecord[]>{
@@ -95,4 +100,19 @@ export async function knowledgeContext(query:string):Promise<string>{
  const found=await searchMemories(query);
  if(!found.length)return "";
  return found.slice(0,4).map(x=>"- "+x.title+"："+x.description.slice(0,800)+(x.sourceUrl?" ("+x.sourceUrl+")":"")).join("\n");
+}
+
+export async function forgetMemory(query:string):Promise<MemoryRecord>{
+ const {token}=session();
+ const all=await searchMemories(query);
+ const exact=all.filter(x=>x.title.toLocaleLowerCase()===query.trim().toLocaleLowerCase()||x.id===query.trim());
+ const chosen=(exact.length===1?exact:all.length===1?all:[])[0];
+ if(!chosen)throw Error(all.length?"找到多筆符合的記憶，請輸入完整標題以免刪錯":"找不到符合的記憶");
+ const files=await listWorkspaceFiles(token);
+ const index=files.find(x=>x.name===PREFIX+chosen.id+".json");
+ if(!index)throw Error("雲端記憶索引已不存在，未執行任何刪除");
+ await trashWorkspaceFile(token,index);
+ cached=null;
+ window.dispatchEvent(new Event("vanilla-memory-changed"));
+ return chosen;
 }

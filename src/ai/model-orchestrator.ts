@@ -42,9 +42,11 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
  if(isOllamaConfigured()&&!options.image){
   const ollama=getOllamaConfig();
   const officialCloud=/^https:\/\/ollama[.]com(?:\/|$)/i.test(ollama.endpoint);
+  if(options.online||!officialCloud){
   const approved=[...new Set([ollama.model,...ollama.models])].filter(Boolean).slice(0,4);
   for(const model of approved){
    result.push({id:"ollama:"+model,source:"ollama",model,label:"Ollama · "+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
+  }
   }
  }
  if(!options.online)return result;

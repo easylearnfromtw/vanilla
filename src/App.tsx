@@ -1,6 +1,7 @@
 import LocalChat from "./local-ai/LocalChat";
 import SheetsWorkspace from "./sheets/SheetsWorkspace";
 import DriveConnection from "./vault/DriveConnection";
+import ModelConnections from "./ai/ModelConnections";
 import {useState,useEffect} from "react";
 import {loadProviderConfigs} from "./vault/provider-sync";
 import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole,Table2} from "lucide-react";
@@ -43,7 +44,7 @@ return <div className="shell">
 </header>
 {section==="chat"?<LocalChat key={chatKey}/>:section==="sheets"?<SheetsWorkspace/>:
 <div className="content-page"><div className="eyebrow">VANILLA / WORKSPACE</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p>
-{section==="settings"?<section className="panel"><h2>系統設定</h2><p>全家共用同一個 Google Drive 加密保險庫；私密模式只儲存在本機。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><DriveConnection/></section>:
+{section==="settings"?<section className="panel"><h2>系統設定</h2><p>全家共用同一個 Google Drive 加密保險庫；私密模式只儲存在本機。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ModelConnections/><DriveConnection/></section>:
 section==="line"?<section className="panel"><h2>LINE Intelligence</h2><p>LINE 為選用的輔助匯入工具，不是 Vanilla 的主要對話介面。</p><label className="upload">選擇 LINE .txt 紀錄<input type="file" accept=".txt,text/plain" onChange={e=>setFilename(e.target.files?.[0]?.name||"")}/></label>{filename&&<p className="file-note">已選取：{filename}（尚未上傳）</p>}</section>:
 <section className="panel placeholder-panel"><div className="section-icon"><selected.icon size={26}/></div><h2>{selected.label}</h2><p>{selected.description}</p><div className="placeholder">此功能正在開發中，尚未連接真實資料。</div></section>}
 </div>}

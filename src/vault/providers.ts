@@ -8,13 +8,17 @@ export function setProvider(config:ProviderConfig){configs.set(config.provider,c
 export function removeProvider(provider:Provider){configs.delete(provider);window.dispatchEvent(new Event("vanilla-providers-changed"));}
 export function availableProviders():Provider[]{return [...configs.keys()];}
 export function getConfigs():ProviderConfig[]{return [...configs.values()];}
-export function chooseProvider(question:string):Provider|"local"{
+export function chooseProvider(question:string,options?:{localReady?:boolean;online?:boolean}):Provider|"local"{
  const q=question.trim();
- if(q.length<45&&!/(分析|比較|研究|程式|設計|推理|規劃|解釋原因|診斷|計算|寫一篇|詳細|深入)/.test(q))return "local";
- if(/程式|代碼|debug|typescript|python|github/i.test(q)&&configs.has("deepseek"))return "deepseek";
- if(configs.has("gemini"))return "gemini";
- if(configs.has("deepseek"))return "deepseek";
- return "local";
+ const ready=options?.localReady??true;
+ const online=options?.online??navigator.onLine;
+ if(!online)return "local";
+ if(/只用本地|僅用本地|不要上傳|離線回答|私密回答/.test(q))return "local";
+ const gemini=configs.has("gemini"),deepseek=configs.has("deepseek");
+ if(!gemini&&!deepseek)return "local";
+ if(ready&&/^(你好|哈囉|嗨|謝謝|晚安|早安|測試|hello|hi)[！!。.?？ ]*$/i.test(q))return "local";
+ if(/程式|代碼|debug|typescript|python|github|修復|編譯/i.test(q)&&deepseek)return "deepseek";
+ return gemini?"gemini":"deepseek";
 }
 export type ImageInput={mimeType:string;data:string};
 export async function generateCloudReply(provider:Provider,history:ChatTurn[],image?:ImageInput):Promise<string>{

@@ -19,6 +19,7 @@ export default function DriveConnection(){
  const [busy,setBusy]=useState(false);
  const [provider,setSelectedProvider]=useState<Provider>("gemini");
  const [apiKey,setApiKey]=useState("");
+ const [keyFeedback,setKeyFeedback]=useState("");
  const [model,setModel]=useState("gemini-2.5-flash");
  const [connected,setConnected]=useState<Provider[]>(availableProviders());
  async function connect(){
@@ -61,10 +62,11 @@ export default function DriveConnection(){
   <h3 id="vanilla-model-settings">AI 模型與 API 管理</h3>
   <p style={{fontSize:12}}>Gemini / DeepSeek · 設定版本 2026.10.18</p>
   <p>API Key 只保存在本次開啟的記憶體中，不寫入公開程式碼或瀏覽器明文儲存。若需要跨裝置使用，請手動加密備份至 Google Drive，再於另一裝置還原。</p>
-  <label>供應商 <select value={provider} onChange={e=>{const p=e.target.value as Provider;setSelectedProvider(p);setModel(p==="gemini"?"gemini-2.5-flash":"deepseek-chat");setApiKey("");}}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></select></label>
+  <label>供應商 <select value={provider} onChange={e=>{const p=e.target.value as Provider;setSelectedProvider(p);setModel(p==="gemini"?"gemini-2.5-flash":"deepseek-chat");setApiKey("");setKeyFeedback("");}}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></select></label>
   <label style={{display:"block",marginTop:10}}>模型名稱 <input value={model} onChange={e=>setModel(e.target.value)}/></label>
-  <label style={{display:"block",marginTop:10}}>API Key <input type="password" autoComplete="off" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="貼上 API Key"/></label>
-  <div style={{display:"flex",gap:10,marginTop:10}}><button type="button" disabled={!apiKey.trim()||!model.trim()} onClick={()=>{setProvider({provider,key:apiKey.trim(),model:model.trim()});setApiKey("");setConnected(availableProviders());setStatus("已加入 "+provider+"，聊天時可自動路由。尚未驗證金鑰是否有效。");}}>加入模型</button><button type="button" onClick={()=>{removeProvider(provider);setConnected(availableProviders());}}>移除模型</button></div>
+  <label style={{display:"block",marginTop:10}}>API Key <input type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={apiKey} onChange={e=>{setApiKey(e.target.value);setKeyFeedback(e.target.value.trim()?"已接收 "+e.target.value.trim().length+" 個字元，請按「加入模型」完成設定。":"");}} placeholder="在此貼上 API Key" style={{display:"block",width:"100%",maxWidth:440,minHeight:44,fontSize:16,padding:"10px 12px",border:"1px solid #cbd5e1",borderRadius:9}}/></label>
+  <p role="status" aria-live="polite" style={{fontSize:13,margin:"7px 0",color:"#256347"}}>{keyFeedback||"貼上後會顯示接收字數；只有按「加入模型」才會儲存設定。請勿截圖或分享金鑰。"}</p>
+  <div style={{display:"flex",gap:10,marginTop:10}}><button type="button" disabled={!apiKey.trim()||!model.trim()} onClick={()=>{setProvider({provider,key:apiKey.trim(),model:model.trim()});setConnected(availableProviders());setKeyFeedback("已加入 "+provider+"（金鑰已接收；尚未驗證 API 可用性）。");setStatus("已加入 "+provider+"，聊天時可自動路由。尚未驗證金鑰是否有效。");}}>加入模型</button><button type="button" onClick={()=>{removeProvider(provider);setConnected(availableProviders());setKeyFeedback("已移除 "+provider+"。");}}>移除模型</button></div>
   <p>本次工作階段已連接：{connected.length?connected.join("、"):"尚無"}</p>
   <small>這是直接從瀏覽器呼叫供應商 API 的初版，金鑰會在呼叫時傳送至該供應商，且無後端金鑰代理。不要在不信任的裝置使用；雲端模型可能產生費用。</small>
   <h3>家庭 Google Drive 保險庫</h3>

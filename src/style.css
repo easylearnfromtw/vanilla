@@ -16,3 +16,27 @@
 .font-settings{padding:16px 0;border-bottom:1px solid #e5e7eb}.font-settings select{max-width:100%;padding:9px;border:1px solid #d1d5db;border-radius:9px;background:#fff}.font-preview{padding:12px;background:#f7f7f8;border-radius:10px}
 
 .smart-table-wrap{overflow-x:auto;max-width:100%;margin-top:12px}.smart-table{border-collapse:collapse;width:100%;font-size:13px}.smart-table th,.smart-table td{border:1px solid #e2e5e9;padding:9px 12px;text-align:left;white-space:normal}.smart-table th{background:#f5f6f8;font-weight:650}.smart-export{display:inline-flex;gap:6px;flex-wrap:wrap;margin-left:8px}.smart-export button,.image-attachment button,.composer-toolbar span button{border:1px solid #dfe1e5;border-radius:7px;padding:5px 8px;background:#fff;color:#555;font-size:11px}.image-attachment{font-size:12px;padding:8px;color:#666}@media print{.sidebar,.topbar,.composer-wrap,.model-bar,.model-notice,.smart-export,.message-copy{display:none!important}.shell,.main,.chat,.chat-messages{height:auto!important;overflow:visible!important}.message-list{max-width:none}}
+
+/* Smart Output UX: quiet, accessible and mobile-first */
+.chat{background:linear-gradient(180deg,#fff 0%,#fdfdfd 100%)}
+.message-content{width:fit-content;max-width:min(94%,720px)}
+.message-row.from-ai .message-content{width:min(100%,720px)}
+.message-row.from-ai .message-text{white-space:pre-wrap;line-height:1.8}
+.smart-table-wrap{border:1px solid #e6e8ec;border-radius:14px;background:#fff;box-shadow:0 3px 14px #1c273008;margin:14px 0;scrollbar-width:thin}
+.smart-table{min-width:420px;width:100%;font-variant-numeric:tabular-nums}
+.smart-table th{background:#f8f9fa;color:#31373f;position:sticky;top:0}
+.smart-table tr:nth-child(even) td{background:#fcfcfd}
+.smart-table tr:hover td{background:#f4f6f9}
+.smart-export{vertical-align:middle;margin-top:7px;gap:5px}
+.smart-export button{min-height:30px;border:1px solid transparent;border-radius:8px;background:transparent;color:#7a818b;padding:5px 9px;font-size:11px}
+.smart-export button:hover,.smart-export button:focus-visible{background:#f2f4f6;border-color:#e5e8ec;color:#222}
+.message-copy{vertical-align:middle}
+.image-attachment{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f6f7f8;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 9px;padding:10px 13px;overflow-wrap:anywhere}
+.composer{transition:border-color .18s,box-shadow .18s}
+.composer:focus-within{border-color:#aeb6c0;box-shadow:0 5px 24px #1b283012}
+.composer-toolbar span button{min-height:34px;padding:7px 11px;border-radius:10px}
+.composer-toolbar span button:disabled{opacity:.4}
+.send-button{transition:transform .16s,background .16s}
+.send-button:not(:disabled):active{transform:scale(.93)}
+@media(max-width:760px){.message-row.from-ai .message-content{max-width:calc(100vw - 72px)}.smart-table{min-width:340px;font-size:12px}.smart-table th,.smart-table td{padding:9px}.smart-export{display:flex;gap:4px;margin-left:0}.smart-export button{font-size:11px;padding:6px 8px;min-height:36px}.composer-toolbar span{gap:7px}.composer-wrap{padding-bottom:max(12px,env(safe-area-inset-bottom))}}
+@media(prefers-reduced-motion:reduce){.composer,.send-button{transition:none}}

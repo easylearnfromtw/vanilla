@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,isSystemPromptOrderError,LOCAL_SYSTEM_PROMPT} from "../src/local-ai/chat-messages.ts";
+import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,isSystemPromptOrderError,retryOnSystemPromptError,LOCAL_SYSTEM_PROMPT} from "../src/local-ai/chat-messages.ts";
 
 test("WebLLM transcript has exactly one system instruction and it is first",()=>{
  const history=[
@@ -65,4 +65,28 @@ test("fallback after WebLLM system-prompt error contains no system role",()=>{
  assert.match(fallback[0].content,/語氣自然/);
  assert.deepEqual(fallback.slice(1).map(x=>x.role),["assistant","user"]);
  assert.throws(()=>assertLocalMessages(fallback),/System Prompt/);
+});
+
+test("retry exactly once only after the known system-prompt-order error",async()=>{
+ let attempts=0;
+ const result=await retryOnSystemPromptError(async()=>{
+  attempts++;
+  throw new Error("System prompt should always be the first message in `messages`.");
+ },async()=>{
+  attempts++;
+  return "recovered locally";
+ });
+ assert.equal(result,"recovered locally");
+ assert.equal(attempts,2);
+ const failure=Error("WebGPU device lost");
+ let fallbackCalled=false;
+ await assert.rejects(()=>retryOnSystemPromptError(
+  async()=>{throw failure;},
+  async()=>{fallbackCalled=true;return "wrong";}
+ ),/WebGPU device lost/);
+ assert.equal(fallbackCalled,false);
+ await assert.rejects(()=>retryOnSystemPromptError(
+  async()=>{throw Error("System prompt should always be the first message in `messages`.");},
+  async()=>{throw Error("permanent failure");}
+ ),/permanent failure/);
 });

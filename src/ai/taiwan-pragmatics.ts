@@ -20,7 +20,7 @@ export function taiwanSpeechInstruction(question:string,style:"light"|"balanced"
  if(context==="professional")return base+"這是專業或技術情境：專有名詞、推理、證據及風險描述保持精準；不插入迷因、網路流行語、裝可愛的語尾。先說能做什麼及結果，再補充必要說明。";
  if(context==="sensitive")return base+"這是需要審慎的個人或安全議題：平實、有同理但不要開玩笑；不用「笑死」「超扯」等可能造成誤解的詞。";
  if(context==="playful")return base+"使用者先用了輕鬆的口語／笑點，可以稍微接住節奏，必要時使用一次自然的「真的有夠…」「對欸」等表達，但不要硬模仿流行語或刻意取笑。若對話突然變正式，立刻收斂。";
- if(context==="casual")return base+(style==="light"?"語氣自然就好，避免主動玩梗。":"保持像臺灣熟悉的同齡人自然聊天，不必每句都回「好的，以下為…」。對具體問題仍優先給答案。");
+ if(context==="casual")return base+(style==="light"?"語氣自然就好，避免主動玩梗。":"保持臺灣人日常聊天的自然口吻，不假設每位家庭成員都是年輕人；不必每句都回「好的，以下為…」。對具體問題仍優先給答案。");
  return base+"一般問題以平實的臺灣繁體中文回答，不為了像年輕人而強塞短期迷因；尊重每位家庭成員不同的說話習慣。";
 }
 /** Domain terms are recognized for comprehension; not all should be emitted. */

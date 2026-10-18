@@ -34,7 +34,7 @@ const [ready,setReady]=useState(()=>{const v=localStorage.getItem("vanilla.local
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
-const [routeMode,setRouteMode]=useState<"auto"|"local"|"ollama"|"gemini"|"deepseek">("auto");
+const [routeMode,setRouteMode]=useState<"auto-local"|"auto"|"local"|"ollama"|"gemini"|"deepseek">("auto-local");
 const [compareMode,setCompareMode]=useState(()=>localStorage.getItem("vanilla.model.compare.v1")==="true");
 const [comparison,setComparison]=useState<ComparisonSession|null>(null);
 const [ollamaConnected,setOllamaConnected]=useState(isOllamaConfigured);
@@ -112,14 +112,15 @@ async function send(value=draft){
  const task=classifyTask(question,Boolean(image));
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  const candidates=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode:localOnly});
- const ranked=rankedCandidates(candidates,task);
+ const preference=routeMode==="auto"?"quality":"local-first";
+ const ranked=rankedCandidates(candidates,task,preference);
  const primary=localOnly?candidates.find(x=>x.source==="local"):
-  routeMode==="auto"?ranked[0]:candidates.find(x=>x.source===routeMode);
+  (routeMode==="auto"||routeMode==="auto-local")?ranked[0]:candidates.find(x=>x.source===routeMode);
  if(!primary){
   setLastRoute(image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
   return;
  }
- const chosen:ModelCandidate[]=compareMode&&!localOnly&&routeMode==="auto"&&ranked.length>1?topComparisonCandidates(ranked,task):[primary];
+ const chosen:ModelCandidate[]=compareMode&&!localOnly&&(routeMode==="auto"||routeMode==="auto-local")&&ranked.length>1?topComparisonCandidates(ranked,task,preference):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -183,15 +184,16 @@ return <section className="chat">
 <div style={{display:"flex",justifyContent:"flex-end",padding:"8px 16px"}}><button type="button" disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode} title={privateMode?"私密模式：僅本機保存":"一般模式：可選手機、Ollama 或雲端推論"} style={{border:"1px solid #ddd",borderRadius:18,padding:"7px 12px",background:privateMode?"#222":"transparent",color:privateMode?"white":"inherit",fontSize:12}}>{privateMode?"🔒 私密模式 · 僅本機":"🔓 一般模式"}</button></div>
 <div className="model-selection-row">
  <label htmlFor="vanilla-route">回答模型</label>
- <select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>{const next=e.target.value as "auto"|"local"|"ollama"|"gemini"|"deepseek";setRouteMode(next);if(next!=="auto")changeCompareMode(false);}}>
-  <option value="auto">智慧選擇（偏好學習）</option>
+ <select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>{const next=e.target.value as "auto-local"|"auto"|"local"|"ollama"|"gemini"|"deepseek";setRouteMode(next);if(next!=="auto"&&next!=="auto-local")changeCompareMode(false);}}>
+  <option value="auto-local">智慧選擇 · 本地優先</option>
+  <option value="auto">智慧選擇 · 品質優先</option>
   <option value="local">手機本地 AI</option>
   <option value="ollama" disabled={!ollamaConnected}>Ollama · 家庭／自架主機</option>
   <option value="gemini" disabled={!providers.includes("gemini")}>Gemini API</option>
   <option value="deepseek" disabled={!providers.includes("deepseek")}>DeepSeek API</option>
  </select>
  <label className="compare-toggle" title="同一個問題交給兩個候選模型，再由你選擇較好的回答">
-  <input type="checkbox" checked={compareMode} disabled={busy||privateMode||routeMode!=="auto"||Boolean(comparison)} onChange={e=>{setRouteMode("auto");changeCompareMode(e.target.checked);}}/>
+  <input type="checkbox" checked={compareMode} disabled={busy||privateMode||(routeMode!=="auto"&&routeMode!=="auto-local")||Boolean(comparison)} onChange={e=>{setRouteMode("auto-local");changeCompareMode(e.target.checked);}}/>
   <span>雙答案比較</span>
  </label>
  <span role="status" className="model-selection-status">{lastRoute||(privateMode?"私密模式僅在手機端運算":providers.length||ollamaConnected?"自動挑選合適模型，也可手動指定":"請先下載本地模型或連接 Ollama／API")}</span>

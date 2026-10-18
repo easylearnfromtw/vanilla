@@ -5,6 +5,7 @@ import {isOllamaConfigured,generateOllamaReply,getOllamaConfig} from "../ai/olla
 import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
 import {loadFeatures,validateFeature,featureTemplate,proposalFromAI,installFeature,removeFeature,featureHistory,rollbackFeature,type FeatureSpec,type FeatureKind} from "./feature-schema";
 import {offlineFeatureDraft} from "./offline-designer";
+import {compareFeatureSpecs} from "./feature-diff";
 import {exportSelfBuildBackup,validateSelfBuildBackup,importSelfBuildBackup,type ValidatedBackup} from "./backup";
 
 type Provider="auto"|"local"|"ollama"|"gemini";
@@ -117,6 +118,11 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  }
  function approve(){
   if(!pending)return;
+  const existing=installed.find(x=>x.id===pending.id);
+  if(existing){
+   const changes=compareFeatureSpecs(existing,pending);
+   if(changes.risk&&!window.confirm("這次更新將改動欄位型別、移除欄位或修改計算公式，可能影響舊紀錄顯示。\n\n請先匯出完整備份，並確認已查看差異。確定仍要套用？"))return;
+  }
   try{
    installFeature(pending);
    const id=pending.id;
@@ -174,6 +180,11 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
     {offlineHint&&<p className="builder-offline-note">{offlineHint}</p>}
     {pending.fields.length>0&&<div className="builder-fields">{pending.fields.map(field=><div key={field.id}><strong>{field.label}</strong><span>{field.type} · {field.id}{field.unit?" · "+field.unit:""}</span></div>)}</div>}
     {pending.formula&&<p className="builder-formula">公式：<code>{pending.formula}</code></p>}
+    {current&&pending.id===current.id&&<div className="builder-change-preview">
+     <strong>與現有版本的差異</strong>
+     <ul>{compareFeatureSpecs(current,pending).changes.map((difference,i)=><li key={i} className={difference.kind==="review"?"is-risky":""}>{difference.kind==="review"?"需要確認 · ":""}{difference.label}</li>)}</ul>
+     {compareFeatureSpecs(current,pending).risk&&<p>這次更動可能影響舊資料，請先匯出備份；安裝後可選「回復上一版」。</p>}
+    </div>}
     {pending.initialItems?.length? <p className="builder-formula">預設清單：{pending.initialItems.join("、")}</p>:null}
     {current&&<p className="builder-warning"><AlertTriangle size={15}/>現有紀錄會留在本機。刪除／更名舊欄位可能使部分資料不再顯示，請先備份。</p>}
     <div className="builder-approve"><button type="button" className="workspace-primary" onClick={approve}><CheckCircle2 size={16}/>{current?"確認更新功能":"確認安裝功能"}</button><button type="button" onClick={()=>setPending(null)}>取消方案</button></div>

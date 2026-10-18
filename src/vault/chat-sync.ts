@@ -122,4 +122,25 @@ export async function pushChatSync():Promise<void>{
  })().catch(e=>notice("同步暫停："+String(e instanceof Error?e.message:e))).finally(()=>{working=null;});
  return working;
 }
+export function legacyChatCount():number{
+ try{
+  const data=JSON.parse(localStorage.getItem("vanilla.chat.history.v1")||"[]") as unknown;
+  return Array.isArray(data)?data.length:0;
+ }catch{return 0;}
+}
+export function importLegacyChatToCurrentAccount():number{
+ const who=account();
+ if(!who||!driveSession())throw Error("請先重新登入 Google 帳號以確認身分");
+ const key=chatStorageKey(false);
+ const old=JSON.parse(localStorage.getItem("vanilla.chat.history.v1")||"[]") as unknown;
+ const current=JSON.parse(localStorage.getItem(key)||"[]") as unknown;
+ if(!Array.isArray(old)||!old.length)throw Error("找不到可匯入的舊版對話");
+ if(Array.isArray(current)&&current.length)throw Error("此帳號已有對話，為避免覆蓋請先另行備份及合併");
+ const next=safeTurns(old);
+ localStorage.setItem(key,JSON.stringify(next));
+ window.dispatchEvent(new Event("vanilla-chat-remote-loaded"));
+ notice("已把舊版裝置對話複製到 "+who+" 的本機空間；原始資料未刪除");
+ scheduleChatSync();
+ return next.length;
+}
 export function stopChatSync(){active=false;if(pending)clearTimeout(pending);}

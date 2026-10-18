@@ -1,12 +1,20 @@
-# Vanilla Google Drive configuration
+# Vanilla Google Drive — individual accounts (Plan B)
 
-1. Create a Google Cloud project, enable **Google Drive API**, configure OAuth consent and register a **Web application** OAuth client for the exact Vanilla origin (GitHub Pages URL after deployment).
-2. Request only `https://www.googleapis.com/auth/drive.appdata`. Use a browser-appropriate OAuth authorization flow with PKCE. No client secret belongs in the PWA.
-3. Authorize the single storage Google account. That account can manage/remove all appDataFolder files, but cannot decrypt the three members' content without their separate secrets.
-4. Each member chooses a distinct high-entropy recovery passphrase. Never upload/store passphrases or derived keys. Losing a passphrase means the ciphertext cannot be recovered.
-5. Store each encrypted member snapshot separately. Do not treat a UI dropdown as member authentication.
-6. Before enabling synchronization, add actual member authentication and explicit unlock, conflict handling, retention and restore verification.
+Each family member (哲愷, 哲緯, 曉芬) uses their own Google account and their own Google Drive appDataFolder. No shared storage account.
 
-Implementation status: AES-GCM encryption/decryption, IndexedDB ciphertext persistence and a token-based Drive appDataFolder transport exist. Google OAuth sign-in, unlock UI and automatic synchronization are **not** connected yet.
+## Setup
+1. Enable Google Drive API in Google Cloud project vanilla-512010.
+2. In Google Auth Platform > Audience, add each Google account as an OAuth test user.
+3. Keep the existing Vanilla Web OAuth client, authorized JavaScript origin https://easylearnfromtw.github.io.
+4. Each user authorizes the drive.appdata scope separately.
+5. Each user must have a separate vault encryption passphrase.
 
-Important: appDataFolder is hidden application data, not an independently hosted Google database; it is not directly browsable in the Drive UI. Deleting application data can destroy backups.
+## Required security before sync
+- Authenticate the actual Google account and bind its stable account ID to the correct member. A name dropdown is not authentication.
+- Clear old account access tokens on every member switch.
+- Check account binding before every cloud read and write.
+- Encrypt locally before upload; do not persist access tokens in localStorage.
+- Add offline conflict handling, recovery and deletion workflows.
+- Do not upload family private data before end-to-end authorization tests.
+
+Current implementation remains a prototype. The existing shared-account UI must be updated to reflect Plan B; automatic sync is not enabled.

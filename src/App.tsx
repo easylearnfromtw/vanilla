@@ -50,7 +50,7 @@ return <div className="shell">
 <main className={"main "+(section==="chat"?"main-chat":"")}>
 <header className="topbar">
 <div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?"Vanilla AI":selected.label}<span className="topbar-chevron"> ▾</span></div></div>
-<div className="privacy-chip"><LockKeyhole size={14}/> 裝置端優先</div>
+<div className="privacy-chip">{section==="files"?<><FolderOpen size={14}/> Google Drive 檔案</>:section==="sheets"?<><ShieldCheck size={14}/> 本機草稿 · 手動同步</>:<><LockKeyhole size={14}/> 裝置端優先</>}</div>
 </header>
 {section==="chat"?<LocalChat key={chatKey}/>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:

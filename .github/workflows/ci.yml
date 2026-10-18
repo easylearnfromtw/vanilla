@@ -16,6 +16,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Spreadsheet smoke tests
+        run: npm run test:sheets
       - name: Typecheck and build
         run: npm run build
         env:

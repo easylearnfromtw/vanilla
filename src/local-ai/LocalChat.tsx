@@ -4,7 +4,7 @@ import {detectLocalAICapabilities} from "./capabilities";
 import {generateLocalReply,isLocalModelReady,loadLocalModel,type ChatTurn,LOCAL_MODEL} from "./engine";
 const STORAGE_KEY="vanilla.chat.history.v1";
 function restoreHistory():ChatTurn[]{
-  try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return [];const parsed:unknown=JSON.parse(raw);return Array.isArray(parsed)?parsed.filter((x):x is ChatTurn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")).slice(-100):[];}catch{return [];}
+  try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return [];const parsed:unknown=JSON.parse(raw);return Array.isArray(parsed)?parsed.filter((x):x is ChatTurn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];}catch{return [];}
 }
 export default function LocalChat(){
 const [history,setHistory]=useState<ChatTurn[]>(restoreHistory);
@@ -16,6 +16,7 @@ const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"�
 const [ready,setReady]=useState(isLocalModelReady());
 const [modelExpanded,setModelExpanded]=useState(false);
 const [modelError,setModelError]=useState(false);
+const [storageError,setStorageError]=useState(false);
 const [copied,setCopied]=useState<number|null>(null);
 const bottomRef=useRef<HTMLDivElement>(null);
 const capabilities=detectLocalAICapabilities();
@@ -34,7 +35,7 @@ useEffect(()=>{
   });
   return ()=>{active=false;};
 },[capabilities.webgpu]);
-useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(history));}catch{setStatus("裝置儲存空間不可用，對話可能無法保留");}},[history]);
+useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(history));setStorageError(false);}catch{setStorageError(true);}},[history]);
 useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth",block:"end"});},[history]);
 async function initialize(){
 setLoadingModel(true);setModelError(false);
@@ -61,6 +62,6 @@ return <section className="chat">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={!ready||busy} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content"><div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}</div></div>)}<div ref={bottomRef}/></div>}
 </div>
-<div className="composer-wrap"><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…" value={draft} disabled={!ready||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><Sparkles size={14}/> Vanilla AI</span><button type="submit" className="send-button" title="傳送" disabled={!ready||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · 對話會保存在此瀏覽器，重新開啟可接續；尚未提供跨裝置同步或加密儲存</div>{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
+<div className="composer-wrap"><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…" value={draft} disabled={!ready||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><Sparkles size={14}/> Vanilla AI</span><button type="submit" className="send-button" title="傳送" disabled={!ready||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · 對話持續保存在此瀏覽器，直到手動清除或瀏覽器清除網站資料；尚未提供跨裝置同步或加密儲存</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
 </section>;
 }

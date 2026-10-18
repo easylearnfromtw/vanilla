@@ -403,3 +403,9 @@
 .builder-backup-preview ul{padding-left:19px;margin:12px 0;display:grid;gap:5px;font-size:11px;color:#576a5c;overflow-wrap:anywhere}
 .builder-backup-preview>div{display:flex;flex-wrap:wrap;gap:9px}
 .builder-backup-warning{font-size:11px!important;color:#9b7055!important}
+
+.builder-change-preview{padding:13px 15px;margin:12px 0;border:1px solid #e3e7eb;border-radius:11px;background:#f8fafb}
+.builder-change-preview strong{font-size:12px;color:#4d5a6b}
+.builder-change-preview ul{margin:9px 0;padding-left:19px;display:grid;gap:6px;font-size:11px;line-height:1.6;color:#687585}
+.builder-change-preview li.is-risky{color:#9c5d39;font-weight:650}
+.builder-change-preview p{margin:11px 0 0;font-size:11px;line-height:1.7;color:#9c704e}

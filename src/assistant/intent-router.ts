@@ -8,6 +8,7 @@ export type AppIntent={kind:"open";section:"sheets"|"files"|"settings"|"builder"
  |{kind:"memory-search";query:string;message:string}
  |{kind:"memory-delete";query:string;message:string}
  |{kind:"search";query:string;message:string}
+ |{kind:"integration";name:string;idea:string;message:string}
  |SheetIntent;
 const templates=[
  {regex:/記帳|收支|家庭預算|開支|收入支出|支出表/,name:"家庭收支",rows:[["日期","項目","分類","收入","支出","結餘"],["","","", "", "", "=SUM(D2:D30)-SUM(E2:E30)"]]},
@@ -37,7 +38,9 @@ export function planAppIntent(prompt:string):AppIntent|null{
  if(m)return {kind:"memory-search",query:m[1].trim(),message:"搜尋個人雲端記憶"};
  m=/^(?:搜尋|上網搜尋|網路搜尋|查網站|找資料)\s*[：:]?\s*(.{3,200})$/s.exec(q);
  if(m)return {kind:"search",query:m[1].trim(),message:"準備網頁搜尋"};
- if(/(?:健人|訓練日誌|Fit Score|FIT SCORE)/i.test(q)){
+ m=/^(?:(?:幫我|請|我要|可以)?\s*)?(?:加入|連結|串接|接上|接入|設定|新增|整合)\s*(Canva|Meta|Facebook|Instagram|Notion|OpenAI|Gemini|DeepSeek|LINE|[A-Za-z][A-Za-z0-9_-]{2,45})\s*(?:的)?\s*(?:API|OAuth|金鑰|服務)(?:[。！!]?)(?:，?([\s\S]{0,200}))?$/i.exec(q);
+ if(m)return {kind:"integration",name:m[1],idea:q,message:"建立 "+m[1]+" API 串接工程方案"};
+  if(/(?:健人|訓練日誌|Fit Score|FIT SCORE)/i.test(q)){
   const action=/新增|記錄|加入|登記|寫入/.test(q)?"add":/開啟|打開|前往/.test(q)?"open":"query";
   return {kind:"project",project:"fitness",action,message:"已識別健人專案"};
  }

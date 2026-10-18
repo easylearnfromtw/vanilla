@@ -8,6 +8,7 @@ export type AppIntent={kind:"open";section:"sheets"|"files"|"settings"|"builder"
  |{kind:"memory-search";query:string;message:string}
  |{kind:"memory-delete";query:string;message:string}
  |{kind:"search";query:string;message:string}
+ |{kind:"mobile";goal:string;message:string}
  |{kind:"integration";name:string;idea:string;message:string}
  |SheetIntent;
 const templates=[
@@ -26,6 +27,8 @@ function makeSheet(name:string,rows:readonly (readonly string[])[]):SheetIntent{
 export function planAppIntent(prompt:string):AppIntent|null{
  const q=prompt.trim();
  if(!q)return null;
+ const deviceCommand=/^(?:手機操作|Mobilerun|手機代理)\s*[：:]\s*([\s\S]{1,280})$/i.exec(q);
+ if(deviceCommand)return {kind:"mobile",goal:deviceCommand[1].trim(),message:"前往手機操作 Agent 進行安全預覽，尚未控制裝置"};
  if(/^(?:開啟|打開|前往|進入|顯示)(?:Vanilla\s*)?(?:Sheets|表格)(?:工作區|編輯器)?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"sheets",message:"正在開啟 Vanilla Sheets"};
  if(/^(?:開啟|打開|前往|進入)(?:Vanilla\s*)?(?:Mobilerun|手機操作|手機代理|手機自動化)(?:\s*(?:工作區|Agent))?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"mobile",message:"正在開啟手機操作 Agent"};
  if(/^(?:開啟|打開|前往|進入)(?:Vanilla\s*)?(?:Cloud\s*Files|檔案|雲端檔案)(?:管理)?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"files",message:"正在開啟雲端檔案"};

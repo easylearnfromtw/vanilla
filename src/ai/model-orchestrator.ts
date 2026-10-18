@@ -40,7 +40,11 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
  if(options.privateMode)return result;
  if(isOllamaConfigured()&&!options.image){
   const ollama=getOllamaConfig();
-  result.push({id:"ollama:"+ollama.model,source:"ollama",model:ollama.model,label:"Ollama · "+ollama.model,location:"自架主機",note:"你的家庭主機或 VM 執行；網路傳輸需受保護"});
+  const officialCloud=/^https:\/\/ollama[.]com(?:\/|$)/i.test(ollama.endpoint);
+  const approved=[...new Set([ollama.model,...ollama.models])].filter(Boolean).slice(0,4);
+  for(const model of approved){
+   result.push({id:"ollama:"+model,source:"ollama",model,label:"Ollama · "+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
+  }
  }
  if(!options.online)return result;
  const cfg=getConfigs();
@@ -61,7 +65,8 @@ function baseScore(candidate:ModelCandidate,task:TaskKind):number{
  }
  if(candidate.source==="ollama"){
   const size=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)b/i)?.[1]||"0");
-  return (task==="code"?78:task==="analysis"?78:79)+(size>=7?4:0);
+  const scale=size>=14?13:size>=7?9:size>=3?5:size>=1.5?2:-4;
+  return (task==="code"?77:task==="analysis"?77:78)+scale;
  }
  if(candidate.source==="gemini")return (task==="vision"?95:task==="code"?81:task==="analysis"?87:task==="writing"?87:task==="casual"?65:85)-(candidate.model.includes("lite")?11:0);
  return task==="code"?84:task==="analysis"?79:task==="writing"?80:task==="casual"?62:76;
@@ -74,7 +79,8 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const params=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)B/i)?.[1]||"0");
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
-  return baseScore(candidate,task)+localBonus+qualityBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)));
+  const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"?8:0;
+  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)));
  };
  return [...candidates].sort((a,b)=>score(b)-score(a));
 }

@@ -6,6 +6,7 @@ export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
  const [url,setUrl]=useState(stored.endpoint);
  const [model,setModel]=useState(stored.model);
+ const [enabledModels,setEnabledModels]=useState<string[]>(stored.models||[]);
  const [secret,setSecret]=useState("");
  const [models,setModels]=useState<OllamaModel[]>([]);
  const [busy,setBusy]=useState(false);
@@ -17,20 +18,22 @@ export default function ModelConnections(){
   try{
    const result=await testOllama(url,secret.trim()||undefined);
    setModels(result.models);
+   const discovered=result.models.map(x=>x.name);
+   setEnabledModels(previous=>[...new Set([model,...previous.filter(x=>discovered.includes(x))].filter(Boolean))].slice(0,4));
    setNotice("成功連線："+result.models.length+" 個已下載模型。請選擇其中之一並儲存。");
-   if(!model&&result.models.length)setModel(result.models[0].name);
+   if(!model&&result.models.length){setModel(result.models[0].name);setEnabledModels([result.models[0].name]);}
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }
  function save(){
   try{
    if(!url.trim()||!model.trim()){setNotice("請提供連線網址與模型名稱");return;}
-   setOllamaConfig({endpoint:url,model},secret.trim()||undefined);
+   setOllamaConfig({endpoint:url,model,models:enabledModels.includes(model)?enabledModels:[model,...enabledModels].slice(0,4)},secret.trim()||undefined);
    setStored(getOllamaConfig());setSecret("");
    setNotice("已儲存 Ollama 連線。若尚未測試，使用時可能因 CORS 或網路設定而失敗。");
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
  }
- function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setNotice("已移除 Ollama 連線設定");}
+ function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setNotice("已移除 Ollama 連線設定");}
  return <section className="model-connection-panel">
   <div className="connection-title"><Cable size={20}/><h3>Ollama · 家庭 AI 伺服器</h3></div>
   <p>連接樹莓派調度的家庭主機、家用電腦或雲端 VM 上的 Ollama。Ollama 在伺服器執行，<strong>不是在 iPhone 內運算</strong>。模型推論本身不需要雲端 API 點數，但硬體與網路仍有成本。</p>
@@ -40,7 +43,14 @@ export default function ModelConnections(){
   <input id="ollama-model" type="text" value={model} spellCheck={false} autoCapitalize="none" list="ollama-model-list" placeholder="例如 qwen2.5:3b" onChange={e=>setModel(e.target.value)} />
   <datalist id="ollama-model-list">{models.map(m=><option key={m.name} value={m.name}>{m.details?.parameter_size||""}</option>)}</datalist>
   {models.length>0&&<p className="connection-models">已偵測：{models.slice(0,8).map(x=>x.name).join("、")}{models.length>8?" 等":""}</p>}
-  <label htmlFor="ollama-access">HTTPS 代理存取權杖（選填）</label>
+  {models.length>0&&<fieldset className="ollama-model-pool"><legend>允許自動選擇的模型（最多 4 個）</legend>
+  <p>只勾選確定已下載、願意讓 Vanilla 使用的模型。大型模型可能較慢，也會占用伺服器記憶體。</p>
+  {models.map(item=><label key={item.name}>
+   <input type="checkbox" checked={enabledModels.includes(item.name)} disabled={!enabledModels.includes(item.name)&&enabledModels.length>=4} onChange={e=>setEnabledModels(before=>e.target.checked?[...before,item.name].slice(0,4):before.filter(x=>x!==item.name))}/>
+   <span>{item.name}{item.details?.parameter_size?" · "+item.details.parameter_size:""}</span>
+  </label>)}
+ </fieldset>}
+ <label htmlFor="ollama-access">HTTPS 代理存取權杖（選填）</label>
   <input id="ollama-access" type="password" value={secret} autoComplete="off" placeholder={getOllamaTokenConfigured()?"已設定（留白不變）":"僅受保護代理需要"} onChange={e=>setSecret(e.target.value)}/>
   <small>權杖只保存在本分頁的工作階段，不同步到 Google Drive。不要將未設防的 Ollama 11434 埠公開到 Internet；遠端連線需 HTTPS、安全存取控制與允許的 CORS Origin。</small>
   <div className="connection-buttons">

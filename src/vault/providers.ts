@@ -29,12 +29,12 @@ export async function generateCloudReply(provider:Provider,history:ChatTurn[],im
  if(provider==="gemini"){
   res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(config.model)+":generateContent",{
    method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":config.key},
-   body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:history.slice(-20).map(x=>({role:x.role==="assistant"?"model":"user",parts:x.role==="user"&&image&&x===history[history.length-1]?[{text:x.content},{inlineData:{mimeType:image.mimeType,data:image.data}}]:[{text:x.content}]})),generationConfig:{maxOutputTokens:2048}})
+   body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:history.slice(-20).map(x=>({role:x.role==="assistant"?"model":"user",parts:x.role==="user"&&image&&x===history[history.length-1]?[{text:x.content},{inlineData:{mimeType:image.mimeType,data:image.data}}]:[{text:x.content}]})),generationConfig:{maxOutputTokens:4096}})
   });
  }else{
   res=await fetch("https://api.deepseek.com/chat/completions",{
    method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+config.key},
-   body:JSON.stringify({model:config.model,messages:[{role:"system",content:system},...history.slice(-20)],max_tokens:2048})
+   body:JSON.stringify({model:config.model,messages:[{role:"system",content:system},...history.slice(-20).map(turn=>({role:turn.role,content:turn.content}))],max_tokens:4096})
   });
  }
  if(!res.ok)throw new Error(provider+" API 回應 "+res.status+"，請檢查金鑰、額度與模型名稱");

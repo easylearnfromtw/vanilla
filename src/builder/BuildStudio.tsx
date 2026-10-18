@@ -1,9 +1,10 @@
-import {useEffect,useState} from "react";
+import {useEffect,useState,useRef} from "react";
 import {Sparkles,Plus,ShieldCheck,Download,ArrowUpRight,CheckCircle2,AlertTriangle,RefreshCcw,Trash2,Code2,BookOpen} from "lucide-react";
 import {getConfigs,generateCloudReply} from "../vault/providers";
 import {isOllamaConfigured,generateOllamaReply,getOllamaConfig} from "../ai/ollama";
 import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
 import {loadFeatures,validateFeature,featureTemplate,proposalFromAI,installFeature,removeFeature,featureHistory,rollbackFeature,type FeatureSpec,type FeatureKind} from "./feature-schema";
+import {offlineFeatureDraft} from "./offline-designer";
 
 type Provider="auto"|"local"|"ollama"|"gemini";
 function descriptor(spec:FeatureSpec):Record<string,unknown>{
@@ -39,6 +40,7 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  const [status,setStatus]=useState("");
  const [busy,setBusy]=useState(false);
  const [selectedKind,setSelectedKind]=useState<FeatureKind>("checklist");
+ const [offlineHint,setOfflineHint]=useState("");
  useEffect(()=>{const update=()=>setInstalled(loadFeatures());window.addEventListener("vanilla-features-changed",update);return()=>window.removeEventListener("vanilla-features-changed",update);},[]);
  const current=installed.find(x=>x.id===editingId);
  useEffect(()=>{
@@ -60,7 +62,15 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    setStatus("已建立安全模板預覽。只有按下「確認安裝」後才會加入工作區。");
   }catch(e){setStatus(e instanceof Error?e.message:String(e));}
  }
- function reviewLocalJSON(){
+ function draftOffline(){
+  try{
+   const proposal=offlineFeatureDraft(idea,current);
+   setPending(proposal.spec);
+   setOfflineHint(proposal.reason);
+   setStatus(proposal.reason+"。這只是待審查的草稿，"+(proposal.confidence==="low"?"可能需要補充欄位與功能。":"請確認後再安裝。"));
+  }catch(e){setStatus("無法離線產生草稿："+(e instanceof Error?e.message:String(e)));}
+ }
+  function reviewLocalJSON(){
   try{
    const parsed=JSON.parse(idea) as unknown;
    const spec=validateFeature(parsed,current);
@@ -69,7 +79,7 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  }
  async function generate(){
   if(!idea.trim()||busy)return;
-  setBusy(true);setPending(null);setStatus("正在規劃功能結構…");
+  setBusy(true);setPending(null);setOfflineHint("");setStatus("正在規劃功能結構…");
   const permitted=provider==="auto"?(isOllamaConfigured()?"ollama":getConfigs().some(x=>x.provider==="gemini")?"gemini":getLoadedLocalModel()?"local":null):provider;
   if(!permitted){setBusy(false);setStatus("未找到可用的本地 AI、Ollama 或 Gemini。你可以先使用下方功能模板，或貼上 JSON 規格。");return;}
   if(permitted==="local"&&!getLoadedLocalModel()){setBusy(false);setStatus("尚未載入本地 AI 模型");return;}
@@ -129,12 +139,13 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
   <section className="builder-panel"><div className="builder-section-heading"><span>01 / 需求</span><h3>{current?"改進現有功能："+current.name:"描述你想新增的功能"}</h3></div>
    <textarea value={idea} onChange={e=>{setIdea(e.target.value);setPending(null);}} rows={4} placeholder="例如：幫我做一個家庭開支追蹤器，紀錄日期、支出、類別，手機上能新增並匯出 CSV。" maxLength={1800}/>
    <div className="builder-controls"><label>生成模型 <select value={provider} onChange={e=>setProvider(e.target.value as Provider)}><option value="auto">自動（Ollama → Gemini → 本地）</option><option value="local">手機本地 AI</option><option value="ollama">Ollama</option><option value="gemini">Gemini API</option></select></label><button type="button" className="workspace-primary" disabled={busy||!idea.trim()} onClick={()=>void generate()}><Sparkles size={16}/>{busy?"正在設計…":"AI 生成方案"}</button></div>
-   <div className="builder-template-heading"><span>沒有模型也能立即建立</span></div>
+   <div className="builder-template-heading"><span>不用付費 API · 離線生成功能雛形</span></div><div className="builder-offline"><p>根據描述中的關鍵需求，直接組成追蹤器、清單、計算器或筆記。不需連線至雲端，但功能辨識較有限。</p><button type="button" disabled={!idea.trim()||busy} onClick={draftOffline}><Sparkles size={15}/>離線快速建立草稿</button></div><div className="builder-template-heading"><span>也可以從固定模板開始</span></div>
    <div className="builder-template-choices"><select aria-label="安全模組模板" value={selectedKind} onChange={e=>setSelectedKind(e.target.value as FeatureKind)}><option value="checklist">待辦清單</option><option value="tracker">資料追蹤器</option><option value="calculator">數字計算器</option><option value="notes">筆記頁面</option></select><button type="button" onClick={createTemplate}><Plus size={16}/>預覽模板</button><button type="button" disabled={!idea.trim()} onClick={reviewLocalJSON}>驗證 JSON 規格</button></div>
   </section>
   <section className="builder-panel"><div className="builder-section-heading"><span>02 / 檢查</span><h3>功能安裝預覽</h3></div>
    {!pending?<p className="builder-empty">等待你提出需求。AI 產生的方案會先顯示於此，不會立即啟用。</p>:<>
     <div className="builder-preview-header"><div><strong>{pending.name}</strong><p>{pending.description}</p><small>模組：{pending.kind} · {current?"更新至 v"+pending.revision:"新功能 v1"}</small></div><span>待批准</span></div>
+    {offlineHint&&<p className="builder-offline-note">{offlineHint}</p>}
     {pending.fields.length>0&&<div className="builder-fields">{pending.fields.map(field=><div key={field.id}><strong>{field.label}</strong><span>{field.type} · {field.id}{field.unit?" · "+field.unit:""}</span></div>)}</div>}
     {pending.formula&&<p className="builder-formula">公式：<code>{pending.formula}</code></p>}
     {pending.initialItems?.length? <p className="builder-formula">預設清單：{pending.initialItems.join("、")}</p>:null}

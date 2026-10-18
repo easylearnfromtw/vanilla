@@ -47,7 +47,7 @@ async function attachFile(file?:File){
    setFileContext((await file.text()).slice(0,10000));
   }
   if(!privateMode&&driveSession()){
-   const record=await rememberFile(file,"使用者上傳的附件；是否完成內容解析請依實際模型結果判定");
+   const record=await rememberFile(file);
    setFileStatus("已儲存到你的 Google Drive："+record.title);
   }else{
    setFileStatus(privateMode?"私密模式：附件未上傳，僅在本次對話使用":"尚未登入 Google Drive：附件未永久保存；請先登入再重新上傳");
@@ -256,7 +256,7 @@ async function send(value=draft){
    setLoadingModel(true);setModelProgress(0);
    try{
     await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},upgradeId);
-    selectLocalModel(upgradeId);setReady(true);activeModel=upgradeId;localReady=true;
+    setSelectedLocalModel(upgradeId);setModelError(false);setStatus("進階本地模型已就緒");setReady(true);activeModel=upgradeId;localReady=true;
    }catch(e){setReady(false);localReady=false;setLastRoute("較大模型載入失敗："+(e instanceof Error?e.message:String(e)));}
    finally{setLoadingModel(false);}
   }
@@ -337,7 +337,7 @@ async function send(value=draft){
   }else{
    await Promise.all(chosen.map(runCandidate));
   }
-  setImage(null);setImageName("");setBusy(false);
+  setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");setBusy(false);
   setLastRoute("雙答案已完成，請選擇較喜歡的回答");
   return;
  }
@@ -348,7 +348,7 @@ async function send(value=draft){
    setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,id:assistantId,createdAt:assistantTime}]);
   });
   setHistory([...next,{role:"assistant",content:result||"（模型沒有產生內容）",source:primary.source,model:primary.model,id:assistantId,createdAt:assistantTime}]);
-  setImage(null);setImageName("");
+  setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答");
  }catch(error){
   // Fail over only to an on-device model, or another model on the already approved Ollama host.
@@ -361,11 +361,11 @@ async function send(value=draft){
     const recovered=await generateCandidate(alternative,modelNext,undefined,text=>{
      setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,id:assistantId,createdAt:assistantTime}]);
     });
-    setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model}]);
+    setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){
     const msg=fallbackError instanceof Error?fallbackError.message:String(fallbackError);
-    setHistory([...next,{role:"assistant",content:"模型與備援均無法回答："+msg,source:alternative.source,model:alternative.model}]);
+    setHistory([...next,{role:"assistant",content:"模型與備援均無法回答："+msg,source:alternative.source,model:alternative.model,id:assistantId,createdAt:assistantTime}]);
     setLastRoute("主模型及備援模型皆失敗，請檢查連線與模型");
    }
   }else{

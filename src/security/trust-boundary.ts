@@ -11,8 +11,21 @@ const roleHijack=/(?:ignore (?:all |the )?(?:previous|prior|above) instructions|
 const toolHijack=/(?:工具|tool|function|github|drive|權限|permission|admin|管理員|檔案|file).{0,65}(?:執行|修改|刪除|讀取|開啟|授權|execute|delete|write|read|chmod|override)/i;
 const spoofedRole=/(?:\[\s*(?:SYSTEM|DEVELOPER|ADMIN)\s*\]|<\s*(?:system|developer|admin|tool_call|function_call)[\s>]|(?:^|\n)\s*(?:###\s*)?(?:system|developer)\s*(?:message|instructions?)\s*:)/i;
 const encodedSuspicion=/(?:atob\s*\(|base64\s*decode|decodeURIComponent\s*\(|rot13|unicode\s*escape|零寬字元|zero.width|base64解碼)/i;
+function decodeLimited(input:string):string{
+ let value=input;
+ for(let i=0;i<2;i++){
+  if(!/%[0-9a-fA-F]{2}/.test(value))break;
+  try{value=decodeURIComponent(value);}catch{break;}
+ }
+ return value;
+}
 function normalize(text:string):string{
- return text.normalize("NFKC").replace(/[\u200B-\u200F\uFEFF]/g,"").slice(0,MAX_CONTEXT*4);
+ const decoded=decodeLimited(text)
+  .replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&quot;/gi,'"').replace(/&#0*39;/gi,"'")
+  .replace(/&#x([0-9a-f]{1,6});/gi,(_,hex:string)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(hex,16))))
+  .replace(/&#([0-9]{1,7});/g,(_,n:string)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,10))))
+  .replace(/\\u([0-9a-f]{4})/gi,(_,hex:string)=>String.fromCharCode(parseInt(hex,16)));
+ return decoded.normalize("NFKC").replace(/[\u200B-\u200F\uFEFF]/g,"").slice(0,MAX_CONTEXT*4);
 }
 /** Focus on hostile *instructions* in external data; ordinary discussion of admin/security isn't censorship. */
 export function inspectExternalText(input:string,source:ContentSource="document"):Inspection{
@@ -36,12 +49,12 @@ export function wrapExternalText(input:string,source:ContentSource="document"):s
 const PROTECTED_SEGMENT=/(?:^|[._\-/\\\s])(?:admin(?:istrator)?|root|superuser|secrets?|credentials?|service.?account|firebase-adminsdk|oauth|auth-keys?|private-?keys?|\.env|apikeys?|api-keys?|tokens?)(?:[._\-/\\\s]|$)/i;
 const SENSITIVE_BASENAME=/(?:^|\/)(?:\.env(?:\..*)?|id_rsa|id_ed25519|\.npmrc|\.netrc|\.git-credentials|\.htpasswd|service-account\.json|admin(?:\.[^/]*)?)$/i;
 export function protectedResource(name:string):boolean{
- const canonical=String(name||"").normalize("NFKC").replace(/[\u200B-\u200F\uFEFF]/g,"").replace(/%2f|%5c/gi,"/").replace(/%2e/gi,".");
+ const canonical=normalize(String(name||"")).replace(/\\/g,"/");
  const lowered=canonical.toLowerCase();
  return !canonical||canonical.length>240||canonical.includes("\0")||
   /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(canonical)||
   /(?:^|[\\/])(?:\.git|\.github|admin|secrets?)(?:[\\/]|$)/i.test(canonical)||
-  PROTECTED_SEGMENT.test(canonical)||SENSITIVE_BASENAME.test(lowered);
+  PROTECTED_SEGMENT.test(canonical)||SENSITIVE_BASENAME.test(lowered)||/(?:^|[^a-z0-9])(?:admin(?:istrator)?|service.?account|credential|api.?key|secret|token)(?:$|[^a-z0-9])/i.test(canonical);
 }
 export function assertPublicWorkspaceName(name:string,verb="操作"):void{
  if(protectedResource(name))throw Error("安全防護：禁止"+verb+"管理員、憑證或系統保護檔案；請在原服務的管理後台操作。");

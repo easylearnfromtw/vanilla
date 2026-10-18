@@ -15,7 +15,8 @@ export default function FeatureRuntime({spec,onEdit}:{spec:FeatureSpec;onEdit:(i
  const [title,setTitle]=useState("");
  const [form,setForm]=useState<Record<string,string|boolean>>({});
  const [status,setStatus]=useState("");
- useEffect(()=>{setData(featureData(spec.id));setTitle("");setForm({});setStatus("");},[spec.id]);
+ const [calculatorDraft,setCalculatorDraft]=useState<Record<string,string>>(()=>Object.fromEntries(Object.entries(featureData(spec.id).inputs).map(([key,value])=>[key,String(value)])));
+ useEffect(()=>{const saved=featureData(spec.id);setData(saved);setCalculatorDraft(Object.fromEntries(Object.entries(saved.inputs).map(([key,value])=>[key,String(value)])));setTitle("");setForm({});setStatus("");},[spec.id]);
  function commit(next:FeatureData){
   try{writeFeatureData(spec.id,next);setData(next);setStatus("已儲存於這台裝置");}
   catch(e){setStatus("儲存失敗："+(e instanceof Error?e.message:String(e)));}
@@ -38,7 +39,7 @@ export default function FeatureRuntime({spec,onEdit}:{spec:FeatureSpec;onEdit:(i
   commit({...data,records:[{id:crypto.randomUUID(),at:new Date().toISOString(),values},...data.records]});
   setForm({});
  }
- const numericInputs=useMemo(()=>Object.fromEntries(spec.fields.map(f=>[f.id,Number(data.inputs[f.id]||0)])),[data.inputs,spec.fields]);
+ const numericInputs=useMemo(()=>Object.fromEntries(spec.fields.map(f=>[f.id,Number(calculatorDraft[f.id]??data.inputs[f.id]??0)])),[calculatorDraft,data.inputs,spec.fields]);
  let result:number|undefined,calcError="";
  if(spec.kind==="calculator")try{result=testExpression(spec.formula||"0",numericInputs);}catch(e){calcError=e instanceof Error?e.message:"公式錯誤";}
  const icons={checklist:<ClipboardList size={22}/>,tracker:<Database size={22}/>,calculator:<Calculator size={22}/>,notes:<NotebookPen size={22}/>};
@@ -57,7 +58,7 @@ export default function FeatureRuntime({spec,onEdit}:{spec:FeatureSpec;onEdit:(i
    <button type="button" className="built-secondary" onClick={()=>exportCSV(spec.name,["建立時間",...spec.fields.map(x=>x.label)],data.records.map(r=>[r.at,...spec.fields.map(f=>String(r.values[f.id]??""))]))}><Download size={14}/>匯出 CSV</button>
   </div>}
   {spec.kind==="calculator"&&<div className="built-feature-panel">
-   <div className="built-feature-grid">{spec.fields.map(f=><label key={f.id}><span>{f.label}{f.unit?" · "+f.unit:""}</span><input type="number" inputMode="decimal" value={Number.isFinite(data.inputs[f.id])?data.inputs[f.id]:""} onChange={e=>commit({...data,inputs:{...data.inputs,[f.id]:Number(e.target.value)||0}})}/></label>)}</div>
+   <div className="built-feature-grid">{spec.fields.map(f=><label key={f.id}><span>{f.label}{f.unit?" · "+f.unit:""}</span><input type="number" inputMode="decimal" value={calculatorDraft[f.id]??(Number.isFinite(data.inputs[f.id])?String(data.inputs[f.id]):"")} onChange={e=>setCalculatorDraft(prev=>({...prev,[f.id]:e.target.value}))} onBlur={e=>{const numeric=Number(e.target.value)||0;if(data.inputs[f.id]!==numeric)commit({...data,inputs:{...data.inputs,[f.id]:numeric}});}}/></label>)}</div>
    <div className="built-result"><span>運算結果</span><strong>{calcError?calcError:Number(result).toLocaleString("zh-TW",{maximumFractionDigits:6})}</strong><small>公式：{spec.formula}</small></div>
   </div>}
   {spec.kind==="notes"&&<div className="built-feature-panel"><textarea className="built-notes" placeholder="開始寫下想法。內容保留在目前裝置，不會自動同步雲端。" value={data.notes} onChange={e=>commit({...data,notes:e.target.value})} rows={16}/><div className="built-feature-row"><span>{data.notes.length.toLocaleString()} 字元</span><button type="button" className="built-secondary" onClick={()=>{

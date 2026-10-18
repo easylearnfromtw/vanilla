@@ -96,10 +96,10 @@ async function multipart(token:string,metadata:Record<string,unknown>,file:Blob,
 }
 export async function uploadWorkspaceFile(token:string,name:string,file:Blob):Promise<WorkspaceFile>{
  if(file.size>15*1024*1024)throw Error("單一檔案上限 15 MB");
- const folder=await ensureWorkspaceFolder(token);
  const cleaned=name.trim().replace(/[\\/]/g,"_").slice(0,140);
  if(!cleaned)throw Error("檔名不能為空");
  assertPublicWorkspaceName(name,"上傳");assertPublicWorkspaceName(cleaned,"上傳");
+ const folder=await ensureWorkspaceFolder(token);
  return multipart(token,{name:cleaned,parents:[folder],description:"Created by Vanilla Workspace"},file);
 }
 export async function createWorkspaceText(token:string,name:string,text:string,mimeType="text/plain"):Promise<WorkspaceFile>{

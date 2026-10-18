@@ -87,33 +87,92 @@ async function initialize(){
  }catch(error){setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
  finally{setLoadingModel(false);}
 }
-const canReply=ready||(!privateMode&&providers.length>0&&routeMode!=="local");
+const canReply=ready||(!privateMode&&(providers.length>0||ollamaConnected)&&routeMode!=="local");
+function changeCompareMode(enabled:boolean){
+ setCompareMode(enabled);
+ try{localStorage.setItem("vanilla.model.compare.v1",String(enabled));}catch{}
+}
+function chooseAnswer(id:string){
+ if(!comparison||busy)return;
+ const chosen=comparison.options.find(x=>x.candidate.id===id&&x.status==="done");
+ if(!chosen)return;
+ saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
+ setHistory(prev=>[...prev,{role:"assistant",content:chosen.text,source:chosen.candidate.source,model:chosen.candidate.model}]);
+ setLastRoute("已選擇 "+chosen.candidate.label+"；偏好將用於下次模型排序");
+ setComparison(null);
+}
+function dismissComparison(){
+ if(busy||!comparison)return;
+ setHistory(prev=>[...prev,{role:"assistant",content:"本次雙答案比較未選擇回答。"}]);
+ setComparison(null);
+}
 async function send(value=draft){
  const question=value.trim();
- if(!question||busy||!canReply)return;
- const route=privateMode?"local":image?"gemini":routeMode==="auto"?chooseProvider(question,{localReady:ready,online}):routeMode;
- if(route==="local"&&!ready){setLastRoute("本地模型尚未載入，請開啟「裝置端 AI」設定並下載");return;}
- if(route!=="local"&&!providers.includes(route)){setLastRoute("尚未連接所選雲端模型");return;}
- if(!online&&route!=="local"){setLastRoute("目前離線，請切換本地 AI");return;}
- if(image&&!providers.includes("gemini")){setLastRoute("圖片辨識需要先連接 Gemini API");return;}
- if(route!=="local"){
-  let consent=false;
-  try{consent=localStorage.getItem("vanilla.cloud.consent.v1")==="yes";}catch{}
-  if(!consent){
-   if(!window.confirm("一般模式使用雲端模型時，這則訊息、近期聊天上下文及附加圖片（如有）會送至 Gemini 或 DeepSeek 處理。若不希望上傳，請取消並切換本地 AI／私密模式。是否同意？"))return;
+ if(!question||busy||comparison||!canReply)return;
+ const task=classifyTask(question,Boolean(image));
+ const candidates=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode});
+ const ranked=rankedCandidates(candidates,task);
+ const primary=privateMode?candidates.find(x=>x.source==="local"):
+  routeMode==="auto"?ranked[0]:candidates.find(x=>x.source===routeMode);
+ if(!primary){
+  setLastRoute(image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
+  return;
+ }
+ const chosen:ModelCandidate[]=compareMode&&!privateMode&&routeMode==="auto"&&ranked.length>1?topComparisonCandidates(ranked,task):[primary];
+ const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
+ const external=chosen.filter(x=>x.source==="ollama");
+ if(cloud.length){
+  let allowed=false;try{allowed=localStorage.getItem("vanilla.cloud.consent.v1")==="yes";}catch{}
+  if(!allowed){
+   const names=[...new Set(cloud.map(x=>x.label))].join("、");
+   const ok=window.confirm("即將把這個問題與最多最近 20 則對話，以及附加圖片（若有），傳送到 "+names+"。雙答案比較可能消耗多次 API 額度。取消可改用本地 AI。是否同意？");
+   if(!ok)return;
    try{localStorage.setItem("vanilla.cloud.consent.v1","yes");}catch{}
   }
  }
+ if(external.length){
+  const endpoint=getOllamaConfig().endpoint;
+  const key="vanilla.ollama.consent."+endpoint;
+  let allowed=false;try{allowed=localStorage.getItem(key)==="yes";}catch{}
+  if(!allowed){
+   if(!window.confirm("這次將把問題及近期聊天上下文傳送到你設定的 Ollama 主機："+endpoint+"。它不是 iPhone 裝置端推論；請確認此主機屬於你或可信任的家庭伺服器。是否繼續？"))return;
+   try{localStorage.setItem(key,"yes");}catch{}
+  }
+ }
  const next:ChatTurn[]=[...history,{role:"user",content:question}];
- setHistory([...next,{role:"assistant",content:"",source:route}]);setDraft("");setBusy(true);
- setLastRoute("正在使用："+(route==="local"?"本地 "+(LOCAL_MODELS.find(m=>m.id===selectedLocalModel)?.label||"AI"):route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API"));
+ setDraft("");setBusy(true);
+ if(chosen.length===2){
+  const initial:ComparisonSession={question,task,options:chosen.map(candidate=>({candidate,status:"running",text:""}))};
+  setHistory(next);
+  setComparison(initial);
+  setLastRoute("雙答案比較中："+chosen.map(x=>x.label).join(" / "));
+  await Promise.all(chosen.map(async candidate=>{
+   try{
+    const result=await generateCandidate(candidate,next,image||undefined,text=>{
+     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
+    });
+    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:result||"（無回答）",status:"done"}:x)}:prev);
+   }catch(error){
+    const msg=error instanceof Error?error.message:String(error);
+    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,error:msg,status:"error"}:x)}:prev);
+   }
+  }));
+  setImage(null);setImageName("");setBusy(false);
+  setLastRoute("雙答案已完成，請選擇較喜歡的回答");
+  return;
+ }
+ setHistory([...next,{role:"assistant",content:"",source:primary.source,model:primary.model}]);
+ setLastRoute("正在使用："+primary.label);
  try{
-  const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text,source:"local"}])):await generateCloudReply(route,next,image||undefined);
-  setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）",source:route}]);setImage(null);setImageName("");
-  setLastRoute("上一則由 "+(route==="local"?"本地 AI":route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API")+" 回答");
+  const result=await generateCandidate(primary,next,image||undefined,text=>{
+   setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model}]);
+  });
+  setHistory([...next,{role:"assistant",content:result||"（模型沒有產生內容）",source:primary.source,model:primary.model}]);
+  setImage(null);setImageName("");
+  setLastRoute("上一則由 "+primary.label+" 回答");
  }catch(error){
-  setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:"未知錯誤"),source:route}]);
-  setLastRoute("生成失敗，請檢查所選模型或網路連線");
+  setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:String(error)),source:primary.source,model:primary.model}]);
+  setLastRoute("生成失敗，請檢查模型、網路、權限及額度");
  }finally{setBusy(false);}
 }
 async function copyMessage(content:string,index:number){try{await navigator.clipboard.writeText(content);setCopied(index);}catch{setCopied(null);}}

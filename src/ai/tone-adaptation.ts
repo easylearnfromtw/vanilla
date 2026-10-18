@@ -78,6 +78,56 @@ export function toneInstruction(p=getToneProfile(),latestUserText=""):string{
  const power=p.strength==="light"?"輕度參考個人偏好；":p.strength==="close"?"適度貼近使用者的語速和措辭習慣，但不冒充本人；":"自然呼應使用者的溝通節奏；";
  return "回覆風格指引（僅調整表達形式，不影響事實準確、安全與隱私）：以臺灣繁體中文回答。"+power+direct+punctuation+emoji+length+warmth+current+"使用者明確指定不同語氣、長度、格式時以當次要求為準；不要宣稱自己就是使用者。";
 }
+/**
+ * Explicit conversational preferences are applied locally, without an API call.
+ * Broad ordinary questions are not intercepted or interpreted as durable settings.
+ */
+export function applyExplicitToneRequest(text:string,privateMode=false):string|null{
+ if(privateMode)return null;
+ const q=text.trim();
+ if(q.length>240||q.length<5)return null;
+ if(!/(?:以後|之後|往後|從現在起|每次|回答時|回覆時|語氣|說話方式|像我一點)/.test(q))return null;
+ if(!/(?:回覆|回答|語氣|說話|文字|表情符號|Emoji|emoji|詳細|簡短|囉嗦|客氣|正式)/i.test(q))return null;
+ let profile=getToneProfile();
+ if(/(?:停用|不要|關閉|停止)(?:自動)?(?:學習|模仿|適應|調整)(?:我的)?(?:語氣|風格)/.test(q)){
+  saveToneProfile({...profile,enabled:false});
+  return "我已在這台裝置停用自動語氣適應；不會再從後續的一般對話更新語氣統計。";
+ }
+ if(!profile.enabled){
+  if(/(?:開啟|啟用|恢復)(?:自動)?(?:語氣|風格)(?:適應|學習)/.test(q)){
+   saveToneProfile({...profile,enabled:true});return "已重新開啟語氣適應。";
+  }
+  return null;
+ }
+ const adjustments:string[]=[];
+ if(/(?:口語|自然一點|別那麼正式|不要太正式|別太官腔|像我說話|像我一點)/.test(q)){
+  profile={...profile,directness:clamp(profile.directness+12),warmth:clamp(profile.warmth+6),
+   strength:/像我/.test(q)?"close":profile.strength};
+  adjustments.push("語氣更自然、較少官腔");
+ }
+ if(/(?:簡短|簡潔|精簡|重點就好|少點廢話|不要囉嗦|太囉嗦)/.test(q)){
+  profile={...profile,detail:clamp(profile.detail-15),directness:clamp(profile.directness+7)};
+  adjustments.push("回答更精簡");
+ }
+ if(/(?:講詳細|寫詳細|詳細一點|說完整|多舉例|解釋清楚)/.test(q)){
+  profile={...profile,detail:clamp(profile.detail+15)};
+  adjustments.push("回答更完整");
+ }
+ if(/(?:親切一點|溫柔一點|不要太冷淡|別那麼冷)/.test(q)){
+  profile={...profile,warmth:clamp(profile.warmth+12)};
+  adjustments.push("語氣更親切");
+ }
+ if(/(?:理性一點|冷靜一點|客觀|不要太熱情)/.test(q)){
+  profile={...profile,warmth:clamp(profile.warmth-12)};
+  adjustments.push("語氣更理性");
+ }
+ if(/(?:不要|少用|別用)(?:太多)?(?:emoji|表情符號|顏文字)/i.test(q)){
+  profile={...profile,emojiEma:0};adjustments.push("減少表情符號");
+ }
+ if(!adjustments.length)return null;
+ saveToneProfile(profile);
+ return "已更新這台裝置的回覆偏好："+[...new Set(adjustments)].join("、")+"。之後會持續參考你的回饋；若單次問題有指定風格，仍以當次要求為準。";
+}
 export function getToneSummary(profile=getToneProfile()):string{
  if(!profile.enabled)return "已停用語氣適應";
  if(profile.samples<3)return "正在建立對話風格基線（不儲存原文）";

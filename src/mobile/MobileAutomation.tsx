@@ -1,4 +1,4 @@
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {Copy,ShieldCheck,Smartphone,ExternalLink} from "lucide-react";
 import {planMobileTask,mobileCliCommand,validateMobileBridgeUrl,executeReadOnlyMobileTask,inPrivateChat,type MobilePlatform} from "./mobile-agent";
 
@@ -11,6 +11,7 @@ export default function MobileAutomation({initialGoal=""}:{initialGoal?:string})
  const [approved,setApproved]=useState(false);
  const [running,setRunning]=useState(false);
  const [result,setResult]=useState("");
+ useEffect(()=>{if(initialGoal){setGoal(initialGoal);setApproved(false);setResult("");}},[initialGoal]);
  const plan=useMemo(()=>planMobileTask(goal,platform),[goal,platform]);
  const isPrivate=inPrivateChat();
  const ready=plan.risk==="read-only"&&!isPrivate&&approved&&Boolean(endpoint.trim())&&Boolean(token.trim());

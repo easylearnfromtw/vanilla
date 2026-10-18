@@ -5,6 +5,7 @@ import {validateFeature,featureTemplate,installFeature,loadFeatures,removeFeatur
 import {getToneProfile,saveToneProfile,learnToneFromMessage,toneInstruction,toneFeedback,resetToneProfile,applyExplicitToneRequest} from "../src/ai/tone-adaptation.ts";
 import {offlineFeatureDraft} from "../src/builder/offline-designer.ts";
 import {validateSelfBuildBackup,importSelfBuildBackup} from "../src/builder/backup.ts";
+import {compareFeatureSpecs} from "../src/builder/feature-diff.ts";
 
 function setup(){
  const storage=new Map();
@@ -120,4 +121,22 @@ test("Explicit style instructions update local preference, but ordinary queries 
  assert.equal(applyExplicitToneRequest("之後回答詳細一點",true),null);
  assert.equal(applyExplicitToneRequest("以後請停止模仿我的語氣")?.includes("停用"),true);
  assert.equal(getToneProfile().enabled,false);
+});
+
+test("Self-Build upgrade diff highlights risky field deletions and type migrations",()=>{
+ setup();
+ const before=validateFeature({name:"家庭記帳",kind:"tracker",description:"收支紀錄",fields:[
+  {id:"date",label:"日期",type:"date"},{id:"expense",label:"金額",type:"number"},{id:"note",label:"備註",type:"text"}]});
+ const safe=validateFeature({name:"家庭收支",kind:"tracker",description:"收支紀錄",fields:[
+  {id:"date",label:"日期",type:"date"},{id:"expense",label:"支出",type:"number"},{id:"note",label:"備註",type:"text"},
+  {id:"category",label:"分類",type:"text"}]},before);
+ const low=compareFeatureSpecs(before,safe);
+ assert.equal(low.risk,false);
+ assert.ok(low.changes.some(x=>x.label.includes("新增欄位")));
+ const dangerous=validateFeature({name:"家庭收支",kind:"tracker",description:"收支紀錄",fields:[
+  {id:"date",label:"日期",type:"text"},{id:"expense",label:"支出",type:"number"}]},before);
+ const high=compareFeatureSpecs(before,dangerous);
+ assert.equal(high.risk,true);
+ assert.ok(high.changes.some(x=>x.label.includes("移除欄位")));
+ assert.ok(high.changes.some(x=>x.label.includes("欄位型別")));
 });

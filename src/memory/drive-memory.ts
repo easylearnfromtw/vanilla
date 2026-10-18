@@ -52,10 +52,52 @@ export async function rememberURL(input:string,note=""):Promise<MemoryRecord>{
  try{url=new URL(input);}catch{throw Error("需要完整的 HTTPS 網址");}
  if(url.protocol!=="https:")throw Error("為安全起見，只保存 HTTPS 網址");
  if(url.username||url.password)throw Error("網址不能包含帳號或密碼");
- // Link metadata is not a claim that the page was fetched or parsed.
- const kind:MemoryKind=/\.(?:mp4|webm|mov)(?:$|\?)/i.test(url.pathname)||/youtube\.com|youtu\.be|vimeo\.com/.test(url.hostname)?"video":"website";
- return saveRecord({kind,title:safeTitle(url.hostname+url.pathname.slice(0,55)),description:note.trim().slice(0,SUMMARY_MAX)||"僅儲存原始網址，尚未抓取網站或影片內容",sourceUrl:url.toString(),labels:["連結"]});
+ const host=url.hostname.toLowerCase();
+ if(host==="localhost"||host.endsWith(".local")||/^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/.test(host))throw Error("不可從公開的 Vanilla 頁面擷取本機或內網網址");
+ const kind:MemoryKind=/\.(?:mp4|webm|mov)(?:$|\?)/i.test(url.pathname)||/youtube\.com|youtu\.be|vimeo\.com/.test(host)?"video":"website";
+ let title=url.hostname+url.pathname.slice(0,55);
+ let description=note.trim().slice(0,SUMMARY_MAX);
+ if(kind==="website"){
+  // Best-effort direct browser retrieval. No secret proxy, no CORS bypass and no execution of page scripts.
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
+  try{
+   const response=await fetch(url.toString(),{method:"GET",mode:"cors",credentials:"omit",redirect:"follow",signal:controller.signal});
+   const mime=response.headers.get("content-type")||"";
+   const length=Number(response.headers.get("content-length")||"0");
+   if(response.ok&&/(?:text\/html|text\/plain|text\/markdown)/i.test(mime)&&length<1024*1024){
+    const stream=response.body?.getReader();
+    if(stream){
+     const chunks:Uint8Array[]=[];let total=0;
+     while(total<900000){
+      const chunk=await stream.read();
+      if(chunk.done)break;
+      if(chunk.value){total+=chunk.value.byteLength;chunks.push(chunk.value);}
+     }
+     await stream.cancel().catch(()=>{});
+     if(total<=900000){
+      const bytes=new Uint8Array(total);let offset=0;
+      for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+      const raw=new TextDecoder("utf-8",{fatal:false}).decode(bytes);
+      const pageTitle=raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g," ").trim();
+      if(pageTitle)title=pageTitle.slice(0,120);
+      const readable=raw.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," ")
+       .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi," ")
+       .replace(/<[^>]*>/g," ").replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g," ")
+       .replace(/\s+/g," ").trim().slice(0,5000);
+      if(readable.length>60)description=(description?description+"\n":"")+"網站文字節錄（擷取成功，但未逐項查核真實性）："+readable;
+     }
+    }
+   }
+  }catch{
+   // Expected when a third-party site disallows browser CORS or requires authentication.
+  }finally{clearTimeout(timeout);}
+ }
+ if(!description)description=kind==="video"?
+  "已保存影片連結；未下載或轉錄影片音訊，尚未取得完整字幕或內容":
+  "僅儲存原始網址。對方網站可能限制瀏覽器擷取，尚未取得可用的文字內容";
+ return saveRecord({kind,title:safeTitle(title),description:description.slice(0,SUMMARY_MAX),sourceUrl:url.toString(),labels:[kind==="video"?"影片連結":"網頁"]});
 }
+
 export async function rememberFile(file:File,description=""):Promise<MemoryRecord>{
  const {token}=session();
  if(file.size>15*1024*1024)throw Error("目前檔案保存上限為 15 MB。大型影片需要分段上傳功能，尚未支援");

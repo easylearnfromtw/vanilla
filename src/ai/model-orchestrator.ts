@@ -40,7 +40,8 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
  if(options.privateMode)return result;
  if(isOllamaConfigured()&&!options.image){
   const ollama=getOllamaConfig();
-  result.push({id:"ollama:"+ollama.model,source:"ollama",model:ollama.model,label:"Ollama · "+ollama.model,location:"自架主機",note:"你的家庭主機或 VM 執行；網路傳輸需受保護"});
+  const officialCloud=/^https:\/\/ollama[.]com(?:\/|$)/i.test(ollama.endpoint);
+  result.push({id:"ollama:"+ollama.model,source:"ollama",model:ollama.model,label:"Ollama · "+ollama.model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端使用有免費起始點數和計費額度限制":"你的家庭主機或 VM 執行；網路傳輸需受保護"});
  }
  if(!options.online)return result;
  const cfg=getConfigs();

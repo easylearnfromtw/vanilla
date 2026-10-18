@@ -66,17 +66,20 @@ function baseScore(candidate:ModelCandidate,task:TaskKind):number{
  if(candidate.source==="gemini")return (task==="vision"?95:task==="code"?81:task==="analysis"?87:task==="writing"?87:task==="casual"?65:85)-(candidate.model.includes("lite")?11:0);
  return task==="code"?84:task==="analysis"?79:task==="writing"?80:task==="casual"?62:76;
 }
-export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind):ModelCandidate[]{
+export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first"):ModelCandidate[]{
  const allVotes=votes().filter(v=>v.task===task);
  const score=(candidate:ModelCandidate)=>{
   const wins=allVotes.filter(v=>v.winner===candidate.id).length;
   const losses=allVotes.filter(v=>v.loser===candidate.id).length;
-  return baseScore(candidate,task)+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)));
+  const params=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)B/i)?.[1]||"0");
+  const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
+  const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
+  return baseScore(candidate,task)+localBonus+qualityBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)));
  };
  return [...candidates].sort((a,b)=>score(b)-score(a));
 }
-export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKind):ModelCandidate[]{
- const ordered=rankedCandidates(candidates,task);
+export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first"):ModelCandidate[]{
+ const ordered=rankedCandidates(candidates,task,priority);
  if(ordered.length<2)return ordered;
  const first=ordered[0];
  const different=ordered.find(x=>x.source!==first.source);

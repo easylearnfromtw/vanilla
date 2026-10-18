@@ -5,6 +5,7 @@ import {isOllamaConfigured,generateOllamaReply,getOllamaConfig} from "../ai/olla
 import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
 import {loadFeatures,validateFeature,featureTemplate,proposalFromAI,installFeature,removeFeature,featureHistory,rollbackFeature,type FeatureSpec,type FeatureKind} from "./feature-schema";
 import {offlineFeatureDraft} from "./offline-designer";
+import {exportSelfBuildBackup,validateSelfBuildBackup,importSelfBuildBackup,type ValidatedBackup} from "./backup";
 
 type Provider="auto"|"local"|"ollama"|"gemini";
 function descriptor(spec:FeatureSpec):Record<string,unknown>{
@@ -41,6 +42,8 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  const [busy,setBusy]=useState(false);
  const [selectedKind,setSelectedKind]=useState<FeatureKind>("checklist");
  const [offlineHint,setOfflineHint]=useState("");
+ const [backupPreview,setBackupPreview]=useState<ValidatedBackup|null>(null);
+ const importRef=useRef<HTMLInputElement>(null);
  useEffect(()=>{const update=()=>setInstalled(loadFeatures());window.addEventListener("vanilla-features-changed",update);return()=>window.removeEventListener("vanilla-features-changed",update);},[]);
  const current=installed.find(x=>x.id===editingId);
  useEffect(()=>{
@@ -122,6 +125,29 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    onOpen(id);
   }catch(e){setStatus("安裝失敗："+(e instanceof Error?e.message:String(e)));}
  }
+ async function readBackup(file?:File){
+  if(!file)return;
+  setBackupPreview(null);
+  if(file.size>4*1024*1024){setStatus("備份檔案超過 4 MB，請分次匯入");return;}
+  try{
+   const raw=JSON.parse(await file.text()) as unknown;
+   const preview=validateSelfBuildBackup(raw);
+   if(!preview.features.length){setStatus("備份不含自建模組");return;}
+   setBackupPreview(preview);
+   setStatus("已驗證 "+preview.features.length+" 個模組，尚未匯入；請檢查下方清單");
+  }catch(e){setStatus("備份驗證失敗："+(e instanceof Error?e.message:String(e)));}
+  finally{if(importRef.current)importRef.current.value="";}
+ }
+ function approveImport(){
+  if(!backupPreview)return;
+  const count=backupPreview.features.length;
+  if(!window.confirm("確認將 "+count+" 個模組及其紀錄匯入這台裝置？會建立獨立副本，不覆蓋目前資料。備份內容未加密，請確認來源可信。"))return;
+  try{
+   const imported=importSelfBuildBackup(backupPreview);
+   setInstalled(loadFeatures());setBackupPreview(null);
+   setStatus("成功匯入 "+imported+" 個獨立模組及其紀錄");
+  }catch(e){setStatus("匯入失敗："+(e instanceof Error?e.message:String(e)));}
+ }
  function permanentlyRemove(spec:FeatureSpec){
   if(!window.confirm("確定永久刪除「"+spec.name+"」及這台裝置內所有相關資料？此動作無法復原，請先匯出重要紀錄。"))return;
   if(!window.confirm("再次確認：將永久清除本機資料。確定？"))return;
@@ -159,7 +185,23 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
     try{rollbackFeature(spec.id);setInstalled(loadFeatures());setStatus("已回到上一版功能規格，資料保持不變");}catch(e){setStatus(e instanceof Error?e.message:String(e));}
    }}>回復上一版</button>}<button type="button" aria-label={"移除 "+spec.name} title="移除功能" onClick={()=>remove(spec)}><Trash2 size={15}/></button><button type="button" className="builder-delete-data" title="永久刪除功能和它的全部本機紀錄" onClick={()=>permanentlyRemove(spec)}>刪除資料</button></div></article>)}</div>}
   </section>
-  <section className="builder-panel builder-engineering"><div className="builder-section-heading"><span>04 / 進階</span><h3>原始碼等級的功能修改</h3></div>
+  <section className="builder-panel builder-backup"><div className="builder-section-heading"><span>04 / 備份與轉移</span><h3>備份我的自建工具</h3></div>
+   <p>自建功能和紀錄預設只保留在此瀏覽器。你可以匯出未加密 JSON 備份，在其他裝置還原；不需要將資料交給模型。</p>
+   <div className="builder-backup-actions">
+    <button type="button" disabled={installed.length===0} onClick={()=>{
+     if(window.confirm("備份包含工具中的待辦事項、數值及筆記原文，檔案未加密。確定匯出到此裝置？"))exportSelfBuildBackup();
+    }}><Download size={16}/>匯出完整備份</button>
+    <button type="button" onClick={()=>importRef.current?.click()}>選擇備份檔案</button>
+    <input type="file" accept=".json,application/json" ref={importRef} hidden onChange={e=>void readBackup(e.target.files?.[0])}/>
+   </div>
+   {backupPreview&&<div className="builder-backup-preview"><strong>等待匯入：{backupPreview.features.length} 個模組</strong>
+    <small>{backupPreview.exportedAt?"備份時間："+backupPreview.exportedAt:""}</small>
+    <ul>{backupPreview.features.map(x=><li key={x.spec.id}>{x.spec.name}（{x.spec.kind}） · {x.data.records.length} 筆紀錄 · {x.data.items.length} 項待辦</li>)}</ul>
+    <div><button type="button" className="workspace-primary" onClick={approveImport}>確認匯入副本</button><button type="button" onClick={()=>setBackupPreview(null)}>取消</button></div>
+   </div>}
+   <p className="builder-backup-warning">這不是端對端加密備份；若包含個人或家庭敏感資訊，請保存於受保護的位置，不要公開分享。</p>
+  </section>
+  <section className="builder-panel builder-engineering"><div className="builder-section-heading"><span>05 / 進階</span><h3>原始碼等級的功能修改</h3></div>
    <p>如果需求超出這四種模組，例如新增完整 AI Agent、資料庫、3D 功能或串接外部服務，可以產生工程需求。真正修改 React 原始碼仍需 GitHub 分支、程式碼審查、測試與你批准合併，不能從手機頁面直接無審核部署。</p>
    <div className="builder-engineering-actions">
     <button type="button" disabled={!idea.trim()} onClick={()=>downloadProposal("Vanilla-Self-Build-需求.md",issueMarkdown(idea))}><Download size={16}/>匯出工程需求</button>

@@ -1,55 +1,112 @@
 import {listVaultFiles} from "./drive";
-const KEY="vanilla.chat.history.v1";
-const PREFIX="vanilla-chat-sync-v1-";
+import {driveSession} from "../workspace/cloud-drive";
+import type {ChatTurn} from "../local-ai/engine";
+
+type Snapshot={version:2;owner:string;device:string;updatedAt:string;turns:ChatTurn[]};
+const PREFIX="vanilla-conversation-v2-";
+const UPLOAD="https://www.googleapis.com/upload/drive/v3/files";
 const API="https://www.googleapis.com/drive/v3/files";
-type Turn={role:"user"|"assistant";content:string};
-type Snapshot={version:1;createdAt:string;turns:Turn[]};
+const PERMISSION="vanilla.chat.sync.optin.v2.";
+const DEVICE="vanilla.chat.sync.device.v2.";
 export const CHAT_SYNC_EVENT="vanilla-chat-sync-status";
-function notify(message:string){window.dispatchEvent(new CustomEvent(CHAT_SYNC_EVENT,{detail:message}));}
-function valid(v:unknown):v is Turn{return !!v&&typeof v==="object"&&((v as Turn).role==="user"||(v as Turn).role==="assistant")&&typeof (v as Turn).content==="string";}
-function local():Turn[]{try{const v:unknown=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(v)?v.filter(valid):[];}catch{return [];}}
-function session():string|null{try{const v=JSON.parse(sessionStorage.getItem("vanilla.drive.session.v1")||"null") as {token?:string;expiresAt?:number}|null;return v?.token&&v.expiresAt&&v.expiresAt>Date.now()+60000?v.token:null;}catch{return null;}}
-async function check(res:Response){if(!res.ok)throw new Error("Drive "+res.status+(res.status===401?"，請重新授權":""));return res;}
-async function latest(token:string){const files=(await listVaultFiles(token)).filter(f=>f.name.startsWith(PREFIX)).sort((a,b)=>(b.modifiedTime||"").localeCompare(a.modifiedTime||""));return files[0];}
-async function read(token:string,id:string):Promise<Turn[]>{const r=await check(await fetch(API+"/"+encodeURIComponent(id)+"?alt=media",{headers:{Authorization:"Bearer "+token}}));const doc=await r.json() as Snapshot;if(doc.version!==1||!Array.isArray(doc.turns))throw new Error("聊天同步資料格式不符");return doc.turns.filter(valid);}
-function equal(a:Turn[],b:Turn[]){return JSON.stringify(a)===JSON.stringify(b);}
-let initialized=false;
-let inFlight:Promise<void>|null=null;
-let timer:ReturnType<typeof setTimeout>|undefined;
+let active=false,working:Promise<void>|null=null;
+let pending:ReturnType<typeof setTimeout>|undefined;
+function notice(message:string){window.dispatchEvent(new CustomEvent(CHAT_SYNC_EVENT,{detail:message}));}
+function account(){return driveSession()?.email.trim().toLowerCase()||"";}
+function identity(){
+ const who=account();if(!who)throw Error("請先登入 Google");
+ const key=DEVICE+encodeURIComponent(who);
+ let id=localStorage.getItem(key);if(!id){id=crypto.randomUUID();localStorage.setItem(key,id);}
+ return {who,id};
+}
+export function chatStorageKey(privateMode:boolean):string{
+ const who=account();
+ if(!who)return privateMode?"vanilla.chat.private.v1":"vanilla.chat.history.v1";
+ return (privateMode?"vanilla.chat.private.v2.":"vanilla.chat.history.v2.")+encodeURIComponent(who);
+}
+export function chatSyncEnabled(){const who=account();return Boolean(who&&localStorage.getItem(PERMISSION+encodeURIComponent(who))==="true");}
+export function setChatSyncEnabled(enabled:boolean){
+ const who=account();if(!who)throw Error("請先登入 Google");
+ localStorage.setItem(PERMISSION+encodeURIComponent(who),String(enabled));
+ if(!enabled)stopChatSync();
+ window.dispatchEvent(new Event("vanilla-chat-sync-changed"));
+}
+function safeTurns(raw:unknown):ChatTurn[]{
+ if(!Array.isArray(raw))return [];
+ return raw.filter(x=>x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")
+  .slice(-10000).map(x=>({
+   role:x.role,content:x.content.slice(0,30000),id:typeof x.id==="string"?x.id:crypto.randomUUID(),
+   createdAt:typeof x.createdAt==="number"&&Number.isFinite(x.createdAt)?x.createdAt:Date.now(),
+   model:typeof x.model==="string"?x.model:undefined,
+   source:x.source,rating:x.rating
+  })) as ChatTurn[];
+}
+function local():ChatTurn[]{
+ try{return safeTurns(JSON.parse(localStorage.getItem(chatStorageKey(false))||"[]") as unknown);}catch{return [];}
+}
+function fileName(who:string,id:string){return PREFIX+encodeURIComponent(who)+"-"+id+".json";}
+async function read(token:string,id:string):Promise<Snapshot|null>{
+ const res=await fetch(API+"/"+encodeURIComponent(id)+"?alt=media",{headers:{Authorization:"Bearer "+token}});
+ if(!res.ok)return null;
+ const data=await res.json() as Partial<Snapshot>;
+ if(data.version!==2||data.owner!==account()||!Array.isArray(data.turns))return null;
+ return {version:2,owner:data.owner,device:String(data.device||""),updatedAt:String(data.updatedAt||""),turns:safeTurns(data.turns)};
+}
+async function files(){
+ const session=driveSession();if(!session)throw Error("Google 登入已過期");
+ const {who}=identity(),prefix=PREFIX+encodeURIComponent(who)+"-";
+ return (await listVaultFiles(session.token)).filter(f=>f.name.startsWith(prefix)).sort((a,b)=>(b.modifiedTime||"").localeCompare(a.modifiedTime||""));
+}
 export async function initializeChatSync():Promise<void>{
- const token=session();if(!token){notify("請登入 Google Drive 以同步對話");return;}
- if(inFlight)return inFlight;
- inFlight=(async()=>{
-  notify("正在讀取 Google Drive 對話…");
-  const file=await latest(token);
-  const remote=file?await read(token,file.id):[];
-  const current=local();
-  if(!current.length&&remote.length){localStorage.setItem(KEY,JSON.stringify(remote));window.dispatchEvent(new Event("vanilla-chat-remote-loaded"));notify("已載入 "+remote.length+" 則雲端訊息");}
-  else if(current.length&&remote.length&&!equal(current,remote)){
-   // Never silently overwrite a different local conversation or cloud snapshot.
-   notify("本機與雲端對話不同，已保留本機資料；請先手動備份，暫停自動覆寫");
-   initialized=false;return;
-  }else notify(remote.length?"對話已與 Google Drive 同步":"雲端尚無對話，新增訊息後將自動同步");
-  initialized=true;
- })().catch(e=>{initialized=false;notify("對話同步失敗："+String(e instanceof Error?e.message:e));}).finally(()=>{inFlight=null;});
- return inFlight;
+ if(!chatSyncEnabled()){active=false;return;}
+ const session=driveSession();if(!session)return;
+ if(working)return working;
+ working=(async()=>{
+  notice("正在載入這個 Google 帳號的對話…");
+  const snapshots=await files();
+  const newest=snapshots[0]?await read(session.token,snapshots[0].id):null;
+  const stored=local();
+  if(newest?.turns.length&&!stored.length){
+   localStorage.setItem(chatStorageKey(false),JSON.stringify(newest.turns));
+   window.dispatchEvent(new Event("vanilla-chat-remote-loaded"));
+   notice("已載入 "+newest.turns.length+" 則雲端訊息");
+  }else if(newest?.turns.length&&stored.length&&JSON.stringify(newest.turns)!==JSON.stringify(stored)){
+   active=false;
+   notice("本機與雲端對話存在差異，已暫停自動覆寫。請備份並決定要保留的版本");
+   return;
+  }else notice(newest?.turns.length?"已連接個人聊天快照":"已啟用對話同步，尚未有雲端快照");
+  active=true;
+ })().catch(e=>{active=false;notice("載入失敗："+String(e instanceof Error?e.message:e));}).finally(()=>{working=null;});
+ return working;
 }
-export function scheduleChatSync(){if(!initialized||!session())return;if(timer)clearTimeout(timer);timer=setTimeout(()=>{void pushChatSync();},1800);}
+export function scheduleChatSync(){if(!active||!chatSyncEnabled()||!driveSession())return;if(pending)clearTimeout(pending);pending=setTimeout(()=>{void pushChatSync();},4500);}
 export async function pushChatSync():Promise<void>{
- const token=session();if(!token||!initialized)return;
- const turns=local();if(!turns.length)return;
- if(inFlight){scheduleChatSync();return;}
- inFlight=(async()=>{
-  const file=await latest(token);const remote=file?await read(token,file.id):[];
-  if(equal(remote,turns)){notify("對話已同步");return;}
-  // Allow only append-only changes. Divergent edits are not silently merged or overwritten.
-  if(remote.length&&!equal(remote,turns.slice(0,remote.length))){initialized=false;notify("偵測到其他裝置修改對話；為避免覆蓋，已暫停同步");return;}
-  const boundary="vanilla_"+crypto.randomUUID().replaceAll("-","");
-  const metadata=JSON.stringify({name:PREFIX+Date.now()+".json",parents:["appDataFolder"],mimeType:"application/json"});
-  const body="--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+metadata+"\r\n--"+boundary+"\r\nContent-Type: application/json\r\n\r\n"+JSON.stringify({version:1,createdAt:new Date().toISOString(),turns} satisfies Snapshot)+"\r\n--"+boundary+"--";
-  await check(await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"multipart/related; boundary="+boundary},body}));
-  notify("已自動同步 "+turns.length+" 則訊息");
- })().catch(e=>notify("對話同步失敗："+String(e instanceof Error?e.message:e))).finally(()=>{inFlight=null;});
- return inFlight;
+ if(!active||!chatSyncEnabled())return;
+ const session=driveSession();if(!session)return;
+ if(working){scheduleChatSync();return;}
+ working=(async()=>{
+  const turns=local();
+  if(!turns.length)return;
+  const {who,id}=identity(),name=fileName(who,id);
+  const snapshot:Snapshot={version:2,owner:who,device:id,updatedAt:new Date().toISOString(),turns};
+  const bodyText=JSON.stringify(snapshot);
+  if(bodyText.length>6*1024*1024)throw Error("聊天快照超過 6MB，請先匯出重要對話");
+  const current=(await files()).find(x=>x.name===name);
+  if(current){
+   const response=await fetch(UPLOAD+"/"+encodeURIComponent(current.id)+"?uploadType=media",{
+    method:"PATCH",headers:{Authorization:"Bearer "+session.token,"Content-Type":"application/json"},body:bodyText
+   });
+   if(!response.ok)throw Error("Drive 更新失敗 "+response.status);
+  }else{
+   const boundary="vanilla_"+crypto.randomUUID().replaceAll("-","");
+   const metadata=JSON.stringify({name,parents:["appDataFolder"],mimeType:"application/json"});
+   const body="--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+metadata+"\r\n--"+boundary+"\r\nContent-Type: application/json\r\n\r\n"+bodyText+"\r\n--"+boundary+"--";
+   const response=await fetch(UPLOAD+"?uploadType=multipart",{method:"POST",
+    headers:{Authorization:"Bearer "+session.token,"Content-Type":"multipart/related; boundary="+boundary},body});
+   if(!response.ok)throw Error("Drive 寫入失敗 "+response.status);
+  }
+  notice("已同步 "+turns.length+" 則訊息（Google Drive 帳號："+who+"）");
+ })().catch(e=>notice("同步暫停："+String(e instanceof Error?e.message:e))).finally(()=>{working=null;});
+ return working;
 }
-export function stopChatSync(){initialized=false;if(timer)clearTimeout(timer);}
+export function stopChatSync(){active=false;if(pending)clearTimeout(pending);}

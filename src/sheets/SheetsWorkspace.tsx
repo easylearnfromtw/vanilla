@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from "react";
+import type {ClipboardEvent} from "react";
 import {Plus,Download,Upload,Undo2,Redo2,Sparkles,Check,X,Table2,FilePlus2,Trash2,Save,Copy} from "lucide-react";
 import {availableProviders} from "../vault/providers";
 import {isLocalModelReady} from "../local-ai/engine";
@@ -6,6 +7,7 @@ import {isOllamaConfigured} from "../ai/ollama";
 import {applyPlan,describePlan,proposeSheetEdit,remoteRoute,resolveRoute,routeIsReady,type SheetPlan,type SheetRoute} from "./ai";
 import {LIMIT_COLS,LIMIT_ROWS,COLORS,addressOf,colName,parseAddress,loadWorkbook,saveWorkbook,makeSheet,uniqueSheetName,setCell,setCellStyle,cloneBook,now,displayValue,parseDelimited,rowsToSheet,csvForSheet,download,isWorkbook,emptyWorkbook,type Workbook,type CellFormat,type CellStyle} from "./model";
 import "./sheets.css";
+import {takeChatTable} from "./bridge";
 
 function starter(kind:"budget"|"travel"|"training"):Workbook{
  const book=emptyWorkbook();const sheet=book.sheets[0];
@@ -49,6 +51,7 @@ export default function SheetsWorkspace(){
  const cols=useMemo(()=>Array.from({length:visibleCols},(_,col)=>colName(col)),[visibleCols]);
  const rows=useMemo(()=>Array.from({length:visibleRows},(_,row)=>row),[visibleRows]);
  useEffect(()=>{try{saveWorkbook(book);setSaveError(false);}catch{setSaveError(true);}},[book]);
+ useEffect(()=>{const rows=takeChatTable();if(!rows)return;if(book.sheets.length>=24){setNotification("工作表已達上限，無法匯入聊天表格");return;}const draft=cloneBook(book);const sheet=makeSheet(uniqueSheetName(draft,"AI 對話表格"));rowsToSheet(sheet,rows);draft.sheets.push(sheet);draft.updatedAt=now();setBook(draft);setActiveId(sheet.id);setSelected("A1");setNotification("已從 AI 對話匯入表格");},[]);
  function change(update:(draft:Workbook)=>void){
   const next=cloneBook(book);
   update(next);next.updatedAt=now();
@@ -68,7 +71,7 @@ export default function SheetsWorkspace(){
  function deleteSheet(){if(book.sheets.length<=1){setNotification("至少需要一張工作表");return;}if(!window.confirm("確定刪除「"+active.name+"」？可用復原恢復。"))return;change(draft=>{draft.sheets=draft.sheets.filter(s=>s.id!==active.id);});setActiveId(book.sheets.find(s=>s.id!==active.id)!.id);}
  function template(kind:"budget"|"travel"|"training"){if(!window.confirm("載入範本會取代目前的工作簿，確定嗎？可以使用復原。"))return;replace(starter(kind));setNotification("已建立可編輯的範本");}
  function jump(row:number,col:number){const r=Math.max(0,Math.min(LIMIT_ROWS-1,row)),c=Math.max(0,Math.min(LIMIT_COLS-1,col));setVisibleRows(v=>Math.max(v,r+1));setVisibleCols(v=>Math.max(v,c+1));setSelected(addressOf(r,c));}
- function paste(event:React.ClipboardEvent<HTMLDivElement>){
+ function paste(event:ClipboardEvent<HTMLDivElement>){
   const text=event.clipboardData.getData("text/plain");
   if(!text.includes("\t")&&!text.includes("\n"))return;
   event.preventDefault();const rows=parseDelimited(text);if(!rows.length)return;

@@ -22,7 +22,7 @@ function discoverModels(){
  return [...baseModels,...extra];
 }
 export const LOCAL_MODELS=discoverModels();
-export type ChatTurn={role:"user"|"assistant";content:string;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string};
+export type ChatTurn={role:"user"|"assistant";content:string;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down"};
 let engine:webllm.MLCEngine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;

@@ -12,7 +12,20 @@ export const CHAT_SYNC_EVENT="vanilla-chat-sync-status";
 let active=false,working:Promise<void>|null=null;
 let pending:ReturnType<typeof setTimeout>|undefined;
 function notice(message:string){window.dispatchEvent(new CustomEvent(CHAT_SYNC_EVENT,{detail:message}));}
-function account(){return driveSession()?.email.trim().toLowerCase()||"";}
+const SESSION_ACCOUNT="vanilla.chat.active.account.v1";
+export function signedChatAccount():string{
+ const live=driveSession()?.email.trim().toLowerCase();
+ if(live)return live;
+ try{return (sessionStorage.getItem(SESSION_ACCOUNT)||"").trim().toLowerCase();}catch{return "";}
+}
+export function bindChatAccount(email:string):void{
+ const next=email.trim().toLowerCase();
+ if(next)sessionStorage.setItem(SESSION_ACCOUNT,next);
+}
+export function unbindChatAccount():void{
+ try{sessionStorage.removeItem(SESSION_ACCOUNT);}catch{}
+}
+function account(){return signedChatAccount();}
 function identity(){
  const who=account();if(!who)throw Error("請先登入 Google");
  const key=DEVICE+encodeURIComponent(who);

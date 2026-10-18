@@ -22,6 +22,16 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
+      - name: Verify compiled GitHub Pages assets
+        run: |
+          test -f dist/index.html
+          test -d dist/assets
+          grep -q '/vanilla/assets/' dist/index.html
+          if grep -q '/src/main.tsx' dist/index.html; then
+            echo "::error::dist/index.html still references TypeScript source instead of bundled assets"
+            exit 1
+          fi
+          echo "Verified compiled index.html and /vanilla/assets/ paths"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

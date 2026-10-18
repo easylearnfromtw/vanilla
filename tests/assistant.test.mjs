@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {planAppIntent,PROJECTS} from "../src/assistant/intent-router.ts";
 import {getFitnessReport,formatFitnessReport,parseRunDraft,appendFitnessRun} from "../src/assistant/fitness-bridge.ts";
+import {proposeSheetAction,commitSheetAction} from "../src/assistant/sheet-actions.ts";
 import {getSources,setSources,searchLinks} from "../src/search/source-preferences.ts";
 
 function store(){
@@ -57,4 +58,24 @@ test("Preferred site controls never pretend to fetch evidence",()=>{
  setSources([{host:"pubmed.ncbi.nlm.nih.gov",label:"PubMed",weight:5,enabled:true}]);
  assert.equal(getSources()[0].weight,5);
  assert.ok(searchLinks("diabetes")[1].url.includes("site%3Apubmed"));
+});
+
+test("Chat spreadsheet edits require explicit commit and detect stale revisions",()=>{
+ const entries=store();
+ const planned=planAppIntent("幫我做一個家庭收支表格");
+ assert.equal(planned?.kind,"sheet");
+ if(planned?.kind!=="sheet")return;
+ const book=planned.workbook;
+ entries.set("vanilla.sheets.workbooks.v1",JSON.stringify([book]));
+ entries.set("vanilla.sheets.current.v1",book.id);
+ const change=proposeSheetAction("在表格 B2 改成 餐飲");
+ assert.ok(change);assert.equal(change.edits[0].cell,"B2");
+ assert.equal(JSON.parse(entries.get("vanilla.sheets.workbooks.v1"))[0].sheets[0].cells.B2,undefined);
+ globalThis.window={dispatchEvent:()=>true};
+ const updated=commitSheetAction(change);
+ assert.equal(updated.sheets[0].cells.B2.raw,"餐飲");
+ const conflict=proposeSheetAction("在表格 B2 改成 交通");
+ assert.ok(conflict);
+ commitSheetAction(proposeSheetAction("在表格 B2 改成 購物"));
+ assert.throws(()=>commitSheetAction(conflict),/其他操作更新/);
 });

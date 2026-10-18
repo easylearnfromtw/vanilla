@@ -3,9 +3,9 @@ import {Copy,ShieldCheck,Smartphone,ExternalLink} from "lucide-react";
 import {planMobileTask,mobileCliCommand,validateMobileBridgeUrl,executeReadOnlyMobileTask,inPrivateChat,type MobilePlatform} from "./mobile-agent";
 
 /** All execution is opt-in. Browser cannot access XCUITest, ADB or WebDriverAgent directly. */
-export default function MobileAutomation(){
+export default function MobileAutomation({initialGoal=""}:{initialGoal?:string}){
  const [platform,setPlatform]=useState<MobilePlatform>("ios");
- const [goal,setGoal]=useState("查看目前開啟的 App 是什麼");
+ const [goal,setGoal]=useState(initialGoal||"查看目前開啟的 App 是什麼");
  const [endpoint,setEndpoint]=useState("");
  const [token,setToken]=useState("");
  const [approved,setApproved]=useState(false);

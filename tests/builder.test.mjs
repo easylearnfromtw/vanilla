@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {validateFeature,featureTemplate,installFeature,loadFeatures,removeFeature,
- testExpression,proposalFromAI,featureData,writeFeatureData} from "../src/builder/feature-schema.ts";
+ testExpression,proposalFromAI,featureData,writeFeatureData,featureHistory,rollbackFeature} from "../src/builder/feature-schema.ts";
 import {getToneProfile,saveToneProfile,learnToneFromMessage,toneInstruction,toneFeedback,resetToneProfile} from "../src/ai/tone-adaptation.ts";
 
 function setup(){
@@ -45,6 +45,11 @@ test("Approval installs a real app and saves data separately from app spec revis
  installFeature(revision);
  assert.equal(loadFeatures()[0].revision,2);
  assert.equal(featureData(spec.id).records[0].values.item,"跑步");
+ assert.equal(featureHistory(spec.id).length,1);
+ const restored=rollbackFeature(spec.id);
+ assert.equal(restored.name,spec.name);
+ assert.equal(restored.revision,3);
+ assert.equal(featureData(spec.id).records.length,1);
  removeFeature(spec.id);
  assert.equal(loadFeatures().length,0);
  assert.equal(featureData(spec.id).records.length,1);

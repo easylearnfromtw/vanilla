@@ -45,3 +45,12 @@ export function assertLocalMessages(messages:readonly LocalChatMessage[]):void{
   throw Error("Vanilla 訊息序列驗證失敗：System Prompt 必須且只能放在第一筆");
  }
 }
+
+/** Exactly one fallback attempt for this specific WebLLM prompt ordering error. */
+export async function retryOnSystemPromptError<T>(run:()=>Promise<T>,recover:()=>Promise<T>):Promise<T>{
+ try{return await run();}
+ catch(error){
+  if(!isSystemPromptOrderError(error))throw error;
+  return await recover();
+ }
+}

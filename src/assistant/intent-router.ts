@@ -27,7 +27,7 @@ export function planAppIntent(prompt:string):AppIntent|null{
  const q=prompt.trim();
  if(!q)return null;
  if(/^(?:開啟|打開|前往|進入|顯示)(?:Vanilla\s*)?(?:Sheets|表格)(?:工作區|編輯器)?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"sheets",message:"正在開啟 Vanilla Sheets"};
- if(/^(?:開啟|打開|前往|進入)(?:Vanilla\s*)?(?:Mobilerun|手機操作|手機代理|手機自動化)(?:工作區|Agent)?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"mobile",message:"正在開啟手機操作 Agent"};
+ if(/^(?:開啟|打開|前往|進入)(?:Vanilla\s*)?(?:Mobilerun|手機操作|手機代理|手機自動化)(?:\s*(?:工作區|Agent))?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"mobile",message:"正在開啟手機操作 Agent"};
  if(/^(?:開啟|打開|前往|進入)(?:Vanilla\s*)?(?:Cloud\s*Files|檔案|雲端檔案)(?:管理)?[!！。?？\s]*$/i.test(q))return {kind:"open",section:"files",message:"正在開啟雲端檔案"};
  if(/^(?:開啟|打開|前往|進入)(?:設定|模型設定|登入設定)[!！。?？\s]*$/.test(q))return {kind:"open",section:"settings",message:"正在開啟設定"};
  if(/^(?:開啟|打開|前往|進入)(?:Self[- ]?Build|自建功能|功能工作室)[!！。?？\s]*$/i.test(q))return {kind:"open",section:"builder",message:"正在開啟自建功能"};

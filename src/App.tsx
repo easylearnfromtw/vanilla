@@ -24,6 +24,7 @@ useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");
 const [menuOpen,setMenuOpen]=useState(false);
 const [filename,setFilename]=useState("");
 const [chatKey,setChatKey]=useState(0);
+useEffect(()=>{const open=()=>{setSection("sheets");setMenuOpen(false);};window.addEventListener("vanilla-open-sheets",open);return()=>window.removeEventListener("vanilla-open-sheets",open);},[]);
 const selected=items.find(x=>x.id===section)!;
 function navigate(next:Section){setSection(next);setMenuOpen(false);}
 return <div className="shell">

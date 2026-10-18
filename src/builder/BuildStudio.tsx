@@ -3,7 +3,7 @@ import {Sparkles,Plus,ShieldCheck,Download,ArrowUpRight,CheckCircle2,AlertTriang
 import {getConfigs,generateCloudReply} from "../vault/providers";
 import {isOllamaConfigured,generateOllamaReply,getOllamaConfig} from "../ai/ollama";
 import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
-import {loadFeatures,validateFeature,featureTemplate,proposalFromAI,installFeature,removeFeature,type FeatureSpec,type FeatureKind} from "./feature-schema";
+import {loadFeatures,validateFeature,featureTemplate,proposalFromAI,installFeature,removeFeature,featureHistory,rollbackFeature,type FeatureSpec,type FeatureKind} from "./feature-schema";
 
 type Provider="auto"|"local"|"ollama"|"gemini";
 function descriptor(spec:FeatureSpec):Record<string,unknown>{
@@ -137,7 +137,10 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    </>}
   </section>
   <section className="builder-panel"><div className="builder-section-heading"><span>03 / 已安裝</span><h3>我的自建工具 <small>({installed.length}/24)</small></h3></div>
-   {installed.length===0?<p className="builder-empty">目前尚無自建工具。選擇模板或描述你想要的功能。</p>:<div className="builder-installed">{installed.map(spec=><article key={spec.id}><div><strong>{spec.name}</strong><p>{spec.description}</p><small>{spec.kind} · v{spec.revision}</small></div><div><button type="button" onClick={()=>onOpen(spec.id)}>開啟</button><button type="button" onClick={()=>onEditingChange(spec.id)}><RefreshCcw size={14}/>改進</button><button type="button" aria-label={"移除 "+spec.name} title="移除功能" onClick={()=>remove(spec)}><Trash2 size={15}/></button></div></article>)}</div>}
+   {installed.length===0?<p className="builder-empty">目前尚無自建工具。選擇模板或描述你想要的功能。</p>:<div className="builder-installed">{installed.map(spec=><article key={spec.id}><div><strong>{spec.name}</strong><p>{spec.description}</p><small>{spec.kind} · v{spec.revision}</small></div><div><button type="button" onClick={()=>onOpen(spec.id)}>開啟</button><button type="button" onClick={()=>onEditingChange(spec.id)}><RefreshCcw size={14}/>改進</button>{featureHistory(spec.id).length>0&&<button type="button" title="回到上一個已批准版本（資料不刪除）" onClick={()=>{
+    if(!window.confirm("將「"+spec.name+"」的功能規格回復到上一版？目前儲存的紀錄不會刪除。"))return;
+    try{rollbackFeature(spec.id);setInstalled(loadFeatures());setStatus("已回到上一版功能規格，資料保持不變");}catch(e){setStatus(e instanceof Error?e.message:String(e));}
+   }}>回復上一版</button>}<button type="button" aria-label={"移除 "+spec.name} title="移除功能" onClick={()=>remove(spec)}><Trash2 size={15}/></button></div></article>)}</div>}
   </section>
   <section className="builder-panel builder-engineering"><div className="builder-section-heading"><span>04 / 進階</span><h3>原始碼等級的功能修改</h3></div>
    <p>如果需求超出這四種模組，例如新增完整 AI Agent、資料庫、3D 功能或串接外部服務，可以產生工程需求。真正修改 React 原始碼仍需 GitHub 分支、程式碼審查、測試與你批准合併，不能從手機頁面直接無審核部署。</p>

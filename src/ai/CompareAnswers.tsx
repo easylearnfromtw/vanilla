@@ -40,7 +40,7 @@ export default function CompareAnswers({comparison,onChoose,onCancel}:Props){
   </div>
   <div className="compare-bottom">
    <p>{pending?"正在等待模型，完成後即可選擇。":done.length?"只會將選中的回答加入聊天歷史；其餘候選不會留在聊天記錄。":"兩個模型均無法回答，可取消並重新選擇模型。"}</p>
-   <button type="button" onClick={onCancel}>{pending?"取消比較":"不選擇，返回聊天"}</button>
+   <button type="button" disabled={pending} onClick={onCancel}>{pending?"正在生成，完成後可返回":"不選擇，返回聊天"}</button>
   </div>
  </section>;
 }

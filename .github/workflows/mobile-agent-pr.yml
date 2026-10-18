@@ -15,6 +15,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run test:workspace
       - run: npm run test:builder
+      - run: npm run test:local-chat
       - run: npm run test:assistant
       - run: npm run test:security
       - run: npm run test:mobile

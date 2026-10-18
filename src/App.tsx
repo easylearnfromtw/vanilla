@@ -1,6 +1,7 @@
 import LocalChat from "./local-ai/LocalChat";
 import DriveConnection from "./vault/DriveConnection";
-import {useState} from "react";
+import {useState,useEffect} from "react";
+import {loadProviderConfigs} from "./vault/provider-sync";
 import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole} from "lucide-react";
 type Section="chat"|"agents"|"tasks"|"memory"|"travel"|"health"|"line"|"settings";
 const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string}[]=[
@@ -15,6 +16,7 @@ const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string
 ];
 export default function App(){
 const [section,setSection]=useState<Section>("chat");
+useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");if(!raw)return;const session=JSON.parse(raw) as {token?:string;expiresAt?:number};if(session.token&&session.expiresAt&&session.expiresAt>Date.now()+60000){void loadProviderConfigs(session.token).catch(()=>{});}}catch{}},[]);
 const [menuOpen,setMenuOpen]=useState(false);
 const [filename,setFilename]=useState("");
 const [chatKey,setChatKey]=useState(0);

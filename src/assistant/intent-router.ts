@@ -11,7 +11,7 @@ export type AppIntent={kind:"open";section:"sheets"|"files"|"settings"|"builder"
  |{kind:"integration";name:string;idea:string;message:string}
  |SheetIntent;
 const templates=[
- {regex:/記帳|收支|家庭預算|開支|收入支出|支出表/,name:"家庭收支",rows:[["日期","項目","分類","收入","支出","結餘"],["","","", "", "", "=SUM(D2:D30)-SUM(E2:E30)"]]},
+ {regex:/記帳|收支|家庭預算|開支|收入支出|支出表/,name:"家庭收支",rows:[["日期","項目","分類","收入","支出","結餘"],...Array.from({length:28},(_,i)=>["","","","","",`=SUM(D2:D${i+2})-SUM(E2:E${i+2})`]),["","合計","","=SUM(D2:D29)","=SUM(E2:E29)","=D30-E30"]]},
  {regex:/運動|跑步|健身|體適能|重訓|訓練/,name:"運動紀錄",rows:[["日期","運動類型","距離（km）","時間（分鐘）","平均心率","備註"]]},
  {regex:/旅遊|旅行|行程|景點|住宿/,name:"旅行行程",rows:[["日期","時間","地點／活動","交通","費用","備註"]]},
  {regex:/考試|讀書|複習|國考|學習/,name:"讀書進度",rows:[["日期","科目","章節","讀書分鐘","練習題數","正確率","備註"]]},

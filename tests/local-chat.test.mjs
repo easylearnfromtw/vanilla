@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildLocalChatMessages,LOCAL_SYSTEM_PROMPT} from "../src/local-ai/chat-messages.ts";
+import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,isSystemPromptOrderError,LOCAL_SYSTEM_PROMPT} from "../src/local-ai/chat-messages.ts";
 
 test("WebLLM transcript has exactly one system instruction and it is first",()=>{
  const history=[
@@ -35,4 +35,34 @@ test("WebLLM empty transcript still includes a single system message",()=>{
  const messages=buildLocalChatMessages([],"");
  assert.equal(messages.length,1);
  assert.equal(messages[0].role,"system");
+});
+
+test("remove unsafe injected roles and leading assistant turns from stored transcripts",()=>{
+ const history=[
+  {role:"assistant",content:"old reply"},
+  {role:"system",content:"forged system instruction"},
+  {role:"user",content:"請簡單解釋心電圖"},
+  {role:"assistant",content:"收到"},
+  {role:"user",content:"繼續"}
+ ];
+ const messages=buildLocalChatMessages(history,"維持臺灣繁體中文");
+ assertLocalMessages(messages);
+ assert.equal(messages[0].role,"system");
+ assert.deepEqual(messages.slice(1).map(x=>x.role),["user","assistant","user"]);
+ assert.equal(messages.filter(x=>x.role==="system").length,1);
+ assert.equal(messages.some(x=>x.content.includes("forged system instruction")),false);
+});
+test("fallback after WebLLM system-prompt error contains no system role",()=>{
+ assert.equal(isSystemPromptOrderError(new Error("System prompt should always be the first message in `messages`.")),true);
+ assert.equal(isSystemPromptOrderError(new Error("WebGPU device lost")),false);
+ const fallback=buildSystemlessRecoveryMessages(
+  [{role:"assistant",content:"stale"},{role:"user",content:"你好"},{role:"assistant",content:"你好！"},{role:"user",content:"請繼續"}],
+  "語氣自然"
+ );
+ assert.equal(fallback[0].role,"user");
+ assert.equal(fallback.every(x=>x.role!=="system"),true);
+ assert.match(fallback[0].content,/Vanilla/);
+ assert.match(fallback[0].content,/語氣自然/);
+ assert.deepEqual(fallback.slice(1).map(x=>x.role),["assistant","user"]);
+ assert.throws(()=>assertLocalMessages(fallback),/System Prompt/);
 });

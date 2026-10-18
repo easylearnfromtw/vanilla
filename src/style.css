@@ -133,3 +133,10 @@
 .model-id-suffix{font-size:10px;overflow-wrap:anywhere;opacity:.8}
 .model-selection-row .compare-toggle{min-height:36px}
 @media(max-width:760px){.model-selection-row>.compare-toggle{font-size:11px;padding:8px 9px}.ollama-model-pool{padding:12px}}
+
+.message-rating{display:inline-flex;gap:3px;margin-left:8px;vertical-align:middle;align-items:center}
+.message-rating button{display:inline-flex;align-items:center;justify-content:center;min-width:31px;min-height:31px;border:1px solid transparent;border-radius:8px;color:#7a838f;background:transparent}
+.message-rating button:hover:not(:disabled),.message-rating button:focus-visible:not(:disabled){background:#f2f4f6;border-color:#e6e9ed;color:#344052}
+.message-rating button.selected{background:#edf3f7;border-color:#d9e5ef;color:#274f70;opacity:1}
+.message-rating button:disabled:not(.selected){opacity:.3}
+@media(max-width:760px){.message-rating{margin:8px 0 0}.message-rating button{min-width:40px;min-height:40px}}

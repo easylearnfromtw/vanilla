@@ -1,4 +1,4 @@
-import {validateFeature,type FeatureSpec,type FeatureKind,type FieldType} from "./feature-schema";
+import {validateFeature,type FeatureSpec,type FeatureKind,type FieldType} from "./feature-schema.ts";
 
 type Draft={spec:FeatureSpec;reason:string;confidence:"high"|"medium"|"low";warnings:string[]};
 type Field={id:string;label:string;type:FieldType;unit?:string};

@@ -1,8 +1,8 @@
 import {useState} from "react";
 import {Cable,CheckCircle2,RefreshCw,ShieldAlert} from "lucide-react";
-import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConfig,testOllama,type OllamaModel} from "./ollama";
+import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConfig,testOllama,generateOllamaReply,type OllamaModel} from "./ollama";
 import {getVoteCount,getRatingCount,resetModelChoices} from "./model-orchestrator";
-import {clearModelHealth} from "./model-health";
+import {clearModelHealth,recordModelRun} from "./model-health";
 export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
  const [url,setUrl]=useState(stored.endpoint);
@@ -35,7 +35,21 @@ export default function ModelConnections(){
    setNotice("已儲存 Ollama 連線。若尚未測試，使用時可能因 CORS 或網路設定而失敗。");
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
  }
- function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setNotice("已移除 Ollama 連線設定");}
+ async function testInference(){
+  if(!stored.endpoint||!stored.model){setNotice("請先儲存 Ollama 連線和模型名稱");return;}
+  setBusy(true);setNotice("正在測試已儲存的 "+stored.model+"，低效能 CPU 可能需要一段時間…");
+  const started=Date.now();
+  try{
+   const reply=await generateOllamaReply([{role:"user",content:"這是連線測試。請只回答：OK"}],stored.model);
+   const seconds=Math.max(0.1,(Date.now()-started)/1000);
+   recordModelRun("ollama:"+stored.model,true,Date.now()-started);
+   setNotice("推論成功（"+seconds.toFixed(1)+" 秒），回覆：「"+reply.slice(0,80)+"」。已把耗時納入本機模型排序。");
+  }catch(error){
+   recordModelRun("ollama:"+stored.model,false,Date.now()-started);
+   setNotice("模型推論測試失敗："+(error instanceof Error?error.message:String(error)));
+  }finally{setBusy(false);}
+ }
+  function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setNotice("已移除 Ollama 連線設定");}
  return <section className="model-connection-panel">
   <div className="connection-title"><Cable size={20}/><h3>Ollama · 家庭 AI 伺服器</h3></div>
   <p>可連接樹莓派調度的家庭主機、家用電腦、雲端 VM，或使用 API Key 的 Ollama 官方雲端服務。<strong>這不是 iPhone 裝置端運算</strong>。自架推論通常沒有逐次 API 費，但需自行負擔設備；官方 Ollama Cloud 僅有有限的免費起始點數，可能另行計費。</p>
@@ -58,6 +72,7 @@ export default function ModelConnections(){
   <div className="connection-buttons">
    <button type="button" disabled={busy} onClick={()=>void test()}><RefreshCw size={15}/>{busy?"連線中…":"測試連線／取得模型"}</button>
    <button type="button" disabled={busy||!url||!model} className="primary" onClick={save}>儲存並啟用</button>
+   {stored.endpoint&&<button type="button" disabled={busy} onClick={()=>void testInference()}>測試模型實際回答</button>}
    {stored.endpoint&&<button type="button" disabled={busy} onClick={remove}>中斷連線</button>}
   </div>
   {stored.endpoint&&<p className="connection-current"><CheckCircle2 size={14}/>已設定：{stored.model}（候選模型 {stored.models.length} 個）。儲存設定不代表主機持續在線。</p>}

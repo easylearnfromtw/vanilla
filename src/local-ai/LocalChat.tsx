@@ -183,7 +183,7 @@ async function executeIntent(question:string):Promise<boolean>{
  const intent=planAppIntent(question);
  if(!intent)return false;
  if(intent.kind==="open"){
-  const eventName=intent.section==="sheets"?"vanilla-open-sheets":intent.section==="files"?"vanilla-open-files":intent.section==="builder"?"vanilla-open-builder":"vanilla-open-settings";
+  const eventName=intent.section==="mobile"?"vanilla-open-mobile":intent.section==="sheets"?"vanilla-open-sheets":intent.section==="files"?"vanilla-open-files":intent.section==="builder"?"vanilla-open-builder":"vanilla-open-settings";
   window.dispatchEvent(new Event(eventName));setDraft("");return true;
  }
  if(intent.kind==="integration"){

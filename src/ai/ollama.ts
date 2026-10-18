@@ -24,6 +24,7 @@ export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  const endpoint=next.endpoint.trim().replace(/\/+$/,"");
  const model=next.model.trim();
  if(endpoint)normalizeOllamaUrl(endpoint);
+ if(endpoint!==config.endpoint&&accessToken===undefined)token="";
  const names=[model,...(next.models||[])].filter(Boolean);
  config={endpoint,model,models:[...new Set(names)].slice(0,4)};
  if(accessToken!==undefined)token=accessToken.trim();
@@ -67,13 +68,15 @@ async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
  }finally{clearTimeout(timeout);}
 }
 export function isOllamaConfigured(){return Boolean(config.endpoint&&config.model);}
-export async function testOllama(endpoint=config.endpoint,accessToken=token):Promise<OllamaTest>{
+export async function testOllama(endpoint=config.endpoint,accessToken?:string):Promise<OllamaTest>{
  const base=normalizeOllamaUrl(endpoint);
+ const savedHost=config.endpoint?normalizeOllamaUrl(config.endpoint):"";
+ const authorization=accessToken!==undefined?accessToken:(base===savedHost?token:"");
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),12000);
  try{
   const response=await fetch(base+"/api/tags",{
-   headers:accessToken?{Authorization:"Bearer "+accessToken}:{},
+   headers:authorization?{Authorization:"Bearer "+authorization}:{},
    signal:controller.signal
   });
   if(!response.ok)throw new Error("Ollama HTTP "+response.status+"，請檢查存取授權");

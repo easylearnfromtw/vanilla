@@ -8,7 +8,7 @@ export type MobileRunResponse={summary:string;completed:boolean};
 
 const MAX_GOAL=280;
 const RESTRICTED=/(?:admin|管理員|最高權限|root|superuser|credential|credentials|密碼|憑證|金鑰|api.?key|secret|token|\.env|system prompt|系統提示|私鑰|驗證碼|一次性密碼|otp|2fa|雙重驗證|付款|刷卡|轉帳|匯款|下單|結帳|購買|支付|賭博|投注|刪除|清空|銷毀|格式化|重設|恢復原廠|解除鎖定|越獄|jailbreak|繞過權限|停用防護|禁用防護|更改權限|修改權限|傳送訊息|寄送訊息|傳簡訊|發簡訊|傳送郵件|發送郵件|上傳|外傳|外洩|匯出個資|擷取聯絡人)/i;
-const READ_ONLY=/^(?:請|幫我|可以幫我|麻煩你)?\s*(?:查看|查詢|檢查|確認|辨識|告訴我|列出|截圖|擷取螢幕畫面|看看|看一下|what|check|inspect|list|show|take (?:a )?screenshot)\b?/i;
+const READ_ONLY=/^(?:請|幫我|可以幫我|麻煩你)?\s*(?:查看|查詢|檢查|確認|辨識|告訴我|列出|截圖|擷取螢幕畫面|看看|看一下|what|check|inspect|list|show|take (?:a )?screenshot)/i;
 const PRIVATE_KEY="vanilla.chat.private.enabled";
 
 export function inPrivateChat():boolean{

@@ -21,7 +21,7 @@ export async function authorizeDrive():Promise<{token:string;expiresAt:number}>{
   await loadGIS();
   return new Promise((resolve,reject)=>{
     const client=window.google!.accounts.oauth2.initTokenClient({
-      client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,
+      client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE+" https://www.googleapis.com/auth/userinfo.email",
       callback:(response)=>{
         if(response.error||!response.access_token){reject(new Error(response.error_description||response.error||"Google 授權未完成"));return;}
         resolve({token:response.access_token,expiresAt:Date.now()+(response.expires_in??3600)*1000});

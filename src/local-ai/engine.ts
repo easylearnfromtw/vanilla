@@ -2,14 +2,27 @@ import {Converter} from "opencc-js";
 import * as webllm from "@mlc-ai/web-llm";
 
 const toTraditionalChinese=Converter({from:"cn",to:"tw"});
-export const LOCAL_MODELS=[
- {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",label:"輕量 · 0.5B",description:"手機較省記憶體；僅適合簡短、低複雜度任務"},
- {id:"Qwen2.5-1.5B-Instruct-q4f16_1-MLC",label:"平衡 · 1.5B",description:"較好的中文理解；首次使用需另外下載"},
- {id:"Qwen2.5-3B-Instruct-q4f16_1-MLC",label:"進階 · 3B",description:"需要較充裕的記憶體；手機可能無法載入"}
-] as const;
-export type LocalModelId=(typeof LOCAL_MODELS)[number]["id"];
-export const LOCAL_MODEL:LocalModelId=LOCAL_MODELS[0].id;
-export type ChatTurn={role:"user"|"assistant";content:string;source?:"local"|"gemini"|"deepseek"};
+const baseModels=[
+ {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",label:"輕量 · Qwen 0.5B",description:"手機低記憶體選項；複雜問題建議使用較大的模型"},
+ {id:"Qwen2.5-1.5B-Instruct-q4f16_1-MLC",label:"平衡 · Qwen 1.5B",description:"兼顧中文能力與裝置負載，適合部分高階手機"},
+ {id:"Qwen2.5-3B-Instruct-q4f16_1-MLC",label:"進階 · Qwen 3B",description:"記憶體需求較高，手機可能無法載入"}
+];
+export type LocalModelId=string;
+export const LOCAL_MODEL="Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+function discoverModels(){
+ const known=new Set(baseModels.map(x=>x.id));
+ const extra=webllm.prebuiltAppConfig.model_list
+  .map(x=>x.model_id)
+  .filter(id=>!known.has(id)&&/Qwen|Llama-3|Phi-3|gemma/i.test(id)&&/(?:0[.]5B|1B|1[.]5B|2B|3B|4B|7B)/i.test(id))
+  .slice(0,14)
+  .map(id=>{
+   const params=id.match(/(0[.]5|1[.]5|1|2|3|4|7)B/i)?.[0]||"";
+   return {id,label:id.split("-").slice(0,3).join(" ")+" · "+params,description:"可用 WebLLM 開源模型；下載大小、相容性與記憶體需求依裝置而異"};
+  });
+ return [...baseModels,...extra];
+}
+export const LOCAL_MODELS=discoverModels();
+export type ChatTurn={role:"user"|"assistant";content:string;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string};
 let engine:webllm.MLCEngine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;

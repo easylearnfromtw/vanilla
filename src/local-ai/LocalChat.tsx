@@ -187,7 +187,9 @@ async function executeIntent(question:string):Promise<boolean>{
   window.dispatchEvent(new Event(eventName));setDraft("");return true;
  }
  if(intent.kind==="mobile"){
-  window.dispatchEvent(new CustomEvent("vanilla-open-mobile",{detail:{goal:intent.goal}}));setDraft("");return true;
+  if(privateMode&&!window.confirm("這是私密對話。要將手機操作需求交給一般工作區做預覽嗎？不會自動傳送到雲端或控制手機。"))return true;
+  toolReply(question,intent.message+"。請先在手機操作 Agent 檢查內容；尚未控制裝置。");
+  window.dispatchEvent(new CustomEvent("vanilla-open-mobile",{detail:{goal:intent.goal}}));return true;
  }
  if(intent.kind==="integration"){
   if(privateMode&&!window.confirm("要把私密模式的 API 串接構想帶入一般 Self-Build 工作室嗎？你沒有貼入金鑰才應繼續。"))return true;

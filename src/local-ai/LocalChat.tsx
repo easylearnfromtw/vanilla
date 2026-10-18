@@ -125,10 +125,10 @@ async function send(value=draft){
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:雲端檔案|Cloud\s*Files)(?:管理)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-files"));setDraft("");return;
  }
- if(/^(?:開啟|打開|前往)(?:Vanilla\\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?[！!。.?？\\s]*$/i.test(question)){
+ if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{}}));setDraft("");return;
  }
- const buildRequest=/^(?:新增功能|製作功能|建立功能|功能需求)\\s*[：:]\\s*(.{3,1800})$/s.exec(question);
+ const buildRequest=/^(?:新增功能|製作功能|建立功能|功能需求)\s*[：:]\s*(.{3,1800})$/s.exec(question);
  if(buildRequest){
   if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:buildRequest[1]}}));setDraft("");return;

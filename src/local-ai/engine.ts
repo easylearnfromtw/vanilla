@@ -1,5 +1,7 @@
+import {Converter} from "opencc-js";
 import * as webllm from "@mlc-ai/web-llm";
 
+const toTraditionalChinese=Converter({from:"cn",to:"tw"});
 export const LOCAL_MODEL = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 export type ChatTurn = {role:"user"|"assistant";content:string};
 let engine: webllm.MLCEngine | null = null;
@@ -27,7 +29,7 @@ export async function generateLocalReply(
   let answer="";
   for await(const chunk of stream){
     answer+=chunk.choices[0]?.delta?.content??"";
-    onText(answer);
+    onText(toTraditionalChinese(answer));
   }
-  return answer;
+  return toTraditionalChinese(answer);
 }

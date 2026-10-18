@@ -18,5 +18,5 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren,State>{
     return this.props.children;
   }
 }
-function BootReady(){useEffect(()=>{window.__vanillaBootOk?.();},[]);return <App/>;}
+function BootReady(){useEffect(()=>{window.__vanillaBootOk?.();if("serviceWorker" in navigator){void navigator.serviceWorker.register(import.meta.env.BASE_URL+"sw.js").catch(error=>console.warn("Vanilla 離線快取暫不可用",error));}},[]);return <App/>;}
 createRoot(document.getElementById("root")!).render(<React.StrictMode><AppErrorBoundary><BootReady/></AppErrorBoundary></React.StrictMode>);

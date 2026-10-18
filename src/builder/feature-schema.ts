@@ -81,6 +81,7 @@ export function installFeature(feature:FeatureSpec){
  if(index<0&&list.length>=MAX_FEATURES)throw Error("本機功能數量上限為 24 個，請先移除舊功能");
  const next=index<0?[...list,feature]:list.map(x=>x.id===feature.id?feature:x);
  localStorage.setItem(SPECS_KEY,JSON.stringify(next));
+ if(index<0&&feature.kind==="checklist"&&feature.initialItems?.length){const data=featureData(feature.id);if(!data.items.length){writeFeatureData(feature.id,{...data,items:feature.initialItems.map(title=>({id:crypto.randomUUID(),title,done:false}))});}}
  window.dispatchEvent(new Event("vanilla-features-changed"));
 }
 export function removeFeature(id:string,deleteData=false){

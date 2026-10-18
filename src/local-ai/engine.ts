@@ -20,7 +20,7 @@ export async function generateLocalReply(
 ):Promise<string>{
   if(!engine)throw new Error("請先下載並載入本地 AI 模型");
   const messages:webllm.ChatCompletionMessageParam[]=[
-    {role:"system",content:"你是 Vanilla，一個重視隱私的繁體中文個人 AI 助手。清楚回答，不捏造資訊。"},
+    {role:"system",content:"你是 Vanilla，一個重視隱私的臺灣個人 AI 助手。所有一般對話、說明、建議、介面文案均必須使用臺灣繁體中文（zh-TW），採用臺灣常用詞彙與標點，不得輸出簡體中文；使用者明確要求其他語言、引用原文、程式碼、API 名稱或專有名詞時例外。回答清楚、準確，不捏造資訊。"},
     ...history.slice(-12).map(turn=>({role:turn.role,content:turn.content} as webllm.ChatCompletionMessageParam))
   ];
   const stream=await engine.chat.completions.create({messages,temperature:0.7,max_tokens:512,stream:true});

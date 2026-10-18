@@ -148,7 +148,7 @@ async function send(value=draft){
   setHistory(next);
   setComparison(initial);
   setLastRoute("雙答案比較中："+chosen.map(x=>x.label).join(" / "));
-  await Promise.all(chosen.map(async candidate=>{
+  const runCandidate=async(candidate:ModelCandidate)=>{
    try{
     const result=await generateCandidate(candidate,next,image||undefined,text=>{
      setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
@@ -158,7 +158,13 @@ async function send(value=draft){
     const msg=error instanceof Error?error.message:String(error);
     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,error:msg,status:"error" as const}:x)}:prev);
    }
-  }));
+  };
+  if(chosen[0].source===chosen[1].source){
+   // CPU-only hosts and free-tier APIs may allow just one active request.
+   for(const candidate of chosen)await runCandidate(candidate);
+  }else{
+   await Promise.all(chosen.map(runCandidate));
+  }
   setImage(null);setImageName("");setBusy(false);
   setLastRoute("雙答案已完成，請選擇較喜歡的回答");
   return;

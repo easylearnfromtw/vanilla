@@ -32,7 +32,7 @@ export default function CompareAnswers({comparison,onChoose,onCancel}:Props){
      {item.status==="done"&&<div className="compare-finished"><CheckCircle2 size={14}/>已完成回答</div>}
     </div>
     <div className="compare-card-footer">
-     <button type="button" disabled={item.status!=="done"} onClick={()=>onChoose(item.candidate.id)}>
+     <button type="button" disabled={pending||item.status!=="done"} onClick={()=>onChoose(item.candidate.id)}>
       <ThumbsUp size={15}/>選擇答案 {String.fromCharCode(65+i)}
      </button>
     </div>

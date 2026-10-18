@@ -3,7 +3,6 @@ import {Sparkles,Plus,ShieldCheck,Download,ArrowUpRight,CheckCircle2,AlertTriang
 import {getConfigs,generateCloudReply} from "../vault/providers";
 import {isOllamaConfigured,generateOllamaReply,getOllamaConfig} from "../ai/ollama";
 import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
-import {getToneProfile,toneInstruction} from "../ai/tone-adaptation";
 import {loadFeatures,validateFeature,featureTemplate,proposalFromAI,installFeature,removeFeature,type FeatureSpec,type FeatureKind} from "./feature-schema";
 
 type Provider="auto"|"local"|"ollama"|"gemini";
@@ -42,6 +41,13 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  const [selectedKind,setSelectedKind]=useState<FeatureKind>("checklist");
  useEffect(()=>{const update=()=>setInstalled(loadFeatures());window.addEventListener("vanilla-features-changed",update);return()=>window.removeEventListener("vanilla-features-changed",update);},[]);
  const current=installed.find(x=>x.id===editingId);
+ useEffect(()=>{
+  try{
+   const pendingIdea=sessionStorage.getItem("vanilla.builder.pending-idea.v1");
+   if(pendingIdea){setIdea(pendingIdea);sessionStorage.removeItem("vanilla.builder.pending-idea.v1");}
+  }catch{}
+ },[]);
+
  useEffect(()=>{
   if(!current)return;
   setIdea("請幫我改進「"+current.name+"」：");

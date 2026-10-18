@@ -1,12 +1,16 @@
 import LocalChat from "./local-ai/LocalChat";
+import Sheets from "./workspace/Sheets";
+import CloudFiles from "./workspace/CloudFiles";
 import DriveConnection from "./vault/DriveConnection";
 import ModelConnections from "./ai/ModelConnections";
 import {useState,useEffect} from "react";
 import {loadProviderConfigs} from "./vault/provider-sync";
-import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole} from "lucide-react";
-type Section="chat"|"agents"|"tasks"|"memory"|"travel"|"health"|"line"|"settings";
+import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole,Table2,FolderOpen} from "lucide-react";
+type Section="chat"|"sheets"|"files"|"agents"|"tasks"|"memory"|"travel"|"health"|"line"|"settings";
 const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string}[]=[
 {id:"chat",label:"AI 對話",icon:MessageCircle,description:"你的私人裝置端 AI 助手"},
+{id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存"},
+{id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯、上傳與垃圾桶"},
 {id:"agents",label:"AI 團隊",icon:Users,description:"多領域 AI Agent 工作台"},
 {id:"tasks",label:"任務中心",icon:ListTodo,description:"任務、核准與執行紀錄"},
 {id:"memory",label:"永久記憶",icon:Database,description:"加密知識庫與個人記憶"},
@@ -23,6 +27,15 @@ useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");
 const [menuOpen,setMenuOpen]=useState(false);
 const [filename,setFilename]=useState("");
 const [chatKey,setChatKey]=useState(0);
+useEffect(()=>{
+ const openSheet=(event:Event)=>{
+  const detail=(event as CustomEvent<{workbook?:unknown;rows?:string[][]}>).detail;
+  if(!detail||(!detail.workbook&&!detail.rows))return;
+  try{localStorage.setItem("vanilla.sheets.pending-import.v1",JSON.stringify(detail));setSection("sheets");setMenuOpen(false);}catch{window.alert("無法暫存表格，請檢查裝置儲存空間");}
+ };
+ window.addEventListener("vanilla-open-sheet",openSheet);
+ return()=>window.removeEventListener("vanilla-open-sheet",openSheet);
+},[]);
 const selected=items.find(x=>x.id===section)!;
 function navigate(next:Section){setSection(next);setMenuOpen(false);}
 return <div className="shell">
@@ -40,6 +53,8 @@ return <div className="shell">
 <div className="privacy-chip"><LockKeyhole size={14}/> 裝置端優先</div>
 </header>
 {section==="chat"?<LocalChat key={chatKey}/>:
+section==="sheets"?<div className="workspace-page"><Sheets/></div>:
+section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 <div className="content-page"><div className="eyebrow">VANILLA / WORKSPACE</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p>
 {section==="settings"?<section className="panel"><h2>系統設定</h2><p>全家共用同一個 Google Drive 加密保險庫；私密模式只儲存在本機。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ModelConnections/><DriveConnection/></section>:
 section==="line"?<section className="panel"><h2>LINE Intelligence</h2><p>LINE 為選用的輔助匯入工具，不是 Vanilla 的主要對話介面。</p><label className="upload">選擇 LINE .txt 紀錄<input type="file" accept=".txt,text/plain" onChange={e=>setFilename(e.target.files?.[0]?.name||"")}/></label>{filename&&<p className="file-note">已選取：{filename}（尚未上傳）</p>}</section>:

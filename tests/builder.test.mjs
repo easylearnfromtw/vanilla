@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {validateFeature,featureTemplate,installFeature,loadFeatures,removeFeature,
  testExpression,proposalFromAI,featureData,writeFeatureData,featureHistory,rollbackFeature} from "../src/builder/feature-schema.ts";
-import {getToneProfile,saveToneProfile,learnToneFromMessage,toneInstruction,toneFeedback,resetToneProfile} from "../src/ai/tone-adaptation.ts";
+import {getToneProfile,saveToneProfile,learnToneFromMessage,toneInstruction,toneFeedback,resetToneProfile,applyExplicitToneRequest} from "../src/ai/tone-adaptation.ts";
 import {offlineFeatureDraft} from "../src/builder/offline-designer.ts";
 import {validateSelfBuildBackup,importSelfBuildBackup} from "../src/builder/backup.ts";
 
@@ -109,4 +109,15 @@ test("Self-Build backup validates unknown data and installs separate copies with
  assert.notEqual(all[0].id,all[1].id);
  assert.equal(featureData(all[1].id).records[0].values.item,"跑步");
  assert.throws(()=>validateSelfBuildBackup({kind:"unknown",version:1,features:[]}));
+});
+
+test("Explicit style instructions update local preference, but ordinary queries are not consumed",()=>{
+ setup();
+ assert.equal(applyExplicitToneRequest("請你之後回答更簡短一點")?.includes("精簡"),true);
+ assert.ok(getToneProfile().detail<55);
+ assert.equal(applyExplicitToneRequest("為什麼有時候回答比較長？"),null);
+ assert.equal(applyExplicitToneRequest("之後不要太正式，口語自然一點")?.includes("自然"),true);
+ assert.equal(applyExplicitToneRequest("之後回答詳細一點",true),null);
+ assert.equal(applyExplicitToneRequest("以後請停止模仿我的語氣")?.includes("停用"),true);
+ assert.equal(getToneProfile().enabled,false);
 });

@@ -1,5 +1,10 @@
 import {useState,useRef,useEffect} from "react";
-import LocalModelPanel from "./LocalModelPanel";
+import AssistantTools from "../assistant/AssistantTools";
+import {planAppIntent,PROJECTS} from "../assistant/intent-router";
+import {getFitnessReport,formatFitnessReport,parseRunDraft,appendFitnessRun} from "../assistant/fitness-bridge";
+import {rememberText,rememberURL,rememberFile,searchMemories,knowledgeContext} from "../memory/drive-memory";
+import {searchLinks} from "../search/source-preferences";
+import {driveSession} from "../workspace/cloud-drive";
 import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
 import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,saveAnswerRating,type ModelCandidate} from "../ai/model-orchestrator";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
@@ -23,8 +28,34 @@ const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(restoreMode()
 const [draft,setDraft]=useState("");
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
+const [fileContext,setFileContext]=useState("");
+const [fileName,setFileName]=useState("");
+const [fileStatus,setFileStatus]=useState("");
+const [assetBusy,setAssetBusy]=useState(false);
 const fileRef=useRef<HTMLInputElement>(null);
 async function attachImage(file?:File){if(!file)return;if(!file.type.startsWith("image/")){setLastRoute("僅支援圖片格式");return;}if(file.size>8*1024*1024){setLastRoute("圖片不得超過 8MB");return;}const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(new Error("讀取圖片失敗"));reader.readAsDataURL(file);});setImage({mimeType:file.type,data});setImageName(file.name);}
+async function attachFile(file?:File){
+ if(!file)return;
+ setFileName(file.name);setFileStatus("");setFileContext("");
+ if(file.size>15*1024*1024){setFileStatus("檔案超過 15 MB，目前無法直接存進 Vanilla；影片需要日後分段上傳。");return;}
+ setAssetBusy(true);
+ try{
+  if(file.type.startsWith("image/")){
+   if(file.size>8*1024*1024)throw Error("圖片辨識單張上限 8 MB");
+   const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(Error("圖片讀取失敗"));reader.readAsDataURL(file);});
+   setImage({mimeType:file.type,data});setImageName(file.name);
+  }else if(file.size<=1.5*1024*1024&&(/^(text\/|application\/json)/.test(file.type)||/\.(txt|md|csv|json)$/i.test(file.name))){
+   setFileContext((await file.text()).slice(0,10000));
+  }
+  if(!privateMode&&driveSession()){
+   const record=await rememberFile(file,"使用者上傳的附件；是否完成內容解析請依實際模型結果判定");
+   setFileStatus("已儲存到你的 Google Drive："+record.title);
+  }else{
+   setFileStatus(privateMode?"私密模式：附件未上傳，僅在本次對話使用":"尚未登入 Google Drive：附件未永久保存；請先登入再重新上傳");
+  }
+ }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
+ finally{setAssetBusy(false);}
+}
 const [busy,setBusy]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
 const [modelProgress,setModelProgress]=useState(0);
@@ -83,7 +114,7 @@ function switchPrivacy(){
   try{localStorage.setItem(MODE_KEY,String(next));}catch{setStorageError(true);return;}
   setHistory(restoreHistory(next?PRIVATE_KEY:STORAGE_KEY));
   setPrivateMode(next);
-  setDraft("");setImage(null);setImageName("");
+  setDraft("");setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
 }
 async function initialize(){
  setLoadingModel(true);setModelError(false);setModelProgress(0);

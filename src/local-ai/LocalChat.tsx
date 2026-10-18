@@ -2,8 +2,12 @@ import {useState,useRef,useEffect} from "react";
 import {ArrowUp,Download,RotateCcw,Sparkles,Copy,Check,ChevronDown} from "lucide-react";
 import {detectLocalAICapabilities} from "./capabilities";
 import {generateLocalReply,isLocalModelReady,loadLocalModel,type ChatTurn,LOCAL_MODEL} from "./engine";
+const STORAGE_KEY="vanilla.chat.history.v1";
+function restoreHistory():ChatTurn[]{
+  try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return [];const parsed:unknown=JSON.parse(raw);return Array.isArray(parsed)?parsed.filter((x):x is ChatTurn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")).slice(-100):[];}catch{return [];}
+}
 export default function LocalChat(){
-const [history,setHistory]=useState<ChatTurn[]>([]);
+const [history,setHistory]=useState<ChatTurn[]>(restoreHistory);
 const [draft,setDraft]=useState("");
 const [busy,setBusy]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
@@ -28,6 +32,7 @@ useEffect(()=>{
   });
   return ()=>{active=false;};
 },[capabilities.webgpu]);
+useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(history));}catch{setStatus("裝置儲存空間不可用，對話可能無法保留");}},[history]);
 useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth",block:"end"});},[history]);
 async function initialize(){
 setLoadingModel(true);
@@ -57,6 +62,6 @@ return <section className="chat">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={!ready||busy} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content"><div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}</div></div>)}<div ref={bottomRef}/></div>}
 </div>
-<div className="composer-wrap"><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder={ready?"傳訊息給 Vanilla…":"本地 AI 正在背景準備中…"} value={draft} disabled={!ready||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><Sparkles size={14}/> 裝置端模型</span><button type="submit" className="send-button" title="傳送" disabled={!ready||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · 對話暫存於目前頁面，尚未啟用雲端同步</div>{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
+<div className="composer-wrap"><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder={ready?"傳訊息給 Vanilla…":"本地 AI 正在背景準備中…"} value={draft} disabled={!ready||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><Sparkles size={14}/> 裝置端模型</span><button type="submit" className="send-button" title="傳送" disabled={!ready||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · 對話會保存在此瀏覽器，重新開啟可接續；尚未提供跨裝置同步或加密儲存</div>{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
 </section>;
 }

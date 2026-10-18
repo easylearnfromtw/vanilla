@@ -39,6 +39,7 @@ const [routeMode,setRouteMode]=useState<RouteMode>(()=>{
  try{const saved=localStorage.getItem("vanilla.route.mode.v1");return ["auto-local","auto","local","ollama","gemini","deepseek"].includes(saved||"")?saved as RouteMode:"auto-local";}catch{return "auto-local";}
 });
 const [compareMode,setCompareMode]=useState(()=>localStorage.getItem("vanilla.model.compare.v1")==="true");
+const [allowMetered,setAllowMetered]=useState(()=>{try{return localStorage.getItem("vanilla.models.allow-metered.v1")==="true";}catch{return false;}});
 const [comparison,setComparison]=useState<ComparisonSession|null>(null);
 const [ollamaConnected,setOllamaConnected]=useState(isOllamaConfigured);
 const [lastRoute,setLastRoute]=useState("");
@@ -92,6 +93,10 @@ async function initialize(){
  finally{setLoadingModel(false);}
 }
 const canReply=ready||(!privateMode&&(providers.length>0||ollamaConnected)&&routeMode!=="local");
+function changeMetered(enabled:boolean){
+ setAllowMetered(enabled);
+ try{localStorage.setItem("vanilla.models.allow-metered.v1",String(enabled));}catch{}
+}
 function changeCompareMode(enabled:boolean){
  setCompareMode(enabled);
  try{localStorage.setItem("vanilla.model.compare.v1",String(enabled));}catch{}
@@ -115,13 +120,15 @@ async function send(value=draft){
  if(!question||busy||comparison||!canReply)return;
  const task=classifyTask(question,Boolean(image));
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
- const candidates=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode:localOnly});
+ const discovered=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode:localOnly});
+ const automatic=routeMode==="auto"||routeMode==="auto-local";
+ const candidates=automatic&&!allowMetered?discovered.filter(x=>x.source==="local"||(x.source==="ollama"&&x.location==="自架主機")):discovered;
  const preference=routeMode==="auto"?"quality":"local-first";
  const ranked=rankedCandidates(candidates,task,preference);
  const primary=localOnly?candidates.find(x=>x.source==="local"):
   (routeMode==="auto"||routeMode==="auto-local")?ranked[0]:candidates.find(x=>x.source===routeMode);
  if(!primary){
-  setLastRoute(image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
+  setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或開啟允許計費 API。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
   return;
  }
  const chosen:ModelCandidate[]=compareMode&&!localOnly&&(routeMode==="auto"||routeMode==="auto-local")&&ranked.length>1?topComparisonCandidates(ranked,task,preference):[primary];
@@ -208,6 +215,10 @@ return <section className="chat">
  <label className="compare-toggle" title="同一個問題交給兩個候選模型，再由你選擇較好的回答">
   <input type="checkbox" checked={compareMode} disabled={busy||privateMode||(routeMode!=="auto"&&routeMode!=="auto-local")||Boolean(comparison)} onChange={e=>{setRouteMode("auto-local");changeCompareMode(e.target.checked);}}/>
   <span>雙答案比較</span>
+ </label>
+ <label className="compare-toggle" title="自動路由只允許手機端及自架 Ollama；雲端 API 請手動選擇或明確開啟">
+  <input type="checkbox" checked={!allowMetered} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeMetered(!e.target.checked)}/>
+  <span>自動免 API 計費</span>
  </label>
  <span role="status" className="model-selection-status">{lastRoute||(privateMode?"私密模式僅在手機端運算":providers.length||ollamaConnected?"自動挑選合適模型，也可手動指定":"請先下載本地模型或連接 Ollama／API")}</span>
 </div>

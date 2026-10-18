@@ -22,6 +22,8 @@ const [modelExpanded,setModelExpanded]=useState(false);
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
+const [routeMode,setRouteMode]=useState<"auto"|"local"|"gemini"|"deepseek">("auto");
+const [lastRoute,setLastRoute]=useState("");
 useEffect(()=>{const update=()=>setProviders(availableProviders());window.addEventListener("vanilla-providers-changed",update);return()=>window.removeEventListener("vanilla-providers-changed",update);},[]);
 const [copied,setCopied]=useState<number|null>(null);
 const bottomRef=useRef<HTMLDivElement>(null);
@@ -60,10 +62,12 @@ finally{setLoadingModel(false);}
 async function send(value=draft){
 const question=value.trim();
 if(!question||busy||(!ready&&(privateMode||providers.length===0)))return;
+if(!privateMode&&routeMode!=="auto"&&routeMode!=="local"&&!providers.includes(routeMode)){setLastRoute("尚未設定所選 API");return;}
 const next:ChatTurn[]=[...history,{role:"user",content:question}];
 setHistory([...next,{role:"assistant",content:""}]);setDraft("");setBusy(true);
 try{
-const route=privateMode?"local":chooseProvider(question);
+const route=privateMode?"local":routeMode==="auto"?chooseProvider(question):routeMode;
+setLastRoute(route==="local"?"本地 AI":route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API");
 const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text}])):await generateCloudReply(route,next);
 setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）"}]);
 }catch(error){setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:"未知錯誤")}]);}
@@ -74,6 +78,7 @@ return <section className="chat">
 {(modelError||!capabilities.webgpu)&&<div className="model-bar"><div className="model-summary"><span className="model-dot"/><span>本地 AI 暫時無法啟動</span><button type="button" className="model-detail-toggle" aria-label="模型錯誤詳情" aria-expanded={modelExpanded} onClick={()=>setModelExpanded(!modelExpanded)}><ChevronDown size={15}/></button></div><button className="model-action" type="button" disabled={loadingModel||!capabilities.webgpu} onClick={initialize}><RotateCcw size={15}/>重試</button></div>}
 {(modelError||!capabilities.webgpu)&&<div className="model-notice"><p role="alert">{!capabilities.webgpu?"目前瀏覽器未提供 WebGPU，無法啟動此本地模型。":status}</p>{modelExpanded&&<small>{LOCAL_MODEL} · 本地推論</small>}</div>}
 <div style={{display:"flex",justifyContent:"flex-end",padding:"8px 16px"}}><button type="button" disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode} title={privateMode?"私密模式：僅本機保存":"一般模式：本機保存；雲端同步尚未啟用"} style={{border:"1px solid #ddd",borderRadius:18,padding:"7px 12px",background:privateMode?"#222":"transparent",color:privateMode?"white":"inherit",fontSize:12}}>{privateMode?"🔒 私密模式 · 僅本機":"🔓 一般模式"}</button></div>
+<div style={{display:"flex",alignItems:"center",gap:9,padding:"4px 16px 9px",flexWrap:"wrap"}}><label htmlFor="vanilla-route" style={{fontSize:12,color:"#666"}}>回答模型</label><select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode} onChange={e=>setRouteMode(e.target.value as "auto"|"local"|"gemini"|"deepseek")} style={{fontSize:13,padding:"7px 10px",border:"1px solid #ddd",borderRadius:9,background:"#fff"}}><option value="auto">智慧路由</option><option value="local" disabled={!ready}>本地 AI</option><option value="gemini" disabled={!providers.includes("gemini")}>Gemini API</option><option value="deepseek" disabled={!providers.includes("deepseek")}>DeepSeek API</option></select><span role="status" style={{fontSize:12,color:"#777"}}>{lastRoute?"上一則使用："+lastRoute:privateMode?"私密模式強制使用本地 AI":"選擇 Gemini 可確認雲端 API 是否正常"}</span></div>
 <div className="chat-messages" aria-live="polite">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={(!ready&&(privateMode||providers.length===0))||busy} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content"><div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}</div></div>)}<div ref={bottomRef}/></div>}

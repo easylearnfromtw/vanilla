@@ -1,0 +1,24 @@
+name: Vanilla CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/vanilla-core-pwa]
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck and build
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
+      - name: Verify output
+        run: test -f dist/index.html && test -f dist/manifest.webmanifest

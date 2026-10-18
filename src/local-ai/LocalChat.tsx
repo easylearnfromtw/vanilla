@@ -1,9 +1,12 @@
 import {useState,useRef,useEffect} from "react";
 import LocalModelPanel from "./LocalModelPanel";
+import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
+import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,type ModelCandidate} from "../ai/model-orchestrator";
+import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
 import {renderTable,exportText} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
 import {ArrowUp,RotateCcw,Sparkles,Copy,Check} from "lucide-react";
-import {chooseProvider,generateCloudReply,availableProviders} from "../vault/providers";
+import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
 import {generateLocalReply,isLocalModelReady,loadLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,LOCAL_MODEL} from "./engine";
 const STORAGE_KEY="vanilla.chat.history.v1";
@@ -31,9 +34,13 @@ const [ready,setReady]=useState(()=>{const v=localStorage.getItem("vanilla.local
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
-const [routeMode,setRouteMode]=useState<"auto"|"local"|"gemini"|"deepseek">("auto");
+const [routeMode,setRouteMode]=useState<"auto"|"local"|"ollama"|"gemini"|"deepseek">("auto");
+const [compareMode,setCompareMode]=useState(()=>localStorage.getItem("vanilla.model.compare.v1")==="true");
+const [comparison,setComparison]=useState<ComparisonSession|null>(null);
+const [ollamaConnected,setOllamaConnected]=useState(isOllamaConfigured);
 const [lastRoute,setLastRoute]=useState("");
 useEffect(()=>{const update=()=>setProviders(availableProviders());window.addEventListener("vanilla-providers-changed",update);return()=>window.removeEventListener("vanilla-providers-changed",update);},[]);
+useEffect(()=>{const update=()=>setOllamaConnected(isOllamaConfigured());window.addEventListener("vanilla-ollama-changed",update);return()=>window.removeEventListener("vanilla-ollama-changed",update);},[]);
 const [copied,setCopied]=useState<number|null>(null);
 const bottomRef=useRef<HTMLDivElement>(null);
 const capabilities=detectLocalAICapabilities();
@@ -65,7 +72,7 @@ function selectLocalModel(model:LocalModelId){
 useEffect(()=>{try{localStorage.setItem(privateMode?PRIVATE_KEY:STORAGE_KEY,JSON.stringify(history));setStorageError(false);}catch{setStorageError(true);}},[history,privateMode]);
 useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth",block:"end"});},[history]);
 function switchPrivacy(){
-  if(busy)return;
+  if(busy||comparison)return;
   const next=!privateMode;
   try{localStorage.setItem(MODE_KEY,String(next));}catch{setStorageError(true);return;}
   setHistory(restoreHistory(next?PRIVATE_KEY:STORAGE_KEY));

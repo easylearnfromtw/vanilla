@@ -112,7 +112,13 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    onOpen(id);
   }catch(e){setStatus("安裝失敗："+(e instanceof Error?e.message:String(e)));}
  }
- function remove(spec:FeatureSpec){
+ function permanentlyRemove(spec:FeatureSpec){
+  if(!window.confirm("確定永久刪除「"+spec.name+"」及這台裝置內所有相關資料？此動作無法復原，請先匯出重要紀錄。"))return;
+  if(!window.confirm("再次確認：將永久清除本機資料。確定？"))return;
+  try{removeFeature(spec.id,true);setInstalled(loadFeatures());if(editingId===spec.id)onEditingChange(null);setStatus("已從本裝置刪除功能及紀錄");}
+  catch(e){setStatus(e instanceof Error?e.message:String(e));}
+ }
+  function remove(spec:FeatureSpec){
   if(!window.confirm("確定移除「"+spec.name+"」？這只移除功能配置；資料仍暫時保留在裝置內。"))return;
   try{removeFeature(spec.id);setInstalled(loadFeatures());if(editingId===spec.id)onEditingChange(null);setStatus("已移除功能；資料未刪除");}
   catch(e){setStatus(e instanceof Error?e.message:String(e));}
@@ -140,7 +146,7 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    {installed.length===0?<p className="builder-empty">目前尚無自建工具。選擇模板或描述你想要的功能。</p>:<div className="builder-installed">{installed.map(spec=><article key={spec.id}><div><strong>{spec.name}</strong><p>{spec.description}</p><small>{spec.kind} · v{spec.revision}</small></div><div><button type="button" onClick={()=>onOpen(spec.id)}>開啟</button><button type="button" onClick={()=>onEditingChange(spec.id)}><RefreshCcw size={14}/>改進</button>{featureHistory(spec.id).length>0&&<button type="button" title="回到上一個已批准版本（資料不刪除）" onClick={()=>{
     if(!window.confirm("將「"+spec.name+"」的功能規格回復到上一版？目前儲存的紀錄不會刪除。"))return;
     try{rollbackFeature(spec.id);setInstalled(loadFeatures());setStatus("已回到上一版功能規格，資料保持不變");}catch(e){setStatus(e instanceof Error?e.message:String(e));}
-   }}>回復上一版</button>}<button type="button" aria-label={"移除 "+spec.name} title="移除功能" onClick={()=>remove(spec)}><Trash2 size={15}/></button></div></article>)}</div>}
+   }}>回復上一版</button>}<button type="button" aria-label={"移除 "+spec.name} title="移除功能" onClick={()=>remove(spec)}><Trash2 size={15}/></button><button type="button" className="builder-delete-data" title="永久刪除功能和它的全部本機紀錄" onClick={()=>permanentlyRemove(spec)}>刪除資料</button></div></article>)}</div>}
   </section>
   <section className="builder-panel builder-engineering"><div className="builder-section-heading"><span>04 / 進階</span><h3>原始碼等級的功能修改</h3></div>
    <p>如果需求超出這四種模組，例如新增完整 AI Agent、資料庫、3D 功能或串接外部服務，可以產生工程需求。真正修改 React 原始碼仍需 GitHub 分支、程式碼審查、測試與你批准合併，不能從手機頁面直接無審核部署。</p>

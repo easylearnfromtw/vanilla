@@ -1,5 +1,5 @@
 /** Vanilla Tool SDK — additive, no access to existing chat or Drive credentials. */
-export type MemberId = "zekai" | "zhewei" | "xiaofen";
+export type MemberId = "zekai" | "zewei" | "xiaofen";
 export type Domain = "calendar" | "knowledge" | "travel" | "health";
 export type Scope = "private" | "family";
 export interface Principal { memberId: MemberId; authenticated: boolean; }

@@ -22,6 +22,6 @@ export async function encryptVault(member: MemberId, secret: string, data: unkno
 export async function decryptVault<T>(member: MemberId, secret: string, envelope: VaultEnvelope): Promise<T> {
   if (envelope.version !== 1 || envelope.member !== member || envelope.iterations !== 600000) throw new Error("保險庫格式或成員不符");
   const key = await deriveVaultKey(secret, decode64(envelope.salt), envelope.iterations);
-  const plain = await crypto.subtle.decrypt({name:"AES-GCM",iv:decode64(envelope.iv),additionalData:encoder.encode("vanilla:v1:"+member)},key,decode64(envelope.ciphertext));
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM",iv:decode64(envelope.iv) as BufferSource,additionalData:encoder.encode("vanilla:v1:"+member)},key,decode64(envelope.ciphertext) as BufferSource);
   return JSON.parse(decoder.decode(plain)) as T;
 }

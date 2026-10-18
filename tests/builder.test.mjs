@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {validateFeature,featureTemplate,installFeature,loadFeatures,removeFeature,
  testExpression,proposalFromAI,featureData,writeFeatureData,featureHistory,rollbackFeature} from "../src/builder/feature-schema.ts";
 import {getToneProfile,saveToneProfile,learnToneFromMessage,toneInstruction,toneFeedback,resetToneProfile} from "../src/ai/tone-adaptation.ts";
+import {offlineFeatureDraft} from "../src/builder/offline-designer.ts";
+import {validateSelfBuildBackup,importSelfBuildBackup} from "../src/builder/backup.ts";
 
 function setup(){
  const storage=new Map();
@@ -72,4 +74,39 @@ test("Tone statistics learn from regular chat only and never persist raw utteran
  assert.equal(getToneProfile().samples,3);
  resetToneProfile();
  assert.equal(getToneProfile().samples,0);
+});
+
+test("Offline feature designer creates useful safe modules without contacting APIs",()=>{
+ setup();
+ const expense=offlineFeatureDraft("幫我做一個記帳和預算的功能");
+ assert.equal(expense.spec.kind,"tracker");
+ assert.ok(expense.spec.fields.some(field=>field.id==="expense"));
+ assert.equal(expense.confidence,"high");
+ const fitness=offlineFeatureDraft("我要建立跑步運動訓練紀錄");
+ assert.equal(fitness.spec.kind,"tracker");
+ assert.ok(fitness.spec.fields.some(field=>field.id==="distance"));
+ const trip=offlineFeatureDraft("建立旅行行程規劃工具");
+ assert.ok(trip.spec.fields.some(field=>field.id==="place"));
+ const calc=offlineFeatureDraft("幫我做折扣計算器");
+ assert.equal(calc.spec.kind,"calculator");
+ assert.equal(testExpression(calc.spec.formula,{price:100,quantity:2,discount:0.1}),180);
+ const revised=offlineFeatureDraft("增加備註欄位",expense.spec);
+ assert.equal(revised.spec.revision,2);
+ assert.ok(revised.spec.fields.some(x=>x.label==="備註"));
+ assert.throws(()=>offlineFeatureDraft("幫我直接連接外部 API 同步資料",expense.spec));
+});
+test("Self-Build backup validates unknown data and installs separate copies with sanitization",()=>{
+ setup();
+ const spec=featureTemplate("tracker");
+ installFeature(spec);
+ writeFeatureData(spec.id,{items:[],records:[{id:"original",at:"2026-10-19",values:{date:"2026-10-19",item:"跑步",value:"6"}}],notes:"",inputs:{}});
+ const backup={kind:"vanilla-self-build-backup",version:1,exportedAt:"2026-10-19T00:00:00Z",features:[{spec,data:featureData(spec.id)}]};
+ const imported=validateSelfBuildBackup(backup);
+ assert.equal(imported.features.length,1);
+ assert.equal(importSelfBuildBackup(imported),1);
+ const all=loadFeatures();
+ assert.equal(all.length,2);
+ assert.notEqual(all[0].id,all[1].id);
+ assert.equal(featureData(all[1].id).records[0].values.item,"跑步");
+ assert.throws(()=>validateSelfBuildBackup({kind:"unknown",version:1,features:[]}));
 });

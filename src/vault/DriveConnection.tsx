@@ -33,7 +33,7 @@ export default function DriveConnection(){
    const res=await fetch("https://www.googleapis.com/oauth2/v2/userinfo",{headers:{Authorization:"Bearer "+result.token}});
    if(!res.ok)throw new Error("無法確認 Google 帳號");
    const user=await res.json() as {email?:string};
-   setToken(result.token);setEmail(user.email||"已授權");saveSession({token:result.token,expiresAt:result.expiresAt,email:user.email||"已授權"});const count=await loadProviderConfigs(result.token);setConnected(availableProviders());if(count===0&&getConfigs().length){await queueProviderSync(result.token);}setSyncStatus("已連接，Drive 目前有 "+(count||getConfigs().length)+" 組 API 設定");setStatus("已連接 Google Drive 家庭共用保險庫");
+   setToken(result.token);setEmail(user.email||"已授權");saveSession({token:result.token,expiresAt:result.expiresAt,email:user.email||"已授權"});const count=await loadProviderConfigs(result.token);setConnected(availableProviders());setSyncStatus("已連接，Drive 目前有 "+(count||getConfigs().length)+" 組 API 設定");setStatus("已連接 Google Drive 家庭共用保險庫");
   }catch(e){setStatus(e instanceof Error?e.message:"連線失敗");}finally{setBusy(false);}
  }
  async function backup(){

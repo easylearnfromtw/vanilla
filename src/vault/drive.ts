@@ -1,7 +1,7 @@
 /** Minimal Google Drive appDataFolder adapter. OAuth access token is supplied by a separate consent flow. */
 import type { MemberId, VaultEnvelope } from "./crypto";
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
-export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file";
 export function vaultFilename(member: MemberId): string { return "vanilla-v1-" + member + ".encrypted.json"; }
 function auth(token: string): HeadersInit {
   if (!token) throw new Error("Google OAuth 授權尚未完成");

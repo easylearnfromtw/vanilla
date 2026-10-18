@@ -20,7 +20,14 @@
   function fail(reason){if(!boot)return;boot.style.display="flex";msg.textContent="Vanilla 載入失敗。請將下方錯誤截圖回報。";error.hidden=false;error.textContent=String(reason).slice(0,600);}
   window.__vanillaBootOk=function(){if(boot)boot.remove();};
   window.__vanillaBootError=fail;
-  window.addEventListener("error",function(e){fail(e.message||"JavaScript 資源載入失敗");},true);
+  window.addEventListener("error",function(e){
+    var t=e.target;
+    if(t && t!==window && t.tagName){
+      var source=t.src||t.href||"(未提供資源網址)";
+      if(t.tagName==="LINK" && /manifest/.test(source))return;
+      fail("資源載入失敗 ["+t.tagName+"]\n"+source+"\n目前網址："+location.href);
+    }else fail((e.message||"JavaScript 執行錯誤")+"\n"+(e.filename||"")+" : "+(e.lineno||""));
+  },true);
   window.addEventListener("unhandledrejection",function(e){fail(e.reason&&e.reason.message||e.reason||"Promise error");});
   setTimeout(function(){if(document.getElementById("boot-status"))fail("逾時：前端程式未能完成初始化。請確認 GitHub Pages 部署成功及網站網址正確。");},12000);
 })();

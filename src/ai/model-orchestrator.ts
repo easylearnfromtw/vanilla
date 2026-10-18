@@ -11,7 +11,7 @@ export type Vote={at:number;task:TaskKind;winner:string;loser:string};
 const VOTE_KEY="vanilla.model.choices.v1";
 export function classifyTask(question:string,image=false):TaskKind{
  if(image)return "vision";
- if(/程式|程式碼|debug|bug|github|typescript|javascript|python|除錯|修復|編譯|API|regex/i.test(question))return "code";
+ if(/程式|程式碼|debug|bug|github|typescript|javascript|python|除錯|修復|編譯|\bAPI\b|regex/i.test(question))return "code";
  if(/分析|比較|研究|論文|醫學|證據|為什麼|推理|數據|計算|評估|規劃|策略/.test(question))return "analysis";
  if(/寫作|改寫|草稿|文案|電子郵件|文章|報告|故事|摘要|翻譯/.test(question))return "writing";
  if(/^(你好|哈囉|嗨|hi|hello|謝謝|早安|晚安)[!！。？?\s]*$/i.test(question))return "casual";
@@ -80,7 +80,7 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const params=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)B/i)?.[1]||"0");
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
-  const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"?8:0;
+  const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
   return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id);
  };
  return [...candidates].sort((a,b)=>score(b)-score(a));

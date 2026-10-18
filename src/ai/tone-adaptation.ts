@@ -1,3 +1,4 @@
+import {taiwanSpeechInstruction} from "./taiwan-pragmatics";
 /**
  * Device-only conversational style adaptation.
  * Never persist message text, sentiment labels about the person, or private-mode content.
@@ -67,7 +68,7 @@ export function toneFeedback(kind:ToneFeedback){
  saveToneProfile({...p,warmth:clamp(p.warmth+12)});
 }
 export function toneInstruction(p=getToneProfile(),latestUserText=""):string{
- if(!p.enabled)return "請使用自然、專業的臺灣繁體中文，並尊重使用者當次指定的語氣。";
+ if(!p.enabled)return "請使用自然、專業的臺灣繁體中文，並尊重使用者當次指定的語氣。"+taiwanSpeechInstruction(latestUserText,"light");
  const enough=p.samples>=3;
  const direct=enough&&p.lengthEma<45?"精簡直接，少用鋪陳；":p.directness>=60?"先講結論，避免冗言；":"清楚完整地說明；";
  const punctuation=enough&&p.punctuationEma<0.18?"標點簡潔，不必模仿使用者省略標點；":"句子順暢、分段清楚；";
@@ -76,7 +77,7 @@ export function toneInstruction(p=getToneProfile(),latestUserText=""):string{
  const warmth=p.warmth>70?"保持親切、自然，不過分親密；":p.warmth<35?"語氣理性、俐落；":"語氣友善，但不客套；";
  const current=latestUserText.length<500&&/很煩|爛|有問題|不行|失敗|錯誤|壞掉|不對/.test(latestUserText)?"使用者可能遇到挫折，優先處理實際問題，不要制式安慰。":"";
  const power=p.strength==="light"?"輕度參考個人偏好；":p.strength==="close"?"適度貼近使用者的語速和措辭習慣，但不冒充本人；":"自然呼應使用者的溝通節奏；";
- return "回覆風格指引（僅調整表達形式，不影響事實準確、安全與隱私）：以臺灣繁體中文回答。"+power+direct+punctuation+emoji+length+warmth+current+"使用者明確指定不同語氣、長度、格式時以當次要求為準；不要宣稱自己就是使用者。";
+ return "回覆風格指引（僅調整表達形式，不影響事實準確、安全與隱私）：以臺灣繁體中文回答。"+power+direct+punctuation+emoji+length+warmth+current+"使用者明確指定不同語氣、長度、格式時以當次要求為準；不要宣稱自己就是使用者。"+taiwanSpeechInstruction(latestUserText,p.strength);
 }
 /**
  * Explicit conversational preferences are applied locally, without an API call.

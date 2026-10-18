@@ -9,7 +9,7 @@ export const LOCAL_MODELS=[
 ] as const;
 export type LocalModelId=(typeof LOCAL_MODELS)[number]["id"];
 export const LOCAL_MODEL:LocalModelId=LOCAL_MODELS[0].id;
-export type ChatTurn={role:"user"|"assistant";content:string};
+export type ChatTurn={role:"user"|"assistant";content:string;source?:"local"|"gemini"|"deepseek"};
 let engine:webllm.MLCEngine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;

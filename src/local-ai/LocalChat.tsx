@@ -180,7 +180,13 @@ async function executeIntent(question:string):Promise<boolean>{
   const eventName=intent.section==="sheets"?"vanilla-open-sheets":intent.section==="files"?"vanilla-open-files":intent.section==="builder"?"vanilla-open-builder":"vanilla-open-settings";
   window.dispatchEvent(new Event(eventName));setDraft("");return true;
  }
- if(intent.kind==="sheet"){
+ if(intent.kind==="integration"){
+  if(privateMode&&!window.confirm("要把私密模式的 API 串接構想帶入一般 Self-Build 工作室嗎？你沒有貼入金鑰才應繼續。"))return true;
+  toolReply(question,"已將「"+intent.name+"」API 串接加入 Self-Build 需求。這需要釐清授權範圍、回呼網址、API 使用限制及安全後端；尚未連接服務，也不要在聊天欄貼上金鑰。接下來可產生工程需求與 GitHub Issue 供審查。");
+  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:intent.idea}}));
+  return true;
+ }
+  if(intent.kind==="sheet"){
   if(privateMode&&!window.confirm("將這份表格從私密對話複製到一般本機工作簿？不會自動上傳雲端。"))return true;
   toolReply(question,intent.message);
   window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{workbook:intent.workbook}}));

@@ -1,9 +1,9 @@
-import {useEffect,useRef,useState} from "react";
-import {Table2,Plus,Save,FolderOpen,Download,Undo2,Redo2,Bold,AlignCenter,AlignLeft,AlignRight,Coins,Percent,Palette,CloudUpload,RefreshCcw,Trash2,Sparkles,Check,FileSpreadsheet,AlertTriangle} from "lucide-react";
+import {useEffect,useRef,useState,type ClipboardEvent} from "react";
+import {Table2,Plus,FolderOpen,Download,Undo2,Redo2,Bold,AlignCenter,AlignLeft,AlignRight,Coins,Percent,Palette,CloudUpload,Trash2,Sparkles,Check,FileSpreadsheet,AlertTriangle} from "lucide-react";
 import {newWorkbook,parseWorkbook,activeSheet,getCell,cellDisplay,setCell,cellAddress,columnName,decodeAddress,importRows,parseCSV,toCSV,type Workbook,type CellStyle} from "./sheets-model";
 import {driveSession,connectWorkspaceDrive,createWorkspaceText,updateWorkspaceText,type WorkspaceFile} from "./cloud-drive";
 import {availableProviders,generateCloudReply} from "../vault/providers";
-import {getOllamaConfig,isOllamaConfigured,generateOllamaReply} from "../ai/ollama";
+import {isOllamaConfigured,generateOllamaReply} from "../ai/ollama";
 
 const STORAGE_KEY="vanilla.sheets.workbooks.v1";
 const CURRENT_KEY="vanilla.sheets.current.v1";
@@ -56,7 +56,7 @@ function localProposal(prompt:string,book:Workbook):Edit[]|null{
  }
  return changes;
 }
-function CellInput({address,raw,display,active,onFocus,onCommit,onPaste,style}:{address:string;raw:string;display:string;active:boolean;onFocus:(cell:string)=>void;onCommit:(cell:string,value:string)=>void;onPaste:(e:React.ClipboardEvent<HTMLInputElement>,cell:string)=>void;style?:CellStyle}){
+function CellInput({address,raw,display,active,onFocus,onCommit,onPaste,style}:{address:string;raw:string;display:string;active:boolean;onFocus:(cell:string)=>void;onCommit:(cell:string,value:string)=>void;onPaste:(e:ClipboardEvent<HTMLInputElement>,cell:string)=>void;style?:CellStyle}){
  const [draft,setDraft]=useState(display);
  useEffect(()=>{setDraft(active?raw:display);},[raw,display,active]);
  return <input aria-label={"儲存格 "+address} className={"sheet-input "+(style?.bold?"bold ":"")+(style?.fill&&style.fill!=="none"?"fill-"+style.fill:"")} style={{textAlign:style?.align||"left"}} value={draft} onFocus={()=>{onFocus(address);setDraft(raw);}} onChange={e=>setDraft(e.target.value)} onBlur={()=>{if(draft!==raw)onCommit(address,draft);}} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();e.currentTarget.blur();}}} onPaste={e=>onPaste(e,address)} />;
@@ -119,7 +119,7 @@ export default function Sheets(){
   const current=getCell(book,cell),style={...current.style,...patch};
   commit(setCell(book,cell,current.raw,style));
  }
- function paste(e:React.ClipboardEvent<HTMLInputElement>,origin:string){
+ function paste(e:ClipboardEvent<HTMLInputElement>,origin:string){
   const raw=e.clipboardData.getData("text/plain");
   if(!raw.includes("\n")&&!raw.includes("\t"))return;
   const position=decodeAddress(origin);if(!position)return;

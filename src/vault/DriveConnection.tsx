@@ -1,4 +1,5 @@
-import {useState} from "react";
+import {useState,useEffect} from "react";
+import {loadProviderConfigs,queueProviderSync,stopProviderSync} from "./provider-sync";
 import {setProvider,removeProvider,availableProviders,getConfigs,type Provider} from "./providers";
 import {authorizeDrive,revokeDrive} from "./google-auth";
 import {listVaultFiles,downloadVault,uploadVaultSnapshot} from "./drive";
@@ -22,6 +23,9 @@ export default function DriveConnection(){
  const [keyFeedback,setKeyFeedback]=useState("");
  const [model,setModel]=useState("gemini-2.5-flash");
  const [connected,setConnected]=useState<Provider[]>(availableProviders());
+ const [syncStatus,setSyncStatus]=useState("未連接 Google Drive");
+ useEffect(()=>{const session=readSession();if(!session)return;let alive=true;void loadProviderConfigs(session.token).then(n=>{if(alive){setConnected(availableProviders());setSyncStatus("已從 Drive 載入 "+n+" 組 API 設定");}}).catch(e=>{if(alive)setSyncStatus("同步失敗："+String(e instanceof Error?e.message:e));});return()=>{alive=false;};},[]);
+ async function persistProviders(){const session=readSession();if(!session){setSyncStatus("請先連接 Google Drive，才能跨裝置同步");return;}setSyncStatus("正在同步 API 設定…");try{await queueProviderSync(session.token);setSyncStatus("API 設定已同步到 Google Drive");}catch(e){setSyncStatus("同步失敗："+String(e instanceof Error?e.message:e));}}
  async function connect(){
   setBusy(true);
   try{
@@ -29,7 +33,7 @@ export default function DriveConnection(){
    const res=await fetch("https://www.googleapis.com/oauth2/v2/userinfo",{headers:{Authorization:"Bearer "+result.token}});
    if(!res.ok)throw new Error("無法確認 Google 帳號");
    const user=await res.json() as {email?:string};
-   setToken(result.token);setEmail(user.email||"已授權");saveSession({token:result.token,expiresAt:result.expiresAt,email:user.email||"已授權"});setStatus("已連接 Google Drive 家庭共用保險庫");
+   setToken(result.token);setEmail(user.email||"已授權");saveSession({token:result.token,expiresAt:result.expiresAt,email:user.email||"已授權"});const count=await loadProviderConfigs(result.token);setConnected(availableProviders());if(count===0&&getConfigs().length){await queueProviderSync(result.token);}setSyncStatus("已連接，Drive 目前有 "+(count||getConfigs().length)+" 組 API 設定");setStatus("已連接 Google Drive 家庭共用保險庫");
   }catch(e){setStatus(e instanceof Error?e.message:"連線失敗");}finally{setBusy(false);}
  }
  async function backup(){
@@ -55,26 +59,29 @@ export default function DriveConnection(){
    localStorage.setItem(STORAGE_KEY,JSON.stringify(incoming));
    for(const config of data.providers||[]){if((config.provider==="gemini"||config.provider==="deepseek")&&typeof config.key==="string"&&typeof config.model==="string")setProvider(config);}
    setConnected(availableProviders());
+   await persistProviders();
    setStatus("已還原 "+incoming.length+" 則一般模式訊息。請重新整理頁面查看。");
   }catch(e){setStatus(e instanceof Error?e.message:"還原失敗，請確認加密密語");}finally{setBusy(false);}
  }
  return <div style={{marginTop:24,padding:20,border:"1px solid #d1d5db",borderRadius:14}}>
   <h3 id="vanilla-model-settings">AI 模型與 API 管理</h3>
   <p style={{fontSize:12}}>Gemini / DeepSeek · 設定版本 2026.10.18</p>
-  <p>API Key 只保存在本次開啟的記憶體中，不寫入公開程式碼或瀏覽器明文儲存。若需要跨裝置使用，請手動加密備份至 Google Drive，再於另一裝置還原。</p>
+  <p>登入相同 Google 帳號後，會自動讀取 Gemini／DeepSeek API 設定。新增或移除模型後會自動寫入 Google Drive 應用程式資料夾，無須另設密語。</p>
+  <p role="alert" style={{fontSize:13,color:"#a33"}}><strong>安全提醒：</strong>方案 A 不使用端對端加密。API Key 會以可讀 JSON 儲存在 Google Drive 私有 appDataFolder，擁有該 Google 帳號及本應用程式適當授權的存取者可能取得金鑰；裝置執行時金鑰也會存在記憶體中。請只使用可限制額度、可隨時撤銷的金鑰，避免在共用裝置登入。</p>
   <label>供應商 <select value={provider} onChange={e=>{const p=e.target.value as Provider;setSelectedProvider(p);setModel(p==="gemini"?"gemini-2.5-flash":"deepseek-chat");setApiKey("");setKeyFeedback("");}}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></select></label>
   <label style={{display:"block",marginTop:10}}>模型名稱 <input value={model} onChange={e=>setModel(e.target.value)}/></label>
   <label style={{display:"block",marginTop:10}}>API Key <input type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={apiKey} onChange={e=>{setApiKey(e.target.value);setKeyFeedback(e.target.value.trim()?"已接收 "+e.target.value.trim().length+" 個字元，請按「加入模型」完成設定。":"");}} placeholder="在此貼上 API Key" style={{display:"block",width:"100%",maxWidth:440,minHeight:44,fontSize:16,padding:"10px 12px",border:"1px solid #cbd5e1",borderRadius:9}}/></label>
   <p role="status" aria-live="polite" style={{fontSize:13,margin:"7px 0",color:"#256347"}}>{keyFeedback||"貼上後會顯示接收字數；只有按「加入模型」才會儲存設定。請勿截圖或分享金鑰。"}</p>
-  <div style={{display:"flex",gap:10,marginTop:10}}><button type="button" disabled={!apiKey.trim()||!model.trim()} onClick={()=>{setProvider({provider,key:apiKey.trim(),model:model.trim()});setConnected(availableProviders());setKeyFeedback("已加入 "+provider+"（金鑰已接收；尚未驗證 API 可用性）。");setStatus("已加入 "+provider+"，聊天時可自動路由。尚未驗證金鑰是否有效。");}}>加入模型</button><button type="button" onClick={()=>{removeProvider(provider);setConnected(availableProviders());setKeyFeedback("已移除 "+provider+"。");}}>移除模型</button></div>
-  <p>本次工作階段已連接：{connected.length?connected.join("、"):"尚無"}</p>
+  <div style={{display:"flex",gap:10,marginTop:10}}><button type="button" disabled={!apiKey.trim()||!model.trim()} onClick={()=>{setProvider({provider,key:apiKey.trim(),model:model.trim()});setConnected(availableProviders());setKeyFeedback("已加入 "+provider+"（金鑰已接收；尚未驗證 API 可用性）。");setStatus("已加入 "+provider+"，聊天時可自動路由。尚未驗證金鑰是否有效。");void persistProviders();}}>加入模型</button><button type="button" onClick={()=>{removeProvider(provider);setConnected(availableProviders());setKeyFeedback("已移除 "+provider+"。");void persistProviders();}}>移除模型</button></div>
+  <p>目前已連接：{connected.length?connected.join("、"):"尚無"}</p>
+  <p role="status" aria-live="polite">{syncStatus}</p>
   <small>這是直接從瀏覽器呼叫供應商 API 的初版，金鑰會在呼叫時傳送至該供應商，且無後端金鑰代理。不要在不信任的裝置使用；雲端模型可能產生費用。</small>
   <h3>家庭 Google Drive 保險庫</h3>
   <p>Google 授權在目前分頁工作階段內保留，重新整理無須再次登入；授權到期、關閉分頁或 Safari 清除工作階段後仍需重新授權。</p>
   <p>全家共用同一個 Google 帳號的應用程式資料夾，以及同一組加密密語。私密模式紀錄永不上傳。</p>
-  <p>目前支援手動加密備份一般聊天與已連接 API 設定、跨裝置還原；自動同步、衝突合併與長期記憶仍待完成。</p>
+  <p>API Key 設定採獨立 Drive 自動同步（不加密）；一般聊天仍採手動端對端加密快照備份，私密模式不會上傳。對話自動同步、衝突合併與長期記憶尚未完成。</p>
   {email&&<p>Google 帳號：{email}</p>}
-  <button type="button" disabled={busy} onClick={()=>{if(token){revokeDrive(token);clearSession();setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
+  <button type="button" disabled={busy} onClick={()=>{if(token){stopProviderSync();revokeDrive(token);clearSession();setSyncStatus("已中斷 Google Drive 同步");setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
   <label style={{display:"block",marginTop:16}}>家庭加密密語（至少 12 字元）</label>
   <input type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="每台裝置輸入相同密語" style={{width:"100%",maxWidth:320,padding:10}}/>
   <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>

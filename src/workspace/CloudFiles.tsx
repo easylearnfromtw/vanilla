@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import {Cloud,CloudOff,RefreshCcw,Upload,Plus,FileText,FileSpreadsheet,Trash2,Download,ExternalLink,Save,Search,PenLine,FolderOpen,X,AlertTriangle} from "lucide-react";
 import {connectWorkspaceDrive,driveSession,listWorkspaceFiles,createWorkspaceText,uploadWorkspaceFile,getWorkspaceText,updateWorkspaceText,trashWorkspaceFile,renameWorkspaceFile,getWorkspaceBlob,isTextFile,type WorkspaceFile} from "./cloud-drive";
 import {parseWorkbook} from "./sheets-model";
+import {parseFileCommand,type FileCommand} from "./file-commands";
 
 type Editor={file:WorkspaceFile;text:string;baseline:string};
 export default function CloudFiles(){
@@ -14,6 +15,8 @@ export default function CloudFiles(){
  const [busy,setBusy]=useState(false);
  const [createType,setCreateType]=useState<"txt"|"md"|"csv"|"json">("txt");
  const [createName,setCreateName]=useState("");
+ const [commandText,setCommandText]=useState("");
+ const [pendingCommand,setPendingCommand]=useState<FileCommand|null>(null);
  const uploadRef=useRef<HTMLInputElement>(null);
  const token=session?.token;
  const refresh=useCallback(async(t?:string)=>{
@@ -118,7 +121,43 @@ export default function CloudFiles(){
   }catch(e){setStatus(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }
- const visible=files.filter(x=>x.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()));
+ async function executeCommand(){
+  if(!pendingCommand||busy)return;
+  const command=pendingCommand;
+  setPendingCommand(null);
+  if(command.kind==="search"){setFilter(command.query);setStatus("已搜尋："+(command.query||"全部檔案"));return;}
+  if(command.kind==="open"){await open(command.file);return;}
+  if(command.kind==="trash"){await trash(command.file);return;}
+  if(command.kind==="rename"){
+   if(!token)return;
+   setBusy(true);
+   try{await renameWorkspaceFile(token,command.file,command.name);await refresh(token);setEditor(null);setStatus("已重新命名："+command.name);}
+   catch(e){setStatus(e instanceof Error?e.message:String(e));}
+   finally{setBusy(false);}
+   return;
+  }
+  if(command.kind==="create"){
+   if(!token)return;
+   const ext=command.name.split(".").pop()?.toLowerCase()||"txt";
+   const type=ext==="json"?"application/json":ext==="csv"?"text/csv":ext==="md"?"text/markdown":"text/plain";
+   const initial=ext==="json"?"{}\n":"";
+   setBusy(true);
+   try{const result=await createWorkspaceText(token,command.name,initial,type);await refresh(token);setEditor({file:result,text:initial,baseline:initial});setStatus("已建立："+result.name);}
+   catch(e){setStatus(e instanceof Error?e.message:String(e));}
+   finally{setBusy(false);}
+   return;
+  }
+  if(command.kind==="append"){
+   if(!token)return;
+   if(!isTextFile(command.file)){setStatus("這不是可編輯文字檔案");return;}
+   if(editor&&editor.text!==editor.baseline&&!window.confirm("目前編輯器有未儲存修改，確定放棄嗎？"))return;
+   setBusy(true);
+   try{const current=await getWorkspaceText(token,command.file.id);setEditor({file:command.file,baseline:current,text:current+(current.endsWith("\n")?"":"\n")+command.text});setStatus("已在編輯器預覽追加內容，請檢查後按儲存變更");}
+   catch(e){setStatus(e instanceof Error?e.message:String(e));}
+   finally{setBusy(false);}
+  }
+ }
+  const visible=files.filter(x=>x.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()));
  return <div className="files-studio">
   <div className="workspace-banner"><div className="workspace-banner-icon"><Cloud size={25}/></div><div><h2>Vanilla Cloud Files</h2><p>在同一個工作區搜尋、建立、編輯、整理及移至垃圾桶。採 Google Drive 最小權限，只顯示 Vanilla 有權管理的檔案。</p></div></div>
   <div className="workspace-notice"><AlertTriangle size={16}/><div><strong>雲端檔案不是端對端加密保險庫。</strong>這裡新增的檔案會以一般 Google Drive 檔案形式儲存；不要放入私密模式的對話或敏感內容。Google Docs／Sheets／Slides 原生格式目前仍需在 Google 編輯器編輯。</div></div>
@@ -128,6 +167,11 @@ export default function CloudFiles(){
     <button type="button" className="workspace-primary" disabled={busy} onClick={()=>uploadRef.current?.click()}><Upload size={15}/>上傳</button>
     <input ref={uploadRef} type="file" multiple hidden onChange={e=>{void upload(e.target.files);}}/>
    </div></div>
+   <section className="files-command-bar"><div className="files-command-title"><PenLine size={16}/><strong>對 Vanilla 說你想管理什麼檔案</strong><span>先預覽，再確認</span></div>
+    <div className="files-command-input"><input value={commandText} onChange={e=>{setCommandText(e.target.value);setPendingCommand(null);}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();try{setPendingCommand(parseFileCommand(commandText,files));setStatus("請確認下方操作方案");}catch(error){setStatus(error instanceof Error?error.message:String(error));}}}} placeholder="例如：搜尋 合約、建立 旅行.md、刪除 舊檔案.txt"/><button type="button" onClick={()=>{try{setPendingCommand(parseFileCommand(commandText,files));setStatus("請確認下方操作方案");}catch(error){setStatus(error instanceof Error?error.message:String(error));}}}>解析指令</button></div>
+    {pendingCommand&&<div className="files-command-preview"><span>執行方案：{pendingCommand.label}</span><div><button className="workspace-primary" type="button" disabled={busy} onClick={()=>void executeCommand()}>確認執行</button><button type="button" onClick={()=>setPendingCommand(null)}>取消</button></div></div>}
+    <p>支援搜尋、建立、讀取、重新命名、移至垃圾桶、文字追加；不會未經你確認就修改檔案。</p>
+   </section>
    <div className="files-create"><input aria-label="新檔案名稱" value={createName} onChange={e=>setCreateName(e.target.value)} placeholder="輸入新檔案名稱（不含副檔名）"/><select value={createType} aria-label="選擇檔案格式" onChange={e=>setCreateType(e.target.value as typeof createType)}><option value="txt">文字 .txt</option><option value="md">Markdown .md</option><option value="csv">表格 .csv</option><option value="json">資料 .json</option></select><button type="button" disabled={busy} onClick={()=>void create()}><Plus size={16}/>建立檔案</button></div>
    <div className="files-browser">
     <div className="files-browser-top"><FolderOpen size={16}/>Vanilla Workspace <span>{visible.length} 個檔案</span></div>

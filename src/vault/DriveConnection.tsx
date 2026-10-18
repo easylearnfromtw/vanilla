@@ -1,7 +1,8 @@
 import {useState,useEffect} from "react";
 import {loadProviderConfigs,queueProviderSync,stopProviderSync} from "./provider-sync";
 import {setProvider,removeProvider,availableProviders,getConfigs,type Provider} from "./providers";
-import {authorizeDrive,revokeDrive} from "./google-auth";
+import {revokeDrive} from "./google-auth";
+import {connectWorkspaceDrive} from "../workspace/cloud-drive";
 import {listVaultFiles,downloadVault,uploadVaultSnapshot} from "./drive";
 import {encryptVault,decryptVault} from "./crypto";
 const STORAGE_KEY="vanilla.chat.history.v1";
@@ -29,12 +30,14 @@ export default function DriveConnection(){
  async function connect(){
   setBusy(true);
   try{
-   const result=await authorizeDrive();
-   const res=await fetch("https://www.googleapis.com/oauth2/v2/userinfo",{headers:{Authorization:"Bearer "+result.token}});
-   if(!res.ok)throw new Error("無法確認 Google 帳號");
-   const user=await res.json() as {email?:string};
-   setToken(result.token);setEmail(user.email||"已授權");saveSession({token:result.token,expiresAt:result.expiresAt,email:user.email||"已授權"});const count=await loadProviderConfigs(result.token);setConnected(availableProviders());setSyncStatus("已連接，Drive 目前有 "+(count||getConfigs().length)+" 組 API 設定");setStatus("已連接 Google Drive 家庭共用保險庫");
-  }catch(e){setStatus(e instanceof Error?e.message:"連線失敗");}finally{setBusy(false);}
+   const session=await connectWorkspaceDrive();
+   setToken(session.token);setEmail(session.email);
+   const count=await loadProviderConfigs(session.token);
+   setConnected(availableProviders());
+   setSyncStatus("登入成功，Drive 已載入 "+count+" 組 API 設定");
+   setStatus("已使用 "+session.email+" 連接個人 Google Drive");
+  }catch(e){setStatus(e instanceof Error?e.message:"連線失敗");}
+  finally{setBusy(false);}
  }
  async function backup(){
   if(!token||secret.length<12)return;
@@ -78,10 +81,10 @@ export default function DriveConnection(){
   <small>這是直接從瀏覽器呼叫供應商 API 的初版，金鑰會在呼叫時傳送至該供應商，且無後端金鑰代理。不要在不信任的裝置使用；雲端模型可能產生費用。</small>
   <h3>家庭 Google Drive 保險庫</h3>
   <p>Google 授權在目前分頁工作階段內保留，重新整理無須再次登入；授權到期、關閉分頁或 Safari 清除工作階段後仍需重新授權。</p>
-  <p>全家共用同一個 Google 帳號的應用程式資料夾，以及同一組加密密語。私密模式紀錄永不上傳。</p>
+  <p>家庭成員請各自連接自己的 Google 帳號；同一帳號只能看到自己的 appDataFolder。家庭共享資料仍需另行授權，私密模式紀錄不會上傳。</p>
   <p>API Key 設定採獨立 Drive 自動同步（不加密）；一般聊天仍採手動端對端加密快照備份，私密模式不會上傳。對話自動同步、衝突合併與長期記憶尚未完成。</p>
   {email&&<p>Google 帳號：{email}</p>}
-  <button type="button" disabled={busy} onClick={()=>{if(token){stopProviderSync();removeProvider("gemini");removeProvider("deepseek");setConnected([]);revokeDrive(token);clearSession();setSyncStatus("已中斷 Google Drive 同步");setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
+  <button type="button" disabled={busy} onClick={()=>{if(token){stopProviderSync();removeProvider("gemini");removeProvider("deepseek");setConnected([]);revokeDrive(token);clearSession();window.dispatchEvent(new Event("vanilla-drive-disconnected"));setSyncStatus("已中斷 Google Drive 同步");setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
   <label style={{display:"block",marginTop:16}}>家庭加密密語（至少 12 字元）</label>
   <input type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="每台裝置輸入相同密語" style={{width:"100%",maxWidth:320,padding:10}}/>
   <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>

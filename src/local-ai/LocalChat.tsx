@@ -14,7 +14,7 @@ import type {ImageInput} from "../vault/providers";
 import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ThumbsUp,ThumbsDown} from "lucide-react";
 import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
-import {generateLocalReply,isLocalModelReady,loadLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,LOCAL_MODEL} from "./engine";
+import {generateLocalReply,isLocalModelReady,loadLocalModel,isLocalModelSupported,LOCAL_MODELS,type LocalModelId,type ChatTurn,LOCAL_MODEL} from "./engine";
 const STORAGE_KEY="vanilla.chat.history.v1";
 const PRIVATE_KEY="vanilla.chat.private.v1";
 const MODE_KEY="vanilla.chat.private.enabled";
@@ -60,16 +60,16 @@ async function attachFile(file?:File){
 const [busy,setBusy]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
 const [modelProgress,setModelProgress]=useState(0);
-const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(()=>{const v=localStorage.getItem("vanilla.local.model");return LOCAL_MODELS.find(m=>m.id===v)?.id||LOCAL_MODEL;});
+const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(LOCAL_MODEL);
 const [online,setOnline]=useState(()=>navigator.onLine);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
-const [ready,setReady]=useState(()=>{const v=localStorage.getItem("vanilla.local.model");const selected=LOCAL_MODELS.find(m=>m.id===v)?.id||LOCAL_MODEL;return isLocalModelReady(selected);});
+const [ready,setReady]=useState(()=>isLocalModelReady(LOCAL_MODEL));
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
 type RouteMode="auto-local"|"auto"|"local"|"ollama"|"gemini"|"deepseek";
 const [routeMode,setRouteMode]=useState<RouteMode>(()=>{
- try{const saved=localStorage.getItem("vanilla.route.mode.v1");return ["auto-local","auto","local","ollama","gemini","deepseek"].includes(saved||"")?saved as RouteMode:"auto-local";}catch{return "auto-local";}
+ return "auto";
 });
 const [compareMode,setCompareMode]=useState(()=>localStorage.getItem("vanilla.model.compare.v1")==="true");
 const [allowMetered,setAllowMetered]=useState(()=>{try{return localStorage.getItem("vanilla.models.allow-metered.v1")==="true";}catch{return false;}});
@@ -241,18 +241,40 @@ async function send(value=draft){
   if(!canReply){setLastRoute("AI 模型尚未就緒。可以先開啟 Vanilla 表格或雲端檔案；若要聊天請載入本地 AI 或連線 Ollama／API。");return;}
  const task=classifyTask(question,Boolean(image));
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
- const discovered=listCandidates({localReady:ready,localModel:selectedLocalModel,image:Boolean(image),online,privateMode:localOnly});
+ let activeModel=selectedLocalModel,localReady=ready;
+ const upgradeId=LOCAL_MODELS.find(m=>m.id.includes("1.5B")&&isLocalModelSupported(m.id))?.id;
+ if((privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
+    (task==="code"||task==="analysis")&&upgradeId&&sessionStorage.getItem("vanilla.upgrade.asked.v1")!=="yes"){
+  sessionStorage.setItem("vanilla.upgrade.asked.v1","yes");
+  if(window.confirm("Vanilla 發現這題較複雜。手機目前只載入 0.5B 本地模型，回答品質可能不足。要另外下載並載入 1.5B 本地模型後再回答嗎？可能佔用較多空間與記憶體。")){
+   setLoadingModel(true);setModelProgress(0);
+   try{
+    await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},upgradeId);
+    selectLocalModel(upgradeId);setReady(true);activeModel=upgradeId;localReady=true;
+   }catch(e){setReady(false);localReady=false;setLastRoute("較大模型載入失敗："+(e instanceof Error?e.message:String(e)));}
+   finally{setLoadingModel(false);}
+  }
+ }
+ const discovered=listCandidates({localReady,localModel:activeModel,image:Boolean(image),online,privateMode:localOnly});
  const automatic=routeMode==="auto"||routeMode==="auto-local";
- const candidates=automatic&&!allowMetered?discovered.filter(x=>x.source==="local"||(x.source==="ollama"&&x.location==="自架主機")):discovered;
- const preference=routeMode==="auto"?"quality":"local-first";
+ let candidates=automatic&&!allowMetered?discovered.filter(x=>x.source==="local"||(x.source==="ollama"&&x.location==="自架主機")):discovered;
+ if(automatic&&!allowMetered&&!privateMode&&online&&providers.length&&task!=="casual"&&sessionStorage.getItem("vanilla.cloud.route.ask")!=="declined"){
+  const qualityNeeded=Boolean(image)||task==="analysis"||task==="code"||task==="writing"||!candidates.length;
+  if(qualityNeeded){
+   const accepted=window.confirm("這次問題適合使用能力較高的雲端 AI。啟用智慧雲端路由後，Vanilla 可自動使用已連接的 Gemini／DeepSeek；API 可能受免費額度或計費限制，傳送對話前仍需你的授權。是否啟用？");
+   if(accepted){changeMetered(true);candidates=discovered;}
+   else sessionStorage.setItem("vanilla.cloud.route.ask","declined");
+  }
+ }
+
+ const preference="quality" as const;
  const ranked=rankedCandidates(candidates,task,preference);
- const primary=localOnly?candidates.find(x=>x.source==="local"):
-  (routeMode==="auto"||routeMode==="auto-local")?ranked[0]:candidates.find(x=>x.source===routeMode);
+ const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
   setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或開啟允許計費 API。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
   return;
  }
- const chosen:ModelCandidate[]=compareMode&&!localOnly&&(routeMode==="auto"||routeMode==="auto-local")&&ranked.length>1?topComparisonCandidates(ranked,task,preference):[primary];
+ const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){

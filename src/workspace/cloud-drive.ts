@@ -1,4 +1,5 @@
 import {authorizeDrive} from "../vault/google-auth";
+import {bindChatAccount} from "../vault/chat-sync";
 const API="https://www.googleapis.com/drive/v3/files";
 const UPLOAD="https://www.googleapis.com/upload/drive/v3/files";
 const SESSION_KEY="vanilla.drive.session.v1";
@@ -17,6 +18,7 @@ export async function connectWorkspaceDrive():Promise<Session>{
  const profile=await result.json() as {email?:string};
  const session={token:authorized.token,expiresAt:authorized.expiresAt,email:profile.email||"已授權"};
  sessionStorage.setItem(SESSION_KEY,JSON.stringify(session));
+ bindChatAccount(session.email);
  window.dispatchEvent(new Event("vanilla-drive-connected"));
  return session;
 }

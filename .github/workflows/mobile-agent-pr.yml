@@ -1,0 +1,23 @@
+name: Review Mobile Agent Integration
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:workspace
+      - run: npm run test:builder
+      - run: npm run test:assistant
+      - run: npm run test:security
+      - run: npm run test:mobile
+      - run: npm run build
+        env:
+          GITHUB_PAGES: "true"

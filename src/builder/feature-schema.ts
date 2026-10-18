@@ -13,6 +13,7 @@ export type FeatureSpec={
 export type FeatureData={items:{id:string;title:string;done:boolean}[];records:{id:string;at:string;values:Record<string,string|boolean>}[];notes:string;inputs:Record<string,number>};
 const SPECS_KEY="vanilla.builders.features.v1";
 const DATA_KEY="vanilla.builders.data.v1";
+const HISTORY_KEY="vanilla.builders.history.v1";
 const MAX_FEATURES=24;
 export const MAX_RECORDS=200;
 export const MAX_ITEMS=200;
@@ -76,10 +77,37 @@ export function loadFeatures():FeatureSpec[]{
   }catch{return [];}});
  }catch{return [];}
 }
+function historyMap():Record<string,FeatureSpec[]>{
+ try{
+  const raw=JSON.parse(localStorage.getItem(HISTORY_KEY)||"{}") as Record<string,FeatureSpec[]>;
+  return raw&&typeof raw==="object"&&!Array.isArray(raw)?raw:{};
+ }catch{return {};}
+}
+export function featureHistory(id:string):FeatureSpec[]{
+ return (historyMap()[id]||[]).filter(x=>x&&x.version===1&&x.id===id).slice(-8);
+}
+export function rollbackFeature(id:string):FeatureSpec{
+ const list=loadFeatures(),current=list.find(x=>x.id===id);
+ const all=historyMap(),saved=(all[id]||[]).pop();
+ if(!current||!saved)throw Error("沒有可回復的舊版本");
+ all[id]=all[id].slice(-8);
+ localStorage.setItem(HISTORY_KEY,JSON.stringify(all));
+ // Keep user records and make the rolled-back specification a new revision.
+ const restored={...saved,id,revision:current.revision+1,createdAt:current.createdAt,updatedAt:new Date().toISOString()};
+ const next=list.map(x=>x.id===id?restored:x);
+ localStorage.setItem(SPECS_KEY,JSON.stringify(next));
+ window.dispatchEvent(new Event("vanilla-features-changed"));
+ return restored;
+}
 export function installFeature(feature:FeatureSpec){
  const list=loadFeatures(),index=list.findIndex(x=>x.id===feature.id);
  if(index<0&&list.length>=MAX_FEATURES)throw Error("本機功能數量上限為 24 個，請先移除舊功能");
- const next=index<0?[...list,feature]:list.map(x=>x.id===feature.id?feature:x);
+ if(index>=0){
+  const all=historyMap();
+  all[feature.id]=[...(all[feature.id]||[]),list[index]].slice(-8);
+  localStorage.setItem(HISTORY_KEY,JSON.stringify(all));
+ }
+  const next=index<0?[...list,feature]:list.map(x=>x.id===feature.id?feature:x);
  localStorage.setItem(SPECS_KEY,JSON.stringify(next));
  if(index<0&&feature.kind==="checklist"&&feature.initialItems?.length){const data=featureData(feature.id);if(!data.items.length){writeFeatureData(feature.id,{...data,items:feature.initialItems.map(title=>({id:crypto.randomUUID(),title,done:false}))});}}
  window.dispatchEvent(new Event("vanilla-features-changed"));

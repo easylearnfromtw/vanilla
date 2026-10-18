@@ -64,3 +64,5 @@
 .cloud-notice{width:min(820px,calc(100% - 48px));margin:2px auto 8px;padding:0 4px;font-size:10px;line-height:1.5;color:#8b929d}
 @media(max-width:760px){.local-model-panel,.cloud-notice{width:calc(100% - 28px)}.local-model-detail{padding:12px}.local-model-heading{padding:10px 12px}.local-model-controls select{min-width:130px}}
 @media(prefers-reduced-motion:reduce){.local-model-heading>svg:last-child{transition:none}}
+
+.message-source{font-size:10px;font-weight:600;letter-spacing:.01em;color:#768091;margin:0 0 6px}.from-ai .message-source{display:inline-flex;align-items:center;border-radius:6px;background:#f3f5f7;padding:3px 7px}

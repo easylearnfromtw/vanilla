@@ -9,6 +9,8 @@ import DriveConnection from "./vault/DriveConnection";
 import ModelConnections from "./ai/ModelConnections";
 import SourceSettings from "./search/SourceSettings";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
+import {chatStorageKey,chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync";
+import ChatSyncSettings from "./vault/ChatSyncSettings";
 import {useState,useEffect} from "react";
 import {loadProviderConfigs} from "./vault/provider-sync";
 import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole,Table2,FolderOpen,WandSparkles,Puzzle} from "lucide-react";
@@ -34,10 +36,11 @@ useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");
 const [menuOpen,setMenuOpen]=useState(false);
 const [filename,setFilename]=useState("");
 const [chatKey,setChatKey]=useState(0);
+useEffect(()=>{const onRemote=()=>setChatKey(x=>x+1);window.addEventListener("vanilla-chat-remote-loaded",onRemote);return()=>window.removeEventListener("vanilla-chat-remote-loaded",onRemote);},[]);
 const [signedIn,setSignedIn]=useState(()=>driveSession());
 const [loginBusy,setLoginBusy]=useState(false);
 const [loginNotice,setLoginNotice]=useState("");
-useEffect(()=>{const refresh=()=>setSignedIn(driveSession());window.addEventListener("vanilla-drive-connected",refresh);window.addEventListener("vanilla-drive-disconnected",refresh);return()=>{window.removeEventListener("vanilla-drive-connected",refresh);window.removeEventListener("vanilla-drive-disconnected",refresh);};},[]);
+useEffect(()=>{const refresh=()=>{setSignedIn(driveSession());setChatKey(x=>x+1);if(driveSession()&&chatSyncEnabled())void initializeChatSync();else stopChatSync();};window.addEventListener("vanilla-drive-connected",refresh);window.addEventListener("vanilla-drive-disconnected",refresh);return()=>{window.removeEventListener("vanilla-drive-connected",refresh);window.removeEventListener("vanilla-drive-disconnected",refresh);};},[]);
 async function connectAccount(){setLoginBusy(true);try{const session=await connectWorkspaceDrive();setSignedIn(session);await loadProviderConfigs(session.token);setLoginNotice("已登入："+session.email);}catch(e){setLoginNotice(e instanceof Error?e.message:String(e));}finally{setLoginBusy(false);}}
 const [features,setFeatures]=useState<FeatureSpec[]>(loadFeatures);
 const [activeFeatureId,setActiveFeatureId]=useState("");
@@ -73,7 +76,7 @@ return <div className="shell">
 {menuOpen&&<button className="nav-backdrop" aria-label="關閉選單" onClick={()=>setMenuOpen(false)}/>}
 <aside className={"sidebar "+(menuOpen?"sidebar-open":"")}>
 <div className="brand"><span className="brand-mark"><BrainCircuit size={22}/></span><div><strong>vanilla</strong><small>PERSONAL INTELLIGENCE</small></div><button className="sidebar-collapse" aria-label="收合選單" onClick={()=>setMenuOpen(false)}><PanelLeftClose size={19}/></button></div>
-<button className="new-chat" onClick={()=>{try{localStorage.removeItem("vanilla.chat.history.v1");}catch{}setChatKey(k=>k+1);navigate("chat");}}><Plus size={18}/> 新對話</button>
+<button className="new-chat" onClick={()=>{try{localStorage.removeItem(chatStorageKey(false));}catch{}setChatKey(k=>k+1);navigate("chat");}}><Plus size={18}/> 新對話</button>
 <div className="nav-caption">工作空間</div>
 <nav aria-label="主要導覽">{items.filter(x=>x.id==="chat"||x.id==="settings").map(x=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)}><x.icon size={18}/><span>{x.label}</span></button>)}</nav>
 
@@ -90,7 +93,7 @@ section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:
 <div className="content-page"><div className="eyebrow">VANILLA / WORKSPACE</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p>
-{section==="settings"?<section className="panel"><h2>帳號與進階設定</h2><p>每個家庭成員使用自己的 Google 帳號及私有 Drive 空間；共用資料應另行授權，不會自動混合。首次授權後，同一個工作階段的聊天、檔案和記憶共用登入狀態。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ToneSettings/><SourceSettings/><ModelConnections/><DriveConnection/></section>:
+{section==="settings"?<section className="panel"><h2>帳號與進階設定</h2><p>每個家庭成員使用自己的 Google 帳號及私有 Drive 空間；共用資料應另行授權，不會自動混合。首次授權後，同一個工作階段的聊天、檔案和記憶共用登入狀態。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ToneSettings/><ChatSyncSettings/><SourceSettings/><ModelConnections/><DriveConnection/></section>:
 section==="line"?<section className="panel"><h2>LINE Intelligence</h2><p>LINE 為選用的輔助匯入工具，不是 Vanilla 的主要對話介面。</p><label className="upload">選擇 LINE .txt 紀錄<input type="file" accept=".txt,text/plain" onChange={e=>setFilename(e.target.files?.[0]?.name||"")}/></label>{filename&&<p className="file-note">已選取：{filename}（尚未上傳）</p>}</section>:
 <section className="panel placeholder-panel"><div className="section-icon"><selected.icon size={26}/></div><h2>{selected.label}</h2><p>{selected.description}</p><div className="placeholder">此功能正在開發中，尚未連接真實資料。</div></section>}
 </div>}

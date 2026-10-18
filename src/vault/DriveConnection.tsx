@@ -81,7 +81,7 @@ export default function DriveConnection(){
   <p>全家共用同一個 Google 帳號的應用程式資料夾，以及同一組加密密語。私密模式紀錄永不上傳。</p>
   <p>API Key 設定採獨立 Drive 自動同步（不加密）；一般聊天仍採手動端對端加密快照備份，私密模式不會上傳。對話自動同步、衝突合併與長期記憶尚未完成。</p>
   {email&&<p>Google 帳號：{email}</p>}
-  <button type="button" disabled={busy} onClick={()=>{if(token){stopProviderSync();revokeDrive(token);clearSession();setSyncStatus("已中斷 Google Drive 同步");setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
+  <button type="button" disabled={busy} onClick={()=>{if(token){stopProviderSync();removeProvider("gemini");removeProvider("deepseek");setConnected([]);revokeDrive(token);clearSession();setSyncStatus("已中斷 Google Drive 同步");setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
   <label style={{display:"block",marginTop:16}}>家庭加密密語（至少 12 字元）</label>
   <input type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="每台裝置輸入相同密語" style={{width:"100%",maxWidth:320,padding:10}}/>
   <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>

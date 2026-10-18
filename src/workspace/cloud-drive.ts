@@ -1,4 +1,5 @@
 import {authorizeDrive} from "../vault/google-auth";
+import {assertPublicWorkspaceName,protectedResource} from "../security/trust-boundary";
 const API="https://www.googleapis.com/drive/v3/files";
 const UPLOAD="https://www.googleapis.com/upload/drive/v3/files";
 const SESSION_KEY="vanilla.drive.session.v1";
@@ -65,11 +66,13 @@ export async function ensureWorkspaceFolder(token:string):Promise<string>{
 export async function listWorkspaceFiles(token:string):Promise<WorkspaceFile[]>{
  const folder=await findWorkspaceFolder(token);
  if(!folder)return [];
- return listQuery(token,"'"+folder.replace(/'/g,"\\'")+"' in parents and trashed = false","id,name,mimeType,modifiedTime,size,version,webViewLink,description");
+ return (await listQuery(token,"'"+folder.replace(/'/g,"\\'")+"' in parents and trashed = false","id,name,mimeType,modifiedTime,size,version,webViewLink,description")).filter(file=>!protectedResource(file.name));
 }
 export async function getWorkspaceMetadata(token:string,id:string):Promise<WorkspaceFile>{
  const res=await request(token,API+"/"+encodeURIComponent(id)+"?fields=id,name,mimeType,modifiedTime,size,version,webViewLink,description");
- return res.json() as Promise<WorkspaceFile>;
+ const meta=await res.json() as WorkspaceFile;
+ assertPublicWorkspaceName(meta.name,"讀取");
+ return meta;
 }
 export async function getWorkspaceBlob(token:string,id:string):Promise<Blob>{
  const metadata=await getWorkspaceMetadata(token,id);
@@ -96,12 +99,14 @@ export async function uploadWorkspaceFile(token:string,name:string,file:Blob):Pr
  const folder=await ensureWorkspaceFolder(token);
  const cleaned=name.trim().replace(/[\\/]/g,"_").slice(0,140);
  if(!cleaned)throw Error("檔名不能為空");
+ assertPublicWorkspaceName(name,"上傳");assertPublicWorkspaceName(cleaned,"上傳");
  return multipart(token,{name:cleaned,parents:[folder],description:"Created by Vanilla Workspace"},file);
 }
 export async function createWorkspaceText(token:string,name:string,text:string,mimeType="text/plain"):Promise<WorkspaceFile>{
  return uploadWorkspaceFile(token,name,new Blob([text],{type:mimeType+";charset=utf-8"}));
 }
 export async function updateWorkspaceText(token:string,file:WorkspaceFile,text:string):Promise<WorkspaceFile>{
+ assertPublicWorkspaceName(file.name,"修改");
  if(file.mimeType.startsWith("application/vnd.google-apps."))throw Error("Google 原生文件請在對應編輯器修改");
  const current=await getWorkspaceMetadata(token,file.id);
  if(file.version&&current.version&&file.version!==current.version)throw Error("雲端檔案已有其他修改，為避免覆蓋已停止儲存。請重新讀取或另存新檔。");
@@ -111,11 +116,13 @@ export async function updateWorkspaceText(token:string,file:WorkspaceFile,text:s
  return result.json() as Promise<WorkspaceFile>;
 }
 export async function trashWorkspaceFile(token:string,file:WorkspaceFile):Promise<void>{
+ assertPublicWorkspaceName(file.name,"刪除");
  const check=await getWorkspaceMetadata(token,file.id);
  if(file.version&&check.version&&file.version!==check.version)throw Error("檔案已由其他裝置更新，請重新整理後再刪除");
  await request(token,API+"/"+encodeURIComponent(file.id)+"?fields=id",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({trashed:true})});
 }
 export async function renameWorkspaceFile(token:string,file:WorkspaceFile,name:string):Promise<WorkspaceFile>{
+ assertPublicWorkspaceName(file.name,"重新命名");assertPublicWorkspaceName(name,"重新命名");
  const check=await getWorkspaceMetadata(token,file.id);
  if(file.version&&check.version&&file.version!==check.version)throw Error("檔案已更新，請重新讀取後重新命名");
  const res=await request(token,API+"/"+encodeURIComponent(file.id)+"?fields=id,name,mimeType,modifiedTime,size,version,webViewLink",{

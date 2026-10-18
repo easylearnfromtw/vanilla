@@ -32,6 +32,7 @@ const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string
 ];
 export default function App(){
 const [section,setSection]=useState<Section>("chat");
+const [mobileGoal,setMobileGoal]=useState("");
 const [fontMode,setFontMode]=useState(()=>localStorage.getItem("vanilla.font.mode")||"auto");
 useEffect(()=>{document.documentElement.dataset.fontMode=fontMode;localStorage.setItem("vanilla.font.mode",fontMode);},[fontMode]);
 useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");if(!raw)return;const session=JSON.parse(raw) as {token?:string;expiresAt?:number};if(session.token&&session.expiresAt&&session.expiresAt>Date.now()+60000){void loadProviderConfigs(session.token).catch(()=>{});}}catch{}},[]);
@@ -57,7 +58,7 @@ useEffect(()=>{
   try{localStorage.setItem("vanilla.sheets.pending-import.v1",JSON.stringify(detail));setSection("sheets");setMenuOpen(false);}catch{window.alert("無法暫存表格，請檢查裝置儲存空間");}
  };
  const openFiles=()=>{setSection("files");setMenuOpen(false);};
- const openMobile=()=>{setSection("mobile");setMenuOpen(false);};
+ const openMobile=(event:Event)=>{const detail=(event as CustomEvent<{goal?:string}>).detail;if(detail?.goal)setMobileGoal(detail.goal.slice(0,280));setSection("mobile");setMenuOpen(false);};
  const openSettings=()=>{setSection("settings");setMenuOpen(false);};
  const openSheets=()=>{setSection("sheets");setMenuOpen(false);};
  const openBuilder=(event:Event)=>{
@@ -92,7 +93,7 @@ return <div className="shell">
 <div className="topbar-account">{signedIn?<span title={"登入帳號："+signedIn.email} className="account-email">{signedIn.email}</span>:<button type="button" disabled={loginBusy} onClick={()=>void connectAccount()} className="google-login">{loginBusy?"連線中…":"Google 登入"}</button>}{loginNotice&&<span className="sr-only" role="status">{loginNotice}</span>}</div><div className="privacy-chip">{section==="files"?<><FolderOpen size={14}/> Google Drive 檔案</>:section==="sheets"||section==="builder"||section==="feature"?<><ShieldCheck size={14}/> 本機草稿 · 手動確認</>:<><LockKeyhole size={14}/> 裝置端優先</>}</div>
 </header>
 {section==="chat"?<LocalChat key={chatKey}/>:
- section==="mobile"?<MobileAutomation/>:
+ section==="mobile"?<MobileAutomation initialGoal={mobileGoal}/>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:

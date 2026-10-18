@@ -1,0 +1,16 @@
+# Vanilla Ollama — CPU-friendly, localhost-only by default
+# Run on a trusted 64-bit Linux machine or ARM64 VM with Docker installed.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vanilla-ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+      OLLAMA_ORIGINS: "https://easylearnfromtw.github.io"
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+volumes:
+  ollama-data:

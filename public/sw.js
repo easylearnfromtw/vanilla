@@ -1,5 +1,5 @@
 /* App-shell cache only. WebLLM handles its own model artifacts. */
-const CACHE_NAME="vanilla-shell-v1";
+const CACHE_NAME="vanilla-shell-v2";
 const ROOT=self.registration.scope;
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.add(ROOT)).then(()=>self.skipWaiting()));
@@ -16,7 +16,7 @@ self.addEventListener("fetch",event=>{
  const url=new URL(request.url);
  if(url.origin!==self.location.origin||!url.href.startsWith(ROOT))return;
  if(request.mode==="navigate"){
-  event.respondWith(fetch(request).then(response=>{
+  event.respondWith(fetch(new Request(request,{cache:"no-store"})).then(response=>{
    if(response.ok){const clone=response.clone();event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.put(request,clone)));}
    return response;
   }).catch(async()=>await caches.match(request)||await caches.match(ROOT)||Response.error()));

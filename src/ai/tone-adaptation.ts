@@ -1,4 +1,4 @@
-import {taiwanSpeechInstruction} from "./taiwan-pragmatics";
+import {taiwanSpeechInstruction} from "./taiwan-pragmatics.ts";
 /**
  * Device-only conversational style adaptation.
  * Never persist message text, sentiment labels about the person, or private-mode content.

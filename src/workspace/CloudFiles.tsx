@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Cloud,CloudOff,RefreshCcw,Upload,Plus,FileText,FileSpreadsheet,Trash2,Download,ExternalLink,Save,Search,PenLine,FolderOpen,X,AlertTriangle} from "lucide-react";
 import {connectWorkspaceDrive,driveSession,listWorkspaceFiles,createWorkspaceText,uploadWorkspaceFile,getWorkspaceText,updateWorkspaceText,trashWorkspaceFile,renameWorkspaceFile,getWorkspaceBlob,isTextFile,type WorkspaceFile} from "./cloud-drive";
-import {parseWorkbook} from "./sheets-model";
+import {parseWorkbook,parseCSV} from "./sheets-model";
 import {parseFileCommand,type FileCommand} from "./file-commands";
 
 type Editor={file:WorkspaceFile;text:string;baseline:string};
@@ -82,7 +82,18 @@ export default function CloudFiles(){
   catch(e){setStatus(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }
- async function save(){
+ async function openCSVInSheets(file:WorkspaceFile){
+  if(!token||busy)return;
+  setBusy(true);
+  try{
+   const text=await getWorkspaceText(token,file.id);
+   const rows=parseCSV(text).slice(0,200).map(row=>row.slice(0,26));
+   window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows}}));
+   setStatus("正在 Sheets 建立「"+file.name+"」的可編輯副本");
+  }catch(e){setStatus(e instanceof Error?e.message:String(e));}
+  finally{setBusy(false);}
+ }
+  async function save(){
   if(!token||!editor||busy)return;
   setBusy(true);
   try{
@@ -179,6 +190,7 @@ export default function CloudFiles(){
      {visible.map(file=><div className="files-item" key={file.id}><span className="files-type">{/\.csv$|\.vanilla-sheet\.json$/i.test(file.name)?<FileSpreadsheet size={20}/>:<FileText size={20}/>}</span><div className="files-info"><strong title={file.name}>{file.name}</strong><small>{file.modifiedTime?new Date(file.modifiedTime).toLocaleString("zh-TW"):""} · {file.size?Math.ceil(Number(file.size)/1024)+" KB":file.mimeType}</small></div>
       <div className="files-actions">
        <button type="button" disabled={busy} title="預覽或在表格開啟" onClick={()=>void open(file)}><FolderOpen size={16}/><span>開啟</span></button>
+       {/\.csv$/i.test(file.name)&&<button type="button" disabled={busy} title="在 Vanilla Sheets 建立表格副本" onClick={()=>void openCSVInSheets(file)}><FileSpreadsheet size={16}/></button>}
        <button type="button" disabled={busy} title="下載檔案" onClick={()=>void download(file)}><Download size={16}/></button>
        {file.webViewLink&&<a href={file.webViewLink} target="_blank" rel="noreferrer" title="在 Google Drive 開啟"><ExternalLink size={16}/></a>}
        <button type="button" disabled={busy} title="重新命名" onClick={()=>void rename(file)}><PenLine size={15}/></button>

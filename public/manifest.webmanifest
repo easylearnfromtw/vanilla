@@ -1,0 +1,9 @@
+{
+  "name": "Vanilla AI — Personal AI Organization",
+  "short_name": "Vanilla",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f4f0",
+  "theme_color": "#111827",
+  "lang": "zh-Hant"
+}

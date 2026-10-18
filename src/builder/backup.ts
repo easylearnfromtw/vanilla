@@ -1,5 +1,5 @@
 import {loadFeatures,featureData,validateFeature,installFeature,writeFeatureData,removeFeature,
- type FeatureData,type FeatureSpec,MAX_ITEMS,MAX_RECORDS} from "./feature-schema";
+ type FeatureData,type FeatureSpec,MAX_ITEMS,MAX_RECORDS} from "./feature-schema.ts";
 
 export type ExportedFeature={spec:FeatureSpec;data:FeatureData};
 export type SelfBuildBackup={kind:"vanilla-self-build-backup";version:1;exportedAt:string;features:ExportedFeature[]};

@@ -37,7 +37,7 @@ export function rankedSources(){return getSources().filter(x=>x.enabled).sort((a
 export function searchLinks(query:string):Array<{label:string;url:string;host?:string}>{
  const trimmed=query.trim();if(!trimmed)return [];
  const encoded=encodeURIComponent(trimmed);
- const links=[{label:"搜尋整個網路（Google）",url:"https://www.google.com/search?q="+encoded}];
+ const links:Array<{label:string;url:string;host?:string}>=[{label:"搜尋整個網路（Google）",url:"https://www.google.com/search?q="+encoded}];
  for(const source of rankedSources().slice(0,7)){
   links.push({label:source.label+" · 優先度 "+source.weight,url:"https://www.google.com/search?q="+encodeURIComponent(trimmed+" site:"+source.host),host:source.host});
  }

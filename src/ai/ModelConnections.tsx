@@ -36,7 +36,7 @@ export default function ModelConnections(){
  function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setNotice("已移除 Ollama 連線設定");}
  return <section className="model-connection-panel">
   <div className="connection-title"><Cable size={20}/><h3>Ollama · 家庭 AI 伺服器</h3></div>
-  <p>連接樹莓派調度的家庭主機、家用電腦或雲端 VM 上的 Ollama。Ollama 在伺服器執行，<strong>不是在 iPhone 內運算</strong>。模型推論本身不需要雲端 API 點數，但硬體與網路仍有成本。</p>
+  <p>可連接樹莓派調度的家庭主機、家用電腦、雲端 VM，或使用 API Key 的 Ollama 官方雲端服務。<strong>這不是 iPhone 裝置端運算</strong>。自架推論通常沒有逐次 API 費，但需自行負擔設備；官方 Ollama Cloud 僅有有限的免費起始點數，可能另行計費。</p>
   <label htmlFor="ollama-address">HTTPS 連線網址</label>
   <input id="ollama-address" type="url" value={url} spellCheck={false} autoCapitalize="none" placeholder="https://your-private-ollama.example" onChange={e=>setUrl(e.target.value)} />
   <label htmlFor="ollama-model">使用模型</label>

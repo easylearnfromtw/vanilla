@@ -1,7 +1,7 @@
 import {useEffect,useState} from "react";
 import {Cloud,RefreshCcw,ShieldAlert} from "lucide-react";
 import {driveSession} from "../workspace/cloud-drive";
-import {chatSyncEnabled,setChatSyncEnabled,initializeChatSync,pushChatSync,CHAT_SYNC_EVENT} from "./chat-sync";
+import {chatSyncEnabled,setChatSyncEnabled,initializeChatSync,pushChatSync,legacyChatCount,importLegacyChatToCurrentAccount,CHAT_SYNC_EVENT} from "./chat-sync";
 export default function ChatSyncSettings(){
  const [account,setAccount]=useState(driveSession);
  const [enabled,setEnabled]=useState(chatSyncEnabled);
@@ -25,7 +25,12 @@ export default function ChatSyncSettings(){
   finally{setBusy(false);}
  }
  return <section className="chat-sync-settings"><header><Cloud size={20}/><div><h3>一般對話的 Google Drive 同步</h3><p>{account?"目前帳號："+account.email:"請先使用上方 Google 登入。"}</p></div></header>
-  <label className="chat-sync-check"><input type="checkbox" disabled={!account||busy} checked={enabled} onChange={e=>void change(e.target.checked)}/><span>同意同步此帳號的一般對話</span></label>
+  {account&&legacyChatCount()>0&&<div className="chat-sync-legacy"><p>找到這台裝置先前保存的 {legacyChatCount()} 則舊版一般對話。新版已將不同 Google 帳號的聊天分開保存。</p>
+   <button type="button" disabled={busy} onClick={()=>{
+    if(!window.confirm("將舊版對話複製到目前 Google 帳號「"+account.email+"」嗎？不會刪除舊資料；若目前帳號已有對話則拒絕覆蓋。"))return;
+    try{const count=importLegacyChatToCurrentAccount();setMessage("已將 "+count+" 則舊版對話複製到此帳號");}catch(e){setMessage(e instanceof Error?e.message:String(e));}
+   }}>匯入舊版裝置對話</button></div>}
+    <label className="chat-sync-check"><input type="checkbox" disabled={!account||busy} checked={enabled} onChange={e=>void change(e.target.checked)}/><span>同意同步此帳號的一般對話</span></label>
   {enabled&&<button type="button" disabled={!account||busy} onClick={()=>{setBusy(true);void pushChatSync().finally(()=>setBusy(false));}}><RefreshCcw size={15}/>立即同步</button>}
   <p className="chat-sync-warning"><ShieldAlert size={16}/>不包含私密模式；同步只在有效 Google OAuth 工作階段內進行。關閉頁面後，無背景自動執行。手機清除瀏覽器資料可能丟失未完成同步的內容。此功能不等於無限容量或可無條件永久保留。</p>
   <p role="status" className="chat-sync-status">{message}</p>

@@ -68,12 +68,6 @@ function evaluateFormula(source:string,lookup:(ref:string)=>number|string,depth=
    const result=evaluateFormula(arg,lookup,depth+1);
    return result===""?[]:Number.isFinite(Number(result))?[Number(result)]:[];
   };
-  const all=args.flatMap(numerical);
-  if(fn==="SUM")return all.reduce((a,b)=>a+b,0);
-  if(fn==="AVERAGE")return all.length?all.reduce((a,b)=>a+b,0)/all.length:0;
-  if(fn==="COUNT")return all.length;
-  if(fn==="MAX")return all.length?Math.max(...all):0;
-  if(fn==="MIN")return all.length?Math.min(...all):0;
   if(fn==="ROUND"){
    const x=Number(evaluateFormula(args[0]||"0",lookup,depth+1)),digits=Number(evaluateFormula(args[1]||"0",lookup,depth+1));
    if(!Number.isFinite(x)||!Number.isInteger(digits)||Math.abs(digits)>12)throw Error("#VALUE!");
@@ -90,6 +84,12 @@ function evaluateFormula(source:string,lookup:(ref:string)=>number|string,depth=
    })():Boolean(Number(evaluateFormula(condition,lookup,depth+1)));
    return evaluateFormula(args[truth?1:2]||'""',lookup,depth+1);
   }
+  const all=args.flatMap(numerical);
+  if(fn==="SUM")return all.reduce((a,b)=>a+b,0);
+  if(fn==="AVERAGE")return all.length?all.reduce((a,b)=>a+b,0)/all.length:0;
+  if(fn==="COUNT")return all.length;
+  if(fn==="MAX")return all.length?Math.max(...all):0;
+  if(fn==="MIN")return all.length?Math.min(...all):0;
   throw Error("#NAME?");
  }
  // Numeric arithmetic and cell references; never use eval or Function.

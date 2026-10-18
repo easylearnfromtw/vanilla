@@ -29,6 +29,8 @@ test("Conversation tools create real editable sheets, not fabricated Markdown",(
  assert.equal(planAppIntent("幫我串接 Canva API")?.kind,"integration");
  assert.equal(planAppIntent("記住：我喜歡直接回答")?.kind,"memory-save");
  assert.equal(planAppIntent("搜尋：臺灣醫療指引")?.kind,"search");
+ assert.equal(planAppIntent("學習網站 https://example.com")?.kind,"memory-save");
+ assert.equal(planAppIntent("忘記：旅行訂房")?.kind,"memory-delete");
 });
 test("Project registry uses actual Github repos and names",()=>{
  assert.ok(PROJECTS.some(x=>x.id==="fitness"&&x.repo==="easylearnfromtw/Builder"));

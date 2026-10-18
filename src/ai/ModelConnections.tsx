@@ -1,7 +1,7 @@
 import {useState} from "react";
 import {Cable,CheckCircle2,RefreshCw,ShieldAlert} from "lucide-react";
 import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConfig,testOllama,type OllamaModel} from "./ollama";
-import {getVoteCount,resetModelChoices} from "./model-orchestrator";
+import {getVoteCount,getRatingCount,resetModelChoices} from "./model-orchestrator";
 import {clearModelHealth} from "./model-health";
 export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
@@ -13,6 +13,7 @@ export default function ModelConnections(){
  const [busy,setBusy]=useState(false);
  const [notice,setNotice]=useState("");
  const [count,setCount]=useState(getVoteCount);
+ const [ratingCount,setRatingCount]=useState(getRatingCount);
  async function test(){
   if(!url.trim()){setNotice("請先輸入 Ollama 主機網址");return;}
   setBusy(true);setNotice("正在連接 Ollama 並讀取模型清單…");
@@ -62,6 +63,6 @@ export default function ModelConnections(){
   {stored.endpoint&&<p className="connection-current"><CheckCircle2 size={14}/>已設定：{stored.model}（候選模型 {stored.models.length} 個）。儲存設定不代表主機持續在線。</p>}
   <div className="connection-status" role="status">{notice}</div>
   <div className="connection-security"><ShieldAlert size={16}/><span>iPhone 開啟的 GitHub Pages 網站使用 HTTPS，無法可靠連接家中未加密的 HTTP 服務。瀏覽器中的 localhost 指的是 iPhone，而不是家庭伺服器。可透過已驗證的 HTTPS 私有代理提供連線。</span></div>
-  <div className="connection-preferences"><div><strong>雙答案偏好學習</strong><p>目前本機記錄 {count} 次成對選擇。另外會在本機記錄各模型的成功／失敗及耗時，用來避開不穩定或緩慢的模型；不記錄問題內容、答案或 API Key。這不是重新訓練模型。</p></div><button type="button" onClick={()=>{if(window.confirm("確定清除本裝置的模型偏好學習紀錄？")){resetModelChoices();clearModelHealth();setCount(0);}}}>清除本機學習紀錄</button></div>
+  <div className="connection-preferences"><div><strong>雙答案偏好學習</strong><p>目前本機記錄 {count} 次雙答案選擇，以及 {ratingCount} 次單則回答評價。另外會在本機記錄各模型的成功／失敗及耗時，用來避開不穩定或緩慢的模型；不記錄問題內容、答案或 API Key。這不是重新訓練模型。</p></div><button type="button" onClick={()=>{if(window.confirm("確定清除本裝置的模型偏好學習紀錄？")){resetModelChoices();clearModelHealth();setCount(0);setRatingCount(0);}}}>清除本機學習紀錄</button></div>
  </section>;
 }

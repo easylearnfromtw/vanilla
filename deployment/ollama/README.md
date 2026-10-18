@@ -31,7 +31,7 @@ tailscale serve status
 
 Tailscale 會顯示 `https://<設備>.<tailnet>.ts.net`（這裡是示意格式，必須使用你自己取得的實際網址）。**使用 Tailscale Serve，不是 Funnel**；Funnel 可能公開到整個網際網路。
 
-iPhone 須登入相同 tailnet 並啟用 Tailscale 連線。到 Vanilla → **系統設定 → Ollama**，貼上 HTTPS 網址，按「測試連線／取得模型」，再選擇模型並儲存。
+iPhone 須登入相同 tailnet 並啟用 Tailscale 連線。到 Vanilla → **系統設定 → Ollama**，貼上 HTTPS 網址，按「測試連線／取得模型」，再勾選最多 **4 個已下載、允許自動路由的模型**，指定主要模型並儲存。可保留多個候選，但一次一般回答僅呼叫其中一個；雙答案比較最多生成兩個，且同一服務來源會依序呼叫。
 
 瀏覽器的 `localhost` 是當下手機本身，不能指向家裡電腦。GitHub Pages 網站為 HTTPS，不能依賴直接存取家中 `http://192.168.x.x:11434`。若使用其他反向代理，請確保 HTTPS、驗證、允許的 CORS Origin、訪問控制與流量限制都已配置。
 
@@ -65,3 +65,7 @@ iPhone 須登入相同 tailnet 並啟用 Tailscale 連線。到 Vanilla → **�
 - https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx
 - https://github.com/ollama/ollama/blob/main/docs/faq.mdx
 - https://tailscale.com/docs/features/tailscale-serve
+
+## 6. 官方 Ollama Cloud（選用）
+
+如果使用 Ollama 的官方帳號，也可在 Vanilla 設定連線網址為 `https://ollama.com`，模型設為**你的帳號可使用**的雲端模型名稱，並輸入 API Key。這會把對話送到 Ollama 的雲端伺服器，不屬於家庭自架或 iPhone 本地。官方 Free 方案只有有限的每月起始點數、模型與並行限制，超出可能需要購買額度；不能視為永久無限免費。瀏覽器可能因 CORS 限制而無法直接呼叫官方 API，屆時需要可信的 HTTPS 代理，單純儲存設定並不代表連線成功。參考 https://www.ollama.com/pricing 。

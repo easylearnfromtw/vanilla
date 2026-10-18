@@ -1,6 +1,7 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
 import {planAppIntent,PROJECTS} from "../assistant/intent-router";
+import {proposeSheetAction,commitSheetAction} from "../assistant/sheet-actions";
 import {getFitnessReport,formatFitnessReport,parseRunDraft,appendFitnessRun} from "../assistant/fitness-bridge";
 import {rememberText,rememberURL,rememberFile,searchMemories,knowledgeContext} from "../memory/drive-memory";
 import {searchLinks} from "../search/source-preferences";
@@ -159,6 +160,20 @@ function toolReply(question:string,answer:string){
  setDraft("");setLastRoute("已由 Vanilla 工具執行 · 不消耗 AI API");
 }
 async function executeIntent(question:string):Promise<boolean>{
+ try{
+  const action=proposeSheetAction(question);
+  if(action){
+   if(!action.edits.length){toolReply(question,"這些儲存格目前就是指定內容，無須修改。");return true;}
+   const preview=action.edits.slice(0,12).map(x=>x.cell+"："+(x.from||"（空白）")+" → "+(x.to||"（清空）")).join("\n");
+   if(!window.confirm(action.summary+"\n\n"+preview+(action.edits.length>12?"\n另有 "+(action.edits.length-12)+" 格…":"")+"\n\n確認修改本機表格？雲端檔案不會自動覆寫。"))return true;
+   const result=commitSheetAction(action);
+   toolReply(question,"已更新「"+result.name+"」的 "+action.edits.length+" 個儲存格，資料已保存於此裝置。需要查看時說「開啟表格」；Google Drive 需在 Sheets 中另行同步。");
+   return true;
+  }
+ }catch(error){
+  toolReply(question,"表格修改未完成："+(error instanceof Error?error.message:String(error)));
+  return true;
+ }
  const intent=planAppIntent(question);
  if(!intent)return false;
  if(intent.kind==="open"){

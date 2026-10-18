@@ -142,7 +142,7 @@ async function send(value=draft){
  const next:ChatTurn[]=[...history,{role:"user",content:question}];
  setDraft("");setBusy(true);
  if(chosen.length===2){
-  const initial:ComparisonSession={question,task,options:chosen.map(candidate=>({candidate,status:"running",text:""}))};
+  const initial:ComparisonSession={question,task,options:chosen.map(candidate=>({candidate,status:"running" as const,text:""}))};
   setHistory(next);
   setComparison(initial);
   setLastRoute("雙答案比較中："+chosen.map(x=>x.label).join(" / "));
@@ -151,10 +151,10 @@ async function send(value=draft){
     const result=await generateCandidate(candidate,next,image||undefined,text=>{
      setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
     });
-    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:result||"（無回答）",status:"done"}:x)}:prev);
+    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:result||"（無回答）",status:"done" as const}:x)}:prev);
    }catch(error){
     const msg=error instanceof Error?error.message:String(error);
-    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,error:msg,status:"error"}:x)}:prev);
+    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,error:msg,status:"error" as const}:x)}:prev);
    }
   }));
   setImage(null);setImageName("");setBusy(false);

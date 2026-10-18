@@ -1,4 +1,4 @@
-import {inspectExternalText} from "../security/trust-boundary";
+import {inspectExternalText} from "../security/trust-boundary.ts";
 
 /** Browser-safe adapter contract. Mobilerun itself is a Python runtime, not a Safari SDK. */
 export type MobilePlatform="ios"|"android";

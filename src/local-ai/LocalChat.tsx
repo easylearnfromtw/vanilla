@@ -1,4 +1,6 @@
 import {useState,useRef,useEffect} from "react";
+import {renderTable,exportText} from "./smart-output";
+import type {ImageInput} from "../vault/providers";
 import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ChevronDown} from "lucide-react";
 import {chooseProvider,generateCloudReply,availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
@@ -14,6 +16,10 @@ export default function LocalChat(){
 const [privateMode,setPrivateMode]=useState(restoreMode);
 const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(restoreMode()?PRIVATE_KEY:STORAGE_KEY));
 const [draft,setDraft]=useState("");
+const [image,setImage]=useState<ImageInput|null>(null);
+const [imageName,setImageName]=useState("");
+const fileRef=useRef<HTMLInputElement>(null);
+async function attachImage(file?:File){if(!file)return;if(!file.type.startsWith("image/")){setLastRoute("僅支援圖片格式");return;}if(file.size>8*1024*1024){setLastRoute("圖片不得超過 8MB");return;}const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(new Error("讀取圖片失敗"));reader.readAsDataURL(file);});setImage({mimeType:file.type,data});setImageName(file.name);}
 const [busy,setBusy]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
@@ -66,10 +72,12 @@ if(!privateMode&&routeMode!=="auto"&&routeMode!=="local"&&!providers.includes(ro
 const next:ChatTurn[]=[...history,{role:"user",content:question}];
 setHistory([...next,{role:"assistant",content:""}]);setDraft("");setBusy(true);
 try{
-const route=privateMode?"local":routeMode==="auto"?chooseProvider(question):routeMode;
+const route=privateMode?"local":image?"gemini":routeMode==="auto"?chooseProvider(question):routeMode;
+if(image&&privateMode)throw new Error("私密模式尚未支援本地圖片辨識，請先移除圖片");
+if(image&&!providers.includes("gemini"))throw new Error("圖片辨識需要先在設定連接 Gemini API");
 setLastRoute(route==="local"?"本地 AI":route==="gemini"?"Gemini 雲端 API":"DeepSeek 雲端 API");
-const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text}])):await generateCloudReply(route,next);
-setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）"}]);
+const answer=route==="local"?await generateLocalReply(next,text=>setHistory([...next,{role:"assistant",content:text}])):await generateCloudReply(route,next,image||undefined);
+setHistory([...next,{role:"assistant",content:answer||"（模型沒有產生內容）"}]);setImage(null);setImageName("");
 }catch(error){setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:"未知錯誤")}]);}
 finally{setBusy(false);}
 }
@@ -81,8 +89,8 @@ return <section className="chat">
 <div style={{display:"flex",alignItems:"center",gap:9,padding:"4px 16px 9px",flexWrap:"wrap"}}><label htmlFor="vanilla-route" style={{fontSize:12,color:"#666"}}>回答模型</label><select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode} onChange={e=>setRouteMode(e.target.value as "auto"|"local"|"gemini"|"deepseek")} style={{fontSize:13,padding:"7px 10px",border:"1px solid #ddd",borderRadius:9,background:"#fff"}}><option value="auto">智慧路由</option><option value="local" disabled={!ready}>本地 AI</option><option value="gemini" disabled={!providers.includes("gemini")}>Gemini API</option><option value="deepseek" disabled={!providers.includes("deepseek")}>DeepSeek API</option></select><span role="status" style={{fontSize:12,color:"#777"}}>{lastRoute?"上一則使用："+lastRoute:privateMode?"私密模式強制使用本地 AI":"選擇 Gemini 可確認雲端 API 是否正常"}</span></div>
 <div className="chat-messages" aria-live="polite">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={(!ready&&(privateMode||providers.length===0))||busy} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
-<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content"><div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}</div></div>)}<div ref={bottomRef}/></div>}
+<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content"><div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button></span>}}</div></div>)}<div ref={bottomRef}/></div>}
 </div>
-<div className="composer-wrap"><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…" value={draft} disabled={(!ready&&(privateMode||providers.length===0))||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><Sparkles size={14}/> {privateMode?"本地私密":providers.length?"Vanilla · 智慧路由":"Vanilla AI"}</span><button type="submit" className="send-button" title="傳送" disabled={(!ready&&(privateMode||providers.length===0))||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前僅儲存於此瀏覽器；家庭雲端同步尚未啟用"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
+<div className="composer-wrap">{imageName&&<div className="image-attachment">圖片：{imageName} <button type="button" onClick={()=>{setImage(null);setImageName("");}}>移除</button></div>}<input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{void attachImage(e.target.files?.[0]);e.target.value="";}}/><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…" value={draft} disabled={(!ready&&(privateMode||providers.length===0))||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><button type="button" onClick={()=>fileRef.current?.click()} disabled={busy||privateMode} title="上傳圖片供 Gemini 辨識">＋ 圖片</button><Sparkles size={14}/> {privateMode?"本地私密":providers.length?"Vanilla · 智慧路由":"Vanilla AI"}</span><button type="submit" className="send-button" title="傳送" disabled={(!ready&&(privateMode||providers.length===0))||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前僅儲存於此瀏覽器；家庭雲端同步尚未啟用"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
 </section>;
 }

@@ -2,10 +2,10 @@ import {useState,useRef,useEffect} from "react";
 import LocalModelPanel from "./LocalModelPanel";
 import {renderTable,exportText} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
-import {ArrowUp,RotateCcw,Sparkles,Copy,Check,ChevronDown} from "lucide-react";
+import {ArrowUp,RotateCcw,Sparkles,Copy,Check} from "lucide-react";
 import {chooseProvider,generateCloudReply,availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
-import {generateLocalReply,isLocalModelReady,loadLocalModel,getLoadedLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,LOCAL_MODEL} from "./engine";
+import {generateLocalReply,isLocalModelReady,loadLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,LOCAL_MODEL} from "./engine";
 const STORAGE_KEY="vanilla.chat.history.v1";
 const PRIVATE_KEY="vanilla.chat.private.v1";
 const MODE_KEY="vanilla.chat.private.enabled";
@@ -28,7 +28,6 @@ const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(()=>{con
 const [online,setOnline]=useState(()=>navigator.onLine);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
 const [ready,setReady]=useState(()=>isLocalModelReady(LOCAL_MODEL));
-const [modelExpanded,setModelExpanded]=useState(false);
 const [modelError,setModelError]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
@@ -71,13 +70,13 @@ function switchPrivacy(){
   try{localStorage.setItem(MODE_KEY,String(next));}catch{setStorageError(true);return;}
   setHistory(restoreHistory(next?PRIVATE_KEY:STORAGE_KEY));
   setPrivateMode(next);
-  setDraft("");
+  setDraft("");setImage(null);setImageName("");
 }
 async function initialize(){
  setLoadingModel(true);setModelError(false);setModelProgress(0);
  try{
   await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},selectedLocalModel);
-  setReady(true);setStatus("本地模型已就緒");setModelExpanded(false);
+  setReady(true);setStatus("本地模型已就緒");
  }catch(error){setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
  finally{setLoadingModel(false);}
 }
@@ -112,14 +111,15 @@ async function send(value=draft){
 }
 async function copyMessage(content:string,index:number){try{await navigator.clipboard.writeText(content);setCopied(index);}catch{setCopied(null);}}
 return <section className="chat">
-{(modelError||!capabilities.webgpu)&&<div className="model-bar"><div className="model-summary"><span className="model-dot"/><span>本地 AI 暫時無法啟動</span><button type="button" className="model-detail-toggle" aria-label="模型錯誤詳情" aria-expanded={modelExpanded} onClick={()=>setModelExpanded(!modelExpanded)}><ChevronDown size={15}/></button></div><button className="model-action" type="button" disabled={loadingModel||!capabilities.webgpu} onClick={initialize}><RotateCcw size={15}/>重試</button></div>}
-{(modelError||!capabilities.webgpu)&&<div className="model-notice"><p role="alert">{!capabilities.webgpu?"目前瀏覽器未提供 WebGPU，無法啟動此本地模型。":status}</p>{modelExpanded&&<small>{LOCAL_MODEL} · 本地推論</small>}</div>}
+<LocalModelPanel selected={selectedLocalModel} onSelect={selectLocalModel} onLoad={()=>{void initialize();}} status={status} progress={modelProgress} loading={loadingModel} error={modelError} webgpu={capabilities.webgpu} online={online} ready={ready}/>
+
 <div style={{display:"flex",justifyContent:"flex-end",padding:"8px 16px"}}><button type="button" disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode} title={privateMode?"私密模式：僅本機保存":"一般模式：本機保存；雲端同步尚未啟用"} style={{border:"1px solid #ddd",borderRadius:18,padding:"7px 12px",background:privateMode?"#222":"transparent",color:privateMode?"white":"inherit",fontSize:12}}>{privateMode?"🔒 私密模式 · 僅本機":"🔓 一般模式"}</button></div>
-<div style={{display:"flex",alignItems:"center",gap:9,padding:"4px 16px 9px",flexWrap:"wrap"}}><label htmlFor="vanilla-route" style={{fontSize:12,color:"#666"}}>回答模型</label><select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode} onChange={e=>setRouteMode(e.target.value as "auto"|"local"|"gemini"|"deepseek")} style={{fontSize:13,padding:"7px 10px",border:"1px solid #ddd",borderRadius:9,background:"#fff"}}><option value="auto">智慧路由</option><option value="local" disabled={!ready}>本地 AI</option><option value="gemini" disabled={!providers.includes("gemini")}>Gemini API</option><option value="deepseek" disabled={!providers.includes("deepseek")}>DeepSeek API</option></select><span role="status" style={{fontSize:12,color:"#777"}}>{lastRoute?"上一則使用："+lastRoute:privateMode?"私密模式強制使用本地 AI":"選擇 Gemini 可確認雲端 API 是否正常"}</span></div>
+<div style={{display:"flex",alignItems:"center",gap:9,padding:"4px 16px 9px",flexWrap:"wrap"}}><label htmlFor="vanilla-route" style={{fontSize:12,color:"#666"}}>回答模型</label><select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode} onChange={e=>setRouteMode(e.target.value as "auto"|"local"|"gemini"|"deepseek")} style={{fontSize:13,padding:"7px 10px",border:"1px solid #ddd",borderRadius:9,background:"#fff"}}><option value="auto">智慧路由</option><option value="local">本地 AI（裝置端）</option><option value="gemini" disabled={!providers.includes("gemini")}>Gemini API</option><option value="deepseek" disabled={!providers.includes("deepseek")}>DeepSeek API</option></select><span role="status" style={{fontSize:12,color:"#777"}}>{lastRoute|| (privateMode?"私密模式僅在裝置端運算":providers.length?"智慧路由：一般問題優先使用較強的已連接模型":"未連接雲端 API，僅能使用本地模型")}</span></div>
+{!privateMode&&providers.length>0&&<p className="cloud-notice">一般模式若選擇 Gemini／DeepSeek，訊息、近期對話與附加圖片可能送至供應商；首次使用會徵求同意。選擇本地 AI 或私密模式可避免雲端傳送。</p>}
 <div className="chat-messages" aria-live="polite">
-{history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={(!ready&&(privateMode||providers.length===0))||busy} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
+{history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={!canReply||busy} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content"><div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button></span>}</div></div>)}<div ref={bottomRef}/></div>}
 </div>
-<div className="composer-wrap">{imageName&&<div className="image-attachment">圖片：{imageName} <button type="button" onClick={()=>{setImage(null);setImageName("");}}>移除</button></div>}<input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{void attachImage(e.target.files?.[0]);e.target.value="";}}/><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…" value={draft} disabled={(!ready&&(privateMode||providers.length===0))||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><button type="button" onClick={()=>fileRef.current?.click()} disabled={busy||privateMode} title="上傳圖片供 Gemini 辨識">＋ 圖片</button><Sparkles size={14}/> {privateMode?"本地私密":providers.length?"Vanilla · 智慧路由":"Vanilla AI"}</span><button type="submit" className="send-button" title="傳送" disabled={(!ready&&(privateMode||providers.length===0))||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前僅儲存於此瀏覽器；家庭雲端同步尚未啟用"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
+<div className="composer-wrap">{imageName&&<div className="image-attachment">圖片：{imageName} <button type="button" onClick={()=>{setImage(null);setImageName("");}}>移除</button></div>}<input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{void attachImage(e.target.files?.[0]);e.target.value="";}}/><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…" value={draft} disabled={!canReply||busy} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><button type="button" onClick={()=>fileRef.current?.click()} disabled={busy||privateMode} title="上傳圖片供 Gemini 辨識">＋ 圖片</button><Sparkles size={14}/> {privateMode?"本地私密":providers.length?"Vanilla · 智慧路由":"Vanilla AI"}</span><button type="submit" className="send-button" title="傳送" disabled={!canReply||busy||!draft.trim()}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前僅儲存於此瀏覽器；家庭雲端同步尚未啟用"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>setHistory([])}><RotateCcw size={13}/> 清除本次對話</button>}</div>
 </section>;
 }

@@ -33,8 +33,12 @@ useEffect(()=>{
   if(!detail||(!detail.workbook&&!detail.rows))return;
   try{localStorage.setItem("vanilla.sheets.pending-import.v1",JSON.stringify(detail));setSection("sheets");setMenuOpen(false);}catch{window.alert("無法暫存表格，請檢查裝置儲存空間");}
  };
+ const openFiles=()=>{setSection("files");setMenuOpen(false);};
+ const openSheets=()=>{setSection("sheets");setMenuOpen(false);};
  window.addEventListener("vanilla-open-sheet",openSheet);
- return()=>window.removeEventListener("vanilla-open-sheet",openSheet);
+ window.addEventListener("vanilla-open-files",openFiles);
+ window.addEventListener("vanilla-open-sheets",openSheets);
+ return()=>{window.removeEventListener("vanilla-open-sheet",openSheet);window.removeEventListener("vanilla-open-files",openFiles);window.removeEventListener("vanilla-open-sheets",openSheets);};
 },[]);
 const selected=items.find(x=>x.id===section)!;
 function navigate(next:Section){setSection(next);setMenuOpen(false);}

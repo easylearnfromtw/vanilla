@@ -9,6 +9,21 @@ export type ModelCandidate={id:string;source:ModelSource;model:string;label:stri
 export type TaskKind="casual"|"code"|"analysis"|"writing"|"vision"|"general";
 export type Vote={at:number;task:TaskKind;winner:string;loser:string};
 const VOTE_KEY="vanilla.model.choices.v1";
+const RATING_KEY="vanilla.model.ratings.v1";
+type ModelRating={at:number;task:TaskKind;candidate:string;liked:boolean};
+function ratings():ModelRating[]{
+ try{
+  const data:unknown=JSON.parse(localStorage.getItem(RATING_KEY)||"[]");
+  return Array.isArray(data)?data.filter(x=>x&&typeof x==="object"&&typeof x.candidate==="string"&&typeof x.task==="string"&&typeof x.liked==="boolean").slice(-300):[];
+ }catch{return [];}
+}
+export function getRatingCount():number{return ratings().length;}
+export function saveAnswerRating(task:TaskKind,candidateId:string,liked:boolean):void{
+ const value=[...ratings(),{at:Date.now(),task,candidate:candidateId,liked}].slice(-300);
+ try{localStorage.setItem(RATING_KEY,JSON.stringify(value));}catch{}
+ window.dispatchEvent(new Event("vanilla-preferences-changed"));
+}
+
 export function classifyTask(question:string,image=false):TaskKind{
  if(image)return "vision";
  if(/程式|程式碼|debug|bug|github|typescript|javascript|python|除錯|修復|編譯|\bAPI\b|regex/i.test(question))return "code";
@@ -32,7 +47,7 @@ export function saveModelChoice(task:TaskKind,winner:ModelCandidate,losers:Model
  try{localStorage.setItem(VOTE_KEY,JSON.stringify([...current,...fresh].slice(-300)));}catch{}
  window.dispatchEvent(new Event("vanilla-preferences-changed"));
 }
-export function resetModelChoices(){try{localStorage.removeItem(VOTE_KEY);}catch{}window.dispatchEvent(new Event("vanilla-preferences-changed"));}
+export function resetModelChoices(){try{localStorage.removeItem(VOTE_KEY);localStorage.removeItem(RATING_KEY);}catch{}window.dispatchEvent(new Event("vanilla-preferences-changed"));}
 export function listCandidates(options:{localReady:boolean;localModel:string;image:boolean;online:boolean;privateMode:boolean}):ModelCandidate[]{
  const result:ModelCandidate[]=[];
  if(options.localReady&&!options.image){
@@ -76,14 +91,19 @@ function baseScore(candidate:ModelCandidate,task:TaskKind):number{
 }
 export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first"):ModelCandidate[]{
  const allVotes=votes().filter(v=>v.task===task);
+ const feedback=ratings().filter(r=>r.task===task);
  const score=(candidate:ModelCandidate)=>{
   const wins=allVotes.filter(v=>v.winner===candidate.id).length;
   const losses=allVotes.filter(v=>v.loser===candidate.id).length;
+  const graded=feedback.filter(r=>r.candidate===candidate.id);
+  const approvals=graded.filter(r=>r.liked).length;
+  const rejections=graded.length-approvals;
+  const feedbackScore=Math.max(-12,Math.min(12,30*(approvals-rejections)/(6+graded.length)));
   const params=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)B/i)?.[1]||"0");
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
-  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id);
+  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore;
  };
  return [...candidates].sort((a,b)=>score(b)-score(a));
 }

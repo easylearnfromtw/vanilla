@@ -1,4 +1,5 @@
-import React from "react";
+import React,{useEffect} from "react";
+declare global {interface Window {__vanillaBootOk?:()=>void;__vanillaBootError?:(reason:string)=>void;}}
 import {createRoot} from "react-dom/client";
 import App from "./App";
 import "./style.css";
@@ -7,7 +8,7 @@ type State={error:string|null};
 class AppErrorBoundary extends React.Component<React.PropsWithChildren,State>{
   state:State={error:null};
   static getDerivedStateFromError(error:Error):State{return {error:error.message||"未知錯誤"};}
-  componentDidCatch(error:Error,info:React.ErrorInfo){console.error("Vanilla UI crashed",error,info);}
+  componentDidCatch(error:Error,info:React.ErrorInfo){window.__vanillaBootOk?.();console.error("Vanilla UI crashed",error,info);}
   render(){
     if(this.state.error)return <div style={{fontFamily:"-apple-system,sans-serif",padding:28,maxWidth:520,margin:"60px auto",color:"#222"}}>
       <h1>Vanilla 無法載入</h1><p>介面發生錯誤，請重新整理。若問題持續，請將下方錯誤訊息提供給開發者。</p>
@@ -17,4 +18,5 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren,State>{
     return this.props.children;
   }
 }
-createRoot(document.getElementById("root")!).render(<React.StrictMode><AppErrorBoundary><App/></AppErrorBoundary></React.StrictMode>);
+function BootReady(){useEffect(()=>{window.__vanillaBootOk?.();},[]);return <App/>;}
+createRoot(document.getElementById("root")!).render(<React.StrictMode><AppErrorBoundary><BootReady/></AppErrorBoundary></React.StrictMode>);

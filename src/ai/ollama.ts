@@ -54,7 +54,7 @@ function headers():HeadersInit{
 }
 async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
  const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),20000);
+ const timeout=setTimeout(()=>controller.abort(),180000);
  try{
   const response=await fetch(url,{...init,signal:controller.signal,headers:headers()});
   if(!response.ok)throw new Error("Ollama HTTP "+response.status+"；請確認模型、代理授權與伺服器狀態");

@@ -20,12 +20,12 @@ try{token=sessionStorage.getItem(SECRET_KEY)||"";}catch{}
 
 export function getOllamaConfig():OllamaConfig{return {...config};}
 export function getOllamaTokenConfigured():boolean{return Boolean(token);}
-export function setOllamaConfig(next:OllamaConfig,accessToken=""){
+export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  const endpoint=next.endpoint.trim().replace(/\/+$/,"");
  const model=next.model.trim();
  if(endpoint)normalizeOllamaUrl(endpoint);
  config={endpoint,model};
- token=accessToken.trim();
+ if(accessToken!==undefined)token=accessToken.trim();
  try{
   localStorage.setItem(KEY,JSON.stringify(config));
   if(token)sessionStorage.setItem(SECRET_KEY,token);
@@ -56,7 +56,7 @@ async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),20000);
  try{
-  const response=await fetch(url,{...init,signal:controller.signal,headers:{...headers(),...init.headers}});
+  const response=await fetch(url,{...init,signal:controller.signal,headers:headers()});
   if(!response.ok)throw new Error("Ollama HTTP "+response.status+"；請確認模型、代理授權與伺服器狀態");
   return response;
  }catch(e){

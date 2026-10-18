@@ -383,3 +383,8 @@
  .built-feature-add{align-items:stretch}
  .built-feature-header h2{font-size:21px}
 }
+
+.builder-installed .builder-delete-data{font-size:10px;color:#a05751;border-color:#f0dcd8;background:#fffafa}
+.sidebar{overflow-y:auto;overscroll-behavior:contain}
+.sidebar .nav{min-width:0}
+.sidebar .nav span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -183,7 +183,7 @@ return <section className="chat">
 <div style={{display:"flex",justifyContent:"flex-end",padding:"8px 16px"}}><button type="button" disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode} title={privateMode?"私密模式：僅本機保存":"一般模式：可選手機、Ollama 或雲端推論"} style={{border:"1px solid #ddd",borderRadius:18,padding:"7px 12px",background:privateMode?"#222":"transparent",color:privateMode?"white":"inherit",fontSize:12}}>{privateMode?"🔒 私密模式 · 僅本機":"🔓 一般模式"}</button></div>
 <div className="model-selection-row">
  <label htmlFor="vanilla-route">回答模型</label>
- <select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>setRouteMode(e.target.value as "auto"|"local"|"ollama"|"gemini"|"deepseek")}>
+ <select id="vanilla-route" aria-label="選擇回答模型" value={privateMode?"local":routeMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>{const next=e.target.value as "auto"|"local"|"ollama"|"gemini"|"deepseek";setRouteMode(next);if(next!=="auto")changeCompareMode(false);}}>
   <option value="auto">智慧選擇（偏好學習）</option>
   <option value="local">手機本地 AI</option>
   <option value="ollama" disabled={!ollamaConnected}>Ollama · 家庭／自架主機</option>
@@ -191,7 +191,7 @@ return <section className="chat">
   <option value="deepseek" disabled={!providers.includes("deepseek")}>DeepSeek API</option>
  </select>
  <label className="compare-toggle" title="同一個問題交給兩個候選模型，再由你選擇較好的回答">
-  <input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>{setRouteMode("auto");changeCompareMode(e.target.checked);}}/>
+  <input type="checkbox" checked={compareMode} disabled={busy||privateMode||routeMode!=="auto"||Boolean(comparison)} onChange={e=>{setRouteMode("auto");changeCompareMode(e.target.checked);}}/>
   <span>雙答案比較</span>
  </label>
  <span role="status" className="model-selection-status">{lastRoute||(privateMode?"私密模式僅在手機端運算":providers.length||ollamaConnected?"自動挑選合適模型，也可手動指定":"請先下載本地模型或連接 Ollama／API")}</span>

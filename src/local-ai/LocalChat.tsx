@@ -193,8 +193,27 @@ async function send(value=draft){
   setImage(null);setImageName("");
   setLastRoute("上一則由 "+primary.label+" 回答");
  }catch(error){
-  setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:String(error)),source:primary.source,model:primary.model}]);
-  setLastRoute("生成失敗，請檢查模型、網路、權限及額度");
+  // Fail over only to an on-device model, or another model on the already approved Ollama host.
+  // Never silently introduce a new remote cloud provider or incur an additional paid API request.
+  const alternative=automatic?ranked.find(candidate=>candidate.id!==primary.id&&
+   (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama"))):undefined;
+  if(alternative){
+   setLastRoute(primary.label+" 無法回答，正在改用 "+alternative.label);
+   try{
+    const recovered=await generateCandidate(alternative,next,undefined,text=>{
+     setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model}]);
+    });
+    setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model}]);
+    setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
+   }catch(fallbackError){
+    const msg=fallbackError instanceof Error?fallbackError.message:String(fallbackError);
+    setHistory([...next,{role:"assistant",content:"模型與備援均無法回答："+msg,source:alternative.source,model:alternative.model}]);
+    setLastRoute("主模型及備援模型皆失敗，請檢查連線與模型");
+   }
+  }else{
+   setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:String(error)),source:primary.source,model:primary.model}]);
+   setLastRoute("生成失敗，請檢查模型、網路、權限及額度");
+  }
  }finally{setBusy(false);}
 }
 function rateAnswer(index:number,liked:boolean){

@@ -24,7 +24,7 @@ return <div className="shell">
 {menuOpen&&<button className="nav-backdrop" aria-label="關閉選單" onClick={()=>setMenuOpen(false)}/>}
 <aside className={"sidebar "+(menuOpen?"sidebar-open":"")}>
 <div className="brand"><span className="brand-mark"><BrainCircuit size={22}/></span><div><strong>vanilla</strong><small>PERSONAL INTELLIGENCE</small></div><button className="sidebar-collapse" aria-label="收合選單" onClick={()=>setMenuOpen(false)}><PanelLeftClose size={19}/></button></div>
-<button className="new-chat" onClick={()=>{setChatKey(k=>k+1);navigate("chat");}}><Plus size={18}/> 新對話</button>
+<button className="new-chat" onClick={()=>{try{localStorage.removeItem("vanilla.chat.history.v1");}catch{}setChatKey(k=>k+1);navigate("chat");}}><Plus size={18}/> 新對話</button>
 <div className="nav-caption">工作空間</div>
 <nav aria-label="主要導覽">{items.map(x=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)}><x.icon size={18}/><span>{x.label}</span></button>)}</nav>
 <div className="sidebar-footer"><ShieldCheck size={16}/> 本地優先 · 隱私優先</div>

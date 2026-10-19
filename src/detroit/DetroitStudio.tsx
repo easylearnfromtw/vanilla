@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette} from 'lucide-react';
 import OrchestraStudio from '../orchestra/OrchestraStudio';
+import MedusaTool from './MedusaTool';
 import {bardGenerate,bardSave,type BardImage} from './bard';
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from './retina';
 import {currentChatMode} from '../local-ai/chat-session';
@@ -75,6 +76,7 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
    </div>
   </section>}
   {tab==='orchestra'&&<OrchestraStudio compact/>}
+  {tab==='medusa'&&<MedusaTool/>}
   {tab==='luna'&&<section className="detroit-studio-form"><h2>LUNA · 海報與視覺設計</h2><p>可拖曳的本機海報畫布、文字與圖片圖層、活動／品牌模板，以及 PNG 與 JSON 匯出。完全獨立於迅排的管理後台，不使用其預設帳號或 API。</p><button className="detroit-primary" type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-luna'))}><Palette size={17}/>開啟 LUNA 設計畫布</button></section>}
   {tab==='bard'&&<section className="detroit-studio-form"><h2>Bard · 圖片生成</h2><p>透過你已連接的 Gemini API 圖片模型生成，並非裝置端 GPU 生圖。模型能否使用與費率取決於你的 Google API 專案。</p>
    <label>生圖描述<textarea rows={6} maxLength={3000} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例：極簡蒙太奇拼貼海報，幾何色塊，文字區保留留白…"/></label>

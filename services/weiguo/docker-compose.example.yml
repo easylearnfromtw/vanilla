@@ -26,6 +26,11 @@ services:
       # Optional: enable only after installing a reviewed gridcraft-cli binary
       # into the trusted backend PATH. No binary is bundled in this image.
       WEIGUO_GRIDCRAFT_ENABLED: "false"
+      # WordCraft remains off. Never attest to isolation until enforced at the host/VPC.
+      WEIGUO_WORDCRAFT_ENABLED: "false"
+      WEIGUO_WORDCRAFT_EGRESS_ISOLATED: "false"
+      # Once a trusted binary is deployed, set WEIGUO_WORDCRAFT_SHA256 server-side
+      # to the actual independently verified 64-digit digest, NOT to an example value.
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:

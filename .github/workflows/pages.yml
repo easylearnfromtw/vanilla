@@ -29,11 +29,17 @@ jobs:
       - run: npm run test:cream
       - run: npm run test:cream-google
       - run: npm run test:noodles
+      - run: npm run test:noodles-teacher
       - run: npm run test:chat-ui
       - run: npm run test:release
       - run: npm run test:web-workflows
       - run: npm run test:capabilities
       - run: npm run test:security
+      - name: Validate NOODLES trainer (no GPU)
+        run: |
+          python3 -m py_compile training/noodles_train.py
+          python3 training/noodles_train.py --mode sft --train tests/fixtures/noodles-sft-train.jsonl --eval tests/fixtures/noodles-sft-eval.jsonl --check-only
+          python3 training/noodles_train.py --mode dpo --train tests/fixtures/noodles-dpo-train.jsonl --eval tests/fixtures/noodles-dpo-eval.jsonl --check-only
       - run: npm run build
         env:
           GITHUB_PAGES: "true"

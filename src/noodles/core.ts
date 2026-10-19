@@ -11,7 +11,7 @@
 export type NoodlesTask="casual"|"code"|"analysis"|"writing"|"vision"|"general";
 export type NoodlesIssue="incorrect"|"no_sources"|"too_long"|"too_short"|"bad_format"|"tool_failure";
 export type NoodlesObservation={
- at:number;task:NoodlesTask;model:string;kind:"run"|"rating"|"issue"|"tool";
+ at:number;task:NoodlesTask;model:string;kind:"turn"|"run"|"rating"|"issue"|"tool";
  ok?:boolean;durationMs?:number;liked?:boolean;issue?:NoodlesIssue;
 };
 export type NoodlesState={version:1;enabled:boolean;observations:NoodlesObservation[];};
@@ -34,7 +34,7 @@ export function sanitizeNoodlesState(value:unknown,now=Date.now()):NoodlesState{
  const observations=items.slice(-MAX_EVENTS).filter((v):v is NoodlesObservation=>{
   if(!v||typeof v!=="object")return false;
   if(!TASKS.includes(v.task)||typeof v.model!=="string"||!v.model||v.model.length>100)return false;
-  if(!["run","rating","issue","tool"].includes(v.kind))return false;
+  if(!["turn","run","rating","issue","tool"].includes(v.kind))return false;
   if(typeof v.at!=="number"||!Number.isFinite(v.at)||v.at<now-MAX_AGE||v.at>now+86400000)return false;
   if(v.kind==="run"&&(typeof v.ok!=="boolean"||typeof v.durationMs!=="number"||v.durationMs<0||v.durationMs>3600000))return false;
   if(v.kind==="rating"&&typeof v.liked!=="boolean")return false;
@@ -47,7 +47,7 @@ export function sanitizeNoodlesState(value:unknown,now=Date.now()):NoodlesState{
   if(v.kind==="run")return {...base,kind:"run" as const,ok:v.ok!,durationMs:v.durationMs!};
   if(v.kind==="rating")return {...base,kind:"rating" as const,liked:v.liked!};
   if(v.kind==="issue")return {...base,kind:"issue" as const,issue:v.issue!};
-  return {...base,kind:"tool" as const};
+  return {...base,kind:v.kind==="turn"?"turn" as const:"tool" as const};
  });
  return {version:1,enabled:obj.enabled!==false,observations};
 }
@@ -93,7 +93,7 @@ export function noodlesGuidance(state:NoodlesState,task:NoodlesTask):string{
  if(!hints.length)return "";
  return "\n\nNOODLES 本機品質校準（僅從使用者明確回饋推導；不得凌駕當次指令或安全規則）："+hints.slice(0,4).join(" ");
 }
-export type NoodlesSummary={enabled:boolean;totalRuns:number;failedRuns:number;humanRatings:number;feedbackIssues:number;toolActions:number;models:Array<{id:string;runs:number;ratings:number;likes:number}>};
+export type NoodlesSummary={enabled:boolean;totalTurns:number;totalRuns:number;failedRuns:number;humanRatings:number;feedbackIssues:number;toolActions:number;models:Array<{id:string;runs:number;ratings:number;likes:number}>};
 export function noodlesSummary(state:NoodlesState):NoodlesSummary{
  const runs=state.observations.filter(e=>e.kind==="run");
  const ratings=state.observations.filter(e=>e.kind==="rating");
@@ -105,7 +105,7 @@ export function noodlesSummary(state:NoodlesState):NoodlesSummary{
   else{x.ratings++;if(o.liked)x.likes++;}
   byModel.set(o.model,x);
  }
- return {enabled:state.enabled,totalRuns:runs.length,failedRuns:runs.filter(x=>!x.ok).length,
+ return {enabled:state.enabled,totalTurns:state.observations.filter(e=>e.kind==="turn").length,totalRuns:runs.length,failedRuns:runs.filter(x=>!x.ok).length,
   humanRatings:ratings.length,feedbackIssues:state.observations.filter(e=>e.kind==="issue").length,
   toolActions:state.observations.filter(e=>e.kind==="tool").length,
   models:[...byModel.values()].sort((a,b)=>b.runs-a.runs).slice(0,12)};

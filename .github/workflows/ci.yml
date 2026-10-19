@@ -26,6 +26,7 @@ jobs:
           npm run test:cream-google
           npm run test:noodles
           npm run test:noodles-teacher
+          npm run test:auto-docs
           npm run test:chat-ui
           npm run test:release
           npm run test:web-workflows

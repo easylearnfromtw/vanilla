@@ -51,11 +51,11 @@ export default function ModelConnections(){
  }
   function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setNotice("已移除 Ollama 連線設定");}
  return <section className="model-connection-panel">
-  <div className="connection-title"><Cable size={20}/><h3>Ollama · 家庭 AI 伺服器</h3></div>
-  <p>可連接樹莓派調度的家庭主機、家用電腦、雲端 VM，或使用 API Key 的 Ollama 官方雲端服務。<strong>這不是 iPhone 裝置端運算</strong>。自架推論通常沒有逐次 API 費，但需自行負擔設備；官方 Ollama Cloud 僅有有限的免費起始點數，可能另行計費。</p>
+  <div className="connection-title"><Cable size={20}/><h3>Ollama · 可更換模型連線</h3></div>
+  <p>可連接受 HTTPS 保護的自架 Ollama、家用電腦、雲端 VM，或 Ollama 官方雲端。你可隨時修改模型 ID、網址與候選模型；更換前可先測試連線。<strong>這不是 iPhone 裝置端運算</strong>。自架推論通常沒有逐次 API 費，但需自行負擔設備；官方 Ollama Cloud 僅有有限的免費起始點數，可能另行計費。</p>
   <label htmlFor="ollama-address">HTTPS 連線網址</label>
   <input id="ollama-address" type="url" value={url} spellCheck={false} autoCapitalize="none" placeholder="https://your-private-ollama.example" onChange={e=>setUrl(e.target.value)} />
-  <label htmlFor="ollama-model">使用模型</label>
+  <label htmlFor="ollama-model">模型 ID（可隨時替換）</label>
   <input id="ollama-model" type="text" value={model} spellCheck={false} autoCapitalize="none" list="ollama-model-list" placeholder="例如 qwen2.5:3b" onChange={e=>setModel(e.target.value)} />
   <datalist id="ollama-model-list">{models.map(m=><option key={m.name} value={m.name}>{m.details?.parameter_size||""}</option>)}</datalist>
   {models.length>0&&<p className="connection-models">已偵測：{models.slice(0,8).map(x=>x.name).join("、")}{models.length>8?" 等":""}</p>}
@@ -66,9 +66,9 @@ export default function ModelConnections(){
    <span>{item.name}{item.details?.parameter_size?" · "+item.details.parameter_size:""}</span>
   </label>)}
  </fieldset>}
- <label htmlFor="ollama-access">HTTPS 代理存取權杖（選填）</label>
+ <label htmlFor="ollama-access">Ollama Cloud API Key／HTTPS 代理權杖（必要時才填）</label>
   <input id="ollama-access" type="password" value={secret} autoComplete="off" placeholder={getOllamaTokenConfigured()?"已設定（留白不變）":"僅受保護代理需要"} onChange={e=>setSecret(e.target.value)}/>
-  <small>權杖只保存在本分頁的工作階段，不同步到 Google Drive。不要將未設防的 Ollama 11434 埠公開到 Internet；遠端連線需 HTTPS、安全存取控制與允許的 CORS Origin。</small>
+  <small>模型 ID 是名稱（如 qwen3:8b），不是存取金鑰。請在這個設定頁輸入必要權杖，不要貼到聊天訊息或 GitHub。權杖只保存在分頁工作階段，不同步 Google Drive。直接在瀏覽器呼叫遠端 Ollama 必須確認 CORS、安全存取與 HTTPS；正式生產建議使用安全後端代理。</small>
   <div className="connection-buttons">
    <button type="button" disabled={busy} onClick={()=>void test()}><RefreshCw size={15}/>{busy?"連線中…":"測試連線／取得模型"}</button>
    <button type="button" disabled={busy||!url||!model} className="primary" onClick={save}>儲存並啟用</button>

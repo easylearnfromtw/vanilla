@@ -1,2 +1,2 @@
 /** Increment together with public/version.json to identify deployed PWA bundles. */
-export const VANILLA_BUILD="2026.10.19.4-capability-report-fix";
+export const VANILLA_BUILD="2026.10.19.5-resource-execution";

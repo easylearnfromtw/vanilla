@@ -1,14 +1,6 @@
 import type {ReactNode} from "react";
-export function parseTable(source:string):string[][]|null{
- const lines=source.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- const start=lines.findIndex(x=>x.startsWith("|")&&x.endsWith("|"));
- if(start<0||start+2>=lines.length)return null;
- const cells=(s:string)=>s.replace(/^\||\|$/g,"").split("|").map(x=>x.trim());
- if(!/^\|?[\s:|-]+\|?$/.test(lines[start+1])||!lines[start+1].includes("---"))return null;
- const header=cells(lines[start]);const body:string[][]=[];
- for(let i=start+2;i<lines.length&&lines[i].startsWith("|");i++)body.push(cells(lines[i]));
- return body.length?[header,...body]:null;
-}
+import {parseTable} from "./table-display";
+export {parseTable,stripRenderedTable} from "./table-display";
 function download(content:string,name:string,type:string){
  const url=URL.createObjectURL(new Blob([content],{type}));
  const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -29,3 +21,4 @@ export function renderTable(source:string):ReactNode{
  const rows=parseTable(source);if(!rows)return null;
  return <div className="smart-table-wrap"><table className="smart-table"><thead><tr>{rows[0].map((c,i)=><th key={i}>{c}</th>)}</tr></thead><tbody>{rows.slice(1).map((row,i)=><tr key={i}>{rows[0].map((_,j)=><td key={j}>{row[j]||""}</td>)}</tr>)}</tbody></table></div>;
 }
+

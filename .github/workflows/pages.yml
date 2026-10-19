@@ -24,6 +24,7 @@ jobs:
       - run: npm run test:local-chat
       - run: npm run test:webllm-guard
       - run: npm run test:assistant
+      - run: npm run test:resource-integration
       - run: npm run test:capabilities
       - run: npm run test:security
       - run: npm run build

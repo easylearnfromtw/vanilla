@@ -1,4 +1,6 @@
 import {Converter} from "opencc-js";
+import type {SheetPreviewData} from "./sheet-preview-model";
+import {streamDisplayInterval,shouldPublishStream} from "./stream-performance";
 import * as webllm from "@mlc-ai/web-llm";
 import {toneInstruction} from "../ai/tone-adaptation";
 import {VANILLA_BUILD} from "../version";
@@ -26,7 +28,7 @@ function discoverModels(){
  return [...baseModels,...extra];
 }
 export const LOCAL_MODELS=discoverModels();
-export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down"};
+export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData};
 let engine:webllm.MLCEngine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;
@@ -79,12 +81,17 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   const stream=await currentEngine!.chat.completions.create({
    messages:snapshot,temperature:0.35,top_p:0.9,max_tokens:maxTokens,stream:true
   });
-  let answer="";
+  let answer="",last=0;
+  const interval=streamDisplayInterval(navigator.hardwareConcurrency);
   for await(const chunk of stream){
    answer+=chunk.choices[0]?.delta?.content??"";
-   onText(toTraditionalChinese(answer));
+   const now=Date.now();
+   // Reduce expensive React updates while WebGPU is streaming token chunks.
+   if(shouldPublishStream(now,last,interval)){onText(toTraditionalChinese(answer));last=now;}
   }
-  return toTraditionalChinese(answer);
+  const final=toTraditionalChinese(answer);
+  onText(final); // Never drop final tokens after throttling.
+  return final;
  }
  try{
   return await retryOnSystemPromptError(

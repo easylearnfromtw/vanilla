@@ -69,3 +69,38 @@ jobs:
           GITHUB_PAGES: "true"
       - name: Verify output
         run: test -f dist/index.html && test -f dist/manifest.webmanifest
+
+  moli-release-smoke:
+    name: Verify pinned Moli CLI (no production activation)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify SHA-256 of official Linux binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --show-error --silent --retry 3 --connect-timeout 15 --max-time 240 \
+            -o /tmp/moli-release.tar.gz \
+            https://github.com/lexmount/moli/releases/download/v1.1.18/moli-x86_64-unknown-linux-gnu.tar.gz
+          printf '%s  %s\n' \
+            59715fbdb2b016bb9136e1edb59a2a195c0f98459fd06739e17edc62da6a48b1 \
+            /tmp/moli-release.tar.gz | sha256sum --check -
+          mkdir /tmp/moli-release
+          tar -xzf /tmp/moli-release.tar.gz -C /tmp/moli-release
+          test "$(find /tmp/moli-release -type f -name moli | wc -l)" = "1"
+          install -m 0755 "$(find /tmp/moli-release -type f -name moli -print -quit)" /tmp/moli
+          /tmp/moli --version
+      - name: Browser smoke test (public content; private IP blocked)
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/moli fetch --dump markdown --wait-until done --timeout 15000 \
+            --disable-js --disable-subframes --block-private-networks --fail \
+            https://example.org/ > /tmp/example.md
+          grep -qi "Example Domain" /tmp/example.md
+          if /tmp/moli fetch --dump markdown --timeout 3000 \
+              --disable-js --disable-subframes --block-private-networks \
+              https://127.0.0.1/ >/tmp/private-network.txt 2>/tmp/private-network.err; then
+            echo "::error::Moli unexpectedly reached a prohibited private destination"
+            exit 1
+          fi
+          echo "Moli public read succeeded and direct private target was rejected"

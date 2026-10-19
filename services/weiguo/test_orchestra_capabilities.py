@@ -35,6 +35,18 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(report["engines"][0]["outputFormats"],["docx","pdf"])
         self.assertTrue(all(e["status"]=="unavailable" for e in report["engines"][1:]))
 
+    def test_pdfcraft_requires_independent_verified_binary(self):
+        with patch.object(inventory,"pdfcraft_available",return_value=True),patch.object(
+            inventory,"wordcraft_available",return_value=False
+        ):
+            report=inventory.orchestra_capabilities()
+        item=next(x for x in report["engines"] if x["id"]=="pdfcraft")
+        self.assertEqual(item["status"],"configured")
+        self.assertEqual(item["operations"],["combine-pdf"])
+        self.assertEqual(item["outputFormats"],["pdf"])
+        self.assertFalse(item["runtimeVerified"])
+        self.assertTrue(all(x["status"]=="unavailable" for x in report["engines"] if x["id"]!="pdfcraft"))
+
     def test_wordcraft_requires_pinned_hash_and_rejects_symlinks(self):
         with tempfile.TemporaryDirectory() as home:
             binary=Path(home)/"wordcraft-cli"

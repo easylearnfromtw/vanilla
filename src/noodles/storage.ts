@@ -34,7 +34,7 @@ export function resetNoodles(){writeNoodles({version:1,enabled:true,observations
 export function exportNoodlesSummary():string{
  // JSON is only aggregate signal metadata, NO conversation content.
  const x=readNoodles();
- return JSON.stringify({exportedAt:new Date().toISOString(),version:1,
+ return JSON.stringify({exportedAt:new Date().toISOString(),
   warning:"NOODLES aggregate metadata only; user messages are not included",
   ...x},null,2);
 }

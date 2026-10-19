@@ -1,5 +1,5 @@
-import {inspectExternalText} from "../security/trust-boundary";
-import {getSearchBridge,webReaderHeaders} from "./search-bridge";
+import {inspectExternalText} from "../security/trust-boundary.ts";
+import {getSearchBridge,webReaderHeaders} from "./search-bridge.ts";
 export type ReadPage={url:string;title:string;text:string;readMethod:"browser"|"bridge"};
 export function validatePublicPageURL(raw:string):string{
  const url=new URL(raw.trim());

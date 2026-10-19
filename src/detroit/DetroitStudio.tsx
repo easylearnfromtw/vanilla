@@ -11,6 +11,7 @@ import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api
 import {DETROIT_ENGINES} from './core';
 import './studio.css';
 const JanusStudio=lazy(()=>import('../email/EmailStudio'));
+const CeresPanel=lazy(()=>import('../ceres/CeresPanel'));
 type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna'|'registry'|'janus'|'medusa'|'luca'|'ceres';
 export default function DetroitStudio({initialBody,initialTab="retina"}:{initialBody?:string|null;initialTab?:Tab}={}){
  const [tab,setTab]=useState<Tab>(initialTab);
@@ -84,7 +85,7 @@ export default function DetroitStudio({initialBody,initialTab="retina"}:{initial
   {tab==='janus'&&<Suspense fallback={<p role="status">Janus 郵件工作室載入中…</p>}><JanusStudio/></Suspense>}
   {tab==='registry'&&<ApiRegistryPanel/>}
   {tab==='luca'&&<LucaPanel/>}
-  {tab==='ceres'&&<section className="detroit-studio-form"><h2>Ceres · 通訊 Gateway</h2><p>Vanilla 原生通訊適配器，不使用 AstrBot 原始碼、商標或其插件。Telegram 第一階段採簽章 Webhook、私聊帳號白名單與後端事件收件匣；LINE／Discord 尚未實作。</p><p>目前預設停用。訊息只被儲存在管理員審核收件匣，不會自動交由 Zeus、Diana、CREAM 或任何 Agent 執行，也不會自動回訊。</p><p>部署者需在受信任的衞國後端設定 CERES_ENABLED、CERES_TELEGRAM_WEBHOOK_SECRET、CERES_TELEGRAM_CHAT_IDS，並透過 Telegram 官方 Bot API 設定 Webhook。金鑰不得儲存在 PWA。</p><p>本介面不收取、儲存、顯示任何 bot 金鑰。詳見 docs/CERES_INTEGRATION.md；自有產出不加強制浮水印，第三方授權聲明仍須保留。</p></section>}
+  {tab==='ceres'&&<Suspense fallback={<p role="status">Ceres 通訊工具載入中…</p>}><CeresPanel/></Suspense>}
   {tab==='luna'&&<section className="detroit-studio-form"><h2>LUNA · 海報與視覺設計</h2><p>可拖曳的本機海報畫布、文字與圖片圖層、活動／品牌模板，以及 PNG 與 JSON 匯出。完全獨立於迅排的管理後台，不使用其預設帳號或 API。</p><button className="detroit-primary" type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-luna'))}><Palette size={17}/>開啟 LUNA 設計畫布</button></section>}
   {tab==='bard'&&<section className="detroit-studio-form"><h2>Bard · 圖片生成</h2><p>透過你已連接的 Gemini API 圖片模型生成，並非裝置端 GPU 生圖。模型能否使用與費率取決於你的 Google API 專案。</p>
    <label>生圖描述<textarea rows={6} maxLength={3000} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例：極簡蒙太奇拼貼海報，幾何色塊，文字區保留留白…"/></label>

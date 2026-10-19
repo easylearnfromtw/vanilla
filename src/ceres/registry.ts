@@ -5,7 +5,7 @@ export type CeresManifest={
  permissions:("receive"|"review")[];enabled:false;
 };
 export const CERES_CHANNELS=[
- {id:"telegram",label:"Telegram",status:"adapter",description:"Signed webhook + private-chat allowlist; operator inbox only"},
+ {id:"telegram",label:"Telegram",status:"adapter",description:"Webhook ingress and verified family inbox; optional manually confirmed replies"},
  {id:"line",label:"LINE",status:"planned",description:"Future adapter requires LINE webhook signature and verified account mapping"},
  {id:"discord",label:"Discord",status:"planned",description:"Future adapter requires Discord interaction verification and opt-in scopes"}
 ] as const;

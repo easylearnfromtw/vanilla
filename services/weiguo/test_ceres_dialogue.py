@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 import httpx
+REAL_ASYNC_CLIENT = httpx.AsyncClient
 from fastapi import HTTPException
 
 import ceres_dialogue as c
@@ -78,7 +79,7 @@ class FamilyCeresTests(unittest.TestCase):
 
     def req(self, method, path, **kwargs):
         async def run():
-            async with httpx.AsyncClient(
+            async with REAL_ASYNC_CLIENT(
                 transport=httpx.ASGITransport(app=app), base_url="http://ceres.test"
             ) as client:
                 return await client.request(method, path, **kwargs)

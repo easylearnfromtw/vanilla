@@ -214,3 +214,41 @@ export async function getWeiGuoLucaSummary():Promise<LucaSnapshot>{
  if(!identity||identity.role!=="owner")throw Error("LUCA 總覽僅供已登入的家庭擁有者使用");
  return request<LucaSnapshot>("/v1/family/luca/summary",undefined,true);
 }
+
+
+/** Ceres never exposes operator keys or Telegram bot credentials to the PWA. */
+export type CeresFamilyStatus={
+ enabled:boolean;linked:boolean;outboundEnabled:boolean;draftEnabled:boolean;
+ automaticDispatch:false;automaticReplies:false;
+};
+export type CeresFamilyEvent={
+ id:number;text:string;created_at:number;reviewed_at:number|null;
+ reply_status:string|null;
+};
+function ceresGuard():void{
+ if(currentChatMode()==="private")throw Error("私密模式禁止 Ceres 外部通訊");
+ const person=weiGuoIdentity();
+ if(!person||person.role==="viewer")throw Error("請先以衞國家庭帳號登入 Ceres");
+}
+export async function getWeiGuoCeresStatus():Promise<CeresFamilyStatus>{
+ ceresGuard();
+ return request<CeresFamilyStatus>("/v1/family/ceres/status",undefined,true);
+}
+export async function getWeiGuoCeresEvents():Promise<{events:CeresFamilyEvent[];untrustedContent:true}>{
+ ceresGuard();
+ return request<{events:CeresFamilyEvent[];untrustedContent:true}>("/v1/family/ceres/events",undefined,true);
+}
+export async function draftWeiGuoCeresReply(id:number,approved:boolean):Promise<{draft:string;needsApproval:true;sent:false}>{
+ ceresGuard();
+ if(!Number.isSafeInteger(id)||id<=0||!approved)throw Error("必須選擇訊息並同意本次本地 AI 草稿");
+ return request<{draft:string;needsApproval:true;sent:false}>(
+  "/v1/family/ceres/events/"+id+"/draft",{approved:true},true);
+}
+export async function sendWeiGuoCeresReply(id:number,text:string,approved:boolean):Promise<{sent:true;eventId:number}>{
+ ceresGuard();
+ if(!Number.isSafeInteger(id)||id<=0||!approved||typeof text!=="string"||
+    !text.trim()||text.length>3000||text.includes("\0"))
+  throw Error("必須確認本次 Telegram 訊息且文字不得超過 3000 字");
+ return request<{sent:true;eventId:number}>(
+  "/v1/family/ceres/events/"+id+"/reply",{approved:true,text:text.trim()},true);
+}

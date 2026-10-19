@@ -116,3 +116,33 @@ Remaining scope: do not claim full 3,000-row XLSX export, full-data GridCraft
 statistical revalidation, arbitrary chart types, mobile WASM editor,
 multi-sheet sync, or unattended agent execution. They require separate
 development, resource testing and privacy review.
+
+## Railway production installer (2026-10-20)
+
+`services/weiguo/Dockerfile` now compiles the real `gridcraft-cli` from the
+GridCraft **v0.8.0** tag pinned to upstream commit
+`823c56582d00be91e31b4f7f3680496cf89e84fb`, with `cargo --locked` in
+a dedicated Rust 1.90 build stage. The runtime only receives the CLI binary,
+not the Rust compiler or upstream source. A mismatched release tag fails the
+build instead of silently adopting new source code.
+
+The Docker build first smoke-tests native `insert.chart` using
+`gridcraft-smoke.jsonl`, then runs `gridcraft-smoke.py` against the actual
+WeiGuo `gridcraft_adapter._render` for Sheets XLSX, CREAM report/chart,
+SUM/AVERAGE preview formulas, and spreadsheet formula-injection resistance.
+Any failure blocks the new image from deployment. Railway service:
+`Vanilla Detroit / weiguo-browser`, with root `/services/weiguo` and
+existing Google family authentication/ACL unchanged.
+
+**Activation:** Deploy and verify the new image first. Only after the build's
+real smoke test and Railway health check succeed, set the Railway service
+variable `WEIGUO_GRIDCRAFT_ENABLED=true` and apply/deploy it. The flag
+remains false by default; a source change or a CI pass does **not** activate
+the endpoint on an old deployed image.
+
+**Access:** In non-private Vanilla mode, sign in to Drive and WeiGuo with the
+same approved Google account; request a CREAM analysis and use
+**GridCraft 專業 Excel**. Confirm the one-time upload of statistics and up to
+48 preview points. This exports an editable XLSX with chart where supported;
+it does **not** transmit raw whole datasets or independently recompute CREAM
+statistics. Backend logs and exported files must not contain OIDC secrets.

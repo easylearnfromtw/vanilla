@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.04-quirinus",
-  "description": "Quirinus optional VulnClaw security scanner catalog, preserving Janus/LUNA and API Registry integrations"
+  "build": "2026.10.20.05-luna-advanced",
+  "description": "LUNA AI layout, Photoshop PSD import/export and on-device U2NetP background removal; preserves Quirinus, Janus and other Vanilla modules"
 }

@@ -15,7 +15,7 @@ permissions:
 jobs:
   linux-native-release:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,3 +50,9 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check reportlab pypdf
           python3 services/weiguo/native_pdfcraft_smoke.py "$PDFCRAFT_CLI"
+      - name: Build optional pinned Railway image and inspect installed CLI
+        timeout-minutes: 16
+        run: |
+          docker build --file services/weiguo/Dockerfile.pdfcraft --tag vanilla-pdfcraft-native:ci services/weiguo
+          docker run --rm --entrypoint /bin/sh vanilla-pdfcraft-native:ci -c \
+            'set -eu; printf "%s  %s\\n" "$WEIGUO_PDFCRAFT_SHA256" "$WEIGUO_PDFCRAFT_CLI" | sha256sum -c -; command -v bwrap; test "$WEIGUO_PDFCRAFT_ENABLED" = false'

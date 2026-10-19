@@ -98,7 +98,7 @@ async def require_wordcraft_quota(sub: str) -> None:
 
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
 app.include_router(gridcraft_router)
-app.include_router(ceres_router
+app.include_router(ceres_router)
 async def operator(authorization: str | None = Header(default=None)):
     expected=os.environ.get("WEIGUO_ADMIN_TOKEN","")
     if len(expected) < 32: raise HTTPException(503,"未設定後端金鑰")

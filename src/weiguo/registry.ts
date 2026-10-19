@@ -30,3 +30,27 @@ export function saveToolManifests(owner:string,items:WeiGuoTool[]):void{
  if(items.length>20)throw Error("最多可註冊 20 個宣告式工具");
  localStorage.setItem("vanilla.weiguo.tools.v1."+owner,JSON.stringify(items.map(validateToolManifest)));
 }
+
+/* Backwards-compatible read-only metadata shape used by pre-v2 catalog tests.
+ * These declarations do not install code, enable privileged adapters or bypass Athena. */
+export type LegacyWeiGuoTool={id:string;name:string;description:string;capabilities:string[];engine:string;source:"builtin"|"custom";enabled:boolean};
+export const WEIGUO_BUILTINS:readonly LegacyWeiGuoTool[]=[
+ {id:"playwright",name:"Playwright Browser",description:"需獨立授權後端的唯讀瀏覽",capabilities:["navigate","click","fill","scroll","extract"],engine:"Scouts",source:"builtin",enabled:false},
+ {id:"browser-use",name:"Browser Use",description:"可選的任務規劃適配器，未部署前不可操作",capabilities:["plan","navigate","extract"],engine:"Zeus",source:"builtin",enabled:false},
+ {id:"web-reader",name:"Scouts Web Reader",description:"目前既有的唯讀網頁閱讀",capabilities:["extract","research"],engine:"Scouts",source:"builtin",enabled:true}
+];
+const LEGACY_CAPS=new Set(["navigate","click","fill","scroll","extract","research","analyze","chart","read-file","schedule","plan"]);
+export function validateCustomTool(input:unknown):LegacyWeiGuoTool{
+ if(!input||typeof input!=="object")throw Error("工具格式不正確");
+ const obj=input as Record<string,unknown>;
+ if(typeof obj.id!=="string"||!/^[a-z][a-z0-9-]{2,40}$/.test(obj.id)||WEIGUO_BUILTINS.some(x=>x.id===obj.id)||BUILTIN_TOOLS.some(x=>x.id===obj.id))throw Error("工具 ID 不可覆蓋內建項目或格式不正確");
+ if(typeof obj.name!=="string"||!obj.name.trim()||obj.name.length>64)throw Error("工具名稱不正確");
+ if(!Array.isArray(obj.capabilities)||!obj.capabilities.length||obj.capabilities.length>11||obj.capabilities.some(x=>typeof x!=="string"||!LEGACY_CAPS.has(x)))throw Error("工具能力不正確");
+ return {id:obj.id,name:obj.name.trim(),description:typeof obj.description==="string"?obj.description.slice(0,280):"",capabilities:[...new Set(obj.capabilities)] as string[],engine:"自訂工具",source:"custom",enabled:false};
+}
+export function classifyWeiGuoOperation(kind:string,authenticated:boolean,approved:boolean):"read"|"needs-approval"|"deny"{
+ if(!authenticated)return "deny";
+ if(["navigate","extract","scroll"].includes(kind))return "read";
+ if(["click","fill"].includes(kind))return approved?"read":"needs-approval";
+ return "deny";
+}

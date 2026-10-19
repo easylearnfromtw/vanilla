@@ -99,7 +99,7 @@ async def family_medusa_run(request: FamilyMedusaRunRequest,
         validated_cloud_config()
     else:
         validated_config()
-    await take_quota(user.sub
+    await take_quota(user.sub)
     output = await execute_medusa(MedusaRunRequest(
         source_code=request.source_code, stdin=request.stdin))
     return JSONResponse(output, headers={

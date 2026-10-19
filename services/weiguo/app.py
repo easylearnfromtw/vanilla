@@ -24,6 +24,7 @@ from medusa_family import router as medusa_family_router
 from quirinus_adapter import router as quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
+from pdfcraft_native import probe_sandbox
 from pdfcraft_engine import combine_pdfs, PdfCraftUnavailable, PdfCraftFailed
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
@@ -63,6 +64,8 @@ async def lifespan(app: FastAPI):
     luca_initialize()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
+    if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":
+        print("Orchestra PdfCraft kernel sandbox: " + ("supported" if probe_sandbox() else "unavailable; native PDF execution denied"))
     yield
 
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.

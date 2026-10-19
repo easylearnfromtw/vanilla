@@ -111,7 +111,7 @@ Before production, smoke-test Chromium, blocked destinations, audit persistence,
 
 Vanilla/Zeus may attempt the [Moli](https://github.com/lexmount/moli) Rust browser for a **single, read-only `extract` step**. On every other request (navigation chains, scrolling, clicking, filling, unapproved conditions, missing Moli executable, timeouts or failed extraction), it continues through the established Playwright Chromium path. The family Google identity gateway, immutable `sub` task ownership, Athena step validation, rate limits and the response event format remain unchanged. A successful Moli response includes `"engine":"moli"`; Chromium responses include `"engine":"chromium"`. Moli returns the **requested** source URL, not a verified final redirect URL.
 
-Moli CLI is **not bundled into the normal Docker image**; the default engine remains Chromium. Do not fetch and execute a floating `curl | sh` installer in a production Docker build. Install an operator-reviewed, version-pinned Moli executable (and verify its official release checksum/signature where provided) into a trusted host/container, ensuring it is executable by the unprivileged `weiguo` user. For a Compose installation, a trusted locally installed binary can be bind-mounted read-only as `/usr/local/bin/moli`, ensuring the binary is compatible with the container architecture and libraries. This is optional; without it Chromium continues normally.
+Moli CLI **is bundled in the Docker image** from the pinned official v1.1.18 Linux x86_64 release, verified using release-asset SHA-256 `59715fbdb2b016bb9136e1edb59a2a195c0f98459fd06739e17edc62da6a48b1` at build time. The default engine remains Chromium. Do not fetch and execute a floating `curl | sh` installer in a production Docker build. The Docker build runs `moli --version` and fails if the downloaded binary cannot execute. Avoid unpinned installs. The image is built for Linux x86_64; other CPU architectures require an audited architecture-specific release asset and checksum. Without activation Chromium continues normally.
 
 **Required before opt-in:** Moli's CLI does not expose the same per-request interception that this application uses with Playwright. Enforce an **independent network egress proxy/firewall**, allowing only the server-approved public HTTPS hosts and blocking all other hosts, private/loopback/link-local/metadata IP ranges, DNS rebinding, cross-host redirects and disallowed subresources. Setting the flag below does **not** implement isolation itself. Do not turn it on if you cannot verify these controls in the actual deployment.
 
@@ -120,12 +120,13 @@ Only after verifying outbound restrictions and Moli itself, configure these serv
 ```dotenv
 WEIGUO_BROWSER_ENGINE=auto
 WEIGUO_MOLI_EGRESS_ISOLATED=true
-WEIGUO_ALLOW_JAVASCRIPT=true
+WEIGUO_ALLOW_JAVASCRIPT=false
 ```
 
 - `WEIGUO_BROWSER_ENGINE=chromium` (default) never launches Moli; `auto` and `moli` try Moli only for the eligible read-only extraction and otherwise use Chromium.
 - `WEIGUO_MOLI_EGRESS_ISOLATED=true` is a declaration of independently verified network isolation, not a security mechanism.
-- Moli executes page JavaScript, so the adapter refuses Moli when `WEIGUO_ALLOW_JAVASCRIPT=false`. Normal Chromium behavior remains unchanged.
+- Moli now respects `WEIGUO_ALLOW_JAVASCRIPT=false` by appending `--disable-js` rather than silently executing page scripts. JavaScript-enabled pages remain opt-in. Chromium behavior remains unchanged.
+- Moli CLI adds `--block-private-networks`, `--disable-subframes`, `--fail`, and a 12-second browser timeout in addition to the outer 20-second process timeout. **These defenses cannot enforce a destination hostname allowlist or prevent all possible direct egress.**
 - Each Moli read is an independent subprocess with a fixed argument list (no shell), a minimal environment that excludes operator/OIDC credentials, a 20-second timeout and 64 KiB stdout cap. Only the first 10,000 characters enter the existing event log. No imported browser profile or long-lived Moli session is used.
 - Moli currently supports **read-only single-page extraction only** in this adapter; its CDP, click/fill and multi-step interaction features are intentionally *not* enabled by this change.
 - If Moli times out, is absent, or returns an error, the existing Chromium engine is the fallback. A fallback may repeat the same public GET; do not use this adapter for state-changing URLs.

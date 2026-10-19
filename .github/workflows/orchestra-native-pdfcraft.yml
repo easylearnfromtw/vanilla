@@ -55,4 +55,4 @@ jobs:
         run: |
           docker build --file services/weiguo/Dockerfile.pdfcraft --tag vanilla-pdfcraft-native:ci services/weiguo
           docker run --rm --entrypoint /bin/sh vanilla-pdfcraft-native:ci -c \
-            'set -eu; printf "%s  %s\\n" "$WEIGUO_PDFCRAFT_SHA256" "$WEIGUO_PDFCRAFT_CLI" | sha256sum -c -; command -v bwrap; test "$WEIGUO_PDFCRAFT_ENABLED" = false'
+            'set -eu; printf "%s  %s\n" "$WEIGUO_PDFCRAFT_SHA256" "$WEIGUO_PDFCRAFT_CLI" | sha256sum -c -; command -v bwrap; test "$WEIGUO_PDFCRAFT_ENABLED" = false'

@@ -2,8 +2,8 @@ import {useEffect,useMemo,useState} from "react";
 import {Download,FileText,ShieldCheck,Layers3,ArrowRight,ExternalLink} from "lucide-react";
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from "../detroit/retina";
 import {currentChatMode} from "../local-ai/chat-session";
-import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity,getWeiGuoOrchestraCapabilities} from "../weiguo/api";
-import {wordcraftConfigured,type OrchestraCapabilities} from "./capability-contract";
+import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity,getWeiGuoOrchestraCapabilities,mergeWeiGuoPdfCraft} from "../weiguo/api";
+import {wordcraftConfigured,pdfcraftConfigured,type OrchestraCapabilities} from "./capability-contract";
 import {downloadCreamSvg,type OrchestraChart} from "./cream-chart";
 import {ORCHESTRA_TOOLS,orchestraPlan,orchestraTool,type OrchestraFormat,type OrchestraToolId} from "./core";
 import "./orchestra.css";
@@ -21,8 +21,10 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  const [capabilities,setCapabilities]=useState<OrchestraCapabilities|null>(null);
  const [capNotice,setCapNotice]=useState("未連接後端");
  const [checking,setChecking]=useState(false);
+ const [pdfFiles,setPdfFiles]=useState<File[]>([]);
  const privateMode=currentChatMode()==="private";
  const backendWordcraft=wordcraftConfigured(capabilities);
+ const backendPdfcraft=pdfcraftConfigured(capabilities);
  async function refreshCapabilities(){
   if(privateMode){setCapabilities(null);setCapNotice("私人模式不連線至後端");return;}
   if(!weiGuoApiBase()||!weiGuoIdentity()){setCapabilities(null);setCapNotice("需先登入衞國家庭後端");return;}
@@ -38,7 +40,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  const creamSvg=format==="svg"&&tool==="vectorcraft"&&!!chart&&chart.points.length>=2;
  const local=["pdf","docx","pptx"].includes(format)||creamSvg;
  function selectTool(id:OrchestraToolId){
-  const entry=orchestraTool(id);setTool(id);setFormat(entry.formats[0]);setStatus("");setConsent(false);
+  const entry=orchestraTool(id);setTool(id);setFormat(entry.formats[0]);setStatus("");setConsent(false);setPdfFiles([]);
  }
  async function makeLocal(){
   if(busy)return;
@@ -50,6 +52,20 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
    const result=await createRetinaDocument({title,body,format:format as RetinaFormat});
    downloadRetina(result);setStatus("完成：已使用本機 Retina 產生 "+result.name+"，沒有上傳內容。");
   }catch(e){setStatus("本機匯出失敗："+String(e instanceof Error?e.message:e));}
+  finally{setBusy(false);}
+ }
+ async function makePdfcraft(){
+  if(busy)return;
+  if(tool!=="pdfcraft")return setStatus("請先選擇 PdfCraft");
+  if(privateMode||!backendPdfcraft||!consent)return setStatus("PDF 合併需要已啟用的受控後端與此次明確同意");
+  if(pdfFiles.length<2||pdfFiles.length>3)return setStatus("請選擇 2–3 份 PDF");
+  setBusy(true);setStatus("PdfCraft 正在於受控後端合併已選文件…");
+  try{
+   const pdf=await mergeWeiGuoPdfCraft(pdfFiles);
+   downloadRetina({name:"Orchestra_PdfCraft_Merged.pdf",mime:"application/pdf",bytes:pdf,sections:0});
+   setStatus("已透過原生 PdfCraft CLI 完成 PDF 合併並提供下載。");
+   setConsent(false);setPdfFiles([]);
+  }catch(e){setStatus("PdfCraft 未完成："+String(e instanceof Error?e.message:e));}
   finally{setBusy(false);}
  }
  async function makeWordcraft(){
@@ -71,7 +87,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
   <div className="orchestra-capabilities"><p role="status">{capNotice}</p><button type="button" disabled={checking||privateMode} onClick={()=>void refreshCapabilities()}>{checking?"檢查中…":"重新檢查引擎"}</button></div>
   <div className="orchestra-tools" aria-label="選擇製作引擎">
    {ORCHESTRA_TOOLS.map(t=><button type="button" key={t.id} className={tool===t.id?"selected":""} aria-pressed={tool===t.id} onClick={()=>selectTool(t.id)}>
-     <small>CRAFT / {t.id.toUpperCase()}</small><strong>{t.name}</strong><span>{t.summary}</span><span>{t.id==="wordcraft"&&backendWordcraft?"後端已配置 · 尚未完成實測":"原生引擎未啟用"}</span>
+     <small>CRAFT / {t.id.toUpperCase()}</small><strong>{t.name}</strong><span>{t.summary}</span><span>{(t.id==="wordcraft"&&backendWordcraft)||(t.id==="pdfcraft"&&backendPdfcraft)?"後端已配置 · 尚未完成實測":"原生引擎未啟用"}</span>
     </button>)}
   </div>
   <div className="orchestra-layout">
@@ -85,6 +101,21 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
     {local?<button type="button" className="orchestra-export" disabled={busy||!body.trim()} onClick={()=>void makeLocal()}>
       <Download size={16}/> {creamSvg?"使用 CREAM 匯出 SVG 數線圖":"使用 Retina 本機匯出 "+format.toUpperCase()}
     </button>:<p className="orchestra-pending">目前沒有可執行的 {format.toUpperCase()} 匯出器，已保留 {meta.name} 整合位置。</p>}
+    {tool==="pdfcraft"&&<div className="orchestra-remote">
+      <strong>PdfCraft · 原生 PDF 合併（選用）</strong>
+      <p>請選擇 2–3 個本機 PDF，每份不超過 2 MB。需要家庭登入、可信任的 PdfCraft 執行檔與單次明確同意。不會存檔到衞國資料庫；不是手機上的本機合併。</p>
+      <input type="file" aria-label="選取 2 到 3 份 PDF" accept="application/pdf,.pdf" multiple disabled={busy||privateMode}
+       onChange={e=>{const next=Array.from(e.target.files||[]);
+        if(next.length>3){setPdfFiles([]);setStatus("一次最多 3 份 PDF");}else{setPdfFiles(next);setStatus("");}
+        e.target.value="";}}/>
+      <small>已選 {pdfFiles.length} 份 PDF：{pdfFiles.map(f=>f.name).join("、")||"無"}</small>
+      <label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> 我同意將本次選取的 PDF 傳送至受控衞國後端進行合併</label>
+      <button type="button" disabled={busy||privateMode||!backendPdfcraft||!consent||pdfFiles.length<2||
+        pdfFiles.length>3||!weiGuoApiBase()||!weiGuoIdentity()} onClick={()=>void makePdfcraft()}>
+        合併並下載 PDF
+      </button>
+      {!backendPdfcraft&&<p>後端尚未確認 PdfCraft 安全配置。原生合併暫不可使用。</p>}
+    </div>}
     {tool==="wordcraft"&&<div className="orchestra-remote"><strong>WordCraft 原生後端（選用）</strong>
       <p>需安裝並隔離 WordCraft CLI、完成衞國家庭登入。此操作會將本次文字傳送到你設定的衞國後端。未安裝時會明確回報不可用。</p>
       <label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> 同意此次將文件內容送交衞國後端</label>

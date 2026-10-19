@@ -10,7 +10,7 @@ const IDS:readonly OrchestraToolId[]=[
 export type OrchestraBackendCapability={
  id:OrchestraToolId;
  status:"configured"|"unavailable";
- operations:("convert-markdown")[];
+ operations:("convert-markdown"|"combine-pdf")[];
  outputFormats:("docx"|"pdf")[];
  runtimeVerified:boolean;
 };
@@ -33,18 +33,28 @@ export function validateOrchestraCapabilities(input:unknown):OrchestraCapabiliti
   if(e.status!=="configured"&&e.status!=="unavailable")throw Error("未知 Orchestra 狀態");
   if(typeof e.runtimeVerified!=="boolean"||!Array.isArray(e.operations)||!Array.isArray(e.outputFormats))throw Error("Orchestra 能力格式無效");
   const configured=e.status==="configured";
-  if(configured&&id!=="wordcraft")throw Error("此版本尚未實作其他 Craft 原生執行器");
-  if(configured&&(e.operations.length!==1||e.operations[0]!=="convert-markdown"||
-      e.outputFormats.length!==2||e.outputFormats[0]!=="docx"||e.outputFormats[1]!=="pdf"))
+  if(configured&&id!=="wordcraft"&&id!=="pdfcraft")throw Error("此版本尚未實作其他 Craft 原生執行器");
+  const isWord=id==="wordcraft";
+  if(configured&&(e.operations.length!==1||e.operations[0]!== (isWord?"convert-markdown":"combine-pdf")||
+      e.outputFormats.length!==(isWord?2:1)||
+      e.outputFormats[0] !== (isWord?"docx":"pdf")||
+      (isWord&&e.outputFormats[1]!=="pdf")))
     throw Error("Orchestra 執行權限不符本機允許清單");
   if(!configured&&(e.operations.length||e.outputFormats.length))throw Error("停用引擎不得宣告可執行操作");
   // Runtime success can only be asserted by an actual separately audited smoke test.
   if(e.runtimeVerified)throw Error("Orchestra 尚未支援原生引擎已驗收聲明");
-  engines.push({id,status:e.status,operations:configured?["convert-markdown"]:[],
-    outputFormats:configured?["docx","pdf"]:[],runtimeVerified:false});
+  engines.push({id,status:e.status,
+    operations:configured?(id==="wordcraft"?["convert-markdown"]:["combine-pdf"]):[],
+    outputFormats:configured?(id==="wordcraft"?["docx","pdf"]:["pdf"]):[],
+    runtimeVerified:false});
  }
  return {schemaVersion:1,execution:"family-gateway",engines};
 }
 export function wordcraftConfigured(status:OrchestraCapabilities|null):boolean {
  return status?.engines.some(x=>x.id==="wordcraft"&&x.status==="configured")===true;
+}
+
+export function pdfcraftConfigured(status:OrchestraCapabilities|null):boolean {
+ return status?.engines.some(x=>x.id==="pdfcraft"&&x.status==="configured"&&
+   x.operations.includes("combine-pdf"))===true;
 }

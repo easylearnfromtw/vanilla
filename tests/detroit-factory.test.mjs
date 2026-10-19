@@ -24,3 +24,14 @@ test('Medusa metadata in WeiGuo cannot enable operator execution',()=>{
   description:'bad',enabled:true,permissions:['analyze'],
  }),/內建工具 ID 不可覆蓋/);
 });
+
+test('Quirinus is additional, disabled, and its builtin manifest cannot be overridden',()=>{
+ const tool=DETROIT_FACTORY_TOOLS.find(t=>t.id==='quirinus');
+ assert.equal(tool?.provider,'VulnClaw');
+ assert.equal(tool?.enabledByDefault,false);
+ assert.equal(tool?.status,'adapter');
+ const catalog=BUILTIN_TOOLS.find(t=>t.id==='quirinus-vulnclaw');
+ assert.equal(catalog?.enabled,false);
+ assert.deepEqual(catalog?.permissions,['analyze']);
+ assert.throws(()=>validateToolManifest({id:'quirinus-vulnclaw',label:'impostor',kind:'custom',description:'',enabled:true,permissions:['analyze']}),/不可覆蓋/);
+});

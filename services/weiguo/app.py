@@ -21,8 +21,10 @@ from moli_engine import maybe_moli_extract
 from gridcraft_adapter import router as gridcraft_router
 from medusa_adapter import router as medusa_router
 from medusa_family import router as medusa_family_router
+from quirinus_adapter import router as quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
+from pdfcraft_engine import combine_pdfs, PdfCraftUnavailable, PdfCraftFailed
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -43,6 +45,9 @@ class StartTaskRequest(BaseModel):
 class GoogleLoginRequest(BaseModel):
     credential: str = Field(min_length=100,max_length=8192)
 
+class PdfCraftCombineRequest(BaseModel):
+    files: list[str] = Field(min_length=2, max_length=3)
+
 class WordCraftRequest(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     body: str = Field(min_length=1, max_length=50000)
@@ -61,6 +66,18 @@ async def lifespan(app: FastAPI):
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.
 WORDCRAFT_RATE_LOCK = asyncio.Lock()
 WORDCRAFT_RATE: dict[str,list[float]] = {}
+PDFCRAFT_RATE_LOCK = asyncio.Lock()
+PDFCRAFT_RATE: dict[str,list[float]] = {}
+
+async def require_pdfcraft_quota(sub: str) -> None:
+    """Three native PDF operations per verified identity per minute."""
+    async with PDFCRAFT_RATE_LOCK:
+        now = time.monotonic()
+        recent = [t for t in PDFCRAFT_RATE.get(sub, []) if now-t < 60.0]
+        if len(recent) >= 3:
+            raise HTTPException(429, "PdfCraft 每分鐘最多 3 次操作")
+        PDFCRAFT_RATE[sub] = recent + [now]
+
 
 async def require_wordcraft_quota(sub: str) -> None:
     """Three conversion tasks per verified family identity per rolling minute."""
@@ -84,6 +101,7 @@ async def operator(authorization: str | None = Header(default=None)):
 # Medusa is operator-only, not reachable from PWA/family identity sessions.
 app.include_router(medusa_router, dependencies=[Depends(operator)])
 app.include_router(medusa_family_router)
+app.include_router(quirinus_router, dependencies=[Depends(operator)])
 
 @app.get("/v1/health")
 @app.get("/health")
@@ -164,6 +182,26 @@ async def family_get_task(task_id: str, user: FamilyIdentity = Depends(family_re
     if item is None:
         raise HTTPException(404, "找不到指定任務")
     return item
+
+@app.post("/v1/family/orchestra/pdfcraft/combine")
+async def family_pdfcraft_combine(request: PdfCraftCombineRequest,
+                                  user: FamilyIdentity = Depends(family_reader)):
+    """Only 2–3 supplied PDF byte streams, no arbitrary file paths or commands."""
+    await require_pdfcraft_quota(user.sub)
+    try:
+        merged = await combine_pdfs(request.files)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except PdfCraftUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except PdfCraftFailed as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return Response(content=merged, media_type="application/pdf", headers={
+        "Content-Disposition": 'attachment; filename="orchestra-merged.pdf"',
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff"
+    })
+
 
 @app.post("/v1/family/wordcraft/convert")
 async def family_wordcraft_convert(request: WordCraftRequest, user: FamilyIdentity = Depends(family_reader)):

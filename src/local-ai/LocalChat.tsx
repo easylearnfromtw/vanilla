@@ -493,17 +493,23 @@ async function send(value=draft):Promise<void>{
  let webIndex:IndexedPage[]=[];
  switch(route.kind){
   case "diana":{
-   const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream)},route.forcedTool);
+   const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
+   const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
    if(pick.kind==="delegate"&&pick.command){
     if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
-    setDraft("");setLastRoute("Diana → "+pick.label+"："+pick.reason);
+    setDraft("");setLastRoute("Diana → "+pick.label+"："+pick.reason+next);
     await send(pick.command);
     return;
    }
    if(pick.kind==="open"&&pick.event){
+    // Private conversation text must not be copied into regular non-private workspaces.
+    if(privateMode&&pick.event==="vanilla-open-orchestra"&&route.request.trim()){
+     toolReply(question,"私密模式不會把這段對話自動複製到一般 Orchestra 工作室；若要繼續，請在工作室自行貼入已確認可分享的內容。","diana");
+     return;
+    }
     const detail=pick.event==="vanilla-open-detroit"?{tab:pick.tab}:pick.event==="vanilla-open-builder"?{idea:route.request,mode:"code"}:pick.event==="vanilla-open-orchestra"?{body:route.request}:{};
     window.dispatchEvent(new CustomEvent(pick.event,{detail}));
-    toolReply(question,"Diana 選擇 "+pick.label+"（"+pick.reason+"），已開啟工具工作區。真正產製、雲端連線及寫入仍需要在該工具操作與確認。","diana");
+    toolReply(question,"Diana 選擇 "+pick.label+"（"+pick.reason+"）"+next+"，已開啟工具工作區。真正產製、雲端連線及寫入仍需要在該工具操作與確認。","diana");
     return;
    }
    toolReply(question,pick.message||"Diana 無法執行這個工具。","diana");return;

@@ -19,7 +19,7 @@ import {stripThinking,collapseRepetition,cleanModelOutput} from "../ai/output-cl
 import {ensureZhTw,toTaiwanese} from "../ai/zh-tw";
 
 type WebLLM=typeof import("@mlc-ai/web-llm");
-type Engine=import("@mlc-ai/web-llm").MLCEngine;
+type Engine=import("@mlc-ai/web-llm").MLCEngine|import("@mlc-ai/web-llm").WebWorkerMLCEngine;
 export type LocalModelId=string;
 export const LOCAL_MODEL=DEFAULT_LOCAL_MODEL;
 export const LOCAL_MODELS=LOCAL_CATALOG.map(x=>({id:x.id,label:x.label,description:x.description,vramMB:x.vramMB,recommended:Boolean(x.recommended)}));

@@ -2,7 +2,7 @@ import { DRIVE_SCOPE } from "./drive";
 export const GOOGLE_CLIENT_ID = "816806126786-q9thti1d4ic3fhp6ador9obrqs5p8919.apps.googleusercontent.com";
 type TokenResponse = {access_token?:string;expires_in?:number;error?:string;error_description?:string};
 type TokenClient = {requestAccessToken:(options?:{prompt?:string})=>void};
-type GIS = {accounts:{oauth2:{initTokenClient:(options:{client_id:string;scope:string;callback:(response:TokenResponse)=>void;error_callback?:(error:unknown)=>void})=>TokenClient;revoke:(token:string,callback:()=>void)=>void}}};
+type GIS = {accounts:{id:{initialize:(options:{client_id:string;callback:(response:{credential?:string})=>void;auto_select?:boolean;ux_mode?:"popup"})=>void;renderButton:(element:HTMLElement,options:{type:"standard";theme:"outline";size:"large";text:"signin_with";width:number})=>void;disableAutoSelect:()=>void};oauth2:{initTokenClient:(options:{client_id:string;scope:string;callback:(response:TokenResponse)=>void;error_callback?:(error:unknown)=>void})=>TokenClient;revoke:(token:string,callback:()=>void)=>void}}};
 declare global {interface Window {google?:GIS}}
 let scriptPromise:Promise<void>|undefined;
 function loadGIS():Promise<void>{
@@ -37,3 +37,15 @@ export async function authorizeDrive():Promise<{token:string;expiresAt:number}>{
   });
 }
 export function revokeDrive(token:string):void{try{localStorage.removeItem(CONSENT_KEY);}catch{}window.google?.accounts.oauth2.revoke(token,()=>{});}
+
+/** Identity-only login for WeiGuo. The resulting ID token is NOT a Drive API token. */
+export async function renderWeiGuoGoogleButton(element:HTMLElement,onToken:(credential:string)=>void):Promise<void>{
+ await loadGIS();
+ if(!window.google?.accounts?.id)throw Error("Google 身分授權元件無法初始化");
+ element.replaceChildren();
+ window.google.accounts.id.initialize({
+  client_id:GOOGLE_CLIENT_ID,auto_select:false,ux_mode:"popup",
+  callback:response=>{if(response.credential)onToken(response.credential);}
+ });
+ window.google.accounts.id.renderButton(element,{type:"standard",theme:"outline",size:"large",text:"signin_with",width:270});
+}

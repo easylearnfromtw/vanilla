@@ -12,4 +12,4 @@ COPY services/weiguo/quirinus_adapter.py services/weiguo/detroit_quirinus_dispat
 COPY deployment/quirinus/actions_entrypoint.py /opt/quirinus/
 WORKDIR /opt/quirinus
 USER 10001:10001
-ENTRYPOINT ["python", "-I", "/opt/quirinus/actions_entrypoint.py"]
+ENTRYPOINT ["python", "-B", "/opt/quirinus/actions_entrypoint.py"]

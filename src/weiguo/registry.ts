@@ -1,6 +1,7 @@
 /** 衞國 declarative tool connectors. Registration does not execute arbitrary code. */
 export type WeiGuoTool={id:string;label:string;kind:"scouts"|"cream"|"atriensis"|"web"|"custom";description:string;enabled:boolean;permissions:("read"|"analyze"|"export")[]};
 export const BUILTIN_TOOLS:readonly WeiGuoTool[]=[
+ {id:"ceres-gateway",label:"Ceres Relay（選用）",kind:"custom",description:"預設關閉、僅驗證外部事件且不自動執行；需另設平台轉接器",enabled:false,permissions:["read"]},
  {id:"scouts-browser",label:"Scouts Browser",kind:"scouts",description:"Playwright 開啟、導覽及擷取已授權的公開網頁",enabled:true,permissions:["read"]},
  {id:"moli-reader",label:"Moli Browser（實驗性）",kind:"scouts",description:"僅限受控唯讀網頁擷取，須由後端部署、驗證網路隔離後啟用；失敗回退 Chromium",enabled:false,permissions:["read"]},
  {id:"wordcraft-documents",label:"WordCraft（選用）",kind:"atriensis",description:"Retina 進階文件排版／DOCX、PDF 轉檔；後端需安裝 Rust CLI 且通過隔離審查，預設停用",enabled:false,permissions:["read","export"]},

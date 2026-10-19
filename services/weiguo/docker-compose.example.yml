@@ -17,6 +17,11 @@ services:
       # Explicit HTTPS origin for the PWA, without /vanilla path.
       WEIGUO_CORS_ORIGINS: "https://easylearnfromtw.github.io"
       WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
+      # Ceres is opt-in; NEVER place credentials in the public PWA.
+      CERES_ENABLED: "false"
+      CERES_DB_PATH: "/data/ceres-events.sqlite3"
+      # CERES_TELEGRAM_WEBHOOK_SECRET: "${CERES_TELEGRAM_WEBHOOK_SECRET:?Required when enabled}"
+      # CERES_TELEGRAM_CHAT_IDS: "${CERES_TELEGRAM_CHAT_IDS:?Required when enabled}"
       LUCA_ENABLED: "false"
       LUCA_DB: "/data/luca.sqlite3"
       # Optional local OTLP collector:

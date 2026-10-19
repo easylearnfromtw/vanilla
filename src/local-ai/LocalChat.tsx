@@ -317,7 +317,80 @@ async function send(value=draft){
   }));
   return;
  }
- if(await executeIntent(question))return;
+  // CREAM is deterministic and local: it can run even without an LLM.
+ const pasted=creamInstruction(question);
+ if(pasted){
+  try{
+   const parsed=parseCreamCSV(pasted.csv,"聊天貼上的 CSV");
+   setCreamDataset(parsed);
+   const result=analyzeCream(parsed,pasted.kind),now=Date.now();
+   setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
+    {role:"assistant",content:summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
+   setDraft("");setLastRoute("CREAM 已在本機計算，不需使用雲端 AI。");
+  }catch(error){toolReply(question.slice(0,220),"CREAM 分析失敗："+String(error));}
+  return;
+ }
+ const chartChange=creamChartFollowup(question),previous=[...history].reverse().find(x=>x.cream)?.cream;
+ if(chartChange&&previous){
+  const updated:CreamResult={...previous,chartKind:chartChange},now=Date.now();
+  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:now},{role:"assistant",content:"CREAM 已切換圖型，統計數值與來源保持不變。",cream:updated,id:crypto.randomUUID(),createdAt:now+1}]);
+  setDraft("");return;
+ }
+ const saveRequest=planConversationSave(question);
+ if(saveRequest){
+  if(privateMode){toolReply(question,"目前是私密模式，為避免將私密內容寫入一般附件庫，已停止保存。請切換一般模式再明確要求儲存。");return;}
+  setBusy(true);
+  try{
+   const content=composeSavedContent(saveRequest,history);
+   const type=saveRequest.name.endsWith(".txt")?"text/plain":"text/markdown";
+   const file=new File([content],saveRequest.name,{type});
+   const locally=await saveChatAttachment(file,attachmentOwner(signedChatAccount()));
+   let location="已真正保存到此裝置的對話圖片與資料（"+locally.name+"，"+file.size+" bytes）";
+   const session=driveSession();
+   if(session){
+    try{const result=await rememberFile(file,"由對話指令儲存");location+="；並已保存到 Google Drive（"+result.title+"）";}
+    catch(error){location+="；Google Drive 未成功，仍保留本機檔案。原因："+String(error);}
+   }else location+="；沒有有效的 Google Drive 登入，本次僅保存在本機。";
+   toolReply(question,location);
+  }catch(error){toolReply(question,"保存失敗，不能宣稱已建立檔案："+String(error));}
+  finally{setBusy(false);}
+  return;
+ }
+ // Read a public URL or search multiple domains, retrieve actual body text when
+ // possible, then give grounded excerpts to the already-approved AI model.
+ let webContext="";
+ let webSources:import("./engine").WebCitation[]=[];
+ const pageUrl=linkReadingIntent(question);
+ const searchRequest=/^(?:(?:請|幫我|麻煩)?\s*)?(?:上網搜尋|網路搜尋|搜尋|Google搜尋|全網搜尋|上網查|幫我找資料)\s*[：:]?\s*(.{2,180})$/i.exec(question);
+ if(pageUrl||searchRequest){
+  setBusy(true);setLastRoute("正在實際查詢來源並讀取可公開存取的網頁正文…");
+  try{
+   if(pageUrl){
+    const page=await readPublicPage(pageUrl);
+    webSources=[{title:page.title,url:page.url,kind:"full"}];
+    webContext="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
+   }else if(searchRequest){
+    const query=searchRequest[1];
+    const report=await searchLiveWeb(query);
+    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(query)]);
+    for(const hit of report.results.slice(0,3)){
+     try{
+      const article=await readPublicPage(hit.url);
+      webSources.push({title:article.title,url:article.url,kind:"full"});
+      webContext+="\n["+webSources.length+"] "+article.title+"\n來源："+article.url+"\n已讀取正文：\n"+wrapExternalText(article.text.slice(0,7500),"web")+"\n";
+     }catch{
+      // A search snippet is explicitly labeled as such, never as read article.
+      webSources.push({title:hit.title,url:hit.url,kind:"snippet"});
+      webContext+="\n["+webSources.length+"] "+hit.title+"\n來源："+hit.url+"\n僅取得搜尋摘要："+wrapExternalText(hit.snippet,"web")+"\n";
+     }
+    }
+   }
+   if(!webContext){toolReply(question,"沒有取得可閱讀的網頁正文或搜尋摘要；請先設定可用的 HTTPS 搜尋／閱讀後端，或確認網址可公開存取。");setBusy(false);return;}
+   setLastRoute("已取得 "+webSources.length+" 筆來源，正在準備依證據統整；正文與搜尋摘要會分別標示。");
+  }catch(error){toolReply(question,"網頁實際讀取失敗，未產生虛構摘要："+String(error));setBusy(false);return;}
+  finally{setBusy(false);}
+ }
+ if(!webContext&&await executeIntent(question))return;
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:表格|Sheets)(?:編輯器)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-sheets"));setDraft("");return;
  }
@@ -403,7 +476,7 @@ async function send(value=draft){
  const next:ChatTurn[]=[...history,{role:"user",content:question+(fileName?"（附件："+(imageName||fileName)+"）":""),id:crypto.randomUUID(),createdAt:Date.now()}];
  const assistantId=crypto.randomUUID(),assistantTime=Date.now()+1;
  const tableExpected=/(?:表格|比較表|試算表|工作簿)/.test(question);
- const extra=fileContext?"\n\n文件參考資料：\n"+fileContext:"";
+ const extra=(fileContext?"\n\n文件參考資料：\n"+fileContext:"")+(webContext?"\n\n以下是實際取得的公開網頁內容／摘要。請只引用這些資料回答，使用 [1]、[2] 編號標明依據，不要把搜尋摘要說成已讀全文；無法確認時請明說。\n"+webContext:"");
  const tableInstruction=tableExpected?"\n\n如需表格，請只輸出一份 Markdown 表格交由 Vanilla 轉成實際表格元件，不要再用文字重複表格；資料不得捏造。":"";
  const memoryRequested=!privateMode&&driveSession()&&/(?:我|我們|我的|家庭|家族|之前|以前|記憶|健康|運動|旅行|旅遊|資料|紀錄|計畫|偏好|預算)/.test(question);
  let recalled="";
@@ -436,13 +509,13 @@ async function send(value=draft){
   setLastRoute("雙答案已完成，請選擇較喜歡的回答");
   return;
  }
- setHistory([...next,{role:"assistant",content:"",source:primary.source,model:primary.model,id:assistantId,createdAt:assistantTime}]);
+ setHistory([...next,{role:"assistant",content:"",source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
  setLastRoute("正在使用："+primary.label);
  try{
   const result=await generateCandidate(primary,modelNext,image||undefined,text=>{
-   setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,id:assistantId,createdAt:assistantTime}]);
+   setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
   });
-  setHistory([...next,{role:"assistant",content:result||"（模型沒有產生內容）",source:primary.source,model:primary.model,id:assistantId,createdAt:assistantTime}]);
+  setHistory([...next,{role:"assistant",content:result||"（模型沒有產生內容）",source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答");
  }catch(error){
@@ -454,17 +527,17 @@ async function send(value=draft){
    setLastRoute(primary.label+" 無法回答，正在改用 "+alternative.label);
    try{
     const recovered=await generateCandidate(alternative,modelNext,undefined,text=>{
-     setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,id:assistantId,createdAt:assistantTime}]);
+     setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,webSources,id:assistantId,createdAt:assistantTime}]);
     });
-    setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
+    setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model,webSources,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){
     const msg=fallbackError instanceof Error?fallbackError.message:String(fallbackError);
-    setHistory([...next,{role:"assistant",content:"模型與備援均無法回答："+msg,source:alternative.source,model:alternative.model,id:assistantId,createdAt:assistantTime}]);
+    setHistory([...next,{role:"assistant",content:"模型與備援均無法回答："+msg,source:alternative.source,model:alternative.model,webSources,id:assistantId,createdAt:assistantTime}]);
     setLastRoute("主模型及備援模型皆失敗，請檢查連線與模型");
    }
   }else{
-   setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:String(error)),source:primary.source,model:primary.model,id:assistantId,createdAt:assistantTime}]);
+   setHistory([...next,{role:"assistant",content:"生成失敗："+(error instanceof Error?error.message:String(error)),source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
    setLastRoute("生成失敗，請檢查模型、網路、權限及額度");
   }
  }finally{setBusy(false);}
@@ -513,7 +586,7 @@ return <section className="chat">
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small style={{display:"block",fontSize:11,marginTop:3}}>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["你能做什麼？","幫我整理今天的想法","解釋一個複雜概念"].map(x=><button key={x} disabled={busy||Boolean(comparison)} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
-<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{(turn.role==="assistant"?stripRenderedTable(turn.content):turn.content)||(!turn.content?"正在生成回答…":"")}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.sheet&&<SheetPreview sheet={turn.sheet} onEdit={()=>openCreatedSheet(turn.sheet!)}/ >}{turn.role==="assistant"&&turn.cream&&<CreamMessage result={turn.cream} onOpenSheets={creamDataset?.importedAt===turn.cream.importedAt?()=>openCreamInSheets(turn.cream!):undefined}/ >}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
+<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{(turn.role==="assistant"?stripRenderedTable(turn.content):turn.content)||(!turn.content?"正在生成回答…":"")}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.sheet&&<SheetPreview sheet={turn.sheet} onEdit={()=>openCreatedSheet(turn.sheet!)}/>}{turn.role==="assistant"&&turn.cream&&<CreamMessage result={turn.cream} onOpenSheets={creamDataset?.importedAt===turn.cream.importedAt?()=>openCreamInSheets(turn.cream!):undefined}/>}{turn.role==="assistant"&&turn.webSources&&turn.webSources.length>0&&<div className="assistant-search-links" aria-label="本次回答的來源">{turn.webSources.map((ref,i)=><a key={ref.url+"_"+i} href={ref.url} target="_blank" rel="noopener noreferrer">[{i+1}] {ref.title} · {ref.kind==="full"?"已讀正文":"僅搜尋摘要"} ↗</a>)}</div>}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>
  </span>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>

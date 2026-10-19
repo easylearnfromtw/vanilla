@@ -1,7 +1,8 @@
 import {getConfigs} from "../vault/providers";
 import {getOllamaConfig,isOllamaConfigured,generateOllamaReply} from "./ollama";
 import {generateCloudReply,type ImageInput} from "../vault/providers";
-import {generateLocalReply,type ChatTurn} from "../local-ai/engine";
+import {generateLocalReply,loadLocalModel,type ChatTurn} from "../local-ai/engine";
+import {retryDisposedLocalInference} from "../local-ai/webllm-compat";
 import {getHealthAdjustment,recordModelRun} from "./model-health";
 import {noodlesModelAdjustment} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
@@ -125,7 +126,13 @@ export async function generateCandidate(candidate:ModelCandidate,history:ChatTur
  const signal=optimization?.signal;
  try{
   let result:string;
-  if(candidate.source==="local")result=await localInferenceQueue.run(()=>generateLocalReply(history,onText||(()=>{}),{task,signal,deep:optimization?.deep}),signal);
+  if(candidate.source==="local")result=await retryDisposedLocalInference(
+   ()=>localInferenceQueue.run(()=>generateLocalReply(history,onText||(()=>{}),{task,signal,deep:optimization?.deep}),signal),
+   // Reload outside the Zeus GPU queue: loadLocalModel itself acquires this queue.
+   ()=>loadLocalModel(()=>{},candidate.model),
+   ()=>onText?.(""),
+   signal
+  );
   else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal,deep:optimization?.deep});
   else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal,deep:optimization?.deep});
   const duration=Date.now()-start;

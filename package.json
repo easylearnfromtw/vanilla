@@ -17,7 +17,8 @@
     "test:resource-integration": "node --experimental-strip-types --test tests/resource-integration.test.mjs",
     "test:cream": "node --experimental-strip-types --test tests/cream.test.mjs",
     "test:web-workflows": "node --experimental-strip-types --test tests/web-workflows.test.mjs",
-    "test:cream-google": "node --experimental-strip-types --test tests/cream-google.test.mjs"
+    "test:cream-google": "node --experimental-strip-types --test tests/cream-google.test.mjs",
+    "test:noodles": "node --experimental-strip-types --test tests/noodles.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

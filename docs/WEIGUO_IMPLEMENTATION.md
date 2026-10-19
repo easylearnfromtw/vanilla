@@ -38,3 +38,12 @@ Zeus 維持 iPhone 本地只有一個主要推論模型。Merlin、衞國、Scou
 採用 Vanilla 現有 Web OAuth Client ID，新增 Google Identity Services 身分按鈕，僅將短暫有效的 Google **ID token** 送到衞國 HTTPS 後端驗證；不傳送 Google Drive access token。後端依 Google `sub` 在私人 ACL 對照家庭成員與角色，再核發 15 分鐘獨立簽章 session。前端 session 僅存在記憶體，帳號不同或登出時清除。家庭只能執行唯讀的網頁擷取任務，且稽核資料以 Google `sub` 隔離；不取得 admin token。
 
 **尚需實際操作**：部署後端並於私有環境設定 `WEIGUO_SESSION_SECRET`、`WEIGUO_GOOGLE_CLIENT_ID`、`WEIGUO_FAMILY_ACL_JSON`、`WEIGUO_CORS_ORIGINS`、`WEIGUO_ALLOWED_HOSTS` 與舊有管理憑證。GitHub Actions 變數 `WEIGUO_API_URL` 指向真實 HTTPS 網域。沒有這些設定，iPhone 介面會保持未連線，不能宣稱實際任務已送出。請參閱 `services/weiguo/README.md`。
+
+
+## Moli 混合引擎（實驗性，需明確啟用）
+
+衞國後端新增 \`services/weiguo/moli_engine.py\`：在 Zeus/Scouts 的受控唯讀單頁 \`extract\` 任務中，若 Moli 執行檔、JavaScript 授權及**真正的網路出口隔離**均已就緒，可用 Moli CLI 取得 Markdown；其他步驟或錯誤一律退回既有 Playwright/Chromium。結果新增 \`engine\` 欄位便於追蹤。前端工具目錄新增預設停用的 Moli 條目，不表示已部署成功。
+
+Moli CLI 與 Playwright 的路由攔截能力不同，因此新增 \`WEIGUO_BROWSER_ENGINE\`（預設 \`chromium\`）和 \`WEIGUO_MOLI_EGRESS_ISOLATED\`（預設 \`false\`）兩個明確開關。若沒有能攔截跨網域重新導向、非允許網域與私有 IP 的實際防火牆／代理，不可聲稱環境已隔離，也不能啟用 Moli。詳細部署、安全限制及驗收步驟參見 \`services/weiguo/README.md\`。
+
+此變更是**程式碼／設定／自動化單元測試**，尚不代表 Railway 或 iPhone 已執行 Moli。

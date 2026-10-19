@@ -125,3 +125,23 @@ export async function exportCreamGridCraftReport(payload:import("../cream/gridcr
  return {file:new Blob([bytes.buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),chartType:report.chartType,pointsExported:report.pointsExported};
 }
 
+
+/** Medusa / Judge0: explicitly approved remote sandbox execution (never local eval). */
+export type MedusaLanguage="python"|"javascript"|"cpp";
+export type MedusaResult={
+ engine:"medusa-judge0";language:MedusaLanguage;success:boolean;
+ status:{id:number;description:string};stdout:string;stderr:string;
+ compile_output:string;message:string;time:string;memory:string;network:string;
+};
+export async function runWeiGuoMedusaCode(
+ language:MedusaLanguage,source_code:string,stdin:string,approved:boolean
+):Promise<MedusaResult>{
+ const user=weiGuoIdentity();
+ if(!user||user.role==="viewer")throw Error("Medusa 需要先登入有執行權限的衞國家庭帳號");
+ if(!approved)throw Error("執行前必須明確同意將程式碼送至隔離後端");
+ if(!["python","javascript","cpp"].includes(language)||!source_code.trim()
+    ||source_code.length>12000||stdin.length>2000)
+  throw Error("Medusa 程式語言或內容長度不正確");
+ return request<MedusaResult>("/v1/family/medusa/execute",
+  {language,source_code,stdin,approved:true},true);
+}

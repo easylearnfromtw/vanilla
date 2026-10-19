@@ -71,8 +71,8 @@ def _require_ready() -> None:
         raise HTTPException(503, "Quirinus 對話派工尚未由管理員設定 GitHub Actions 授權")
 
 
-def _response(data: dict) -> JSONResponse:
-    return JSONResponse(data, headers={"Cache-Control": "no-store, private",
+def _response(data: dict, status_code: int = 200) -> JSONResponse:
+    return JSONResponse(data, status_code=status_code, headers={"Cache-Control": "no-store, private",
                                       "X-Content-Type-Options": "nosniff"})
 
 
@@ -217,7 +217,7 @@ async def execute(body: ApprovedScan, user: FamilyIdentity = Depends(_owner)):
         _RUNS[request_id] = (time.monotonic() + _JOB_TTL, user.sub)
     return _response({"status": "accepted", "requestId": request_id,
                       "repo": _REPO, "ref": "main",
-                      "note": "GitHub 已接受派工；請查詢實際工作流程結果，受理不代表掃描成功。"})
+                      "note": "GitHub 已接受派工；請查詢實際工作流程結果，受理不代表掃描成功。"}, status_code=202)
 
 
 @router.get("/runs/{request_id}")

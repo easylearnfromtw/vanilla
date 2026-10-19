@@ -1,4 +1,5 @@
 import {Converter} from "opencc-js";
+import type {SheetPreviewData} from "./sheet-preview-model";
 import * as webllm from "@mlc-ai/web-llm";
 import {toneInstruction} from "../ai/tone-adaptation";
 import {VANILLA_BUILD} from "../version";
@@ -26,7 +27,7 @@ function discoverModels(){
  return [...baseModels,...extra];
 }
 export const LOCAL_MODELS=discoverModels();
-export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down"};
+export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData};
 let engine:webllm.MLCEngine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;

@@ -1,0 +1,26 @@
+name: Quirinus Security Tool Checks
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quirinus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify Detroit and WeiGuo registry contracts
+        run: npm run test:detroit-factory
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install only existing WeiGuo Python test requirements
+        run: python -m pip install -r services/weiguo/requirements.txt
+      - name: Verify Quirinus secure adapter without external VulnClaw
+        run: python -m unittest discover -s services/weiguo -p 'test_quirinus_adapter.py'
+      - name: Verify Quirinus adapter syntax
+        run: python -m py_compile services/weiguo/quirinus_adapter.py

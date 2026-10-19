@@ -77,7 +77,8 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(ctx.privateMode&&tool==="jensen-huang")return report(tool,"私密模式不會將工作內容轉交 GitHub 程式工作台。","隱私限制");
  if(tool==="zeus"||tool==="athena")return report(tool,LABELS[tool]+" 是內部治理工具，無法由對話獲得額外權限。","內部工具");
  if(tool==="janus")return choose({kind:"open",event:"vanilla-open-email"});
- if(tool==="retina"||tool==="bard"||tool==="luna")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
+ if(tool==="luna")return choose({kind:"open",event:"vanilla-open-luna"});
+ if(tool==="retina"||tool==="bard")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
  if(tool==="orchestra")return choose({kind:"open",event:"vanilla-open-orchestra"});
  if(tool==="jensen-huang")return choose({kind:"open",event:"vanilla-open-builder"});
  if(tool==="atriensis"&&!/(?:讀取|查看|分析|摘要|檢查|整理|刪除|移除)/.test(task))return choose({kind:"open",event:"vanilla-open-files"});

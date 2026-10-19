@@ -1,0 +1,40 @@
+[Unit]
+Description=Vanilla Orchestra dedicated PdfCraft PDF worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vanilla-pdfcraft
+Group=vanilla-pdfcraft
+WorkingDirectory=/opt/vanilla/services/pdfcraft-worker
+EnvironmentFile=/etc/vanilla/pdfcraft-worker.env
+Environment=PYTHONPATH=/opt/vanilla/services/weiguo
+ExecStart=/opt/vanilla/.venv-pdfcraft/bin/uvicorn worker_api:app --host 127.0.0.1 --port 8090 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+MemoryMax=768M
+CPUQuota=90%
+TasksMax=64
+TimeoutStopSec=10
+# Do NOT use RestrictNamespaces: the nested rootless Bubblewrap
+# worker intentionally requires user/mount/network namespaces.
+# The HTTP API may bind only to localhost; place TLS termination in
+# Caddy/Nginx with IP filtering; never expose 8090 directly.
+
+[Install]
+WantedBy=multi-user.target

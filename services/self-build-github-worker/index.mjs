@@ -115,6 +115,51 @@ async function revise(number,payload,env){
  await github("/git/refs/heads/"+encodeURIComponent(pr.head.ref),env,{method:"PATCH",body:{sha:next,force:false}});
  return {number,url:pr.html_url,branch:pr.head.ref,sha:next,status:"pending",message:"修正已提交至原 Draft PR，GitHub CI 將重新執行"};
 }
+/** Only objective TS/test failures can drive automated repair. Logs are untrusted.
+ * Never relay full raw logs, authorization strings or arbitrary instructions to an AI.
+ */
+export function extractCIErrors(log){
+ const lines=String(log).slice(-110000).split(/\r?\n/);
+ const errors=[];const seen=new Set();
+ for(const raw of lines){
+  let line=raw.replace(/^\d{4}-\d\d-\d\dT[^ ]+Z\s*/,"").replace(/\x1b\[[\d;]*m/g,"").trim();
+  if(!/\berror TS\d{4}\b|^not ok \d+\s*-|(?:^|\s)##\[error\]|\b(?:SyntaxError|TypeError|ReferenceError):/.test(line))continue;
+  if(line.length>500)line=line.slice(0,500);
+  line=line.replace(/(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]+|GOCSPX-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{12,})/g,"[REDACTED]");
+  line=line.replace(/(?:Authorization|Bearer|api[_-]?key|access[_-]?token)\s*[=:]\s*\S+/gi,"[REDACTED]");
+  line=line.replace(/https?:\/\/\S+/g,"[URL]");
+  if(!seen.has(line)){seen.add(line);errors.push({path:"CI",message:line,startLine:0});}
+  if(errors.length>=10)break;
+ }
+ return errors;
+}
+async function jobCIErrors(run,env){
+ const details=String(run.details_url||"");
+ const match=/^https:\/\/github\.com\/easylearnfromtw\/vanilla\/actions\/runs\/\d+\/job\/(\d+)(?:[/?#]|$)/.exec(details);
+ if(!match)return [];
+ const url=ROOT+"/actions/jobs/"+match[1]+"/logs";
+ const started=await fetch(url,{redirect:"manual",headers:{
+  Authorization:"Bearer "+env.GITHUB_TOKEN,Accept:"application/vnd.github+json",
+  "X-GitHub-Api-Version":"2022-11-28"
+ }});
+ if(started.status!==302)return [];
+ const location=started.headers.get("location");if(!location)return [];
+ const destination=new URL(location);
+ // GitHub currently delivers job logs through time-limited cloud storage links.
+ // Do not follow arbitrary redirects or forward the GitHub PAT to log hosts.
+ const host=destination.hostname.toLowerCase();
+ if(destination.protocol!=="https:"||destination.username||destination.password||
+  !(host.endsWith(".blob.core.windows.net")||
+    host.endsWith(".githubusercontent.com")||
+    host.endsWith(".amazonaws.com")))return [];
+ const second=await fetch(destination.toString(),{redirect:"error",headers:{"Accept":"text/plain"}});
+ if(!second.ok)return [];
+ const length=Number(second.headers.get("Content-Length")||0);
+ if(length>2000000)return [];
+ const text=await second.text();
+ return extractCIErrors(text);
+}
+
 async function diagnostics(number,env){
  const pr=await getPR(number,env);
  const checks=await github("/commits/"+pr.head.sha+"/check-runs?per_page=40",env);
@@ -132,6 +177,10 @@ async function diagnostics(number,env){
     path:String(a.path||"").slice(0,150),message:String(a.message||"").slice(0,350),
     startLine:Number(a.start_line)||0
    });
+   // GitHub often reports a failed TypeScript/test job without any annotations.
+   // Retrieve only diagnostic lines from the known CI job, with no bearer token
+   // forwarded to the storage redirect. Never use full logs as model context.
+   if(!annotations.length)annotations.push(...await jobCIErrors(failure,env).catch(()=>[]));
   }
  }
  return {number,sha:pr.head.sha,url:pr.html_url,status,checks:summaries,annotations,

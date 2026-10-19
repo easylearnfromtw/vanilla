@@ -64,7 +64,7 @@ test("Named capabilities clearly state limits, examples and pending development"
  assert.match(report,/Vanilla Sheets/);
  assert.match(report,/CREAM/);
  assert.match(report,/Mobilerun/);
- assert.match(report,/自動爬取|即時爬取/);
+ assert.match(report,/跨網域搜尋|網頁正文/);
  assert.match(report,/功能登錄/);
  assert.match(capabilityAnswer("builder",connected),/不是自己修改 GitHub/);
 });

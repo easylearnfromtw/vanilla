@@ -100,7 +100,7 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
   throw e;
  }finally{clearTimeout(timeout);}
 }
-export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured"};
+export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured";deep?:boolean};
 /** Streams from Ollama /api/chat (NDJSON). Tuned per model: num_ctx large enough for web/file
  * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the
  * model every question, and thinking only where it pays off. */
@@ -115,7 +115,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest});
  const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
  const send=async(withThink:boolean)=>{
-  const extras=ollamaRequestExtras(model,task);
+  const extras=ollamaRequestExtras(model,task,Boolean(options.deep));
   if(!withThink)delete extras.think;
   // Ollama's grammar-constrained JSON mode makes Sheets/Self-Build drafts parse reliably.
   return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&withThink?{format:"json"}:{})})});

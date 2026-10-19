@@ -1,0 +1,13 @@
+name = "vanilla-detroit-jobs"
+main = "worker.mjs"
+compatibility_date = "2026-10-19"
+# Set secret with: npx wrangler secret put DETROIT_ADMIN_TOKEN
+# Set DETROIT_ALLOWED_HOSTS using encrypted configuration or env vars to specific public hostnames.
+[vars]
+DETROIT_ALLOWED_HOSTS = "example.com"
+[[d1_databases]]
+binding = "DETROIT_DB"
+database_name = "vanilla-detroit-jobs"
+database_id = "REPLACE_WITH_CREATED_D1_DATABASE_ID"
+[triggers]
+crons = ["*/15 * * * *"]

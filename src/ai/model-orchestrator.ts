@@ -7,6 +7,7 @@ import {noodlesModelAdjustment} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {preferTaideForTaiwan,isTaideModel} from "./taiwan-routing";
 import {profileFor,geminiLiteSibling} from "./model-profiles";
+import {localInferenceQueue} from "../detroit/zeus";
 
 export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
@@ -117,16 +118,16 @@ export function promptBudgetFor(candidate:ModelCandidate,task:TaskKind):number{
  if(candidate.source==="ollama")return Math.max(1200,profile.contextTokens-profile.maxOutput[task]-900-1200);
  return 24000;
 }
-export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal};
+export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal;deep?:boolean};
 export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onText?:(text:string)=>void,optimization?:GenerateOptions):Promise<string>{
  const start=Date.now();
  const task=optimization?.task;
  const signal=optimization?.signal;
  try{
   let result:string;
-  if(candidate.source==="local")result=await generateLocalReply(history,onText||(()=>{}),{task,signal});
-  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal});
-  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal});
+  if(candidate.source==="local")result=await localInferenceQueue.run(()=>generateLocalReply(history,onText||(()=>{}),{task,signal,deep:optimization?.deep}),signal);
+  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal,deep:optimization?.deep});
+  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal,deep:optimization?.deep});
   const duration=Date.now()-start;
   recordModelRun(candidate.id,true,duration);
   if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:true,durationMs:duration},optimization.privateMode);

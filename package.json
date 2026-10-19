@@ -32,7 +32,8 @@
     "test:chat-router": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/chat-router.test.mjs",
     "test:model-tuning": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/model-tuning.test.mjs",
     "test:archive": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/conversation-archive.test.mjs",
-    "test:providers": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/provider-streaming.test.mjs"
+    "test:providers": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/provider-streaming.test.mjs",
+    "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

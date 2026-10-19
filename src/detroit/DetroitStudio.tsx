@@ -12,8 +12,9 @@ import {DETROIT_ENGINES} from './core';
 import './studio.css';
 const JanusStudio=lazy(()=>import('../email/EmailStudio'));
 type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna'|'registry'|'janus'|'medusa'|'luca';
-export default function DetroitStudio({initialBody}:{initialBody?:string|null}={}){
- const [tab,setTab]=useState<Tab>('retina');
+export default function DetroitStudio({initialBody,initialTab="retina"}:{initialBody?:string|null;initialTab?:Tab}={}){
+ const [tab,setTab]=useState<Tab>(initialTab);
+ useEffect(()=>{setTab(initialTab);},[initialTab]);
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,160000));setTab('retina');}},[initialBody]);
  const [title,setTitle]=useState('新報告');
  const [body,setBody]=useState('# 摘要\n請將實際資料、研究內容或已確認的文字貼在這裡。\n# 建議\n- 每項結論註明依據。');

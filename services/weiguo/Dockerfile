@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY policy.py app.py tasks.py server.py security.py auth.py moli_engine.py wordcraft_engine.py gridcraft_adapter.py ./
+COPY policy.py app.py tasks.py server.py security.py auth.py moli_engine.py wordcraft_engine.py gridcraft_adapter.py medusa_adapter.py ./
 COPY entrypoint.sh /usr/local/bin/weiguo-entrypoint
 RUN useradd --create-home --uid 10001 weiguo \
     && mkdir -p /data \

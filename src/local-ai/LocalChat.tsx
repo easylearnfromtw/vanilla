@@ -1042,8 +1042,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  {turn.role==="assistant"&&turn.tool&&ToolIcon&&<div className={"tool-badge tool-"+turn.tool.id+" status-"+turn.tool.status}><ToolIcon size={12}/><span>{turn.tool.label}</span>{turn.tool.detail&&<small>{turn.tool.detail}</small>}</div>}
  {turn.role==="assistant"&&turn.source&&<div className="message-source"><span className={"source-dot source-"+turn.source}/>{sourceLabel(turn)}{turn.model&&<span className="model-id-suffix" title={turn.model}> · {prettyModel(turn.model)}</span>}{turn.durationMs?<span className="model-id-suffix"> · {(turn.durationMs/1000).toFixed(1)}s</span>:null}</div>}
  <div className="message-text">{turn.role==="assistant"?(turn.content?<ChatMarkdown source={stripRenderedTable(turn.content)}/>:<span className="typing-dots" aria-label="正在生成"><i/><i/><i/></span>):turn.content}</div>
- {turn.role==="assistant"&&index===latestAssistant&&history[history.length-1]?.role==="assistant"&&}
-  {turn.role==="assistant"&&index===latestAssistant&&<DetroitStages plan={detroitPlan}/>}
+ {turn.role==="assistant"&&index===latestAssistant&&<DetroitStages plan={detroitPlan}/>}
   {turn.role==="assistant"&&(turn.contexts?.length||turn.notice)?<div className="message-context">{turn.contexts?.length?<span>參考：{turn.contexts.join("、")}</span>:null}{turn.notice&&<span className="context-notice">{turn.notice}</span>}</div>:null}
  {turn.role==="assistant"&&<MessageArtifacts turn={turn} onOpenTable={openTableInSheets} onOpenSheet={openCreatedSheet} onOpenCream={creamDataset?.importedAt===turn.cream?.importedAt?openCreamInSheets:undefined}/>}
  {turn.role==="assistant"&&turn.content&&!streamingThis&&<div className="message-actions">

@@ -40,6 +40,7 @@
     "test:detroit-notifications": "node --test tests/detroit-notifications.test.mjs",
     "test:cream-weiguo": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/cream-weiguo-ui.test.mjs",
     "test:cream-extra": "node --experimental-strip-types --test tests/cream-extended.test.mjs",
+    "test:cream-gridcraft": "node --experimental-strip-types --test tests/cream-gridcraft.test.mjs",
     "test:weiguo": "python3 -m unittest discover -s tests -p 'test_weiguo_policy.py'",
     "test:weiguo-auth-ui": "node --test tests/weiguo-auth-ui.test.mjs"
   },

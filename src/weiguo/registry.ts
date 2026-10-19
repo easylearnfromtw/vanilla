@@ -3,6 +3,7 @@ export type WeiGuoTool={id:string;label:string;kind:"scouts"|"cream"|"atriensis"
 export const BUILTIN_TOOLS:readonly WeiGuoTool[]=[
  {id:"scouts-browser",label:"Scouts Browser",kind:"scouts",description:"Playwright 開啟、導覽及擷取已授權的公開網頁",enabled:true,permissions:["read"]},
  {id:"moli-reader",label:"Moli Browser（實驗性）",kind:"scouts",description:"僅限受控唯讀網頁擷取，須由後端部署、驗證網路隔離後啟用；失敗回退 Chromium",enabled:false,permissions:["read"]},
+ {id:"wordcraft-documents",label:"WordCraft（選用）",kind:"atriensis",description:"Retina 進階文件排版／DOCX、PDF 轉檔；後端需安裝 Rust CLI 且通過隔離審查，預設停用",enabled:false,permissions:["read","export"]},
  {id:"cream-data",label:"CREAM",kind:"cream",description:"確定性資料驗證、統計與圖表；交給既有本機引擎",enabled:true,permissions:["read","analyze"]},
  {id:"atriensis-files",label:"Atriensis",kind:"atriensis",description:"讀取已授權檔案並保留所有權邊界",enabled:true,permissions:["read"]}
 ];

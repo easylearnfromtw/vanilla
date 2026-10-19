@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ORCHESTRA_TOOLS,orchestraPlan,creamOrchestraBrief} from '../src/orchestra/core.ts';
+import {creamLineSvg} from '../src/orchestra/cream-chart.ts';
 
 test('seven native tool adapters registered with unique ids and authoritative upstream URLs',()=>{
  assert.equal(ORCHESTRA_TOOLS.length,7);
@@ -33,4 +34,19 @@ test('CREAM handoff preserves statistics and limitations without inventing measu
  });
  assert.match(body,/120.00/);assert.match(body,/2026-10-15/);
  assert.match(body,/觀測時間短/);assert.match(body,/繼續追蹤/);
+});
+
+test('CREAM line chart generates safe, portable SVG without external assets',()=>{
+ const svg=creamLineSvg({label:'成長 <script>alert(1)</script>',unit:'人',
+  points:[{date:'2026-10-01',value:100},{date:'2026-10-10',value:150}]
+ });
+ assert.match(svg,/xmlns="http:\/\/www.w3.org\/2000\/svg"/);
+ assert.match(svg,/&lt;script&gt;/);assert.doesNotMatch(svg,/<script>/);
+ assert.match(svg,/<path d="M/);
+ assert.match(svg,/2026-10-10/);
+ assert.throws(()=>creamLineSvg({label:'T',unit:'',points:[{date:'2026-10-01',value:1}]}),/至少需要兩筆/);
+});
+test('Orchestra supports genuine local SVG only with CREAM data',()=>{
+ assert.equal(orchestraPlan({format:'svg',tool:'vectorcraft',creamChart:true}).backend,'cream-local');
+ assert.equal(orchestraPlan({format:'svg',tool:'vectorcraft',creamChart:true}).steps.at(-1).engine,'cream');
 });

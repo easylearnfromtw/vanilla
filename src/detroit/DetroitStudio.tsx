@@ -1,5 +1,5 @@
 import {useEffect,useState,lazy,Suspense} from 'react';
-import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette,Database,Mail,Activity} from 'lucide-react';
+import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette,Database,Mail,Activity,MessageSquare} from 'lucide-react';
 import OrchestraStudio from '../orchestra/OrchestraStudio';
 import LucaPanel from '../luca/LucaPanel';
 import MedusaTool from './MedusaTool';
@@ -11,7 +11,7 @@ import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api
 import {DETROIT_ENGINES} from './core';
 import './studio.css';
 const JanusStudio=lazy(()=>import('../email/EmailStudio'));
-type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna'|'registry'|'janus'|'medusa'|'luca';
+type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna'|'registry'|'janus'|'medusa'|'luca'|'ceres';
 export default function DetroitStudio({initialBody,initialTab="retina"}:{initialBody?:string|null;initialTab?:Tab}={}){
  const [tab,setTab]=useState<Tab>(initialTab);
  useEffect(()=>{setTab(initialTab);},[initialTab]);
@@ -66,7 +66,7 @@ export default function DetroitStudio({initialBody,initialTab="retina"}:{initial
  return <div className="detroit-studio">
   <header><p className="detroit-eyebrow">VANILLA / DETROIT</p><h1>DETROIT <em>STUDIO</em></h1><p>同一套 AI，專門工具協作。生成有依據的成品，並清楚標示雲端服務是否啟用。</p></header>
   <div className="detroit-studio-tabs" role="tablist" aria-label="Detroit 工作室工具">
-   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3],['luna','LUNA 設計',Palette],['registry','API Registry',Database],['janus','Janus 郵件',Mail],['medusa','Medusa',Layers3],['luca','LUCA 監控',Activity]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
+   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3],['luna','LUNA 設計',Palette],['registry','API Registry',Database],['janus','Janus 郵件',Mail],['medusa','Medusa',Layers3],['luca','LUCA 監控',Activity],['ceres','Ceres 通訊',MessageSquare]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
   </div>
   {tab==='retina'&&<section className="detroit-studio-form"><h2>Retina · 正式文件產製</h2><p>輸入標題與內容，支援 Markdown 標題、段落和清單；在手機本機真正產生可下載的文件，不需要模型重複生成。</p>
    <label>文件名稱<input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)}/></label>
@@ -84,6 +84,7 @@ export default function DetroitStudio({initialBody,initialTab="retina"}:{initial
   {tab==='janus'&&<Suspense fallback={<p role="status">Janus 郵件工作室載入中…</p>}><JanusStudio/></Suspense>}
   {tab==='registry'&&<ApiRegistryPanel/>}
   {tab==='luca'&&<LucaPanel/>}
+  {tab==='ceres'&&<section className="detroit-studio-form"><h2>Ceres · 跨平台通訊與插件</h2><p>Ceres 是 Vanilla 原生獨立開發的跨平台訊息與插件接入層，並非移植 AstrBot 程式碼。已加入安全事件格式、插件規格與可選簽章 Relay 驗證；LINE、Telegram、Discord、Slack 正式帳號尚未連線。</p><p>目前預設停用。外部訊息一律視為不可信資料，必須通過平台驗證、家庭身分連結、Athena 審查與使用者核准，才可進一步交給 Zeus 派工。此版本不會自動回覆、安裝任意插件或執行腳本。</p><p>原生介面不強制添加浮水印，但仍保留依法必要的第三方授權聲明。</p></section>
   {tab==='luna'&&<section className="detroit-studio-form"><h2>LUNA · 海報與視覺設計</h2><p>可拖曳的本機海報畫布、文字與圖片圖層、活動／品牌模板，以及 PNG 與 JSON 匯出。完全獨立於迅排的管理後台，不使用其預設帳號或 API。</p><button className="detroit-primary" type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-luna'))}><Palette size={17}/>開啟 LUNA 設計畫布</button></section>}
   {tab==='bard'&&<section className="detroit-studio-form"><h2>Bard · 圖片生成</h2><p>透過你已連接的 Gemini API 圖片模型生成，並非裝置端 GPU 生圖。模型能否使用與費率取決於你的 Google API 專案。</p>
    <label>生圖描述<textarea rows={6} maxLength={3000} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例：極簡蒙太奇拼貼海報，幾何色塊，文字區保留留白…"/></label>

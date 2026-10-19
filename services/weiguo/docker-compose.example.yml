@@ -34,6 +34,10 @@ services:
       MEDUSA_ENABLED: "false"
       MEDUSA_SANDBOX_EGRESS_BLOCKED: "false"
       MEDUSA_FAMILY_ENABLED: "false"
+      MEDUSA_ENGINE: "judge0"  # alternative: cloudrun
+      MEDUSA_CLOUD_RUN_VERIFIED: "false"
+      # MEDUSA_CLOUD_RUN_URL: "https://medusa-cloud-<generated>.a.run.app"
+      # MEDUSA_CLOUD_SHARED_SECRET: configure server-side only
       # MEDUSA_FAMILY_OWNER_SUBS: "verified Google sub"
       # MEDUSA_JUDGE0_URL: "http://judge0:2358"
       # MEDUSA_PYTHON_LANGUAGE_ID: "109" # Verify the deployment language ID first.

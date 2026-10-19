@@ -4,6 +4,7 @@ import {driveSession} from "../workspace/cloud-drive";
 import {currentChatMode} from "../local-ai/chat-session";
 import {janusPermission} from "../detroit/janus";
 import {buildEmailTemplate,type EmailTemplateFields,type EmailTemplateKind} from "./email-templates";
+import {VENUS_EMAIL_THEMES,recommendedVenusTheme,venusAuditEmail,type VenusEmailThemeId} from "../venus/email-design";
 import {isEmailDesign,MAX_DESIGN_BYTES,parseEmailSnapshot,scopedEmailStorageKey,type EmailSnapshot} from "./email-policy";
 import "./email-studio.css";
 
@@ -11,7 +12,7 @@ const EmailVisualEditor=lazy(()=>import("./EmailVisualEditor"));
 const initialFields:EmailTemplateFields={
  brand:"VANILLA",title:"誠摯邀請您參加活動",
  message:"您好：\n我們準備了一場特別的活動，期待與您見面。\n\n活動日期與地點：請在這裡填寫。",
- buttonText:"了解活動詳情",buttonUrl:""
+ buttonText:"了解活動詳情",buttonUrl:"",preheader:"活動資訊與報名方式，一封信了解重點"
 };
 const kinds:Array<{id:EmailTemplateKind;label:string}>= [
  {id:"invitation",label:"活動邀請函"},
@@ -28,6 +29,8 @@ function initialAccount(){return driveSession()?.email||null;}
 export default function EmailStudio(){
  const [kind,setKind]=useState<EmailTemplateKind>("invitation");
  const [fields,setFields]=useState<EmailTemplateFields>(initialFields);
+ const [venusTheme,setVenusTheme]=useState<VenusEmailThemeId>("warm");
+ const [previewSize,setPreviewSize]=useState<"desktop"|"phone">("desktop");
  const [snapshot,setSnapshot]=useState<EmailSnapshot|null>(null);
  const [editorOpen,setEditorOpen]=useState(false);
  const [notice,setNotice]=useState("先生成模板；所有基本排版與匯出都在本機完成。");
@@ -59,7 +62,7 @@ export default function EmailStudio(){
   try{
    const verdict=janusPermission("render-local",{privateMode:currentChatMode()==="private",approved:false});
    if(!verdict.allow)throw new Error(verdict.reason);
-   const result=buildEmailTemplate(kind,fields);
+   const result=buildEmailTemplate(kind,fields,venusTheme);
    setSnapshot({design:result.design,html:result.html,title:fields.title.trim()||"email",updatedAt:new Date().toISOString()});
    setEditorOpen(false);
    setNotice("模板已產生。可以離線預覽與下載；雲端編輯器不會自動連線。");
@@ -102,25 +105,39 @@ export default function EmailStudio(){
  }
  const fileStem=(snapshot?.title||"vanilla-email").replace(/[^\p{L}\p{N}_-]+/gu,"-").slice(0,64)||"vanilla-email";
  const currentAccount=initialAccount();
+ const venusFindings=venusAuditEmail(fields);
+ const critical=venusFindings.filter(x=>x.level==="caution").length;
  return <div className="email-studio">
   <div className="email-hero">
    <div className="email-eyebrow"><Mail size={15}/> VANILLA / DETROIT / JANUS</div>
    <h1>JANUS <span>· 郵件設計</span></h1>
-   <p>Unlayer Elements 在本機產生電子郵件 HTML 與可編輯 JSON。需要拖曳修改時，再由你決定是否開啟 Unlayer 線上編輯器。</p>
+   <p>Janus 負責郵件 HTML／JSON 產製，Venus 提供本機配色、排版建議與手機預覽。需使用拖曳編輯時，再由你決定是否開啟 Unlayer 線上編輯器。</p>
   </div>
   <div className="email-grid">
    <section className="email-form" aria-label="郵件內容">
     <h2>01 / 編寫內容</h2>
     <label>模板類型
-     <select value={kind} onChange={e=>setKind(e.target.value as EmailTemplateKind)}>
+     <select value={kind} onChange={e=>{const next=e.target.value as EmailTemplateKind;setKind(next);setVenusTheme(recommendedVenusTheme(next));}}>
       {kinds.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
      </select>
     </label>
+    <div className="email-venus-panel">
+     <div className="email-venus-heading"><strong>VENUS · 視覺呈現</strong><span>本機設計輔助</span></div>
+     <label>排版風格
+      <select aria-label="Venus 郵件排版風格" value={venusTheme} onChange={e=>setVenusTheme(e.target.value as VenusEmailThemeId)}>
+       {Object.values(VENUS_EMAIL_THEMES).map(theme=><option key={theme.id} value={theme.id}>{theme.label} · {theme.description}</option>)}
+      </select>
+     </label>
+     <p>切換風格不會更動已產生的郵件，按「產生郵件」才會更新內容。</p>
+    </div>
     <label>品牌名稱
      <input maxLength={100} value={fields.brand} onChange={e=>updateField("brand",e.target.value)}/>
     </label>
     <label>郵件主標題
      <input maxLength={160} value={fields.title} onChange={e=>updateField("title",e.target.value)}/>
+    </label>
+    <label>預覽摘要（會顯示於郵件頂部）
+     <input maxLength={150} value={fields.preheader||""} onChange={e=>updateField("preheader",e.target.value)} placeholder="一句話提示讀者此封郵件重點"/>
     </label>
     <label>內文
      <textarea maxLength={3000} rows={7} value={fields.message} onChange={e=>updateField("message",e.target.value)}/>
@@ -131,13 +148,24 @@ export default function EmailStudio(){
     <label>按鈕連結（僅 HTTPS，可留白）
      <input type="url" inputMode="url" placeholder="https://example.com" value={fields.buttonUrl} onChange={e=>updateField("buttonUrl",e.target.value)}/>
     </label>
-    <button type="button" className="email-primary" onClick={generate}><PenLine size={17}/> 產生郵件模板</button>
+    <section className="email-venus-audit" aria-label="Venus 排版與內容檢查">
+     <div className="email-venus-heading"><strong>VENUS · 品質檢查</strong><span>{critical?critical+" 項需注意":venusFindings.length+" 項優化建議"}</span></div>
+     {venusFindings.length?<ul>{venusFindings.map(check=><li key={check.code} className={"venus-"+check.level}>{check.message}</li>)}</ul>:
+      <p>基本長度與連結格式沒有明顯問題。郵件相容性、寄送及送達率仍需另行驗證。</p>}
+    </section>
+    <button type="button" className="email-primary" onClick={generate}><PenLine size={17}/> Janus × Venus · 產生郵件</button>
    </section>
    <section className="email-preview" aria-label="郵件預覽">
-    <div className="email-preview-title"><h2>02 / 預覽及匯出</h2><span>{snapshot?"HTML + JSON":"尚未產生"}</span></div>
-    {snapshot?.html?
-     <iframe title="郵件預覽（已停用 JavaScript）" sandbox="" referrerPolicy="no-referrer" srcDoc={snapshot.html}/>:
-     <div className="email-preview-empty">{snapshot?"此設計只有 JSON，請透過編輯器匯出 HTML。":"選擇模板並輸入內容，產生後將在此顯示信件。"}</div>}
+    <div className="email-preview-title"><h2>02 / Venus 預覽及匯出</h2><span>{snapshot?"HTML + JSON":"尚未產生"}</span></div>
+    <div className="email-preview-mode" role="group" aria-label="預覽裝置">
+     <button type="button" aria-pressed={previewSize==="desktop"} onClick={()=>setPreviewSize("desktop")}>桌面 · 600px</button>
+     <button type="button" aria-pressed={previewSize==="phone"} onClick={()=>setPreviewSize("phone")}>手機 · 360px</button>
+    </div>
+    <div className={"email-preview-canvas"+(previewSize==="phone"?" is-phone":"")}>
+     {snapshot?.html?
+      <iframe title="郵件預覽（已停用 JavaScript）" sandbox="" referrerPolicy="no-referrer" srcDoc={snapshot.html}/>:
+      <div className="email-preview-empty">{snapshot?"此設計只有 JSON，請透過編輯器匯出 HTML。":"選擇模板並輸入內容，產生後將在此顯示信件。"}</div>}
+    </div>
     <div className="email-actions">
      <button type="button" disabled={!snapshot?.html} onClick={()=>snapshot&&download(fileStem+".html",snapshot.html,"text/html;charset=utf-8")}><Download size={15}/> HTML</button>
      <button type="button" disabled={!snapshot} onClick={()=>snapshot&&download(fileStem+".json",JSON.stringify(snapshot.design,null,2),"application/json")}><FileJson size={15}/> 設計 JSON</button>
@@ -161,6 +189,7 @@ export default function EmailStudio(){
     </Suspense>}
   </section>
   <p className="email-footer-note" role="status">{notice}</p>
+  <p className="email-footer-note">Venus 檢查的是目前表單輸入，不會自動審核匯入 JSON 或第三方編輯後的 HTML；裝置預覽僅模擬頁面寬度，不代表 Gmail／Outlook 實際渲染。</p>
   <p className="email-footer-note">Detroit / Janus · 本機存檔依目前 Google 登入帳號隔離；未登入時，使用共用裝置儲存空間。{currentAccount!==account?" 偵測到帳號變更，請重新確認儲存／讀取。":""}目前不會自動寄送郵件、同步 Drive 或呼叫 AI。</p>
  </div>;
 }

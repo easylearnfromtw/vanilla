@@ -44,7 +44,7 @@ class WorkerTests(unittest.TestCase):
             headers={"Authorization":"Bearer "+SECRET}
             self.assertEqual(self.api("POST","/v1/execute",json={"source_code":"x" * 16001},headers=headers).status_code,422)
             self.assertEqual(self.api("POST","/v1/execute",json={"source_code":"界" * 6000},headers=headers).status_code,413)
-            self.assertEqual(self.api("POST","/v1/execute",json={"source_code":"a\\u0000"},headers=headers).status_code,400)
+            self.assertEqual(self.api("POST","/v1/execute",json={"source_code":"a"+chr(0)},headers=headers).status_code,400)
             res=self.api("POST","/v1/execute",json={"source_code":"print(42)","stdin":""},headers=headers)
             self.assertEqual(res.status_code,200,res.text)
             self.assertEqual(res.json()["stdout"],"42\\n")

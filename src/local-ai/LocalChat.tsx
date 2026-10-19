@@ -1046,7 +1046,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  <div className="message-text">{turn.role==="assistant"?(turn.content?<ChatMarkdown source={stripRenderedTable(turn.content)}/>:<span className="typing-dots" aria-label="正在生成"><i/><i/><i/></span>):turn.content}</div>
  {turn.role==="assistant"&&index===latestAssistant&&<DetroitStages plan={detroitPlan}/>}
   {turn.role==="assistant"&&(turn.contexts?.length||turn.notice)?<div className="message-context">{turn.contexts?.length?<span>參考：{turn.contexts.join("、")}</span>:null}{turn.notice&&<span className="context-notice">{turn.notice}</span>}</div>:null}
- {turn.role==="assistant"&&<MessageArtifacts turn={turn} onOpenTable={openTableInSheets} onOpenSheet={openCreatedSheet} onOpenCream={creamDataset?.importedAt===turn.cream?.importedAt?openCreamInSheets:undefined}/>}
+ {turn.role==="assistant"&&<MessageArtifacts turn={turn} onOpenTable={openTableInSheets} onOpenSheet={openCreatedSheet} onOpenCream={creamDataset?.importedAt===turn.cream?.importedAt?openCreamInSheets:undefined} allowGridCraft={!privateMode}/>}
  {turn.role==="assistant"&&turn.content&&!streamingThis&&<div className="message-actions">
   <button type="button" className="message-copy" title="複製回答" aria-label="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={15}/>:<Copy size={15}/>}</button>
   {turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">

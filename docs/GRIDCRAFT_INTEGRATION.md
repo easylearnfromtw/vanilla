@@ -53,3 +53,66 @@ Official upstream references:
 - https://github.com/storytold/gridcraft/blob/main/docs/cli.md
 - https://github.com/storytold/gridcraft/blob/main/docs/mcp.md
 - https://github.com/storytold/gridcraft/blob/main/docs/architecture.md
+
+## CREAM ↔ GridCraft report (follow-up, 2026-10-20)
+
+The chat-embedded CREAM result now offers **GridCraft 專業 Excel** for signed-in
+family members in normal mode. This is *not* a replacement for the local CREAM
+deterministic engine, nor an unrestricted agent / MCP endpoint.
+
+### What the real integration produces
+
+- Fixed server-constructed GridCraft CLI `range.setValues` command writes an
+  editable Excel worksheet containing the descriptive statistics **already
+  calculated by CREAM** for all its numerical metrics.
+- A plot data section preserves the selected metric's original CREAM source row
+  numbers and displays up to 48 points — the same preview shown in chat.
+- GridCraft `insert.chart` creates a native Excel column/line/pie/scatter
+  chart for compatible nonnegative, correctly paired data. Repeated categories
+  are merged for pie charts. Negative pie values and number lines do not get a
+  falsely equivalent chart; the XLSX retains the quantitative preview without
+  a chart.
+- GridCraft also creates live `SUM` and `AVERAGE` worksheet formulas over the
+  **preview** rows. Do not confuse those with full-sample CREAM statistics.
+- Nonempty workbook content is **not** uploaded automatically. The browser
+  asks for one-time confirmation explaining exactly what leaves the device:
+  statistics summary + source + selected chart preview, but not complete raw
+  CSV/XLSX or all rows. The result downloads locally as an XLSX.
+- In private mode, the backend action is disabled. The backend requires the
+  same short-lived Google family token and rejects `viewer` role.
+- Local CREAM charts and CSV summaries continue to work offline / without
+  GridCraft, so backend failure does not change CREAM calculations.
+
+### API / safety
+
+`POST /v1/family/gridcraft/cream-report`, governed by
+`WEIGUO_GRIDCRAFT_ENABLED=true` and the existing family OIDC session. A
+request contains `source`, `rowCount`, `metrics`, `focusKey`, `points`,
+`chartKind`. No user-supplied shell arguments, binary paths, file paths,
+execution commands, URLs or arbitrary formulas are accepted. Only the verified
+GridCraft CLI binary executes server-generated commands in a fresh temp
+directory with scrubbed environment and timeout.
+
+Upstream commands verified against GridCraft:
+- `range.setValues`, `home.bold` and `insert.chart`
+- https://github.com/storytold/gridcraft/blob/main/docs/cli.md
+- https://github.com/storytold/gridcraft/blob/main/docs/mcp.md
+
+### Deployment + validation
+
+The GridCraft CLI binary is still **not bundled** in WeiGuo Docker.
+`WEIGUO_GRIDCRAFT_ENABLED` defaults to false. The previous deployment steps
+remain necessary: build and pin a reviewed upstream binary, install on a
+trusted private backend, validate real XLSX/chart round-trip, then opt-in.
+Do not represent frontend CI passing as production GridCraft being available.
+
+Tests:
+```sh
+npm run test:cream-gridcraft
+python3 -m unittest discover -s services/weiguo -p 'test_*.py'
+```
+
+Remaining scope: do not claim full 3,000-row XLSX export, full-data GridCraft
+statistical revalidation, arbitrary chart types, mobile WASM editor,
+multi-sheet sync, or unattended agent execution. They require separate
+development, resource testing and privacy review.

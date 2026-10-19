@@ -1,5 +1,7 @@
 import ExtendedPlot from "./ExtendedPlot";
 import {useMemo,useState} from "react";
+import {prepareCreamGridCraftReport} from "./gridcraft-report";
+import {weiGuoApiBase,weiGuoIdentity,exportCreamGridCraftReport} from "../weiguo/api";
 import type {CreamResult,CreamChartKind,CreamMetric,CreamPoint,CreamScatterAxis} from "./core";
 import "./cream.css";
 
@@ -49,10 +51,33 @@ function Plot({metric,kind,axis}:{metric:CreamMetric;kind:CreamChartKind;axis?:C
   <p className="cream-plot-note">{selected?formatPoint(focus!):"輕觸資料點查看原始列號與數值"} · {kind==="scatter"?(paired?"橫軸："+axis!.xKey+"；縱軸："+metric.key+"，僅使用可配對資料。":"沒有配對 X 數值欄，目前橫軸為原始資料順序。") : "圖表資料並未經 AI 推測或補值。"}</p>
  </div>;
 }
-export default function CreamMessage({result,onOpenSheets}:{result:CreamResult;onOpenSheets?:()=>void}){
+export default function CreamMessage({result,onOpenSheets,allowGridCraft=false}:{result:CreamResult;onOpenSheets?:()=>void;allowGridCraft?:boolean}){
  const [metricName,setMetricName]=useState(result.metrics.find(m=>m.column===result.scatterAxis?.yColumn)?.key||result.metrics[0]?.key||"");
  const [kind,setKind]=useState<CreamChartKind>(result.chartKind);
  const [showData,setShowData]=useState(false);
+ const [gridBusy,setGridBusy]=useState(false);
+ const [gridNotice,setGridNotice]=useState("");
+ async function exportProfessionalWorkbook(){
+  if(gridBusy)return;
+  if(!allowGridCraft){setGridNotice("私密模式不會把任何 CREAM 數據傳到後端");return;}
+  if(!weiGuoApiBase()){setGridNotice("需先部署衞國 HTTPS 後端才能使用 GridCraft；本機統計及圖表仍可使用");return;}
+  if(!weiGuoIdentity()){setGridNotice("請先在衞國系統以 Google 家庭身分登入，才能執行 GridCraft");return;}
+  if(!metric){setGridNotice("這份分析尚無可用的數值欄位");return;}
+  let payload;
+  try{payload=prepareCreamGridCraftReport(result,metric,kind);}
+  catch(e){setGridNotice(e instanceof Error?e.message:String(e));return;}
+  if(!window.confirm("將 CREAM「"+result.source+"」的完整描述統計及「"+metric.key+"」的 "+payload.points.length+" 個圖表資料點傳送至你設定的衞國 HTTPS 後端，用 GridCraft 建立可編輯 XLSX。僅含圖表預覽資料，不傳送全部原始資料；是否同意？"))return;
+  setGridBusy(true);setGridNotice("GridCraft 正在建立試算表報告…");
+  try{
+   const report=await exportCreamGridCraftReport(payload);
+   const url=URL.createObjectURL(report.file),link=document.createElement("a");
+   link.href=url;link.download="CREAM_GridCraft.xlsx";link.click();
+   setTimeout(()=>URL.revokeObjectURL(url),1500);
+   setGridNotice("已匯出 "+report.pointsExported+" 筆可追溯圖表預覽與完整統計摘要"+
+    (report.chartType?"，附原生 "+report.chartType+" 圖":"；此圖型無法安全建立原生圖，已保留資料及統計"));
+  }catch(e){setGridNotice("GridCraft 尚無法輸出："+(e instanceof Error?e.message:String(e))+"。本機 CREAM 結果未變動。");}
+  finally{setGridBusy(false);}
+ }
  const metric=useMemo(()=>result.metrics.find(x=>x.key===metricName)||result.metrics[0],[result,metricName]);
  return <section className="cream-inline" aria-label="CREAM 對話內分析">
   <div className="cream-heading"><span className="cream-logotype">CREAM <i>ANALYTICS</i></span><span className="cream-sourcetag">資料可追溯 · 本機計算</span></div>
@@ -73,7 +98,8 @@ export default function CreamMessage({result,onOpenSheets}:{result:CreamResult;o
   <details className="cream-details"><summary>完整描述統計與方法</summary><dl><dt>總和</dt><dd>{fmt(metric.sum)}</dd><dt>最小／最大</dt><dd>{fmt(metric.min)}／{fmt(metric.max)}</dd><dt>樣本標準差（n−1）</dt><dd>{fmt(metric.sampleStdDev)}</dd><dt>有效數／缺失數</dt><dd>{metric.n}／{metric.missing}</dd></dl><p>對純數值欄進行描述統計；空白不參與計算。混合型資料不強制轉換。沒有執行推論統計、因果判定或預測。</p></details>
   </>}
   {result.warnings.map((warning,i)=><p key={i} className="cream-warning" role="note">{warning}</p>)}
-  <div className="cream-actions"><button type="button" onClick={()=>setShowData(!showData)}>{showData?"收起":"檢視"}原始資料預覽</button><button type="button" disabled={!result.metrics.length} onClick={()=>saveSummary(result)}>匯出統計 CSV</button>{onOpenSheets&&<button type="button" onClick={onOpenSheets}>在 Sheets 編輯副本</button>}</div>
+  <div className="cream-actions"><button type="button" onClick={()=>setShowData(!showData)}>{showData?"收起":"檢視"}原始資料預覽</button><button type="button" disabled={!result.metrics.length} onClick={()=>saveSummary(result)}>匯出統計 CSV</button>{onOpenSheets&&<button type="button" onClick={onOpenSheets}>在 Sheets 編輯副本</button>}<button type="button" disabled={!result.metrics.length||gridBusy||!allowGridCraft} title={allowGridCraft?"使用衞國後端的 GridCraft 產生真正 XLSX 與 Excel 圖表":"私密模式禁止將 CREAM 數據送至後端"} onClick={()=>void exportProfessionalWorkbook()}>{gridBusy?"正在處理…":"GridCraft 專業 Excel"}</button></div>
+  {gridNotice&&<p className="cream-gridcraft-notice" role="status">{gridNotice}</p>}
   {showData&&<div className="cream-table-scroll"><table><caption>來源資料預覽（最多 12 列）</caption><thead><tr>{result.columns.map((c,i)=><th key={i} scope="col">{c}</th>)}</tr></thead><tbody>{result.previewRows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c||"—"}</td>)}</tr>)}</tbody></table></div>}
   <footer className="cream-trace">SOURCE / {result.source} · {new Date(result.importedAt).toLocaleString("zh-TW")} · 第 1 列為欄名，第 2 列起為資料 · 統計引擎 P0 / v1</footer>
  </section>;

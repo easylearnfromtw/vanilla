@@ -74,6 +74,22 @@ export async function exportWeiGuoGridCraft(cells:GridCraftCell[]):Promise<Blob>
  return new Blob([array.buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
 }
 
+/** GridCraft builds a native report from CREAM's already-computed local results. */
+export async function exportCreamGridCraftReport(payload:import("../cream/gridcraft-report").CreamGridCraftRequest):Promise<{file:Blob;chartType:string|null;pointsExported:number}>{
+ const report=await request<{filename:string;xlsxBase64:string;chartType:string|null;pointsExported:number;statisticsSource:string;scope:string}>(
+  "/v1/family/gridcraft/cream-report",payload,true);
+ if(report.statisticsSource!=="cream-local"||report.scope!=="summary-and-chart-preview"||!Number.isInteger(report.pointsExported)
+    ||report.pointsExported<1||report.pointsExported>48)
+   throw Error("GridCraft 工作簿來源驗證失敗");
+ if(!report.xlsxBase64||report.xlsxBase64.length>5_000_000)throw Error("GridCraft XLSX 超出大小限制");
+ const decoded=atob(report.xlsxBase64);
+ if(decoded.length<4||decoded.charCodeAt(0)!==0x50||decoded.charCodeAt(1)!==0x4b)
+   throw Error("GridCraft 沒有產出有效的 XLSX 容器");
+ const bytes=new Uint8Array(new ArrayBuffer(decoded.length));
+ for(let i=0;i<decoded.length;i++)bytes[i]=decoded.charCodeAt(i);
+ return {file:new Blob([bytes.buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),chartType:report.chartType,pointsExported:report.pointsExported};
+}
+
 export async function getWeiGuoTask(id:string):Promise<WeiGuoTask>{
  if(!/^[a-f0-9-]{36}$/i.test(id))throw Error("任務識別碼不正確");
  return request<WeiGuoTask>("/v1/family/tasks/"+encodeURIComponent(id),undefined,true);

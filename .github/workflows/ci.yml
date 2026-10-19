@@ -24,6 +24,7 @@ jobs:
           npm run test:resource-integration
           npm run test:cream
           npm run test:cream-extra
+          npm run test:cream-gridcraft
           npm run test:weiguo
           npm run test:weiguo-auth-ui
           npm run test:detroit

@@ -115,7 +115,7 @@ export default function CreamLongitudinal({isPrivate=false}:{isPrivate?:boolean}
        <div><small>較初次改變</small><strong>{active.change>=0?"+":""}{active.change.toFixed(2)}</strong></div>
        <div><small>30 天趨勢</small><strong>{active.slopePer30Days===null?"待累積":(active.slopePer30Days>=0?"+":"")+active.slopePer30Days.toFixed(2)}</strong></div></div>
       <TrendGraph trend={active}/>
-      <button type="button" className="cream-orchestra-action" onClick={()=>window.dispatchEvent(new CustomEvent("vanilla-open-orchestra",{detail:{source:"cream",body:creamOrchestraBrief(active)}}))}>交給 Orchestra 製作正式報告 / 簡報</button>
+      <button type="button" className="cream-orchestra-action" onClick={()=>window.dispatchEvent(new CustomEvent("vanilla-open-orchestra",{detail:{source:"cream",body:creamOrchestraBrief(active),chart:{label:active.metric,unit:active.unit,points:active.points.map(p=>({date:p.date,value:p.value}))}}}))}>交給 Orchestra 製作正式報告 / 簡報</button>
       <p className="cream-long-caption">{active.uniqueDates} 個不同日期 · {active.count} 筆紀錄 · {active.firstDate} ～ {active.lastDate} · 同日多筆採平均</p>
       <div className="cream-long-insights"><strong>資料統整</strong>{active.insights.map((x,i)=><p key={i}>{x}</p>)}
        {quality.length>0&&<div className="cream-long-caution">{quality.map((x,i)=><p key={i}>注意：{x}</p>)}</div>}</div>

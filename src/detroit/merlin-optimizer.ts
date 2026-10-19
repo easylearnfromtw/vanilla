@@ -22,8 +22,8 @@ export type MerlinOptimization={
 };
 
 const PLACEHOLDER=/\{\{[^{}\r\n]{1,80}\}\}/g;
-const REWRITE_A=/(?:優化|改寫|改善|重寫|精煉|修改|迭代|調整|重構|優化一下|polish|refine|improve|rewrite|optimize).{0,20}(?:提示詞|指令模板|prompt|system\s*prompt)/i;
-const REWRITE_B=/(?:提示詞|指令模板|prompt|system\s*prompt).{0,20}(?:優化|改寫|改善|重寫|精煉|修改|迭代|調整|重構|polish|refine|improve|rewrite|optimize)/i;
+const REWRITE_A=/(?:優化|改寫|改善|重寫|精煉|修改|迭代|調整|重構|優化一下|\b(?:polish|refine|improve|rewrite|optimize)\b).{0,20}(?:提示詞|指令模板|prompt|system\s*prompt)/i;
+const REWRITE_B=/(?:提示詞|指令模板|prompt|system\s*prompt).{0,20}(?:優化|改寫|改善|重寫|精煉|修改|迭代|調整|重構|\b(?:polish|refine|improve|rewrite|optimize)\b)/i;
 const FORMAT=/\b(?:JSON|CSV|XML|PDF|DOCX|PPTX|XLSX|Markdown)\b|(?:表格|簡報|圖表|講義|報告書|文件|程式碼)/i;
 const RESTRICTION=/(?:不要|不得|禁止|避免|僅|只要|只能|必須|不能|限於|不可|保留|不得變更|without|must|never|only)/i;
 const SOURCE=/(?:文獻|來源|研究|論文|引用|證據|統計|數據|指引|最新|查證|verify|citation|source)/i;

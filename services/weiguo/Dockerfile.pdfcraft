@@ -1,0 +1,44 @@
+FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+# PdfCraft's upstream release is cryptographically pinned, including the CLI binary.
+# Bubblewrap is mandatory to isolate arbitrary PDFs from secrets and the network.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends bubblewrap curl ca-certificates; \
+    mkdir -p /usr/local/share/pdfcraft-notices /tmp/pdfcraft-release; \
+    curl --fail --location --silent --show-error --retry 3 \
+      --connect-timeout 12 --max-time 180 \
+      https://github.com/storytold/pdfcraft/releases/download/v0.9.0/pdfcraft-cli-0.9.0-linux-x86_64.tar.gz \
+      -o /tmp/pdfcraft-cli.tar.gz; \
+    printf '%s  %s\\n' cdba2bec4d502d016dd78101a402d07845b708c49d77bc85e0ab640aca65372b /tmp/pdfcraft-cli.tar.gz | sha256sum -c -; \
+    tar -xzf /tmp/pdfcraft-cli.tar.gz -C /tmp/pdfcraft-release \
+      --no-same-owner --no-same-permissions; \
+    install -m 0755 /tmp/pdfcraft-release/pdfcraft-cli-0.9.0-linux-x86_64/pdfcraft-cli /usr/local/bin/pdfcraft-cli; \
+    printf '%s  %s\\n' 073c9c4eb4193cbbf52211d5ad8102969b0731b3294e44c47ab289ac84d2640f /usr/local/bin/pdfcraft-cli | sha256sum -c -; \
+    cp /tmp/pdfcraft-release/pdfcraft-cli-0.9.0-linux-x86_64/LICENSE-MIT \
+       /tmp/pdfcraft-release/pdfcraft-cli-0.9.0-linux-x86_64/LICENSE-APACHE \
+       /tmp/pdfcraft-release/pdfcraft-cli-0.9.0-linux-x86_64/NOTICE \
+       /usr/local/share/pdfcraft-notices/; \
+    rm -rf /tmp/pdfcraft-release /tmp/pdfcraft-cli.tar.gz /var/lib/apt/lists/*
+ENV WEIGUO_PDFCRAFT_CLI=/usr/local/bin/pdfcraft-cli
+ENV WEIGUO_PDFCRAFT_SHA256=073c9c4eb4193cbbf52211d5ad8102969b0731b3294e44c47ab289ac84d2640f
+ENV WEIGUO_PDFCRAFT_SANDBOX=bubblewrap
+ENV WEIGUO_PDFCRAFT_ENABLED=false
+ENV WEIGUO_PDFCRAFT_EGRESS_ISOLATED=false
+COPY policy.py app.py tasks.py server.py security.py auth.py moli_engine.py wordcraft_engine.py pdfcraft_engine.py pdfcraft_native.py orchestra_capabilities.py gridcraft_adapter.py medusa_adapter.py medusa_family.py quirinus_adapter.py ./
+COPY luca.py ./
+COPY entrypoint.sh /usr/local/bin/weiguo-entrypoint
+RUN useradd --create-home --uid 10001 weiguo \
+    && mkdir -p /data \
+    && chown -R weiguo:weiguo /app /data \
+    && chmod 0755 /usr/local/bin/weiguo-entrypoint
+# The container starts as root only long enough to fix the post-mount volume
+# permissions, then runuser drops privileges before executing uvicorn.
+USER root
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV XDG_CACHE_HOME=/tmp/.cache
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/weiguo-entrypoint"]
+CMD ["uvicorn","app:app","--host","0.0.0.0","--port","8080","--workers","1"]

@@ -1,6 +1,6 @@
 # Pin the GridCraft v0.8.0 source to the reviewed release commit, not a moving branch.
 # Build the headless CLI in a separate stage; Rust/Cargo never ship to production.
-FROM rust:1.90-bookworm AS gridcraft-builder
+FROM rust:1.99-bookworm AS gridcraft-builder
 ARG GRIDCRAFT_TAG=v0.8.0
 ARG GRIDCRAFT_COMMIT=823c56582d00be91e31b4f7f3680496cf89e84fb
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \

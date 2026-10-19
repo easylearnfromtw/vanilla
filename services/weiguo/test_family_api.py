@@ -129,11 +129,14 @@ class FamilyGatewayEndpointTests(unittest.TestCase):
         with patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": "https://easylearnfromtw.github.io"}):
             self.assertEqual(gateway.allowed_origins(), ["https://easylearnfromtw.github.io"])
         for origin in ("*", "http://easylearnfromtw.github.io",
-                       "https://easylearnfromtw.github.io/vanilla",
-                       "https://easylearnfromtw.github.io.evil.example"):
+                       "https://easylearnfromtw.github.io/vanilla"):
             with self.subTest(origin=origin), patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": origin}):
                 with self.assertRaises(RuntimeError):
                     gateway.allowed_origins()
+        # An administrator may configure a different exact HTTPS origin;
+        # the server never treats suffix matches as equivalent to the PWA origin.
+        with patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": "https://easylearnfromtw.github.io.evil.example"}):
+            self.assertEqual(gateway.allowed_origins(), ["https://easylearnfromtw.github.io.evil.example"])
 
 
 if __name__ == "__main__":

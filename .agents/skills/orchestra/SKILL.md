@@ -22,7 +22,7 @@ Orchestra is an **independent Vanilla capability** inside Detroit, not an additi
 - DeckCraft — PPTX deck and slides; CLI/MCP adapter planned, currently not deployed.
 - VectorCraft — SVG illustration and icon creation; CLI/MCP adapter planned, currently not deployed.
 - PhotoCraft — PNG/JPEG layered editing; CLI/MCP adapter planned, currently not deployed.
-- PdfCraft — PDF inspect, edit and assemble; CLI/MCP adapter planned, currently not deployed.
+- PdfCraft — opt-in fixed CLI PDF merge (2–3 documents), under authenticated family permission and explicit transfer consent; actual Rust binary not bundled. See `docs/PDFCRAFT_INTEGRATION.md`.
 - EffectCraft — keyframed motion/VFX render; CLI/MCP adapter planned, currently not deployed.
 - DesignCraft — multipage layout and publication; CLI/MCP adapter planned, currently not deployed.
 

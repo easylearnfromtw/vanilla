@@ -1,0 +1,102 @@
+/* Vanilla conversational UX v2 — intentionally familiar without pretending to be ChatGPT. */
+.chat{background:var(--vanilla-chat-bg,#fff)}
+.chat-messages{scrollbar-gutter:stable;scroll-padding-bottom:25px;-webkit-overflow-scrolling:touch}
+.message-list{width:100%;max-width:980px;gap:25px;padding:24px 30px 36px}
+.message-row.from-ai{width:100%}
+.message-row.from-ai .message-content{width:min(100%,840px);max-width:calc(100% - 44px)}
+.message-row.from-user{width:100%;justify-content:flex-end}
+.message-row.from-user .message-content{width:auto;max-width:min(82%,680px)}
+.message-row.from-user .message-text{border-radius:22px;background:#f3f3f3;padding:12px 18px;line-height:1.6;white-space:pre-wrap}
+.message-row .message-text{color:#252525;overflow-wrap:anywhere}
+.message-row.from-ai .message-text{font-size:15px;line-height:1.75;white-space:normal;max-width:100%;padding-top:2px}
+.message-source{color:#858585;font-size:11px;letter-spacing:.01em}
+.message-copy,.message-rating button{border-radius:9px;transition:background-color .14s ease,color .14s ease}
+.message-copy:hover,.message-rating button:hover{background:#f3f3f3}
+.message-row .smart-export{gap:4px}
+.message-row .smart-export button{border-radius:9px;background:transparent}
+.assistant-avatar{height:29px;width:29px;flex-basis:29px;background:#232323;border-radius:50%}
+.composer-wrap{width:min(860px,calc(100% - 52px));padding:8px 0 max(12px,env(safe-area-inset-bottom));background:transparent}
+.composer{border-radius:24px;border-color:#dedede;box-shadow:0 3px 15px #0000000a}
+.composer:focus-within{border-color:#b5b5b5;box-shadow:0 4px 18px #0000000d}
+.composer textarea{font-size:15px}
+.chat .assistant-tool-shelf,.chat .assistant-runtime-strip{flex:none}
+.chat .noodles-box,.chat .cream-google{flex:none}
+/* Accurate Markdown is rendered as elements, never as HTML injected from a model. */
+.vanilla-markdown{font-size:inherit;line-height:1.7;white-space:normal;min-width:0}
+.vanilla-markdown>:first-child{margin-top:0}
+.vanilla-markdown>:last-child{margin-bottom:0}
+.vanilla-markdown p{margin:.65em 0}
+.vanilla-markdown h1,.vanilla-markdown h2,.vanilla-markdown h3,.vanilla-markdown h4{font-weight:750;letter-spacing:-.025em;line-height:1.32;margin:1.25em 0 .55em;overflow-wrap:anywhere}
+.vanilla-markdown h1{font-size:1.55em}.vanilla-markdown h2{font-size:1.35em}.vanilla-markdown h3{font-size:1.15em}.vanilla-markdown h4{font-size:1.04em}
+.vanilla-markdown ul,.vanilla-markdown ol{padding-left:1.6em;margin:.7em 0}.vanilla-markdown li{margin:.3em 0}
+.vanilla-markdown li>p{margin:0}
+.vanilla-markdown blockquote{border-left:3px solid #c8c8c8;padding:4px 0 4px 14px;color:#555;margin:1em 0}
+.vanilla-markdown a{color:#38678f;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.vanilla-markdown a:hover{color:#214b71}
+.vanilla-markdown hr{border:0;border-top:1px solid #ddd;margin:1.35em 0}
+.vanilla-markdown code{font: .9em/1.6 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#f3f3f3;border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+.vanilla-markdown pre{background:#202124;color:#f0f1f3;max-width:100%;overflow-x:auto;border-radius:13px;padding:15px 17px;margin:13px 0;tab-size:2;-webkit-overflow-scrolling:touch}
+.vanilla-markdown pre code{background:transparent;padding:0;border-radius:0;color:inherit;font-size:12px;overflow-wrap:normal}
+.vanilla-markdown strong{font-weight:720}
+.vanilla-markdown .markdown-table-scroll{overflow-x:auto;margin:13px 0;max-width:100%;border:1px solid #e6e6e6;border-radius:11px}
+.vanilla-markdown table{border-collapse:collapse;width:100%;min-width:350px;font-size:13px}
+.vanilla-markdown th,.vanilla-markdown td{border-bottom:1px solid #eee;padding:9px 11px;text-align:left}
+.vanilla-markdown th{background:#f6f6f6}
+.vanilla-markdown img{max-width:100%;height:auto;border-radius:11px}
+/* Reusable swipe deck used by CREAM, Sheets, web citations, and two AI responses. */
+.swipe-deck{max-width:100%;min-width:0;margin:16px 0 10px}
+.swipe-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;color:#4a4a4a;font-size:12px;font-weight:650}
+.swipe-topline small{font-size:10px;font-weight:400;color:#979797}
+.swipe-actions{display:flex;align-items:center;gap:5px;color:#888;font-size:11px;font-variant-numeric:tabular-nums}
+.swipe-actions button{display:grid;place-items:center;width:29px;height:29px;border-radius:50%;border:1px solid #e8e8e8;background:white;color:#545454}
+.swipe-actions button:disabled{opacity:.3;cursor:default}
+.swipe-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 12px)/2);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;overscroll-behavior-x:contain;padding:2px 1px 10px;min-width:0;scrollbar-width:thin;scrollbar-color:#d0d0d0 transparent;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.swipe-panel{scroll-snap-align:start;scroll-snap-stop:normal;min-width:0;overflow:hidden;background:#fff;border:1px solid #e6e6e6;border-radius:15px;display:flex;flex-direction:column;gap:6px;padding:11px;box-shadow:0 2px 8px #00000005}
+.swipe-panel-label{font-size:11px;color:#878787;font-weight:650;letter-spacing:.03em;padding:2px 3px 7px}
+.swipe-panel .vanilla-sheet-preview{margin:0}
+.swipe-panel .smart-table-wrap{margin:0;max-width:100%;overflow-x:auto;box-shadow:none}
+.swipe-panel .cream-message{max-width:100%;min-width:0}
+.swipe-single{max-width:100%;margin:10px 0}
+.swipe-dots{display:flex;justify-content:center;gap:5px;margin:7px 0 0}
+.swipe-dots span{width:5px;height:5px;border-radius:50%;background:#dfdfdf;transition:width .15s ease}
+.swipe-dots span.active{width:17px;border-radius:5px;background:#656565}
+.swipe-artifact-table{min-width:0;display:flex;flex-direction:column;gap:9px}
+.artifact-action{align-self:flex-start;border:1px solid #e4e4e4;background:#fafafa;padding:7px 9px;border-radius:9px;color:#474747;font-size:11px}
+.source-artifact{display:flex;align-items:start;gap:10px;padding:5px 4px 13px;min-width:0}
+.source-artifact svg{flex:none;color:#747474}
+.source-artifact strong{display:block;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.source-artifact p{font-size:11px;color:#838383;line-height:1.6}
+.source-artifact a{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#38678f;text-decoration:none}
+.compare-answers{max-width:950px;margin:16px auto}
+.compare-answers .swipe-panel{padding:0;overflow:hidden}
+.compare-answers .compare-card{height:100%;border:0;box-shadow:none}
+.compare-answers .compare-card-body{overflow:auto;min-height:180px;max-height:500px}
+.compare-answers .swipe-deck{margin:0}
+.compare-answers .swipe-panel-label{display:none}
+.compare-answers .compare-text{white-space:normal;overflow-wrap:anywhere}
+@media(min-width:761px){.swipe-deck[data-count="2"] .swipe-actions{display:none}}
+@media(max-width:760px){
+ .message-list{max-width:100%;padding:18px 14px 35px;gap:24px}
+ .message-row{gap:8px}
+ .message-row.from-ai .message-content{max-width:calc(100% - 35px)}
+ .message-row.from-user .message-content{max-width:89%}
+ .message-row.from-ai .message-text{font-size:14.5px;line-height:1.68}
+ .message-row.from-user .message-text{font-size:14px;padding:10px 13px;border-radius:19px}
+ .assistant-avatar{width:26px;height:26px;flex-basis:26px}
+ .composer-wrap{width:calc(100% - 22px);padding-bottom:max(9px,env(safe-area-inset-bottom))}
+ .composer{padding:12px 12px 9px;border-radius:22px}
+ .composer-footnote{font-size:9px}
+ .swipe-track{grid-auto-columns:calc(100% - 15px);gap:9px;padding-right:15px;scroll-padding-left:1px}
+ .swipe-panel{padding:10px;border-radius:14px}
+ .swipe-topline{gap:6px}
+ .swipe-topline small{display:none}
+ .compare-answers{padding:10px}
+ .compare-answers .swipe-track{grid-auto-columns:calc(100% - 15px)}
+ .compare-answers .compare-card-body{max-height:46vh}
+ .assistant-runtime-strip{gap:6px;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+ .assistant-runtime-strip::-webkit-scrollbar{display:none}
+ .assistant-runtime-strip .runtime-status{margin-right:0;flex:none}
+ .chat .cream-google,.chat .noodles-box{max-width:100%}
+}
+@media(prefers-reduced-motion:reduce){.swipe-track{scroll-behavior:auto}.swipe-dots span{transition:none}}
+@media print{.swipe-track{display:block;overflow:visible}.swipe-panel{page-break-inside:avoid;margin-bottom:12px}.swipe-actions,.swipe-dots{display:none}.swipe-topline{display:block}}

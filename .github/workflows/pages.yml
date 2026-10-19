@@ -28,6 +28,7 @@ jobs:
       - run: npm run test:cream
       - run: npm run test:cream-google
       - run: npm run test:noodles
+      - run: npm run test:chat-ui
       - run: npm run test:web-workflows
       - run: npm run test:capabilities
       - run: npm run test:security

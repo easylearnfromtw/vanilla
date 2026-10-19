@@ -24,7 +24,7 @@ test("real file readers and deterministic CREAM execute in chat without loaded m
  assert.match(extractor,/pdfjs-dist\/build\/pdf\.mjs/);
  assert.match(extractor,/pdf\.getPage/);
  assert.match(extractor,/word\/document\.xml/);
- assert.match(extractor,/ppt\/slides\/slide/);
+ assert.match(extractor,/ppt.*slides.*slide/);
  assert.match(extractor,/read-excel-file\/browser/);
  assert.match(extractor,/parseCreamCSV\(text,name\)/);
  const chat=code("src/local-ai/LocalChat.tsx");

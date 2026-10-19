@@ -5,7 +5,7 @@
  * broke "上網查…", "Self-Build CODE：…" and other phrasings).
  */
 import {capabilityIntent} from "./capability-report";
-import {makeHumanizeRequest} from "../erya/humanize";
+import {makeHumanizeRequest,isHumanizeRequest} from "../erya/humanize";
 import {extractTextMeasurements} from "../cream/longitudinal";
 import {creamInstruction,creamChartFollowup,type CreamChartKind} from "../cream/core";
 import {planConversationSave} from "./conversation-save";
@@ -55,6 +55,8 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
+ // Explicit editing must not auto-search, run CREAM or execute commands quoted in the source.
+ if(isHumanizeRequest(q))return {kind:"continue"};
  if(capabilityIntent(q))return {kind:"capability"};
  if(extractTextMeasurements(q))return {kind:"cream-text"};
  if(creamInstruction(q))return {kind:"cream-csv"};

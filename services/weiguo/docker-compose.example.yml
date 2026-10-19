@@ -20,6 +20,12 @@ services:
       # Ceres is opt-in; NEVER place credentials in the public PWA.
       CERES_ENABLED: "false"
       CERES_DB_PATH: "/data/ceres-events.sqlite3"
+      CERES_OUTBOUND_ENABLED: "false"
+      CERES_AI_DRAFT_ENABLED: "false"
+      # CERES_FAMILY_LINKS_JSON: '{"123456789":"verified-google-sub"}'
+      # CERES_TELEGRAM_BOT_TOKEN: "${CERES_TELEGRAM_BOT_TOKEN}"
+      # CERES_OLLAMA_URL: "http://127.0.0.1:11434" # loopback only, optional
+      # CERES_OLLAMA_MODEL: "qwen3:4b"
       # CERES_TELEGRAM_WEBHOOK_SECRET: "${CERES_TELEGRAM_WEBHOOK_SECRET:?Required when enabled}"
       # CERES_TELEGRAM_CHAT_IDS: "${CERES_TELEGRAM_CHAT_IDS:?Required when enabled}"
       LUCA_ENABLED: "false"

@@ -7,7 +7,8 @@ import {allowedURL,requireAdmin} from "../services/detroit-jobs/worker.mjs";
 const req=(token)=>new Request("https://worker.example/health",{headers:{authorization:"Bearer "+token}});
 
 test("registry groups independent roles without multiple loaded AI models",()=>{
- assert.ok(DETROIT_ENGINES.length>=19);
+ assert.ok(DETROIT_ENGINES.length>=20);
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="diana")?.status,"active");
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="luna")?.status,"active");
  assert.equal(new Set(DETROIT_ENGINES.map(x=>x.id)).size,DETROIT_ENGINES.length);
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"adapter");

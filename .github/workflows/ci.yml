@@ -19,6 +19,7 @@ jobs:
       - name: Regression tests
         run: |
           npm run test:local-chat
+          npm run test:webllm-guard
           npm run test:assistant
           npm run test:security
           npm run test:workspace

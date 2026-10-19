@@ -53,6 +53,7 @@ import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupport
 import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversations,reopenConversation} from "./chat-session";
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
+import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 
@@ -715,9 +716,10 @@ async function send(value=draft){
 async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]}){
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
+ const merlin=optimizeMerlinPrompt(question,detroit);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
  if(detroit.depth!=="quick"){
-  markDetroit("merlin","done","已辨識需求及完成條件");
+  markDetroit("merlin","done",merlin.receipt);
   markDetroit("athena","running","檢查輸入及外部來源");
   const scan=athenaScanText((found.webContext||"")+"\n"+(found.inlineFileContext||""));
   markDetroit("athena","done",scan.findings.length?"發現不可信指令，僅作資料引用":"外部資料僅用於回答，不取得系統權限");
@@ -819,7 +821,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(recalled)contexts.push({id:"memory",label:"Drive 記憶",priority:2,text:"使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit);
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance;
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(displayQuestion,contexts,guidance,promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));

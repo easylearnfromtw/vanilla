@@ -11,7 +11,7 @@ const xml=(s:string)=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,
 const safeName=(s:string)=>s.replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').trim().slice(0,70)||'Detroit_Report';
 export function retinaParse(body:string):Block[]{
  if(body.length>160000)throw Error('Retina 最多接受 160,000 字元');
- return body.replace(/\r\n?/g,'\n').split('\n').flatMap(line=>{
+ return body.replace(/\r\n?/g,'\n').split('\n').flatMap<Block>(line=>{
   const t=line.trim();if(!t)return [];
   if(/^#{1,2}\s/.test(t))return [{kind:'heading' as const,text:t.replace(/^#{1,2}\s/,'').slice(0,500)}];
   if(/^#{3,6}\s/.test(t))return [{kind:'subheading' as const,text:t.replace(/^#{3,6}\s/,'').slice(0,500)}];

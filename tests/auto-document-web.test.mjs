@@ -21,7 +21,7 @@ test("actual link index preserves clicked source URL and differentiates read/ful
 });
 test("real file readers and deterministic CREAM execute in chat without loaded model",()=>{
  const extractor=code("src/local-ai/document-extract.ts");
- assert.match(extractor,/pdfjs-dist\/build\/pdf\.mjs/);
+ assert.match(extractor,/import\("pdfjs-dist"\)/);
  assert.match(extractor,/pdf\.getPage/);
  assert.match(extractor,/word\/document\.xml/);
  assert.match(extractor,/ppt.*slides.*slide/);

@@ -26,6 +26,12 @@ services:
       # Optional: enable only after installing a reviewed gridcraft-cli binary
       # into the trusted backend PATH. No binary is bundled in this image.
       WEIGUO_GRIDCRAFT_ENABLED: "false"
+      # Medusa / Judge0 executes code ONLY in a separate isolated backend.
+      # These do not deploy Judge0 or enforce its egress firewall.
+      WEIGUO_MEDUSA_ENABLED: "false"
+      WEIGUO_MEDUSA_ISOLATED: "false"
+      # After reviewed private deployment and sandbox egress isolation:
+      # WEIGUO_MEDUSA_URL: "http://medusa:2358"
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:

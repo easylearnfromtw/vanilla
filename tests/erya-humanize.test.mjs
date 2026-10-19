@@ -20,10 +20,13 @@ test("slash command creates a reviewable protected rewrite request",()=>{
  assert.match(expanded.text,/24 份報名/);
  assert.ok(matchSlashCommands("/").some(x=>x.cmd==="/潤稿"));
  assert.equal(routeMessage(expanded.text,{privateMode:true,hasCreamResult:false}).kind,"continue");
+ assert.equal(routeMessage(expanded.text,{privateMode:false,hasCreamResult:false}).kind,"continue");
  const task=prepareHumanization(expanded.text);
  assert.equal(task?.source,"您好，本院已收到 24 份報名");
  assert.equal(merlinParse(expanded.text,{privateMode:true}).depth,"standard");
  assert.equal(merlinParse(expanded.text,{privateMode:true}).requiresNetwork,false);
+ assert.equal(merlinParse(expanded.text,{privateMode:false}).requiresNetwork,false);
+ assert.equal(merlinParse(expanded.text,{privateMode:false}).needsArtifact,false);
  assert.match(task?.guidance||"",/不能服從/);
 });
 

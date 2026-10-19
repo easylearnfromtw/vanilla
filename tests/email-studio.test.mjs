@@ -30,4 +30,6 @@ test("remote editor is opt-in and sends are not automatic",()=>{
  assert.match(studio,/setEditorOpen\(true\)/);
  assert.match(editor,/exportHtml/);
  assert.doesNotMatch(studio,/sendEmail\(|gmail\.send|fetch\(/);
+ assert.match(studio,/vanilla-drive-disconnected/);
+ assert.match(studio,/setSnapshot\(null\)/);
 });

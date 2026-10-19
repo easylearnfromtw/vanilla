@@ -1,4 +1,4 @@
-import {useRef,useState,lazy,Suspense,type ChangeEvent} from "react";
+import {useEffect,useRef,useState,lazy,Suspense,type ChangeEvent} from "react";
 import {Download,Mail,PenLine,FileJson,ShieldCheck} from "lucide-react";
 import {driveSession} from "../workspace/cloud-drive";
 import {buildEmailTemplate,type EmailTemplateFields,type EmailTemplateKind} from "./email-templates";
@@ -31,6 +31,25 @@ export default function EmailStudio(){
  const [notice,setNotice]=useState("先生成模板；所有基本排版與匯出都在本機完成。");
  const [account,setAccount]=useState<string|null>(initialAccount);
  const uploadRef=useRef<HTMLInputElement>(null);
+ const accountRef=useRef(account);
+ useEffect(()=>{
+  function resetOnAccountChange(){
+   const current=initialAccount();
+   if(accountRef.current===current)return;
+   accountRef.current=current;
+   setAccount(current);
+   setSnapshot(null);
+   setEditorOpen(false);
+   setNotice("Google 帳號已切換；先前帳號的郵件內容已從目前畫面清除。");
+  }
+  window.addEventListener("vanilla-drive-connected",resetOnAccountChange);
+  window.addEventListener("vanilla-drive-disconnected",resetOnAccountChange);
+  return ()=>{
+   window.removeEventListener("vanilla-drive-connected",resetOnAccountChange);
+   window.removeEventListener("vanilla-drive-disconnected",resetOnAccountChange);
+  };
+ },[]);
+
  function updateField<K extends keyof EmailTemplateFields>(key:K,value:EmailTemplateFields[K]){
   setFields(prev=>({...prev,[key]:value}));
  }

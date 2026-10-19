@@ -33,3 +33,11 @@ Local storage is partitioned by Google account email when available. Signed-out 
 - `merlinParse` routes email template requests to a Janus planning stage; this does **not** by itself generate mail inside chat or send messages.
 - `src/detroit/janus.ts` enforces a pure permission gate; private mode denies the hosted editor and sending is never implemented.
 - Existing drafts continue using `vanilla.email-studio.v1` storage keys to preserve backward compatibility.
+
+## Venus × Janus 視覺協作（2026-10-20）
+- **Janus**：維持本機 HTML／Unlayer JSON 匯出、檔案匯入／儲存及選用雲端編輯器。
+- **Venus**：新增三種本機配色與文字排版主題（編輯、溫暖、極簡）、可見的預覽摘要、文案／CTA 檢查與 600px／360px 模擬預覽。
+- Venus 檢查當前欄位的標題長度、摘要長度、內文密度、HTTPS 按鈕及 CTA 文案，**不代表**通過 Gmail／Outlook、無障礙完整標準、垃圾郵件規則、法律規範或送達率驗證。
+- 變更主題不會覆蓋已儲存檔案；按「產生郵件」才套用新主題。已匯入 JSON／第三方編輯後的郵件，不會被自動判定為通過 Venus 檢查。
+- 存檔格式及本機帳號分區維持向下相容；基本流程不新增外部網路依賴。
+- 實作：src/venus/email-design.ts、src/email/email-templates.tsx、src/email/EmailStudio.tsx；驗證：tests/venus-email.test.mjs。

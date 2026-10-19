@@ -2,8 +2,8 @@
  * PPTX/DOCX use ZIP + OOXML; PDF uses PDF.js text layer (not OCR).
  */
 import {unzipSync,strFromU8} from "fflate";
-import {inspectExternalText,wrapExternalText} from "../security/trust-boundary";
-import {parseCreamCSV} from "../cream/core";
+import {inspectExternalText,wrapExternalText} from "../security/trust-boundary.ts";
+import {parseCreamCSV} from "../cream/core.ts";
 export type ExtractedDocument={name:string;kind:"text"|"pdf"|"docx"|"pptx"|"xlsx";
  text:string;pages:number;tables:string[][][];truncated:boolean;warnings:string[]};
 const MAX_UPLOAD=15*1024*1024, MAX_UNZIPPED=14*1024*1024, MAX_TEXT=28000;

@@ -23,6 +23,7 @@ jobs:
           npm run test:assistant
           npm run test:resource-integration
           npm run test:cream
+          npm run test:cream-longitudinal
           npm run test:cream-google
           npm run test:noodles
           npm run test:noodles-teacher

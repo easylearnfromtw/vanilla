@@ -31,6 +31,7 @@ jobs:
           npm run test:cream-weiguo
           npm run test:detroit-studio
           npm run test:retina
+          npm run test:orchestra
           npm run test:detroit-notifications
           npm run test:cream-longitudinal
           npm run test:cream-google

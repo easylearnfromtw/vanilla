@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.01-email-studio",
-  "description": "Unlayer Email Studio: offline templates and HTML/JSON export, opt-in visual editing, account-isolated drafts"
+  "build": "2026.10.20.02-detroit-api-registry",
+  "description": "Detroit API Registry: read-only external API discovery, Zeus search recommendations and Athena review; retains LUNA and other Detroit tools"
 }

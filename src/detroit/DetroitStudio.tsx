@@ -6,6 +6,7 @@ import {createRetinaDocument,downloadRetina,type RetinaFormat} from './retina';
 import {currentChatMode} from '../local-ai/chat-session';
 import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api';
 import {DETROIT_ENGINES} from './core';
+import {DETROIT_FACTORY_TOOLS} from './factory';
 import './studio.css';
 type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra';
 export default function DetroitStudio({initialBody}:{initialBody?:string|null}={}){

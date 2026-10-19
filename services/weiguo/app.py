@@ -28,6 +28,7 @@ from pdfcraft_engine import combine_pdfs, PdfCraftUnavailable, PdfCraftFailed
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
+from luca import enabled as luca_enabled, initialize as luca_initialize, record_http as luca_record_http, record as luca_record, summary as luca_summary
 
 class PlanRequest(BaseModel):
     task: str = Field(min_length=3, max_length=1200)
@@ -59,6 +60,7 @@ class ToolsRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_tasks()
+    luca_initialize()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     yield
@@ -141,6 +143,23 @@ async def private_operator_boundary(request: Request, call_next):
         return JSONResponse(status_code=404, content={"detail": "not found"})
     return await call_next(request)
 
+@app.middleware("http")
+async def luca_request_metrics(request: Request, call_next):
+    """Only fixed route templates, HTTP status and duration. No request payload."""
+    if not luca_enabled():
+        return await call_next(request)
+    started = time.perf_counter()
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        return response
+    finally:
+        route = request.scope.get("route")
+        luca_record_http(getattr(route, "path", ""), status,
+                         (time.perf_counter() - started) * 1000)
+
+
 @app.post("/v1/auth/google")
 async def sign_in_google(request: GoogleLoginRequest):
     token, identity = google_login(request.credential)
@@ -155,6 +174,15 @@ async def family_me(user: FamilyIdentity = Depends(family_user)):
 async def family_orchestra_capabilities(user: FamilyIdentity = Depends(family_reader)):
     """Read-only engine capability discovery for verified family members."""
     return JSONResponse(content=orchestra_capabilities(),
+                        headers={"Cache-Control": "private, no-store",
+                                 "X-Content-Type-Options": "nosniff"})
+
+
+@app.get("/v1/family/luca/summary")
+async def family_luca_summary(user: FamilyIdentity = Depends(family_user)):
+    if user.role != "owner":
+        raise HTTPException(403, "僅家庭擁有者可檢視 LUCA 監控總覽")
+    return JSONResponse(content=luca_summary(),
                         headers={"Cache-Control": "private, no-store",
                                  "X-Content-Type-Options": "nosniff"})
 
@@ -321,13 +349,19 @@ async def execute(request:ExecuteRequest,_:bool=Depends(operator)):
 
 async def run_background_job(task_id:str,request:ExecuteRequest)->None:
     async with TASK_LOCK:
+        luca_started = time.perf_counter()
+        luca_status = 500
         update_task(task_id,"running")
         try:
             # Background work is strictly read-only, independent of any UI-provided approval flags.
             result=await execute(ExecuteRequest(start_url=request.start_url,steps=request.steps,approved_interactions=False),True)
             update_task(task_id,"completed",result=result)
+            luca_status = 200
         except Exception:
             update_task(task_id,"failed",error="瀏覽器執行失敗；詳情請由伺服器端管理員檢查。")
+        finally:
+            luca_record("persistent-jobs", "background.browser", luca_status,
+                        (time.perf_counter() - luca_started) * 1000)
 
 @app.post("/v1/tasks",status_code=202)
 async def start_task(request:StartTaskRequest,background:BackgroundTasks,_:bool=Depends(operator)):

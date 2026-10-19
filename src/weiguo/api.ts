@@ -199,3 +199,18 @@ export async function runMedusa(source_code:string,stdin:string,approved:boolean
   throw Error("Medusa 程式碼或標準輸入超過限制");
  return request<MedusaOutput>("/v1/family/medusa/run",{source_code,stdin,approved:true},true);
 }
+
+// LUCA owner-only monitoring snapshot from WeiGuo backend.
+export type LucaSnapshot={
+ enabled:boolean;scope:"backend-only";count:number;failures:number;
+ averageMs:number;p95Ms:number;persistent:boolean;
+ components:Array<{name:string;count:number;failures:number;averageMs:number}>;
+ daily:Array<{day:string;count:number;failures:number;averageMs:number}>;
+ recommendations:string[];
+ events:Array<{at:string;component:string;operation:string;status:number;durationMs:number}>;
+};
+export async function getWeiGuoLucaSummary():Promise<LucaSnapshot>{
+ const identity=weiGuoIdentity();
+ if(!identity||identity.role!=="owner")throw Error("LUCA 總覽僅供已登入的家庭擁有者使用");
+ return request<LucaSnapshot>("/v1/family/luca/summary",undefined,true);
+}

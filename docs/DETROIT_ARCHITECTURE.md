@@ -14,8 +14,7 @@
 | 接收與治理 | Holy Roman Empire | 權限不可被自然語言降級；保留核准 | 決策守門函式；其他寫入路徑待全面接線 |
 | 執行與運算 | Zeus | 解析成本/速度/隱私；模型工作佇列 | 已接入單一裝置端模型 |
 | 執行與運算 | Dionysus | WebLLM GPU 排隊與深度思考預算 | 已接入 |
-| 資料與產出 | Scouts / Veritas | 真實網頁搜尋及來源可信度 | 沿用既有搜尋工具；Veritas 承接舊 Janus 的查證職責，非背景爬網 |
-| 資料與產出 | Janus | 郵件設計／HTML 與 JSON 模板匯出 | Detroit Studio 內嵌；本機產生可用，第三方編輯器需使用者明確同意 |
+| 資料與產出 | Scouts / Janus | 真實網頁搜尋及來源可信度 | 沿用既有搜尋工具；非背景爬網 |
 | 資料與產出 | CREAM | CSV/XLSX，描述統計、雙變數散佈、長期追蹤 | 已有確定性計算核心 |
 | 資料與產出 | Atriensis | 雲端/本機檔案、權限、檔案生命週期 | 沿用既有 Drive/附件庫；待統一事件介面 |
 | 資料與產出 | Bard | 圖片/媒體生成與資產管理 | 介面規劃中；目前不可在 Vanilla 聊天直接生圖 |
@@ -59,5 +58,9 @@
 - Bard 依明確同意與現有 Gemini API key 啟動圖片生成，不載入第二組手機端模型。Athena 加入隔離 Worker 與檔案容器簽章掃描，不代表商用防毒。
 - Persistent Jobs 具有 D1 通知 outbox 與 HMAC-SHA256 Webhook 重試設計。**需自行部署 Cloudflare + D1 + Cron + 通知接收服務**才有實際持續監控。詳細指引見 `docs/DETROIT_COMPLETION_PHASE2.md`。
 
-## Janus — Detroit 郵件工具（2026-10-20）
-原 Email Studio 正式更名 Janus，加入 `DETROIT_ENGINES` 與 Detroit Studio 分頁，同時保留側欄捷徑和 `/郵件` 相容指令。Merlin 可以辨識電子報、郵件模板及邀請函意圖並安排 Janus 階段，實際成果仍須經使用者操作模板頁面生成。預設本機輸出 HTML/Unlayer JSON；Unlayer 託管編輯器需另行明確同意，私密模式禁止啟用。未實作寄信／郵件行銷自動化。原稱 Janus 的來源查證角色更名 Veritas，不改變其 adapter 限制。詳見 `docs/EMAIL_STUDIO_UNLAYER.md`。
+## LUCA 監控子系統
+- LUCA 是 Detroit 的後端可觀測性工具，不是獨立模型，也不宣稱會自動改善 LLM 推理。
+- 目前整合 `services/weiguo/luca.py` 的安全事件、SQLite 日彙總及選用的 Pydantic Logfire SDK；預設 `LUCA_ENABLED=false`。
+- 使用者只可透過衞國現有 Google 家庭工作階段以 `owner` 權限查詢聚合結果，前端位於 Detroit Studio → LUCA。
+- 不會自動追蹤 Safari/iPhone 本機模型、未部署的 Cloudflare Worker、其他獨立服務；需各服務另外接入。
+- 詳細設定、隱私、部署及限制參見 [LUCA 整合說明](LUCA_OBSERVABILITY.md)。

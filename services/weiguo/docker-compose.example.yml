@@ -17,6 +17,10 @@ services:
       # Explicit HTTPS origin for the PWA, without /vanilla path.
       WEIGUO_CORS_ORIGINS: "https://easylearnfromtw.github.io"
       WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
+      LUCA_ENABLED: "false"
+      LUCA_DB: "/data/luca.sqlite3"
+      # Optional local OTLP collector:
+      # LUCA_OTLP_ENDPOINT: "http://otel-collector:4318/v1/traces"
       WEIGUO_ALLOW_JAVASCRIPT: "false"
       # Default preserves the reviewed Chromium route. Moli is not bundled.
       WEIGUO_BROWSER_ENGINE: "chromium"

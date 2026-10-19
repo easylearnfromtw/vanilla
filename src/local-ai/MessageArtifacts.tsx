@@ -7,11 +7,12 @@ import {ExternalLink,BookOpen} from "lucide-react";
 
 import {safeExternalURL} from "./chat-ui-utils";
 /** Real, swipeable output blocks, not a second text copy of the same table. */
-export default function MessageArtifacts({turn,onOpenTable,onOpenSheet,onOpenCream}:{
+export default function MessageArtifacts({turn,onOpenTable,onOpenSheet,onOpenCream,allowGridCraft=false}:{
  turn:ChatTurn;
  onOpenTable:(content:string)=>void;
  onOpenSheet:(sheet:NonNullable<ChatTurn["sheet"]>)=>void;
  onOpenCream?:(result:NonNullable<ChatTurn["cream"]>)=>void;
+ allowGridCraft?:boolean;
 }){
  if(turn.role!=="assistant")return null;
  const items:SwipeItem[]=[];
@@ -19,7 +20,7 @@ export default function MessageArtifacts({turn,onOpenTable,onOpenSheet,onOpenCre
   items.push({id:"table",label:"表格",node:<div className="swipe-artifact-table">{renderTable(turn.content)}<button type="button" className="artifact-action" onClick={()=>onOpenTable(turn.content)}>在 Vanilla Sheets 開啟與編輯 ↗</button></div>});
  }
  if(turn.sheet)items.push({id:"sheet",label:"工作簿",node:<SheetPreview sheet={turn.sheet} onEdit={()=>onOpenSheet(turn.sheet!)}/>});
- if(turn.cream)items.push({id:"cream",label:"CREAM 互動分析",node:<CreamMessage result={turn.cream} onOpenSheets={onOpenCream?()=>onOpenCream(turn.cream!):undefined}/>});
+ if(turn.cream)items.push({id:"cream",label:"CREAM 互動分析",node:<CreamMessage result={turn.cream} allowGridCraft={allowGridCraft} onOpenSheets={onOpenCream?()=>onOpenCream(turn.cream!):undefined}/>});
  if(turn.content?.trim().length>40)items.push({id:"retina",label:"Retina 匯出",node:<div className="swipe-artifact-table"><p>將這則回答交給 Retina 在本機生成 PDF、Word 或簡報，不自動傳送到雲端。</p><button type="button" className="artifact-action" onClick={()=>window.dispatchEvent(new CustomEvent("vanilla-open-detroit",{detail:{body:turn.content.slice(0,160000)}}))}>在 Retina 建立文件 ↗</button></div>});
  for(const [index,source] of (turn.webSources||[]).entries()){
   const href=safeExternalURL(source.url);

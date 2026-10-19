@@ -32,6 +32,7 @@ jobs:
           npm run test:detroit-studio
           npm run test:retina
           npm run test:orchestra
+          npm run test:cream-gridcraft
           npm run test:detroit-notifications
           npm run test:cream-longitudinal
           npm run test:cream-google

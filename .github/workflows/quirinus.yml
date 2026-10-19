@@ -13,8 +13,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install Vanilla frontend dependencies
+        run: npm install --no-audit --no-fund
       - name: Verify Detroit and WeiGuo registry contracts
         run: npm run test:detroit-factory
+      - name: Validate TypeScript and PWA build
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

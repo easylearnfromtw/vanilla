@@ -4,6 +4,7 @@ import {listOwnedPublicRepos,listRepoFiles,indexRepoSubset,inspectAPIPublicGET,
  type GitHubOwnedRepo,type GitHubFile} from "./github-projects";
 import {listProjectCorpora,putProjectCorpus,deleteProjectCorpus,importUploadedCode,saveProjectAPI,listProjectAPIs} from "./project-store";
 import {validateOpenAPI,type APIDefinition,type ProjectCorpus} from "./project-core";
+import {projectCodeTrainingJSONL} from "./training-export";
 import {parseCreamCSV,fromCreamRows} from "../cream/core";
 import {persistCreamDataset} from "../cream/history-store";
 import {attachmentOwner} from "../library/attachment-vault";
@@ -140,6 +141,14 @@ export default function ProjectHub(){
    "。先檢查 API、授權、依賴和測試，再於保護分支建立可審核的最小整合 PR；不得直接執行不可信程式碼。";
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea,mode:"code"}}));
  }
+ function downloadTraining(split:"train"|"eval"){
+  const text=projectCodeTrainingJSONL(corpora,split);
+  if(!text.trim()){setNotice("此分組沒有足夠原始碼案例；請先從更多自己擁有的程式檔建立索引。");return;}
+  const uri=URL.createObjectURL(new Blob([text],{type:"application/x-ndjson;charset=utf-8"}));
+  const a=document.createElement("a");a.href=uri;a.download="Vanilla_Projects_Code_SFT_"+split+".jsonl";a.click();
+  setTimeout(()=>URL.revokeObjectURL(uri),1000);
+  setNotice("已匯出 "+split+" 程式碼續寫 SFT 樣本。需在受控 GPU 上微調並與未訓練模型比較，不會自動覆蓋任何模型權重。");
+ }
  function downloadCorpus(){
   const payload=corpora.map(x=>({repo:x.repo,source:x.source,updatedAt:x.updatedAt,files:x.files.map(f=>({path:f.path,functions:f.functions,excerpt:f.excerpt,url:f.url}))}));
   const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
@@ -185,6 +194,8 @@ export default function ProjectHub(){
          <pre>{f.excerpt.slice(0,1400)}</pre></div>)}</details>
       </div>):<p>尚無程式碼知識；讀取專案後，聊天中的專案問題便可引用已建立索引的原始碼。</p>}
      <button type="button" disabled={!corpora.length} onClick={downloadCorpus}><Download size={13}/>匯出專案 RAG 資料（非模型權重）</button>
+     <div className="project-hub-actions"><button type="button" disabled={!corpora.length} onClick={()=>downloadTraining("train")}><Download size={13}/>程式學習 SFT · train</button>
+     <button type="button" disabled={!corpora.length} onClick={()=>downloadTraining("eval")}><Download size={13}/>SFT · eval</button></div>
     </section>
     <section className="project-hub-panel"><div className="project-hub-heading"><Globe size={16}/><strong>外部 API → CREAM</strong></div>
      <p>只會對你載入的 OpenAPI 中已宣告的公開 GET 路徑送出真實唯讀請求；權杖型 API 需要受保護的後端。</p>

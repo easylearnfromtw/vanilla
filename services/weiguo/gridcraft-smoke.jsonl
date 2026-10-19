@@ -1,0 +1,3 @@
+{"command":"range.setValues","params":{"range":"A1","values":[["Month","Revenue"],["Jan",100],["Feb",150],["Mar",200]]}}
+{"command":"home.bold","params":{"range":"A1:B1","on":true}}
+{"command":"insert.chart","params":{"range":"A1:B4","type":"column","title":"Revenue","at":"E1"}}

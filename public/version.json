@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.03-janus-luna-fix",
-  "description": "Janus Detroit Email Studio with preserved LUNA and API Registry integrations"
+  "build": "2026.10.20.04-quirinus",
+  "description": "Quirinus optional VulnClaw security scanner catalog, preserving Janus/LUNA and API Registry integrations"
 }

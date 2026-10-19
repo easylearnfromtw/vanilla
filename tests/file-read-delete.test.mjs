@@ -52,7 +52,9 @@ test("CREAM actual longitudinal points keep unit, date and source, never fake tr
 });
 test("actual chat wiring resolves named files before invoking model and CloudFiles checks deletion",()=>{
  const chat=source("src/local-ai/LocalChat.tsx"),files=source("src/workspace/CloudFiles.tsx");
- assert.match(chat,/filenameFromQuestion\(question\)/);
+ const router=source("src/assistant/chat-router.ts");
+ assert.match(router,/filenameFromQuestion\(q\)/);
+ assert.match(chat,/case "named-file"/);
  assert.match(chat,/locateSavedFile\(namedIntent.name/);
  assert.match(chat,/inlineFileContext=documentContext\(doc\)/);
  assert.match(chat,/effectiveFileContext=inlineFileContext\|\|fileContext/);

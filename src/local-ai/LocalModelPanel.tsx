@@ -1,6 +1,6 @@
 import {useState} from "react";
-import {Cpu,Download,WifiOff,ChevronDown,CheckCircle2,AlertTriangle} from "lucide-react";
-import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,type LocalModelId} from "./engine";
+import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-react";
+import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,type LocalModelId} from "./engine";
 
 type Props={
  selected:LocalModelId;
@@ -13,31 +13,35 @@ type Props={
  webgpu:boolean;
  online:boolean;
  ready:boolean;
+ cached?:boolean|null;
 };
+/** On-device model picker: honest size, cache state, and where inference runs. */
 export default function LocalModelPanel(props:Props){
- const [expanded,setExpanded]=useState(false);
+ const [worker,setWorker]=useState(localWorkerMode());
  const current=getLoadedLocalModel();
- const state=props.ready?"已就緒":props.loading?"下載／初始化中":!props.webgpu?"無法使用 WebGPU":props.error?"載入失敗":"待載入";
+ const entry=LOCAL_MODELS.find(x=>x.id===props.selected);
+ const state=props.ready?"已就緒":props.loading?"下載／初始化中 "+props.progress+"%":!props.webgpu?"無法使用 WebGPU":props.error?"載入失敗":props.cached?"已快取，可離線載入":"尚未下載";
  return <div className="local-model-panel">
-  <button type="button" className="local-model-heading" aria-expanded={expanded} onClick={()=>setExpanded(!expanded)}>
-   <Cpu size={17}/><span>裝置端 AI</span>
+  <div className="local-model-heading">
+   <Cpu size={17}/><span>手機本地 AI</span>
    <span className={"local-model-state "+(props.ready?"ready":"")}>{props.ready?<CheckCircle2 size={14}/>:props.error?<AlertTriangle size={14}/>:null}{state}</span>
    {!props.online&&<span className="local-offline"><WifiOff size={13}/>離線</span>}
-   <ChevronDown size={15} className={expanded?"open":""}/>
-  </button>
-  {expanded&&<div className="local-model-detail">
-   <p>本地推論不會傳送對話給 Gemini 或 DeepSeek。模型需首次下載，之後通常可利用瀏覽器快取重新載入；iOS 可能清除快取，離線能力也取決於網站與模型是否已快取。</p>
-   <label htmlFor="local-model-choice">本地模型</label>
+  </div>
+  <div className="local-model-detail">
+   <label htmlFor="local-model-choice">模型</label>
    <div className="local-model-controls">
     <select id="local-model-choice" value={props.selected} disabled={props.loading} onChange={e=>props.onSelect(e.target.value as LocalModelId)}>
-     {LOCAL_MODELS.map(m=><option key={m.id} value={m.id} disabled={!isLocalModelSupported(m.id)}>{m.label}{!isLocalModelSupported(m.id)?"（目前版本不支援）":""}</option>)}
+     {LOCAL_MODELS.map(m=><option key={m.id} value={m.id} disabled={!isLocalModelSupported(m.id)}>{m.label}{m.recommended?"（推薦）":""}{!isLocalModelSupported(m.id)?"（此版本不支援）":""}</option>)}
     </select>
-    <button type="button" disabled={!props.webgpu||props.loading||props.ready} onClick={props.onLoad}><Download size={15}/>{props.loading?"載入中":props.ready?"已載入":"下載／載入"}</button>
+    <button type="button" disabled={!props.webgpu||props.loading||props.ready} onClick={props.onLoad}><Download size={15}/>{props.loading?"載入中":props.ready?"已載入":props.cached?"載入":"下載"}</button>
    </div>
-   <p className="local-model-description">{LOCAL_MODELS.find(x=>x.id===props.selected)?.description}</p>
+   <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}
-   <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為其他模型":""}</div>
-   {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有提供 WebGPU，本地推論不可用；一般模式仍可使用已連接的雲端模型。</p>}
-  </div>}
+   <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>
+   {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有 WebGPU（iPhone 需 iOS 26 以上 Safari），本地推論不可用；一般模式仍可使用已連接的雲端模型或 Ollama。</p>}
+   <label className="vh-switch compact"><input type="checkbox" checked={worker!=="off"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>
+    <span><strong>背景執行緒推論</strong><small>{worker==="broken"?"此裝置背景執行緒不可用，已改在主執行緒；勾選後下次載入會重試":isLocalWorkerActive()?"使用中：生成時捲動與輸入更順":"下次載入模型時生效"}</small></span></label>
+   <p className="local-model-note">本地推論不會傳送對話到任何雲端。模型首次需下載，之後由瀏覽器快取；iOS 長期未使用可能清除快取。</p>
+  </div>
  </div>;
 }

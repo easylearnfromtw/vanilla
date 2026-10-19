@@ -1,5 +1,12 @@
 import type {ChatTurn} from "../local-ai/engine";
-import {toneInstruction} from "./tone-adaptation";
+import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "./prompts";
+import {classifyTask,type TaskKind} from "./task-kind";
+import {profileFor} from "./model-profiles";
+import {ollamaRequestExtras} from "./generation-config";
+import {fitHistory,estimateTokens} from "./context-budget";
+import {readNDJSON} from "./stream-parsers";
+import {stripThinking,cleanModelOutput} from "./output-cleanup";
+import {ensureZhTw,toTaiwanese} from "./zh-tw";
 
 const KEY="vanilla.ollama.connection.v1";
 const SECRET_KEY="vanilla.ollama.proxy-token.v1";
@@ -57,13 +64,16 @@ function headers():HeadersInit{
 }
 async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
  const controller=new AbortController();
+ // Time out while waiting for the first byte (cold model load on a home host can be slow);
+ // once streaming starts the caller's own signal governs cancellation.
  const timeout=setTimeout(()=>controller.abort(),180000);
+ init.signal?.addEventListener("abort",()=>controller.abort(),{once:true});
  try{
   const response=await fetch(url,{...init,signal:controller.signal,headers:headers()});
   if(!response.ok)throw new Error("Ollama HTTP "+response.status+"；請確認模型、代理授權與伺服器狀態");
   return response;
  }catch(e){
-  if(e instanceof Error&&e.name==="AbortError")throw new Error("Ollama 連線逾時，請確認主機是否開機、網路及 HTTPS 代理設定");
+  if(e instanceof Error&&e.name==="AbortError")throw new Error(init.signal?.aborted?"已停止生成":"Ollama 連線逾時，請確認主機是否開機、網路及 HTTPS 代理設定");
   if(e instanceof TypeError)throw new Error("瀏覽器無法連接 Ollama：請檢查 HTTPS、CORS、網路或憑證設定");
   throw e;
  }finally{clearTimeout(timeout);}
@@ -90,21 +100,43 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
   throw e;
  }finally{clearTimeout(timeout);}
 }
-export async function generateOllamaReply(history:ChatTurn[],model=config.model):Promise<string>{
+export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured"};
+/** Streams from Ollama /api/chat (NDJSON). Tuned per model: num_ctx large enough for web/file
+ * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the
+ * model every question, and thinking only where it pays off. */
+export async function generateOllamaReply(history:ChatTurn[],model=config.model,options:OllamaReplyOptions={}):Promise<string>{
  if(!config.endpoint||!model)throw new Error("請先在設定中連接 Ollama，並選擇已下載的模型");
  const base=normalizeOllamaUrl(config.endpoint);
- const system="你是 Vanilla 家庭 AI，回答使用自然的臺灣繁體中文。正常協助第三方服務介紹、開發和中性資訊問題，不要使用無關的拒絕套話。回答務實，沒有取得的資料和未實際執行的操作應清楚說明。"+toneInstruction(undefined,history[history.length-1]?.content||"");
- const res=await timedFetch(base+"/api/chat",{
-  method:"POST",
-  body:JSON.stringify({
-   model,stream:false,
-   messages:[{role:"system",content:system},...history.slice(-20).map(x=>({role:x.role,content:x.content}))],
-   options:{temperature:0.45,num_predict:2048}
-  })
+ const latest=history[history.length-1]?.content||"";
+ const structured=options.purpose==="structured";
+ const task=options.task??(structured?"code":classifyTask(latest));
+ const profile=profileFor("ollama",model);
+ if(!structured)await ensureZhTw().catch(()=>undefined);
+ const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest});
+ const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
+ const send=async(withThink:boolean)=>{
+  const extras=ollamaRequestExtras(model,task);
+  if(!withThink)delete extras.think;
+  // Ollama's grammar-constrained JSON mode makes Sheets/Self-Build drafts parse reliably.
+  return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&withThink?{format:"json"}:{})})});
+ };
+ let res:Response;
+ try{res=await send(true);}
+ catch(error){
+  // Older Ollama builds reject the `think` field; retry once without it.
+  if(error instanceof Error&&/HTTP 400/.test(error.message))res=await send(false);else throw error;
+ }
+ let text="",failure="";
+ await readNDJSON<{message?:{content?:string};error?:string;done?:boolean}>(res,chunk=>{
+  if(chunk.error){failure=chunk.error;return;}
+  const piece=chunk.message?.content||"";
+  if(piece){
+   text+=piece;
+   if(options.onText){const view=stripThinking(text);options.onText(toTaiwanese(view.text)||(view.thinking?"（正在思考…）":""));}
+  }
  });
- const body=await res.json() as {message?:{content?:string};error?:string};
- if(body.error)throw new Error(body.error);
- const answer=body.message?.content?.trim();
+ if(failure&&!text)throw new Error(failure);
+ const answer=structured?stripThinking(text).text.trim():toTaiwanese(cleanModelOutput(text));
  if(!answer)throw new Error("Ollama 未回傳回答");
  return answer;
 }

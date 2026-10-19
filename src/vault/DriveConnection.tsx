@@ -6,6 +6,7 @@ import {connectWorkspaceDrive} from "../workspace/cloud-drive";
 import {chatStorageKey,unbindChatAccount} from "./chat-sync";
 import {listVaultFiles,downloadVault,uploadVaultSnapshot} from "./drive";
 import {encryptVault,decryptVault} from "./crypto";
+import {DEFAULT_GEMINI_MODEL,DEFAULT_DEEPSEEK_MODEL,GEMINI_SUGGESTIONS,DEEPSEEK_SUGGESTIONS} from "../ai/model-profiles";
 
 const SESSION_KEY="vanilla.drive.session.v1";
 type DriveSession={token:string;expiresAt:number;email:string};
@@ -23,7 +24,7 @@ export default function DriveConnection(){
  const [provider,setSelectedProvider]=useState<Provider>("gemini");
  const [apiKey,setApiKey]=useState("");
  const [keyFeedback,setKeyFeedback]=useState("");
- const [model,setModel]=useState("gemini-2.5-flash");
+ const [model,setModel]=useState(DEFAULT_GEMINI_MODEL);
  const [connected,setConnected]=useState<Provider[]>(availableProviders());
  const [syncStatus,setSyncStatus]=useState("未連接 Google Drive");
  useEffect(()=>{const session=readSession();if(!session)return;let alive=true;void loadProviderConfigs(session.token).then(n=>{if(alive){setConnected(availableProviders());setSyncStatus("已從 Drive 載入 "+n+" 組 API 設定");}}).catch(e=>{if(alive)setSyncStatus("同步失敗："+String(e instanceof Error?e.message:e));});return()=>{alive=false;};},[]);
@@ -72,8 +73,11 @@ export default function DriveConnection(){
   <p style={{fontSize:12}}>Gemini / DeepSeek · 設定版本 2026.10.18</p>
   <p>登入相同 Google 帳號後，會自動讀取 Gemini／DeepSeek API 設定。新增或移除模型後會自動寫入 Google Drive 應用程式資料夾，無須另設密語。</p>
   <p role="alert" style={{fontSize:13,color:"#a33"}}><strong>安全提醒：</strong>方案 A 不使用端對端加密。API Key 會以可讀 JSON 儲存在 Google Drive 私有 appDataFolder，擁有該 Google 帳號及本應用程式適當授權的存取者可能取得金鑰；裝置執行時金鑰也會存在記憶體中。請只使用可限制額度、可隨時撤銷的金鑰，避免在共用裝置登入。</p>
-  <label>供應商 <select value={provider} onChange={e=>{const p=e.target.value as Provider;setSelectedProvider(p);setModel(p==="gemini"?"gemini-2.5-flash":"deepseek-chat");setApiKey("");setKeyFeedback("");}}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></select></label>
-  <label style={{display:"block",marginTop:10}}>模型名稱 <input value={model} onChange={e=>setModel(e.target.value)}/></label>
+  <label>供應商 <select value={provider} onChange={e=>{const p=e.target.value as Provider;setSelectedProvider(p);setModel(p==="gemini"?DEFAULT_GEMINI_MODEL:DEFAULT_DEEPSEEK_MODEL);setApiKey("");setKeyFeedback("");}}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></select></label>
+  <label style={{display:"block",marginTop:10}}>模型名稱 <input value={model} list={"vanilla-model-suggestions-"+provider} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={e=>setModel(e.target.value)}/></label>
+  <datalist id={"vanilla-model-suggestions-"+provider}>{(provider==="gemini"?GEMINI_SUGGESTIONS:DEEPSEEK_SUGGESTIONS).map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</datalist>
+  <div className="model-suggestions">{(provider==="gemini"?GEMINI_SUGGESTIONS:DEEPSEEK_SUGGESTIONS).slice(0,3).map(x=><button key={x.id} type="button" aria-pressed={model===x.id} onClick={()=>setModel(x.id)}>{x.label}</button>)}</div>
+  <small style={{display:"block",color:"#6b6b6b"}}>2026 年 10 月建議：Gemini 3.8 Flash（品質）或 3.5 Flash-Lite（快速）；DeepSeek Flash。已設定的舊模型（如 gemini-2.5-flash）仍會照用，但 Google 只開放給近期使用過的帳號。</small>
   <label style={{display:"block",marginTop:10}}>API Key <input type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={apiKey} onChange={e=>{setApiKey(e.target.value);setKeyFeedback(e.target.value.trim()?"已接收 "+e.target.value.trim().length+" 個字元，請按「加入模型」完成設定。":"");}} placeholder="在此貼上 API Key" style={{display:"block",width:"100%",maxWidth:440,minHeight:44,fontSize:16,padding:"10px 12px",border:"1px solid #cbd5e1",borderRadius:9}}/></label>
   <p role="status" aria-live="polite" style={{fontSize:13,margin:"7px 0",color:"#256347"}}>{keyFeedback||"貼上後會顯示接收字數；只有按「加入模型」才會儲存設定。請勿截圖或分享金鑰。"}</p>
   <div style={{display:"flex",gap:10,marginTop:10}}><button type="button" disabled={!apiKey.trim()||!model.trim()} onClick={()=>{setProvider({provider,key:apiKey.trim(),model:model.trim()});setConnected(availableProviders());setKeyFeedback("已加入 "+provider+"（金鑰已接收；尚未驗證 API 可用性）。");setStatus("已加入 "+provider+"，聊天時可自動路由。尚未驗證金鑰是否有效。");void persistProviders();}}>加入模型</button><button type="button" onClick={()=>{removeProvider(provider);setConnected(availableProviders());setKeyFeedback("已移除 "+provider+"。");void persistProviders();}}>移除模型</button></div>

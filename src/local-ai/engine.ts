@@ -1,49 +1,111 @@
-import {Converter} from "opencc-js";
+/** On-device WebLLM engine.
+ * - WebLLM (several MB) loads only when a local model is actually used, so the app opens fast.
+ * - Inference runs in a Web Worker when the browser allows it, keeping scrolling/typing smooth
+ *   on iPhone; it falls back to the main thread automatically and remembers a failure.
+ * - Prompts, sampling and context budgets come from ai/model-profiles for each model size.
+ */
 import type {SheetPreviewData} from "./sheet-preview-model";
 import type {CreamResult} from "../cream/core";
 import {streamDisplayInterval,shouldPublishStream} from "./stream-performance";
-import * as webllm from "@mlc-ai/web-llm";
-import {toneInstruction} from "../ai/tone-adaptation";
 import {VANILLA_BUILD} from "../version";
 import {validateWebLLMMessages} from "./request-guard";
-import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError,isSystemPromptOrderError} from "./chat-messages";
+import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError,isSystemPromptOrderError,type LocalChatMessage} from "./chat-messages";
+import {LOCAL_CATALOG,DEFAULT_LOCAL_MODEL,profileFor} from "../ai/model-profiles";
+import {webllmRequestOptions} from "../ai/generation-config";
+import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../ai/prompts";
+import {classifyTask,type TaskKind} from "../ai/task-kind";
+import {fitHistory,estimateTokens} from "../ai/context-budget";
+import {stripThinking,collapseRepetition,cleanModelOutput} from "../ai/output-cleanup";
+import {ensureZhTw,toTaiwanese} from "../ai/zh-tw";
 
-const toTraditionalChinese=Converter({from:"cn",to:"tw"});
-const baseModels=[
- {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",label:"輕量 · Qwen 0.5B",description:"手機低記憶體選項；複雜問題建議使用較大的模型"},
- {id:"Qwen2.5-1.5B-Instruct-q4f16_1-MLC",label:"平衡 · Qwen 1.5B",description:"兼顧中文能力與裝置負載，適合部分高階手機"},
- {id:"Qwen2.5-3B-Instruct-q4f16_1-MLC",label:"進階 · Qwen 3B",description:"記憶體需求較高，手機可能無法載入"}
-];
+type WebLLM=typeof import("@mlc-ai/web-llm");
+type Engine=import("@mlc-ai/web-llm").MLCEngine;
 export type LocalModelId=string;
-export const LOCAL_MODEL="Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
-function discoverModels(){
- const known=new Set(baseModels.map(x=>x.id));
- const extra=webllm.prebuiltAppConfig.model_list
-  .map(x=>x.model_id)
-  .filter(id=>!known.has(id)&&/Qwen|Llama-3|Phi-3|gemma/i.test(id)&&/(?:0[.]5B|1B|1[.]5B|2B|3B|4B|7B)/i.test(id))
-  .slice(0,14)
-  .map(id=>{
-   const params=id.match(/(0[.]5|1[.]5|1|2|3|4|7)B/i)?.[0]||"";
-   return {id,label:id.split("-").slice(0,3).join(" ")+" · "+params,description:"可用 WebLLM 開源模型；下載大小、相容性與記憶體需求依裝置而異"};
-  });
- return [...baseModels,...extra];
-}
-export const LOCAL_MODELS=discoverModels();
+export const LOCAL_MODEL=DEFAULT_LOCAL_MODEL;
+export const LOCAL_MODELS=LOCAL_CATALOG.map(x=>({id:x.id,label:x.label,description:x.description,vramMB:x.vramMB,recommended:Boolean(x.recommended)}));
 export type WebCitation={title:string;url:string;kind:"full"|"snippet"};
-export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult;webSources?:WebCitation[]};
-let engine:webllm.MLCEngine|null=null;
+export type ToolInfo={id:string;label:string;status:"ok"|"partial"|"error";detail?:string};
+export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult;webSources?:WebCitation[];
+ /** Which Vanilla tool produced this message (search, CREAM, files…). */
+ tool?:ToolInfo;
+ /** Labels of data attached to the model prompt for this answer (transparency chips). */
+ contexts?:string[];
+ /** A short honest note (e.g. "附件只提供前 2,000 字", "已由備援模型完成"). */
+ notice?:string;
+ durationMs?:number};
+
+let webllmModule:WebLLM|null=null;
+let supported:Set<string>|null=null;
+let engine:Engine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;
 let loadingModel:LocalModelId|null=null;
+let usingWorker=false;
 
-export function getLoadedLocalModel():LocalModelId|null{return loadedModel;}
-export function isLocalModelReady(model?:LocalModelId):boolean{return engine!==null&&(!model||loadedModel===model);}
-export function isLocalModelSupported(model:LocalModelId):boolean{
- return webllm.prebuiltAppConfig.model_list.some(item=>item.model_id===model);
+async function webllm():Promise<WebLLM>{
+ if(!webllmModule){
+  webllmModule=await import("@mlc-ai/web-llm");
+  supported=new Set(webllmModule.prebuiltAppConfig.model_list.map(x=>x.model_id));
+ }
+ return webllmModule;
 }
+export function getLoadedLocalModel():LocalModelId|null{return loadedModel;}
+export function getLoadingLocalModel():LocalModelId|null{return loadingModel;}
+export function isLocalWorkerActive():boolean{return usingWorker;}
+export function isLocalModelReady(model?:LocalModelId):boolean{return engine!==null&&(!model||loadedModel===model);}
+/** Best effort before WebLLM is loaded (catalog), exact afterwards (installed prebuilt list). */
+export function isLocalModelSupported(model:LocalModelId):boolean{
+ if(supported)return supported.has(model);
+ return LOCAL_CATALOG.some(x=>x.id===model);
+}
+export async function refreshSupportedModels():Promise<string[]>{
+ await webllm();
+ return LOCAL_CATALOG.filter(x=>supported!.has(x.id)).map(x=>x.id);
+}
+/** True when the weights are already in this browser's cache (no download needed). */
+export async function isLocalModelCached(model:LocalModelId):Promise<boolean>{
+ try{const mod=await webllm();return typeof mod.hasModelInCache==="function"?await mod.hasModelInCache(model):false;}catch{return false;}
+}
+const SELECTED_KEY="vanilla.local.model";
+export function preferredLocalModel():LocalModelId{
+ try{const saved=localStorage.getItem(SELECTED_KEY);if(saved&&LOCAL_CATALOG.some(x=>x.id===saved))return saved;}catch{}
+ return LOCAL_MODEL;
+}
+
+/* ---------- worker with automatic fallback ---------- */
+const WORKER_KEY="vanilla.local.worker.v1";
+export function localWorkerMode():"auto"|"off"|"broken"{
+ try{const v=localStorage.getItem(WORKER_KEY);return v==="off"||v==="broken"?v:"auto";}catch{return "auto";}
+}
+export function setLocalWorkerMode(mode:"auto"|"off"):void{try{localStorage.setItem(WORKER_KEY,mode);}catch{}}
+async function createEngine(model:LocalModelId,onProgress:(message:string,progress:number)=>void):Promise<Engine>{
+ const mod=await webllm();
+ if(localWorkerMode()==="auto"&&typeof Worker!=="undefined"){
+  let worker:Worker|null=null;
+  try{
+   worker=new Worker(new URL("./webllm.worker.ts",import.meta.url),{type:"module"});
+   let lastSignal=Date.now();
+   const progress=(report:{text:string;progress:number})=>{lastSignal=Date.now();onProgress(report.text,report.progress);};
+   const created=mod.CreateWebWorkerMLCEngine(worker,model,{initProgressCallback:progress});
+   // A worker that never reports progress (e.g. no WebGPU inside workers) is abandoned after 30 s.
+   const watchdog=new Promise<never>((_,reject)=>{const t=setInterval(()=>{if(Date.now()-lastSignal>30000){clearInterval(t);reject(new Error("worker-stalled"));}},2000);void created.finally(()=>clearInterval(t)).catch(()=>{});});
+   const ready=await Promise.race([created,watchdog]);
+   usingWorker=true;
+   return ready;
+  }catch(error){
+   worker?.terminate();
+   try{localStorage.setItem(WORKER_KEY,"broken");}catch{}
+   console.warn("WebLLM worker unavailable, using main thread",error);
+  }
+ }
+ usingWorker=false;
+ return mod.CreateMLCEngine(model,{initProgressCallback:report=>onProgress(report.text,report.progress)});
+}
+
 export async function loadLocalModel(onProgress:(message:string,progress:number)=>void,model:LocalModelId=LOCAL_MODEL):Promise<void>{
  if(engine&&loadedModel===model)return;
- if(!("gpu" in navigator))throw new Error("目前瀏覽器不支援 WebGPU，無法使用裝置端模型。");
+ if(!("gpu" in navigator))throw new Error("目前瀏覽器不支援 WebGPU，無法使用裝置端模型。iPhone 需 iOS 26 以上的 Safari。");
+ await webllm();
  if(!isLocalModelSupported(model))throw new Error("目前 WebLLM 版本沒有內建這個模型，請選擇其他本地模型。");
  if(loading){
   await loading;
@@ -56,42 +118,63 @@ export async function loadLocalModel(onProgress:(message:string,progress:number)
  }
  loadingModel=model;
  const task=(async()=>{
-  const next=await webllm.CreateMLCEngine(model,{
-   initProgressCallback:report=>onProgress(report.text,report.progress)
-  });
+  const next=await createEngine(model,onProgress);
   engine=next;
   loadedModel=model;
+  try{localStorage.setItem(SELECTED_KEY,model);}catch{}
  })();
  loading=task;
  try{await task;}
  finally{if(loading===task){loading=null;loadingModel=null;}}
 }
-export function getLoadingLocalModel():LocalModelId|null{return loadingModel;}
+export async function interruptLocalGeneration():Promise<void>{
+ try{await (engine as unknown as {interruptGenerate?:()=>void|Promise<void>})?.interruptGenerate?.();}catch{}
+}
 
-export async function generateLocalReply(history:ChatTurn[],onText:(text:string)=>void):Promise<string>{
+export type LocalReplyOptions={task?:TaskKind;signal?:AbortSignal;purpose?:"chat"|"structured"};
+/** Token budget left for the newest user message on the loaded local model. */
+export function localPromptBudget(task:TaskKind,model:LocalModelId=loadedModel||LOCAL_MODEL):number{
+ const profile=profileFor("local",model);
+ return Math.max(600,profile.contextTokens-profile.maxOutput[task]-(profile.compactPrompt?220:520)-520);
+}
+
+export async function generateLocalReply(history:ChatTurn[],onText:(text:string)=>void,options:LocalReplyOptions={}):Promise<string>{
  const currentEngine=engine;
  if(!currentEngine)throw new Error("本地模型尚未就緒，請載入模型後再試。");
- const style=toneInstruction(undefined,history[history.length-1]?.content||"");
- const messages=buildLocalChatMessages(history,style);
+ const model=loadedModel||LOCAL_MODEL;
+ const latest=history[history.length-1]?.content||"";
+ const structured=options.purpose==="structured";
+ const task=options.task??(structured?"code":classifyTask(latest));
+ const profile=profileFor("local",model);
+ if(!structured)await ensureZhTw().catch(()=>undefined);
+ const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest});
+ const request=webllmRequestOptions(model,task);
+ const budget=profile.contextTokens-Number(request.max_tokens)-estimateTokens(system)-48;
+ const turns=fitHistory(history.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string").map(x=>({role:x.role,content:x.content})),budget,480);
+ const messages=buildLocalChatMessages(turns,"",{system,maxTurnChars:Infinity});
  assertLocalMessages(messages);
- const maxTokens=loadedModel===LOCAL_MODEL?768:1280;
+ const abort=()=>{void interruptLocalGeneration();};
+ options.signal?.addEventListener("abort",abort,{once:true});
 
- async function streamReply(requestMessages:webllm.ChatCompletionMessageParam[],mode:"normal"|"recovery"):Promise<string>{
+ async function streamReply(requestMessages:LocalChatMessage[],mode:"normal"|"recovery"):Promise<string>{
   // Verify a snapshot of the EXACT roles submitted to WebLLM. Do not log contents.
   const snapshot=requestMessages.map(message=>({...message}));
-  validateWebLLMMessages(snapshot as import("./chat-messages").LocalChatMessage[],mode);
-  const stream=await currentEngine!.chat.completions.create({
-   messages:snapshot,temperature:0.35,top_p:0.9,max_tokens:maxTokens,stream:true
-  });
+  validateWebLLMMessages(snapshot,mode);
+  const stream=await currentEngine!.chat.completions.create({...request,messages:snapshot,stream:true});
   let answer="",last=0;
   const interval=streamDisplayInterval(navigator.hardwareConcurrency);
   for await(const chunk of stream){
    answer+=chunk.choices[0]?.delta?.content??"";
    const now=Date.now();
    // Reduce expensive React updates while WebGPU is streaming token chunks.
-   if(shouldPublishStream(now,last,interval)){onText(toTraditionalChinese(answer));last=now;}
+   if(shouldPublishStream(now,last,interval)){
+    const view=stripThinking(answer);
+    // Small models occasionally loop; stop early instead of burning the battery.
+    if(!structured&&collapseRepetition(view.text).collapsed){void interruptLocalGeneration();break;}
+    onText((structured?view.text:toTaiwanese(view.text))||(view.thinking?"（正在思考…）":""));last=now;
+   }
   }
-  const final=toTraditionalChinese(answer);
+  const final=structured?stripThinking(answer).text.trim():toTaiwanese(cleanModelOutput(answer));
   onText(final); // Never drop final tokens after throttling.
   return final;
  }
@@ -103,7 +186,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
     // The local model and user data stay on-device.
     await currentEngine.resetChat(false,loadedModel||undefined);
     onText("");
-    const recovery=buildSystemlessRecoveryMessages(history,style);
+    const recovery=buildSystemlessRecoveryMessages(turns,"",{system,maxTurnChars:Infinity});
     return streamReply(recovery,"recovery");
    }
   );
@@ -113,5 +196,5 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
     "；已通過角色序列檢查並嘗試一次本機恢復。請確認裝置版本與正式網站一致後回報版本號。");
   }
   throw error;
- }
+ }finally{options.signal?.removeEventListener("abort",abort);}
 }

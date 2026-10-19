@@ -109,9 +109,9 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
   ].filter(Boolean).join("\n");
   try{
    const history:[{role:"user";content:string}]=[{role:"user",content:schema}];
-   const result=permitted==="ollama"?await generateOllamaReply(history):
-    permitted==="gemini"?await generateCloudReply("gemini",history):
-    await generateLocalReply(history,()=>{});
+   const result=permitted==="ollama"?await generateOllamaReply(history,undefined,{purpose:"structured"}):
+    permitted==="gemini"?await generateCloudReply("gemini",history,undefined,undefined,{purpose:"structured"}):
+    await generateLocalReply(history,()=>{},{purpose:"structured"});
    const proposed=proposalFromAI(result,current);
    setPending(proposed);
    setStatus("已產生 "+proposed.kind+" 類型的功能預覽；尚未執行或修改 Vanilla。");
@@ -122,7 +122,7 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    let recovered=false;
    if(permitted!=="local"&&getLoadedLocalModel()){
     try{
-     const alternative=await generateLocalReply([{role:"user",content:schema}],()=>{});
+     const alternative=await generateLocalReply([{role:"user",content:schema}],()=>{},{purpose:"structured"});
      const verified=proposalFromAI(alternative,current);
      setPending(verified);recovered=true;
      setStatus("外部模型失敗，已使用本機 AI 生成並驗證安全的功能預覽；請審核後才安裝。");

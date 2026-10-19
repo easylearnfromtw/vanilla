@@ -79,6 +79,17 @@ export function toneInstruction(p=getToneProfile(),latestUserText=""):string{
  const power=p.strength==="light"?"輕度參考個人偏好；":p.strength==="close"?"適度貼近使用者的語速和措辭習慣，但不冒充本人；":"自然呼應使用者的溝通節奏；";
  return "回覆風格指引（僅調整表達形式，不影響事實準確、安全與隱私）：以臺灣繁體中文回答。"+power+direct+punctuation+emoji+length+warmth+current+"使用者明確指定不同語氣、長度、格式時以當次要求為準；不要宣稱自己就是使用者。"+taiwanSpeechInstruction(latestUserText,p.strength);
 }
+/** One-line version for phone-sized local models (long style guides crowd a 4K window). */
+export function compactToneInstruction(latestUserText="",p=getToneProfile()):string{
+ if(!p.enabled)return "";
+ const parts:string[]=[];
+ if(p.detail<40||(p.samples>=3&&p.lengthEma<45))parts.push("回答精簡");
+ else if(p.detail>72)parts.push("說明完整");
+ if(p.warmth>70)parts.push("語氣親切");else if(p.warmth<35)parts.push("語氣理性");
+ if(p.samples>=3&&p.emojiEma<0.15)parts.push("少用表情符號");
+ if(latestUserText.length<500&&/很煩|爛|有問題|不行|失敗|錯誤|壞掉|不對/.test(latestUserText))parts.push("先解決問題");
+ return parts.length?"風格："+parts.join("、")+"。":"";
+}
 /**
  * Explicit conversational preferences are applied locally, without an API call.
  * Broad ordinary questions are not intercepted or interpreted as durable settings.

@@ -30,6 +30,7 @@ jobs:
           npm run test:merlin
           npm run test:cream-weiguo
           npm run test:detroit-studio
+          npm run test:detroit-factory
           npm run test:retina
           npm run test:orchestra
           npm run test:cream-gridcraft

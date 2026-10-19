@@ -42,8 +42,8 @@ Zeus 維持 iPhone 本地只有一個主要推論模型。Merlin、衞國、Scou
 
 ## Moli 混合引擎（實驗性，需明確啟用）
 
-衞國後端新增 `services/weiguo/moli_engine.py`：在 Zeus/Scouts 的受控唯讀單頁 `extract` 任務中，若 Moli 執行檔、JavaScript 授權及**真正的網路出口隔離**均已就緒，可用 Moli CLI 取得 Markdown；其他步驟或錯誤一律退回既有 Playwright/Chromium。結果新增 `engine` 欄位便於追蹤。前端工具目錄新增預設停用的 Moli 條目，不表示已部署成功。
+衞國後端新增 `services/weiguo/moli_engine.py`：在 Zeus/Scouts 的受控唯讀單頁 `extract` 任務中，若經雜湊校驗的 Moli 執行檔與**真正的網路出口隔離**均已就緒，可用 Moli CLI 取得 Markdown；其他步驟或錯誤一律退回既有 Playwright/Chromium。結果新增 `engine` 欄位便於追蹤。前端工具目錄新增預設停用的 Moli 條目，不表示已部署成功。
 
 Moli CLI 與 Playwright 的路由攔截能力不同，因此新增 `WEIGUO_BROWSER_ENGINE`（預設 `chromium`）和 `WEIGUO_MOLI_EGRESS_ISOLATED`（預設 `false`）兩個明確開關。若沒有能攔截跨網域重新導向、非允許網域與私有 IP 的實際防火牆／代理，不可聲稱環境已隔離，也不能啟用 Moli。詳細部署、安全限制及驗收步驟參見 `services/weiguo/README.md`。
 
-此變更是**程式碼／設定／自動化單元測試**，尚不代表 Railway 或 iPhone 已執行 Moli。
+Moli v1.1.18 已改為 Docker 建置時固定版本下載並驗證 SHA-256。唯讀擷取時強制禁止私人網路並可依 `WEIGUO_ALLOW_JAVASCRIPT` 關閉頁面 JS，預設仍維持 Chromium；不可把 Moli 內建私網防護誤當為外部網路防火牆。還需 Railway 實際新版本部署及 iPhone 身分驗證端到端測試，才可聲稱完成實機驗收。

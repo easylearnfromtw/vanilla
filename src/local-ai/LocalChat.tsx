@@ -469,7 +469,7 @@ async function gatherWeb(kind:"read"|"search",target:string):Promise<{context:st
  }catch(error){toolReply(target,"網頁實際讀取失敗，未產生虛構摘要："+String(error),kind==="read"?"web":"search");return null;}
  finally{setBusy(false);}
 }
-async function send(value=draft){
+async function send(value=draft):Promise<void>{
  let raw=value.trim();
  if(raw.startsWith("/")){
   const expanded=expandSlashCommand(raw);

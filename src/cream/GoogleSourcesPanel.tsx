@@ -67,7 +67,7 @@ export default function GoogleSourcesPanel({privateMode,onAnalyze}:Props){
    <span>Analytics 資料導入 · Looker Studio 報表 {open?"−":"＋"}</span>
   </button>
   {open&&<div className="cream-google-body">
-   <p>**CREAM 是主要分析引擎**。Analytics 提供原始彙整數據；Looker Studio 提供外部報表。Google OAuth Client Secret 不會存放在 Vanilla。</p>
+   <p>CREAM 是主要分析引擎。Analytics 提供原始彙整數據；Looker Studio 提供外部報表。Google OAuth Client Secret 不會存放在 Vanilla。</p>
    {privateMode?<p className="cream-google-warning">目前為私密模式，已停用 Google Analytics 連線與資料讀取。</p>:<>
     <label>Analytics OAuth Client ID（不是 GOCSPX- Secret）
      <input type="text" spellCheck={false} placeholder="123456789-abc.apps.googleusercontent.com" value={clientId} onChange={e=>setClientId(e.target.value)} autoComplete="off"/>

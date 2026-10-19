@@ -18,7 +18,7 @@ test("requires explicit data rights and user-chosen teacher, not any raw model c
  assert.equal(item.reviewed,true);
  assert.equal(item.teacher.provider,"ollama");
  assert.equal(item.rejected,good.rejected);
- assert.throws(()=>addTeacherExample(TEACHER_DEFAULT,item,now),/啟用/);
+ assert.throws(()=>addTeacherExample({...TEACHER_DEFAULT,settings:{...TEACHER_DEFAULT.settings,enabled:false}},item,now),/啟用/);
 });
 test("rejects common secrets, private email, phones and obvious prompt injection",()=>{
  assert.equal(safeTeacherText("A source-derived, explicitly reviewed learning example."),true);

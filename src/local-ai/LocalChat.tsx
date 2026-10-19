@@ -11,6 +11,7 @@ import MessageArtifacts from "./MessageArtifacts";
 import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,creamChartFollowup,type CreamDataset,type CreamResult} from "../cream/core";
 import {planConversationSave,composeSavedContent} from "../assistant/conversation-save";
+import {extractBrowserDocument,documentContext,documentSummary} from "./document-extract";
 import {readPublicPage,linkReadingIntent} from "../search/web-reader";
 import {uploadWorkspaceFile} from "../workspace/cloud-drive";
 
@@ -20,6 +21,9 @@ import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner} from "../library/attachment-vault";
 import {signedChatAccount} from "../vault/chat-sync";
 import {searchLiveWeb,searchWebSummary} from "../search/live-search";
+import {formatIndexedPages,implicitResearchQuery,type IndexedPage} from "../search/search-evidence";
+import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
+import {listChatAttachments} from "../library/attachment-vault";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {inspectExternalText,wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
@@ -70,12 +74,30 @@ async function attachFile(file?:File){
    if(file.size>8*1024*1024)throw Error("圖片辨識單張上限 8 MB");
    const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(Error("圖片讀取失敗"));reader.readAsDataURL(file);});
    setImage({mimeType:file.type,data});setImageName(file.name);
-  }else if(file.size<=1.5*1024*1024&&(/^(text\/|application\/json)/.test(file.type)||/\.(txt|md|csv|json)$/i.test(file.name))){
-   const raw=(await file.text()).slice(0,10000);
-   const inspection=inspectExternalText(raw,"document");
-   if(inspection.blocked){suspiciousAttachment=true;setFileContext("");setFileStatus("已偵測附件內的提示詞注入，文字已隔離，不會交給 AI 執行。"+inspection.signals.join("、"));}
-   else setFileContext(wrapExternalText(raw,"document"));
-  }
+   }else{
+    const doc=await extractBrowserDocument(file);
+    setFileContext(documentContext(doc));
+    setFileStatus(documentSummary(doc));
+    const table=doc.tables.find(rows=>rows.length>=2&&rows.length<=3001&&rows[0].length>=2&&rows[0].length<=12);
+    const stamp=Date.now();
+    if(table){
+     try{
+      const dataset=fromCreamRows(table,file.name),result=analyzeCream(dataset);
+      setCreamDataset(dataset);
+      setHistory(prev=>[...prev,{role:"user",content:"自動分析文件："+file.name,id:crypto.randomUUID(),createdAt:stamp},
+       {role:"assistant",content:documentSummary(doc)+"\n\n"+summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:stamp+1}]);
+      setLastRoute("已讀取文件，並自動執行 CREAM 統計分析。");
+     }catch(err){
+      setFileStatus(documentSummary(doc)+"；表格無法計算統計："+String(err));
+     }
+    }else{
+     const excerpt=doc.text.slice(0,1200);
+     setHistory(prev=>[...prev,{role:"user",content:"自動讀取文件："+file.name,id:crypto.randomUUID(),createdAt:stamp},
+      {role:"assistant",content:documentSummary(doc)+"\n\n**實際擷取文字：**\n"+excerpt+
+       (doc.text.length>excerpt.length?"\n\n（接著提問即可使用全文進行摘要、分析；並非所有 PDF 都有可擷取文字。）":""),id:crypto.randomUUID(),createdAt:stamp+1}]);
+     setLastRoute("已自動解析文件；你可以直接詢問摘要或分析。");
+    }
+   }
   let localSaved=false;
   let localError="";
   if(!privateMode){
@@ -95,23 +117,7 @@ async function attachFile(file?:File){
      localSaved?"已自動保存於本機附件庫；目前未連線 Google Drive，尚無雲端副本。":
      "附件未能保存到本機："+localError+"；目前也沒有 Google Drive 連線。");
   }
-  // Analyze tabular attachments AFTER durable-save attempts, so CSV/XLSX
-  // stays in the library rather than disappearing from the conversation.
-  if(/\.(?:csv|xlsx)$/i.test(file.name)&&file.size<=2000000){
-   try{
-    let dataset:CreamDataset;
-    if(/\.xlsx$/i.test(file.name)){
-     const {readSheet}=await import("read-excel-file/browser");
-     dataset=fromCreamRows(await readSheet(file),file.name);
-    }else dataset=parseCreamCSV(await file.text(),file.name);
-    setCreamDataset(dataset);
-    const result=analyzeCream(dataset),time=Date.now();
-    setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析附件「"+file.name+"」",id:crypto.randomUUID(),createdAt:time},
-      {role:"assistant",content:summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:time+1}]);
-    setLastRoute("CREAM 已在裝置端計算並於對話中產生互動圖表");
-   }catch(err){setFileStatus("附件已處理，但 CREAM 無法分析："+String(err));}
-  }
- }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
+  }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
  finally{setAssetBusy(false);}
 }
 const [busy,setBusy]=useState(false);
@@ -383,31 +389,74 @@ async function send(value=draft){
   finally{setBusy(false);}
   return;
  }
+ // Real read-only self-inspection from the actual Vanilla GitHub repository.
+ const ownPaths=selfInspectIntent(question);
+ if(ownPaths){
+  if(privateMode){toolReply(question,"私密模式不會存取 GitHub，請使用一般模式。");return;}
+  setBusy(true);
+  try{
+   const inspected=await inspectOwnRepository(ownPaths);
+   toolReply(question,inspected.map(x=>x.summary+"\n來源："+(x.source==="worker"?"已設定的 GitHub Worker":"GitHub 公開唯讀 API")+
+    "\nhttps://github.com/easylearnfromtw/vanilla/blob/main/"+x.path+"\n\n程式碼擷取：\n"+x.excerpt.slice(0,850)).join("\n\n"));
+  }catch(e){toolReply(question,"Vanilla 自我檢查失敗："+String(e)+"；私人 GitHub 專案需部署受保護 Worker。");}
+  finally{setBusy(false);}
+  return;
+ }
+ const savedMatch=/^(?:請|幫我)?(?:讀取|查看|分析|摘要|檢查|整理)(?:一下)?(?:我)?(?:已儲存的|本機的|附件庫的|對話儲存的)(?:檔案|文件)?[：:\\s]*(.{1,150})$/i.exec(question);
+ if(savedMatch){
+  if(privateMode){toolReply(question,"私密模式不會讀取一般附件庫。");return;}
+  setBusy(true);
+  try{
+   const files=await listChatAttachments(attachmentOwner(signedChatAccount()));
+   const target=files.find(x=>x.name===savedMatch[1].trim())||files.find(x=>x.name.includes(savedMatch[1].trim()));
+   if(!target)throw Error("附件庫找不到這個檔案；請在左側「對話圖片與資料」查看完整名稱。");
+   const doc=await extractBrowserDocument(new File([target.blob],target.name,{type:target.type}));
+   const table=doc.tables.find(rows=>rows.length>=2&&rows[0].length>=2&&rows[0].length<=12);
+   let result:CreamResult|null=null;
+   if(table){
+    try{const dataset=fromCreamRows(table,target.name);setCreamDataset(dataset);result=analyzeCream(dataset);}
+    catch{/* The original table still gets read even if no numeric columns match CREAM. */}
+   }
+   setFileContext(documentContext(doc));setFileName(target.name);
+   const time=Date.now();
+   setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:time},
+    {role:"assistant",content:documentSummary(doc)+"\n\n"+(result?summarizeCream(result):doc.text.slice(0,1750)),
+      ...(result?{cream:result}:{}),id:crypto.randomUUID(),createdAt:time+1}]);
+   setDraft("");setLastRoute("已從本機附件庫重新讀取文件；可進一步要求分析與統整。");
+  }catch(e){toolReply(question,"本機文件讀取／分析失敗："+String(e));}
+  finally{setBusy(false);}
+  return;
+ }
  // Read a public URL or search multiple domains, retrieve actual body text when
  // possible, then give grounded excerpts to the already-approved AI model.
  let webContext="";
  let webSources:import("./engine").WebCitation[]=[];
  const pageUrl=linkReadingIntent(question);
- const searchRequest=/^(?:(?:請|幫我|麻煩)?\s*)?(?:上網搜尋|網路搜尋|搜尋|Google搜尋|全網搜尋|上網查|幫我找資料)\s*[：:]?\s*(.{2,180})$/i.exec(question);
- if(pageUrl||searchRequest){
+ const searchRequest=/^(?:(?:請|幫我|麻煩)?\\s*)?(?:上網搜尋|網路搜尋|搜尋|Google搜尋|全網搜尋|上網查|幫我找資料)\\s*[：:]?\\s*(.{2,180})$/i.exec(question);
+ const autoQuery=!privateMode&&!pageUrl&&!searchRequest?implicitResearchQuery(question):null;
+ const webIndex:IndexedPage[]=[];
+ if(!privateMode&&(pageUrl||searchRequest||autoQuery)){
   setBusy(true);setLastRoute("正在實際查詢來源並讀取可公開存取的網頁正文…");
   try{
    if(pageUrl){
     const page=await readPublicPage(pageUrl);
     webSources=[{title:page.title,url:page.url,kind:"full"}];
+    webIndex.push({title:page.title,url:page.url,kind:"full",excerpt:page.text});
     webContext="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
-   }else if(searchRequest){
-    const query=searchRequest[1];
+   }else if(searchRequest||autoQuery){
+    const query=searchRequest?.[1]||autoQuery||"";
     const report=await searchLiveWeb(query);
     setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(query)]);
     for(const hit of report.results.slice(0,3)){
      try{
       const article=await readPublicPage(hit.url);
       webSources.push({title:article.title,url:article.url,kind:"full"});
+      webIndex.push({title:article.title,url:article.url,kind:"full",excerpt:article.text});
       webContext+="\n["+webSources.length+"] "+article.title+"\n來源："+article.url+"\n已讀取正文：\n"+wrapExternalText(article.text.slice(0,7500),"web")+"\n";
      }catch{
       // A search snippet is explicitly labeled as such, never as read article.
       webSources.push({title:hit.title,url:hit.url,kind:"snippet"});
+      webIndex.push({title:hit.title,url:hit.url,kind:"snippet",excerpt:hit.snippet});
       webContext+="\n["+webSources.length+"] "+hit.title+"\n來源："+hit.url+"\n僅取得搜尋摘要："+wrapExternalText(hit.snippet,"web")+"\n";
      }
     }
@@ -417,6 +466,7 @@ async function send(value=draft){
   }catch(error){toolReply(question,"網頁實際讀取失敗，未產生虛構摘要："+String(error));setBusy(false);return;}
   finally{setBusy(false);}
  }
+ if(webContext&&!canReply){toolReply(question,formatIndexedPages(webIndex));return;}
  if(!webContext&&await executeIntent(question))return;
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:表格|Sheets)(?:編輯器)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-sheets"));setDraft("");return;
@@ -628,6 +678,7 @@ return <section className="chat">
  <button type="button" className={privateMode?"runtime-private":""} disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode}>{privateMode?"私密 · 僅本機":"一般模式"}</button>
  <label className="runtime-compare"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/> 比較兩個答案</label>
 </div>
+<details className="vanilla-tools-drawer"><summary>工具與資料 <span>CREAM · NOODLES · Google</span></summary>
 <AssistantTools onPrompt={query=>void send(query)}/>
 <NoodlesPanel privateMode={privateMode}/>
 <TeacherLearningPanel privateMode={privateMode}/>
@@ -640,6 +691,7 @@ return <section className="chat">
   {role:"assistant",content:summary,cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
  setLastRoute("GA4 資料已由 CREAM 本機計算；Studio 僅為外部報表延伸。");
 }}/>
+</details>
 {(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice" role="status">{lastRoute||fileStatus||(modelError?status:"")}</p>}
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small style={{display:"block",fontSize:11,marginTop:3}}>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">

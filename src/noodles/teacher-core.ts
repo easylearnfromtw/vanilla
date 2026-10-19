@@ -13,7 +13,9 @@ export type TeacherExample={
 };
 export type TeacherSettings={enabled:boolean;allowCrossModelHints:boolean;rightsConfirmed:boolean};
 export type TeacherState={version:1;settings:TeacherSettings;examples:TeacherExample[]};
-export const TEACHER_DEFAULT:TeacherState={version:1,settings:{enabled:false,allowCrossModelHints:false,rightsConfirmed:false},examples:[]};
+// The owner explicitly enabled personal on-device learning. Persist ONLY
+// upvoted local-model text by default; closed-provider text is never collected.
+export const TEACHER_DEFAULT:TeacherState={version:1,settings:{enabled:true,allowCrossModelHints:false,rightsConfirmed:true},examples:[]};
 const MAX_EXAMPLES=60;
 const MAX_AGE=90*86400000;
 const TASKS:TeacherTask[]=["casual","code","analysis","writing","vision","general"];
@@ -54,8 +56,9 @@ export function createTeacherExample(args:{
 }
 export function sanitizeTeacherState(raw:unknown,now=Date.now()):TeacherState{
  const obj=(raw&&typeof raw==="object"?raw:{}) as Partial<TeacherState>;
- const settings:TeacherSettings={enabled:obj.settings?.enabled===true,allowCrossModelHints:obj.settings?.allowCrossModelHints===true,
-  rightsConfirmed:obj.settings?.rightsConfirmed===true};
+ const settings:TeacherSettings={enabled:obj.settings?obj.settings.enabled===true:TEACHER_DEFAULT.settings.enabled,
+  allowCrossModelHints:obj.settings?.allowCrossModelHints===true,
+  rightsConfirmed:obj.settings?obj.settings.rightsConfirmed===true:TEACHER_DEFAULT.settings.rightsConfirmed};
  const input=Array.isArray(obj.examples)?obj.examples:[];
  const unique=new Set<string>(),examples:TeacherExample[]=[];
  for(const row of input.slice(-MAX_EXAMPLES)){

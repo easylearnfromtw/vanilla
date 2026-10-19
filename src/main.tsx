@@ -4,6 +4,7 @@ import {createRoot} from "react-dom/client";
 import App from "./App";
 import "./style.css";
 import "./local-ai/chatgpt-layout.css";
+import "./local-ai/compact-shell.css";
 
 type State={error:string|null};
 class AppErrorBoundary extends React.Component<React.PropsWithChildren,State>{

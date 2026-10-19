@@ -22,7 +22,8 @@
     "test:chat-ui": "node --experimental-strip-types --test tests/chat-ui.test.mjs",
     "test:release": "node --experimental-strip-types --test tests/release-readiness.test.mjs",
     "test:autocode": "node --experimental-strip-types --test tests/autonomous-selfbuild.test.mjs",
-    "test:noodles-teacher": "node --experimental-strip-types --test tests/noodles-teacher.test.mjs"
+    "test:noodles-teacher": "node --experimental-strip-types --test tests/noodles-teacher.test.mjs",
+    "test:auto-docs": "node --experimental-strip-types --test tests/auto-document-web.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -32,7 +33,9 @@
     "opencc-js": "^1.0.5",
     "read-excel-file": "^9.3.12",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "pdfjs-dist": "^4.10.38",
+    "fflate": "^0.8.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

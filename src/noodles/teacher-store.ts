@@ -12,7 +12,7 @@ function scope(){
 }
 export function readTeacherState():TeacherState{
  try{const {key,storage}=scope();return sanitizeTeacherState(JSON.parse(storage.getItem(key.name)||"null"));}
- catch{return structuredClone(TEACHER_DEFAULT);}
+ catch{return {...TEACHER_DEFAULT,settings:{...TEACHER_DEFAULT.settings},examples:[]};}
 }
 export function updateTeacherState(state:TeacherState):TeacherState{
  const clean=sanitizeTeacherState(state);
@@ -34,6 +34,9 @@ export function recordTeacherSample(args:{
  selectedBy:"comparison"|"thumbs-up";
 },privateMode=false):{saved:boolean;reason:string}{
  if(privateMode)return {saved:false,reason:"私密模式不擷取模型回答"};
+ // Personal-by-default only for the bundled, user-operated local model.
+ // Remote Gemini/DeepSeek/Ollama output licenses may forbid distillation.
+ if(args.provider!=="local")return {saved:false,reason:"第三方模型只用於 NOODLES 匿名品質訊號，不自動保存輸出進訓練資料"};
  try{
   const current=readTeacherState();
   if(!current.settings.enabled||!current.settings.rightsConfirmed)return {saved:false,reason:"尚未啟用或確認訓練資料使用權"};

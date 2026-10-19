@@ -84,7 +84,7 @@ export default function DetroitStudio({initialBody,initialTab="retina"}:{initial
   {tab==='janus'&&<Suspense fallback={<p role="status">Janus 郵件工作室載入中…</p>}><JanusStudio/></Suspense>}
   {tab==='registry'&&<ApiRegistryPanel/>}
   {tab==='luca'&&<LucaPanel/>}
-  {tab==='ceres'&&<section className="detroit-studio-form"><h2>Ceres · 跨平台通訊與插件</h2><p>Ceres 是 Vanilla 原生獨立開發的跨平台訊息與插件接入層，並非移植 AstrBot 程式碼。已加入安全事件格式、插件規格與可選簽章 Relay 驗證；LINE、Telegram、Discord、Slack 正式帳號尚未連線。</p><p>目前預設停用。外部訊息一律視為不可信資料，必須通過平台驗證、家庭身分連結、Athena 審查與使用者核准，才可進一步交給 Zeus 派工。此版本不會自動回覆、安裝任意插件或執行腳本。</p><p>原生介面不強制添加浮水印，但仍保留依法必要的第三方授權聲明。</p></section>
+  {tab==='ceres'&&<section className="detroit-studio-form"><h2>Ceres · 跨平台通訊與插件</h2><p>Ceres 是 Vanilla 原生獨立開發的跨平台訊息與插件接入層，並非移植 AstrBot 程式碼。已加入安全事件格式、插件規格與可選簽章 Relay 驗證；LINE、Telegram、Discord、Slack 正式帳號尚未連線。</p><p>目前預設停用。外部訊息一律視為不可信資料，必須通過平台驗證、家庭身分連結、Athena 審查與使用者核准，才可進一步交給 Zeus 派工。此版本不會自動回覆、安裝任意插件或執行腳本。</p><p>原生介面不強制添加浮水印，但仍保留依法必要的第三方授權聲明。</p></section>}
   {tab==='luna'&&<section className="detroit-studio-form"><h2>LUNA · 海報與視覺設計</h2><p>可拖曳的本機海報畫布、文字與圖片圖層、活動／品牌模板，以及 PNG 與 JSON 匯出。完全獨立於迅排的管理後台，不使用其預設帳號或 API。</p><button className="detroit-primary" type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-luna'))}><Palette size={17}/>開啟 LUNA 設計畫布</button></section>}
   {tab==='bard'&&<section className="detroit-studio-form"><h2>Bard · 圖片生成</h2><p>透過你已連接的 Gemini API 圖片模型生成，並非裝置端 GPU 生圖。模型能否使用與費率取決於你的 Google API 專案。</p>
    <label>生圖描述<textarea rows={6} maxLength={3000} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例：極簡蒙太奇拼貼海報，幾何色塊，文字區保留留白…"/></label>

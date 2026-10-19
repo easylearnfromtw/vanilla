@@ -1,0 +1,56 @@
+name: Deploy Self-Build GitHub Worker
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vanilla-selfbuild-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: selfbuild-worker
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify required protected credentials exist
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SELFBUILD_GITHUB_PAT: ${{ secrets.SELFBUILD_GITHUB_PAT }}
+          SELFBUILD_ACCESS_TOKEN: ${{ secrets.SELFBUILD_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN SELFBUILD_GITHUB_PAT SELFBUILD_ACCESS_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Required GitHub Actions environment secret is missing: $name"
+              exit 1
+            fi
+          done
+          echo "All secret names are configured; secret values will never be printed."
+      - name: Deploy restricted HTTPS Worker
+        working-directory: services/self-build-github-worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy
+      - name: Provision GitHub and builder access secrets in Cloudflare
+        working-directory: services/self-build-github-worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GH_PAT_FOR_WORKER: ${{ secrets.SELFBUILD_GITHUB_PAT }}
+          OWNER_ACCESS_TOKEN: ${{ secrets.SELFBUILD_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          printf '%s' "$GH_PAT_FOR_WORKER" | npx --yes wrangler@4 secret put GITHUB_TOKEN
+          printf '%s' "$OWNER_ACCESS_TOKEN" | npx --yes wrangler@4 secret put BUILDER_ACCESS_TOKEN
+      - name: Explain activation
+        run: |
+          echo "Cloudflare Worker deploy and secret provisioning commands succeeded." >> "$GITHUB_STEP_SUMMARY"
+          echo "Copy the actual Worker HTTPS URL from Deploy restricted HTTPS Worker step; enter it only in Vanilla Self-Build CODE settings." >> "$GITHUB_STEP_SUMMARY"
+          echo "Enter SELFBUILD_ACCESS_TOKEN directly into Vanilla's Worker token box, not into its chat or public repository." >> "$GITHUB_STEP_SUMMARY"
+          echo "The Worker creates draft GitHub PRs only; CI and explicit human approval are still required for main updates." >> "$GITHUB_STEP_SUMMARY"

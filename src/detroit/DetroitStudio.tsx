@@ -1,11 +1,13 @@
 import {useEffect,useState} from 'react';
-import {Image,FileText,ShieldCheck,Clock3,Download} from 'lucide-react';
+import {Image,FileText,ShieldCheck,Clock3,Download,Layers3} from 'lucide-react';
+import OrchestraStudio from '../orchestra/OrchestraStudio';
 import {bardGenerate,bardSave,type BardImage} from './bard';
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from './retina';
 import {currentChatMode} from '../local-ai/chat-session';
+import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api';
 import {DETROIT_ENGINES} from './core';
 import './studio.css';
-type Tab='retina'|'bard'|'athena'|'jobs';
+type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra';
 export default function DetroitStudio({initialBody}:{initialBody?:string|null}={}){
  const [tab,setTab]=useState<Tab>('retina');
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,160000));setTab('retina');}},[initialBody]);
@@ -14,6 +16,7 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
  const [format,setFormat]=useState<RetinaFormat>('pdf');
  const [prompt,setPrompt]=useState('');
  const [approve,setApprove]=useState(false);
+ const [wordcraftApproved,setWordcraftApproved]=useState(false);
  const [image,setImage]=useState<BardImage|null>(null);
  const [busy,setBusy]=useState(false);
  const [status,setStatus]=useState('');
@@ -24,6 +27,19 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
   if(busy)return;setBusy(true);setStatus('Retina 正在本機排版…');
   try{const result=await createRetinaDocument({title,body,format});downloadRetina(result);setStatus(`已產製 ${result.name}，共整理 ${result.sections} 個內容區塊。未將內容送至雲端。`);}
   catch(e){setStatus('匯出失敗：'+String(e instanceof Error?e.message:e));}
+  finally{setBusy(false);}
+ }
+ async function makeWordcraft(){
+  if(busy)return;
+  if(currentChatMode()==='private')return setStatus('私人模式禁止將文件內容傳送到後端，請使用本機 Retina。');
+  if(!wordcraftApproved)return setStatus('請先明確同意將文件內容傳送至衞國後端。');
+  if(format==='pptx')return setStatus('WordCraft 此介面僅支援 DOCX／PDF，PPTX 請使用本機 Retina。');
+  setBusy(true);setStatus('WordCraft 後端正在處理文件…');
+  try{
+   const file=await convertWeiGuoWordCraft(title,body,format);
+   downloadRetina({name:file.filename,mime:file.mime,bytes:file.bytes,sections:0});
+   setStatus('WordCraft 文件已產生並提供下載；文件內容未儲存在衞國工作資料庫。');
+  }catch(e){setStatus('WordCraft 未完成：'+String(e instanceof Error?e.message:e));}
   finally{setBusy(false);}
  }
  async function generate(){
@@ -45,14 +61,20 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
  return <div className="detroit-studio">
   <header><p className="detroit-eyebrow">VANILLA / DETROIT</p><h1>DETROIT <em>STUDIO</em></h1><p>同一套 AI，專門工具協作。生成有依據的成品，並清楚標示雲端服務是否啟用。</p></header>
   <div className="detroit-studio-tabs" role="tablist" aria-label="Detroit 工作室工具">
-   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
+   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
   </div>
   {tab==='retina'&&<section className="detroit-studio-form"><h2>Retina · 正式文件產製</h2><p>輸入標題與內容，支援 Markdown 標題、段落和清單；在手機本機真正產生可下載的文件，不需要模型重複生成。</p>
    <label>文件名稱<input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)}/></label>
    <label>文件內容<textarea rows={13} maxLength={160000} value={body} onChange={e=>setBody(e.target.value)} placeholder="貼上已核對的資料或報告文字"/></label>
    <label>輸出格式<select value={format} onChange={e=>setFormat(e.target.value as RetinaFormat)}><option value="pdf">PDF（可攜式報告）</option><option value="docx">DOCX（可編輯 Word）</option><option value="pptx">PPTX（可編輯簡報）</option></select></label>
    <button type="button" className="detroit-primary" onClick={()=>void make()} disabled={busy}><Download size={18}/>{busy?'正在處理…':'產生並下載'}</button>
+   <div className="detroit-wordcraft"><h3>WordCraft · 進階文件引擎（實驗性）</h3><p>選用的 Rust WordCraft 後端，僅支援 DOCX 與 PDF；需先在衞國系統登入，且管理端須部署並啟用 CLI。預設仍使用上方的手機本機 Retina。</p>
+    <label className="detroit-consent"><input type="checkbox" checked={wordcraftApproved} onChange={e=>setWordcraftApproved(e.target.checked)}/>我了解將本次文件內容送至受信任的衞國後端執行轉換；私人模式不使用。</label>
+    <button type="button" disabled={busy||!wordcraftApproved||format==='pptx'||currentChatMode()==='private'||!weiGuoApiBase()||!weiGuoIdentity()} onClick={()=>void makeWordcraft()}>以 WordCraft 產製文件</button>
+    {!weiGuoIdentity()&&<button type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-weiguo'))}>先至衞國系統登入</button>}
+   </div>
   </section>}
+  {tab==='orchestra'&&<OrchestraStudio compact/>}
   {tab==='bard'&&<section className="detroit-studio-form"><h2>Bard · 圖片生成</h2><p>透過你已連接的 Gemini API 圖片模型生成，並非裝置端 GPU 生圖。模型能否使用與費率取決於你的 Google API 專案。</p>
    <label>生圖描述<textarea rows={6} maxLength={3000} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例：極簡蒙太奇拼貼海報，幾何色塊，文字區保留留白…"/></label>
    <label className="detroit-consent"><input type="checkbox" checked={approve} onChange={e=>setApprove(e.target.checked)}/> 我同意將這段描述傳送到 Gemini API，且了解可能產生費用。</label>

@@ -7,7 +7,7 @@ import {allowedURL,requireAdmin} from "../services/detroit-jobs/worker.mjs";
 const req=(token)=>new Request("https://worker.example/health",{headers:{authorization:"Bearer "+token}});
 
 test("registry groups independent roles without multiple loaded AI models",()=>{
- assert.equal(DETROIT_ENGINES.length,17);
+ assert.equal(DETROIT_ENGINES.length,18);
  assert.equal(new Set(DETROIT_ENGINES.map(x=>x.id)).size,DETROIT_ENGINES.length);
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"adapter");
 });
@@ -15,7 +15,7 @@ test("simple requests skip pipeline and deep analysis enumerates auditable phase
  assert.equal(merlinParse("你好").depth,"quick");
  const p=merlinParse("請深入分析年度心率趨勢及證據來源，整理成企劃書",{deepRequested:true});
  assert.equal(p.depth,"deep");assert.equal(p.needsArtifact,true);
- for(const stage of ["merlin","athena","zeus","cream","retina","venus"])assert.ok(p.stages.some(x=>x.engine===stage),stage);
+ for(const stage of ["merlin","athena","zeus","cream","orchestra","retina","venus"])assert.ok(p.stages.some(x=>x.engine===stage),stage);
  assert.ok(cloudDetroitBrief(p).includes("不提供隱藏思考鏈"));
  const next=stageUpdate(p,"merlin","done","使用者要求已辨識");
  assert.equal(next.stages[0].state,"done");assert.equal(p.stages[0].state,"waiting");

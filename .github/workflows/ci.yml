@@ -35,6 +35,7 @@ jobs:
           npm run test:retina
           npm run test:orchestra
           npm run test:luna
+          npm run test:luna-advanced
           npm run test:cream-gridcraft
           npm run test:detroit-notifications
           npm run test:cream-longitudinal

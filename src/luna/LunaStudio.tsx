@@ -2,6 +2,7 @@ import {useEffect,useRef,useState,type ChangeEvent,type PointerEvent as PointerE
 import {ArrowDown,ArrowUp,Copy,Download,FileJson,ImagePlus,Layers,Plus,Redo2,Save,Shapes,Sparkles,Trash2,Type,Undo2,Upload} from "lucide-react";
 import {LUNA_MAX_LAYERS,LUNA_MAX_PROJECTS,LUNA_PALETTE,LUNA_TEMPLATES,addLunaLayer,clamp,createLuna,duplicateLuna,lunaStorageKey,moveLuna,orderLuna,parseLuna,parseLunaLibrary,promptLuna,type LunaDoc,type LunaLayer,type LunaLibrary,type LunaTemplate} from "./model";
 import {importLunaImage,lunaPNG,saveLunaFile} from "./export";
+import LunaAdvancedTools from "./LunaAdvancedTools";
 import "./luna.css";
 
 function restoreLibrary(owner:string):LunaLibrary{
@@ -108,6 +109,7 @@ export default function LunaStudio({owner}:{owner:string}){
     <section className="luna-panel"><h2><Plus size={17}/>新增元素</h2><div className="luna-insert">
      <button onClick={()=>add("text")}><Type size={17}/>文字</button><button onClick={()=>add("shape")}><Shapes size={17}/>色塊</button><button onClick={()=>imageInput.current?.click()}><ImagePlus size={17}/>圖片</button></div>
      <input type="file" hidden ref={imageInput} accept="image/png,image/jpeg,image/webp" onChange={e=>void importImage(e)}/></section>
+    <LunaAdvancedTools doc={doc} selected={selected} onCreate={newDoc=>create(newDoc)} onReplaceImage={(id,image)=>patchLayer(id,{image,fill:"#FFFFFF"})} onNotice={setNotice}/>
    </aside>
    <section className="luna-workspace" aria-label="LUNA 可編輯畫布">
     <div className="luna-canvas-box"><div className="luna-canvas" ref={stage} style={{aspectRatio:String(doc.width)+"/"+String(doc.height),background:doc.background}} onClick={()=>setLayerId(null)}>
@@ -147,6 +149,6 @@ export default function LunaStudio({owner}:{owner:string}){
    </aside>
   </div>
   <p className="luna-status" role="status">{notice}</p>
-  <footer className="luna-footer">LUNA 為 Vanilla 原生獨立模組；沒有沿用迅排的後端、管理員帳號或 API。此處不會向原作者或任何服務上傳作品。共用裝置上的本機資料仍須自行保護。</footer>
+  <footer className="luna-footer">LUNA 為 Vanilla 原生獨立模組；沒有沿用迅排的後端、管理員帳號或 API。只有明確同意的 AI 排版需求會傳送到已連接的模型服務；去背需要下載公開模型檔。作品及圖片編輯均在本機。共用裝置上的本機資料仍須自行保護。</footer>
  </div>;
 }

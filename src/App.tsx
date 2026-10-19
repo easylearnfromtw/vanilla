@@ -61,7 +61,7 @@ useEffect(()=>{
  const openSettings=()=>{setSection("settings");setMenuOpen(false);};
  const openSheets=()=>{setSection("sheets");setMenuOpen(false);};
  const openBuilder=(event:Event)=>{
-  const detail=(event as CustomEvent<{idea?:string}>).detail;
+  const detail=(event as CustomEvent<{idea?:string;mode?:"code"|"visual"}>).detail;
   if(detail?.idea){try{sessionStorage.setItem("vanilla.builder.pending-idea.v1",detail.idea.slice(0,1800));}catch{}}
   if(detail?.mode==="code"){try{sessionStorage.setItem("vanilla.builder.pending-mode.v1","code");}catch{}}
   setEditFeatureId(null);setSection("builder");setMenuOpen(false);

@@ -32,3 +32,9 @@ export async function parallelLightTools<T>(operations:readonly (()=>Promise<T>)
  }));
  return results;
 }
+
+/** Read-only Zeus metadata suggestions: never invokes an external API. */
+import {searchApiCandidates,type ApiCandidate} from "./api-registry";
+export function zeusSuggestApiCandidates(query:string,candidates:readonly ApiCandidate[]):ApiCandidate[]{
+ return searchApiCandidates(candidates,query,30);
+}

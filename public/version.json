@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.05-luna-advanced",
-  "description": "LUNA AI layout, Photoshop PSD import/export and on-device U2NetP background removal; preserves Quirinus, Janus and other Vanilla modules"
+  "build": "2026.10.20.06-erya-humanize",
+  "description": "Erya Humanize: Taiwanese Traditional Chinese rewriting through the existing model with privacy and integrity checks"
 }

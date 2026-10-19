@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.02-detroit-api-registry",
-  "description": "Detroit API Registry: read-only external API discovery, Zeus search recommendations and Athena review; retains LUNA and other Detroit tools"
+  "build": "2026.10.20.03-detroit-api-registry",
+  "description": "Detroit API Registry metadata discovery, Zeus recommendations and Athena review; includes Janus email designer and previously merged LUNA/Factory tools"
 }

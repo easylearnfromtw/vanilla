@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.02-detroit-api-registry";
+export const VANILLA_BUILD="2026.10.20.03-detroit-api-registry";

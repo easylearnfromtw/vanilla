@@ -77,3 +77,14 @@ test("slash commands expand into canonical phrases the router understands",()=>{
  assert.deepEqual(matchSlashCommands("/搜").map(x=>x.cmd),["/搜尋"]);
  assert.equal(matchSlashCommands("一般句子").length,0);
 });
+
+test("Janus and legacy email commands route to the same local tool",()=>{
+ for(const q of ["開啟 Janus","Janus","打開郵件編輯器","開啟 Email Studio"]){
+  const route=routeMessage(q,ctx);
+  assert.equal(route.kind,"open",q);
+  assert.equal(route.section,"email",q);
+ }
+ assert.equal(expandSlashCommand("/Janus")?.text,"開啟 Janus");
+ assert.equal(expandSlashCommand("/郵件")?.text,"開啟 Janus");
+ assert.deepEqual(matchSlashCommands("/Jan").map(x=>x.cmd),["/Janus"]);
+});

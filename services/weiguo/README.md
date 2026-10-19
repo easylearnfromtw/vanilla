@@ -7,10 +7,11 @@ Deployment status: Source and tests exist, including a family login gateway and 
 ## Setup
 
 1. On a trusted Docker host, copy docker-compose.example.yml into a private deployment configuration.
-2. Set a random WEIGUO_ADMIN_TOKEN of 32+ characters in private server environment variables.
+2. Set distinct random WEIGUO_ADMIN_TOKEN and WEIGUO_SESSION_SECRET secrets (each 32+ characters) only on the server. They must never be equal.
 3. Set WEIGUO_ALLOWED_HOSTS to exact public HTTPS destination hosts, such as example.org,www.example.org. No wildcard domains. Empty list blocks browser tasks.
 4. Configure a host/VPC egress firewall to deny private/loopback/link-local/metadata networks, even if DNS changes. Application URL checks are not a complete network sandbox.
-5. Run docker compose up --build. The example binds only the host loopback interface at port 9080 and persists short-task logs in a private Docker volume.
+5. Configure WEIGUO_GOOGLE_CLIENT_ID with the same **public web OAuth client ID** as Vanilla's existing Google login. Set WEIGUO_FAMILY_ACL_JSON using immutable, verified Google `sub` values, not email or a frontend name dropdown, e.g. `{"GOOGLE_SUB_A":{"member":"Member A","role":"owner"}}`. Do not guess an account's `sub`; validate the identity privately before granting it access. Allowed roles: owner/member (read-only browser tasks) or viewer (identity only). Configure WEIGUO_CORS_ORIGINS to exactly `https://easylearnfromtw.github.io` for public Vanilla PWA.
+6. Run docker compose up --build. The example binds only the host loopback interface at port 9080 and persists short-task logs in a private Docker volume. For iPhone access, place a trusted HTTPS reverse proxy on a verified custom domain with origin and network restrictions. Never expose the admin token in the proxy or web app.
 6. Configure Google OIDC + family ACL below, enforce HTTPS and exact CORS origins, and put the public family endpoints behind a rate-limiting reverse proxy. Keep operator endpoints inaccessible at public ingress where possible.
 7. Confirm GET /v1/health, POST /v1/auth/google with a real verified Google ID token, POST /v1/family/tasks, and GET /v1/family/tasks/{id} using the returned short-lived family bearer.
 
@@ -35,7 +36,20 @@ WEIGUO_CORS_ORIGINS=https://easylearnfromtw.github.io
 
 These Google `sub` numbers are EXAMPLES ONLY. Obtain and independently verify each family member’s stable subject identifier from Google `userinfo` response `id` for the intended authenticated account; never guess or use these placeholders. Restrict the Google Cloud Web OAuth JavaScript origin to the real Vanilla origin. To activate the PWA, set the GitHub **Actions variable** `WEIGUO_API_URL` to the actual public HTTPS backend origin (no path). GitHub Pages redeployment rebuilds the static bundle with that URL; it is public and contains no secret.
 
+## Trust boundary
+
+The existing Google Drive access token is **not** sent to WeiGuo. The user selects the same Google account using Google Identity Services (GIS) and supplies a short-lived **ID token** to `POST /v1/auth/google`. The backend verifies the Google-signed OIDC token and its audience against `WEIGUO_GOOGLE_CLIENT_ID`, checks `email_verified` and immutable `sub` against the **server-owned ACL**, and signs a distinct 15-minute session token in response.
+
+The PWA holds only this task-scoped session **in JavaScript memory** (not localStorage, sessionStorage or cookies), and sends it as a Bearer header to family task endpoints. Sign-out clears this memory; already issued sessions expire within 15 minutes and can be revoked earlier by deleting the server ACL entry. ACL is consulted on **every** request. Family task rows are owned by Google `sub` and cannot be read by other members. The family API never invokes admin-only plan/execute/manifest endpoints. Tasks are limited to 6 creations per member per 60 seconds (single-process SQLite).
+
+This is limited server-authorized access, **not** delegation of the management key or high-risk browser operations. Browser tasks are read-only, cannot click or fill, and are restricted to exact HTTPS host allowlists. Server administrators must prevent private-network egress. CORS alone is not authentication; origin restrictions and the Google session are both required.
+
 ## Supported API
+
+- POST /v1/auth/google: verify Google GIS OIDC credential and exchange it for a 15-minute family-only session.
+- GET /v1/auth/me: read verified family member and server-defined role.
+- POST /v1/family/tasks: allow owner/member to queue a read-only task (rate-limited, account-owned).
+- GET /v1/family/tasks/{id}: owner-only lookup by immutable Google sub (other accounts receive 404).
 
 - GET /v1/health and GET /health: basic configuration status without secrets.
 - POST /v1/tools: validate safe tool metadata (does not install code).
@@ -54,6 +68,10 @@ The background queue always blocks click/fill, even if supplied with client appr
 ## Server-only environment
 
 WEIGUO_ADMIN_TOKEN: 32+ random characters, never distributed to the browser.
+WEIGUO_SESSION_SECRET: separate, random 32+ character HMAC key, server-only.
+WEIGUO_GOOGLE_CLIENT_ID: exact Google web OAuth client ID used by GIS.
+WEIGUO_FAMILY_ACL_JSON: server-owned JSON mapping immutable Google `sub` to member and role; no browser-controlled roles.
+WEIGUO_CORS_ORIGINS: exact allowed HTTPS web origins, e.g. `https://easylearnfromtw.github.io`. Empty defaults to no cross-origin requests.
 WEIGUO_SESSION_SECRET: separate random 32+ secret, server-only.
 WEIGUO_GOOGLE_CLIENT_ID: public Web OAuth client ID matching the existing Vanilla Google client.
 WEIGUO_FAMILY_ACL_JSON: mapping of verified Google stable subjects to member names and owner/member/viewer roles.

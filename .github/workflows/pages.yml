@@ -40,6 +40,7 @@ jobs:
       - run: npm run test:cream
       - run: npm run test:cream-extra
       - run: npm run test:weiguo
+      - run: npm run test:weiguo-auth-ui
       - run: npm run test:detroit
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio
@@ -74,6 +75,7 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
+          VITE_WEIGUO_API_URL: ${{ vars.WEIGUO_API_URL }}
       - name: Verify compiled GitHub Pages assets
         run: |
           test -f dist/index.html

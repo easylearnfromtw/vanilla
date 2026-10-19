@@ -25,6 +25,7 @@ jobs:
           npm run test:cream
           npm run test:cream-extra
           npm run test:weiguo
+          npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:cream-weiguo
           npm run test:detroit-studio

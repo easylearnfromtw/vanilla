@@ -8,6 +8,10 @@ services:
       WEIGUO_ALLOWED_HOSTS: "example.org,www.example.org"
       # Use ONLY private server-side environment variables.
       WEIGUO_ADMIN_TOKEN: "${WEIGUO_ADMIN_TOKEN:?Required}"
+      WEIGUO_SESSION_SECRET: "${WEIGUO_SESSION_SECRET:?Required; use a different 32+ character random secret}"
+      WEIGUO_GOOGLE_CLIENT_ID: "${WEIGUO_GOOGLE_CLIENT_ID:?Required; public Google Web client ID}"
+      WEIGUO_FAMILY_ACL_JSON: "${WEIGUO_FAMILY_ACL_JSON:?Required; mapping Google sub to family role}"
+      WEIGUO_CORS_ORIGINS: "${WEIGUO_CORS_ORIGINS:-https://easylearnfromtw.github.io}"
       WEIGUO_SESSION_SECRET: "${WEIGUO_SESSION_SECRET:?Required}"
       WEIGUO_GOOGLE_CLIENT_ID: "${WEIGUO_GOOGLE_CLIENT_ID:?Required}"
       WEIGUO_FAMILY_ACL_JSON: '${WEIGUO_FAMILY_ACL_JSON:?Required}'

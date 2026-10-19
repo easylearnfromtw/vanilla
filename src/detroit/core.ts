@@ -4,10 +4,11 @@
  */
 import {isHumanizeRequest} from "../erya/humanize";
 
-export type DetroitEngine="diana"|"merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"luca"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"veritas"|"mnemosyne"|"hermes";
+export type DetroitEngine="ceres"|"diana"|"merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"luca"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"veritas"|"mnemosyne"|"hermes";
 export type DetroitStatus="active"|"adapter"|"planned";
 export type DetroitEngineInfo={id:DetroitEngine;label:string;group:"入口與治理"|"執行與運算"|"資料與產出"|"品質與持續任務";status:DetroitStatus;description:string};
 export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
+ {id:"ceres",label:"Ceres · 通訊與插件",group:"入口與治理",status:"adapter",description:"原創通訊與插件安全接入層；平台轉接尚未部署，預設停用"},
  {id:"diana",label:"Diana",group:"入口與治理",status:"active",description:"對話中的工具清單、最佳工具選擇與授權內的既有工具交接；Zeus 仍負責實際執行"},
  {id:"merlin",label:"Merlin",group:"入口與治理",status:"active",description:"辨識任務、建立精簡結構化提示、保留原始意圖並核對完成條件"},
  {id:"athena",label:"Athena",group:"入口與治理",status:"active",description:"檢查不可信輸入、危險檔案與提示注入"},

@@ -46,3 +46,14 @@ test("unknown categories and oversized content are rejected",()=>{
  assert.throws(()=>parseApiDirectoryMarkdown(markdown,"invalid"),/不支援/);
  assert.throws(()=>parseApiDirectoryMarkdown("x".repeat(600001),"mcp"),/過大/);
 });
+
+test("Detroit API Registry remains accessible alongside existing LUNA and Janus integrations",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
+ const studio=read("src/detroit/DetroitStudio.tsx");
+ const app=read("src/App.tsx");
+ assert.match(studio,/tab==='registry'&&<ApiRegistryPanel\/>/);
+ assert.match(studio,/tab==='janus'/);
+ assert.match(app,/vanilla-open-luna/);
+ assert.match(app,/LunaStudio/);
+});

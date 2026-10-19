@@ -1,0 +1,15 @@
+# Replace with a hostname under your control and ensure DNS resolves here.
+# HTTPS ends at Caddy; access to the service still requires a per-request HMAC.
+pdfcraft.example.com {
+    reverse_proxy 127.0.0.1:8090
+    header {
+        Cache-Control "no-store"
+        X-Content-Type-Options "nosniff"
+    }
+    request_body {
+        max_size 8500000
+    }
+    log {
+        output discard
+    }
+}

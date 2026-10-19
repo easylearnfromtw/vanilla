@@ -25,3 +25,6 @@
 - PDF 是畫布渲染的影像頁面，中文呈現需手機瀏覽器支援 CJK 字體；DOCX/PPTX 提供可編輯中文字。
 - Athena 不聲稱 100% 阻擋木馬、惡意 PDF 或未知零時差攻擊，高風險檔案應採第三方沙箱。
 - Zeus/Retina/Bard/其他分工不是多個同時載入的 LLM，本地保持 Single Model Runtime。
+
+## 選用私有 ClamAV 掃描服務（D2.1）
+`services/detroit-scanner/` 加入可在自有 Docker 主機部署的掃描 Gateway：僅接受受信任的後端私下送入原始檔案位元組、Bearer token、15 MB 上限及 ClamAV INSTREAM；掃描未知或失敗一律不得視為安全。預設僅主機 localhost 對外，不在 GitHub Pages 中存放憑證。部署、更新病毒碼、受信任後端串接及實際掃描驗收**尚待主機帳號與設定**。詳細參閱 `services/detroit-scanner/README.md`。

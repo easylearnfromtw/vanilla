@@ -66,6 +66,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  const hinted=hint?NAMES[hint[1].toLowerCase()]:null;
  const task=(hint&&hinted?hint[2]:raw).trim();
  const ranked=candidates(task,ctx);
+ if(ctx.privateMode&&!forcedTool&&!hinted&&candidates(task,{...ctx,privateMode:false})[0].tool==="scouts")return report("scouts","私密模式禁止連上網路。Diana 不會為了最新資訊而自行切換模式。","隱私限制");
  const tool=forcedTool||hinted||ranked[0].tool;
  const reason=forcedTool||hinted?"使用者明確指定工具":ranked[0].reason;
  const alternatives=ranked.filter(x=>x.tool!==tool).slice(0,2).map(x=>LABELS[x.tool]);

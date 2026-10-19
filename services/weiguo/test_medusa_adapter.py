@@ -87,6 +87,10 @@ class MedusaTests(unittest.TestCase):
         self.assertEqual(options["json"]["cpu_time_limit"], 2)
         self.assertEqual(options["json"]["wall_time_limit"], 5)
         self.assertEqual(options["json"]["memory_limit"], 128000)
+        self.assertFalse(options["json"]["enable_network"])
+        self.assertEqual(options["json"]["number_of_runs"], 1)
+        self.assertEqual(options["json"]["max_processes_and_or_threads"], 8)
+        self.assertEqual(options["json"]["max_file_size"], 256)
         self.assertEqual(options["json"]["language_id"], 109)
         self.assertNotIn("MEDUSA_JUDGE0_URL", options["json"])
 

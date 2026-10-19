@@ -81,7 +81,11 @@ async def execute_medusa(request: MedusaRunRequest) -> dict:
         "cpu_time_limit": 2,
         "wall_time_limit": 5,
         "memory_limit": 128000,
-        "max_file_size": 1024,
+        "max_processes_and_or_threads": 8,
+        "max_file_size": 256,
+        "number_of_runs": 1,
+        # Defense in depth. The Judge0 host MUST independently block egress.
+        "enable_network": False,
     }
     try:
         async with _LOCK:

@@ -1,0 +1,69 @@
+name: Quirinus Offline Source Scan
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'services/**'
+      - 'tests/**'
+      - 'deployment/quirinus/**'
+      - '.github/workflows/quirinus-offline-scan.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quirinus-offline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  offline-code-scan:
+    # No PR event: never grant an untrusted fork source code / workflow authority.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout only the approved repository revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build pinned VulnClaw scanner image
+        run: docker build --pull -f deployment/quirinus/Dockerfile -t vanilla-quirinus:v0.4.1 .
+      - name: Run sealed offline source scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/quirinus-output"
+          chmod 0777 "$RUNNER_TEMP/quirinus-output"
+          docker run --rm \
+            --network none \
+            --read-only \
+            --user 10001:10001 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 64 \
+            --memory 768m \
+            --cpus 1 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+            --mount "type=bind,source=$PWD/src,target=/scan-src/src,readonly" \
+            --mount "type=bind,source=$PWD/services,target=/scan-src/services,readonly" \
+            --mount "type=bind,source=$PWD/tests,target=/scan-src/tests,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/quirinus-output,target=/output" \
+            --env QUIRINUS_ENABLED=true \
+            --env QUIRINUS_ISOLATED=true \
+            --env QUIRINUS_SOURCE_READONLY=true \
+            vanilla-quirinus:v0.4.1
+          test -s "$RUNNER_TEMP/quirinus-output/quirinus-summary.json"
+          test -s "$RUNNER_TEMP/quirinus-output/quirinus-summary.md"
+          cat "$RUNNER_TEMP/quirinus-output/quirinus-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive aggregate summary only (no vulnerability locations)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quirinus-safe-summary
+          path: |
+            ${{ runner.temp }}/quirinus-output/quirinus-summary.json
+            ${{ runner.temp }}/quirinus-output/quirinus-summary.md
+          retention-days: 7
+          if-no-files-found: error

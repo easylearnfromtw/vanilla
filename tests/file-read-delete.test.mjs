@@ -59,3 +59,21 @@ test("actual chat wiring resolves named files before invoking model and CloudFil
  assert.match(chat,/deleteOwnedCopy\(item\)/);
  assert.match(files,/if\(after.some\(x=>x.id===file.id\)\)/);
 });
+
+test("regression: uploaded app.js enters full document context instead of index-only 2.4KB preview",()=>{
+ const chat=source("src/local-ai/LocalChat.tsx");
+ const start=chat.indexOf("const indexed=await importUploadedCode(");
+ assert.ok(start>0);
+ const uploaded=chat.slice(start,start+650);
+ assert.match(uploaded,/documentContext\(await extractBrowserDocument\(file\)\)/);
+ assert.doesNotMatch(uploaded,/excerpt\.slice\(0,2400\)/);
+});
+test("regression: library delete button invokes verified local/Drive resolver and cloud memory checks actual original",()=>{
+ const ui=source("src/library/ConversationLibrary.tsx");
+ const memory=source("src/memory/drive-memory.ts");
+ assert.match(ui,/await deleteOwnedCopy\(target\)/);
+ assert.match(ui,/await refresh\(\)/);
+ assert.match(memory,/if\(!source\)throw Error/);
+ assert.match(memory,/await listWorkspaceFiles\(token\)/);
+ assert.match(memory,/await listMemories\(\)/);
+});

@@ -20,6 +20,7 @@ from playwright.async_api import async_playwright
 from moli_engine import maybe_moli_extract
 from gridcraft_adapter import router as gridcraft_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
+from orchestra_capabilities import orchestra_capabilities
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -125,6 +126,14 @@ async def sign_in_google(request: GoogleLoginRequest):
 @app.get("/v1/auth/me")
 async def family_me(user: FamilyIdentity = Depends(family_user)):
     return {"member": user.member, "role": user.role, "email": user.email}
+
+@app.get("/v1/family/orchestra/capabilities")
+async def family_orchestra_capabilities(user: FamilyIdentity = Depends(family_reader)):
+    """Read-only engine capability discovery for verified family members."""
+    return JSONResponse(content=orchestra_capabilities(),
+                        headers={"Cache-Control": "private, no-store",
+                                 "X-Content-Type-Options": "nosniff"})
+
 
 @app.post("/v1/family/tasks", status_code=202)
 async def family_start_task(request: StartTaskRequest, background: BackgroundTasks,

@@ -1,0 +1,27 @@
+name: Export Vanilla Source For Claude
+on:
+  push:
+    branches:
+      - claude-export-20261019
+permissions:
+  contents: read
+jobs:
+  package-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact Vanilla main snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: e6c4b77055211cd235331c04af3cd5ccc8d94625
+          persist-credentials: false
+      - name: Create tracked-source archive
+        run: |
+          git archive --format=zip --output=vanilla-source.zip e6c4b77055211cd235331c04af3cd5ccc8d94625
+          unzip -t vanilla-source.zip | tail -n 1
+      - name: Upload source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-claude-source-20261019
+          path: vanilla-source.zip
+          if-no-files-found: error
+          retention-days: 1

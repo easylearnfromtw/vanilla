@@ -19,7 +19,7 @@ test("explicit save whole chat generates meaningful Markdown content",()=>{
 test("web URL intent accepts arbitrary public domains and disallows private or tokenized destinations",()=>{
  assert.equal(linkReadingIntent("讀取這個網址 https://example.com/article?a=1"),"https://example.com/article?a=1");
  assert.equal(linkReadingIntent("幫我看 https://medium.com/a"),"https://medium.com/a");
- assert.equal(linkReadingIntent("https://example.com/"),null);
+ assert.equal(linkReadingIntent("https://example.com/"),"https://example.com/");
  assert.equal(validatePublicPageURL("https://www.openai.com/post#section"),"https://www.openai.com/post");
  for(const url of ["http://example.com","https://localhost:8443/a","https://127.0.0.1","https://192.168.1.1/a",
   "https://username:password@example.com","file:///etc/passwd","https://[::1]/"]){

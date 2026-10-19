@@ -24,7 +24,8 @@
     "test:autocode": "node --experimental-strip-types --test tests/autonomous-selfbuild.test.mjs",
     "test:noodles-teacher": "node --experimental-strip-types --test tests/noodles-teacher.test.mjs",
     "test:auto-docs": "node --experimental-strip-types --test tests/auto-document-web.test.mjs",
-    "test:file-lifecycle": "node --experimental-strip-types --test tests/file-read-delete.test.mjs"
+    "test:file-lifecycle": "node --experimental-strip-types --test tests/file-read-delete.test.mjs",
+    "test:cream-longitudinal": "node --experimental-strip-types --test tests/cream-longitudinal-projects.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

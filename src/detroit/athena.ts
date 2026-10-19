@@ -1,6 +1,7 @@
 /** Athena is a fast first-pass policy scanner, NOT antivirus or a safe sandbox.
  * Nothing returned from a scanner permits code execution or overrides admin consent.
  */
+import {scanAttachmentIsolated} from "./athena-quarantine";
 export type AthenaVerdict={allow:boolean;level:"ok"|"caution"|"block";findings:string[]};
 const EXECUTABLE=/\.(?:exe|dll|scr|bat|cmd|ps1|apk|ipa|dmg|pkg|msi|com|vbs|jar)$/i;
 const MACRO=/\.(?:docm|xlsm|pptm)$/i;
@@ -22,6 +23,10 @@ export async function athenaScanFile(file:Pick<File,"name"|"size"|"type"|"slice"
  const head=new Uint8Array(await file.slice(0,Math.min(file.size,4096)).arrayBuffer());
  const prefix=Array.from(head.slice(0,4));
  if(prefix[0]===0x4d&&prefix[1]===0x5a||prefix.join(",")==="127,69,76,70"||[0xfeedface,0xfeedfacf,0xcafebabe].includes((head[0]*0x1000000+head[1]*0x10000+head[2]*0x100+head[3])>>>0))return {allow:false,level:"block",findings:["偵測到原生可執行檔簽章"]};
+ const deep=await scanAttachmentIsolated({name:file.name,type:file.type,size:file.size,arrayBuffer:()=>file.slice().arrayBuffer()});
+ const blocked=deep.filter(x=>x.level==="block");
+ if(blocked.length)return {allow:false,level:"block",findings:blocked.map(x=>x.reason)};
+ issues.push(...deep.filter(x=>x.level==="warn").map(x=>x.reason));
  const isCode=/\.(?:js|mjs|cjs|ts|tsx|py|sh|html|sql|yml|yaml)$/i.test(file.name);
  if(isCode){const snippet=new TextDecoder().decode(head);const source=athenaScanText(snippet);issues.push(...source.findings);}
  if(file.size===0)issues.push("空白檔案，無法分析內容");

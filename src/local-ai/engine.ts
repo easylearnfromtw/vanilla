@@ -1,7 +1,9 @@
 import {Converter} from "opencc-js";
 import * as webllm from "@mlc-ai/web-llm";
 import {toneInstruction} from "../ai/tone-adaptation";
-import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError} from "./chat-messages";
+import {VANILLA_BUILD} from "../version";
+import {validateWebLLMMessages} from "./request-guard";
+import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError,isSystemPromptOrderError} from "./chat-messages";
 
 const toTraditionalChinese=Converter({from:"cn",to:"tw"});
 const baseModels=[
@@ -70,9 +72,12 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  assertLocalMessages(messages);
  const maxTokens=loadedModel===LOCAL_MODEL?768:1280;
 
- async function streamReply(requestMessages:webllm.ChatCompletionMessageParam[]):Promise<string>{
+ async function streamReply(requestMessages:webllm.ChatCompletionMessageParam[],mode:"normal"|"recovery"):Promise<string>{
+  // Verify a snapshot of the EXACT roles submitted to WebLLM. Do not log contents.
+  const snapshot=requestMessages.map(message=>({...message}));
+  validateWebLLMMessages(snapshot as import("./chat-messages").LocalChatMessage[],mode);
   const stream=await currentEngine!.chat.completions.create({
-   messages:requestMessages,temperature:0.35,top_p:0.9,max_tokens:maxTokens,stream:true
+   messages:snapshot,temperature:0.35,top_p:0.9,max_tokens:maxTokens,stream:true
   });
   let answer="";
   for await(const chunk of stream){
@@ -81,14 +86,23 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   }
   return toTraditionalChinese(answer);
  }
- return retryOnSystemPromptError(
-  ()=>streamReply(messages),
-  async()=>{
-   // Reset the stale KV/context state, then retry locally just once.
-   await currentEngine.resetChat(false,loadedModel||undefined);
-   onText("");
-   const recovery=buildSystemlessRecoveryMessages(history,style);
-   return streamReply(recovery);
+ try{
+  return await retryOnSystemPromptError(
+   ()=>streamReply(messages,"normal"),
+   async()=>{
+    // This recovery only runs for the exact upstream WebLLM system-order exception.
+    // The local model and user data stay on-device.
+    await currentEngine.resetChat(false,loadedModel||undefined);
+    onText("");
+    const recovery=buildSystemlessRecoveryMessages(history,style);
+    return streamReply(recovery,"recovery");
+   }
+  );
+ }catch(error){
+  if(isSystemPromptOrderError(error)){
+   throw Error("WebLLM 的實際請求仍回報 System Prompt 順序錯誤。Vanilla Build "+VANILLA_BUILD+
+    "；已通過角色序列檢查並嘗試一次本機恢復。請確認裝置版本與正式網站一致後回報版本號。");
   }
- );
+  throw error;
+ }
 }

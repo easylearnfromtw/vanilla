@@ -58,6 +58,7 @@ jobs:
       - run: npm run test:capabilities
       - run: npm run test:security
       - run: npm run test:chat-router
+      - run: npm run test:email
       - run: npm run test:model-tuning
       - run: npm run test:archive
       - run: npm run test:providers

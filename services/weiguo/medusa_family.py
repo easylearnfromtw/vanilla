@@ -94,8 +94,12 @@ async def family_medusa_run(request: FamilyMedusaRunRequest,
     if "\x00" in request.source_code or "\x00" in request.stdin:
         raise HTTPException(400, "程式內容不可包含 NUL 字元")
     # Verify actual upstream configuration BEFORE consuming quota.
-    validated_config()
-    await take_quota(user.sub)
+    if os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
+        from medusa_cloudrun_adapter import validated_cloud_config
+        validated_cloud_config()
+    else:
+        validated_config()
+    await take_quota(user.sub
     output = await execute_medusa(MedusaRunRequest(
         source_code=request.source_code, stdin=request.stdin))
     return JSONResponse(output, headers={

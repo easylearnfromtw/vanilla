@@ -5,6 +5,7 @@ headers, authorization dependencies and SQL task ownership are exercised.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
@@ -12,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from fastapi.testclient import TestClient
+import httpx
 import auth
 import app as gateway
 
@@ -48,8 +49,25 @@ class FamilyGatewayEndpointTests(unittest.TestCase):
         browser = patch.object(gateway, "run_background_job", new_callable=AsyncMock)
         browser.start()
         self.addCleanup(browser.stop)
-        self.client = TestClient(gateway.app)
-        self.addCleanup(self.client.close)
+        class HTTPClient:
+            """Test real ASGI routes without Starlette's optional httpx2 dependency."""
+            @staticmethod
+            def request(method, path, **kwargs):
+                async def invoke():
+                    async with httpx.AsyncClient(
+                        transport=httpx.ASGITransport(app=gateway.app),
+                        base_url="http://weiguo.test"
+                    ) as client:
+                        return await client.request(method, path, **kwargs)
+                return asyncio.run(invoke())
+
+            def get(self, path, **kwargs):
+                return self.request("GET", path, **kwargs)
+
+            def post(self, path, **kwargs):
+                return self.request("POST", path, **kwargs)
+
+        self.client = HTTPClient()
         self.job = {"start_url": "https://example.org/", "steps": [{"action": "extract"}]}
 
     def token_for(self, subject: str) -> dict[str, str]:

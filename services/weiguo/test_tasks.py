@@ -47,6 +47,13 @@ class TaskAuditTests(unittest.TestCase):
         self.assertNotIn("FastAPI(", server)
         self.assertIn('app = FastAPI(', application)
         self.assertIn("app:app", docker)
+        entrypoint = (directory / "entrypoint.sh").read_text()
+        self.assertIn('ENTRYPOINT ["/usr/local/bin/weiguo-entrypoint"]', docker)
+        self.assertIn("USER root", docker)
+        self.assertIn("runuser -u weiguo", entrypoint)
+        self.assertIn("chown 10001:10001 /data", entrypoint)
+        self.assertIn("exec runuser", entrypoint)
+
         self.assertIn("WEIGUO_ADMIN_TOKEN", compose)
         self.assertIn("WEIGUO_ALLOWED_HOSTS", compose)
         self.assertIn("WEIGUO_TASK_DB", compose)

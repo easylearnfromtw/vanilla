@@ -36,6 +36,14 @@ services:
       WEIGUO_WORDCRAFT_EGRESS_ISOLATED: "false"
       # Once a trusted binary is deployed, set WEIGUO_WORDCRAFT_SHA256 server-side
       # to the actual independently verified 64-digit digest, NOT to an example value.
+      # Medusa is OFF until a separate, isolated Judge0 host is verified.
+      MEDUSA_ENABLED: "false"
+      MEDUSA_SANDBOX_EGRESS_BLOCKED: "false"
+      MEDUSA_FAMILY_ENABLED: "false"
+      # Server-only, only after deployment and owner approval:
+      # MEDUSA_JUDGE0_URL: "http://judge0:2358"
+      # MEDUSA_PYTHON_LANGUAGE_ID: "verified ID"
+      # MEDUSA_FAMILY_OWNER_SUBS: "verified Google sub"
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:

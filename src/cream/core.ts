@@ -1,7 +1,7 @@
 /** CREAM P0: deterministic, local-only tabular analysis.
  * Never execute spreadsheet formulas, arbitrary JavaScript, or model-generated code.
  */
-export type CreamChartKind="bar"|"line"|"scatter";
+export type CreamChartKind="bar"|"line"|"scatter"|"pie"|"numberline";
 export type CreamDataset={source:string;columns:string[];rows:string[][];rowNumbers:number[];importedAt:string};
 export type CreamPoint={row:number;label:string;value:number;x?:number};
 export type CreamScatterAxis={xColumn:number;yColumn:number;xKey:string;n:number;pearsonR:number|null};
@@ -110,7 +110,7 @@ export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind|"auto"="au
  }
  const autoChartKind:CreamChartKind=(timeHeader||timeLabels)?"line":scatterAxis?"scatter":"bar";
  const chartKind: CreamChartKind=kind==="auto"?autoChartKind:kind;
- const chartReason=autoChartKind==="line"?"辨識到時間類欄位，使用折線圖呈現記錄順序的變化。":autoChartKind==="scatter"?"辨識到兩個數值欄位，以有效配對的原始資料繪製 X/Y 散佈圖。":"使用長條圖比較各筆資料，不將資料順序誤當作時間。";
+ const chartReason=kind==="pie"?"依指定的圓餅圖顯示非負分類數值之占比。":kind==="numberline"?"依指定的數線圖呈現數值位置與分布。":autoChartKind==="line"?"辨識到時間類欄位，使用折線圖呈現記錄順序的變化。":autoChartKind==="scatter"?"辨識到兩個數值欄位，以有效配對的原始資料繪製 X/Y 散佈圖。":"使用長條圖比較各筆資料，不將資料順序誤當作時間。";
  const focus=chartKind==="scatter"&&scatterAxis?yMetric:metrics[0];
  const insights:string[]=[];
  if(focus){
@@ -128,25 +128,27 @@ export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind|"auto"="au
 }
 export function summarizeCream(result:CreamResult):string{
  const head="CREAM 已分析「"+result.source+"」："+result.rowCount+" 筆資料，"+result.columns.length+" 欄。";
- return result.metrics.length?head+" 已完成 "+result.metrics.length+" 個數值欄位的描述統計，自動建議"+({line:"折線圖",bar:"長條圖",scatter:"散佈圖"}[result.autoChartKind||result.chartKind])+"；"+(result.insights?.join(" ")||"")+" 圖表與來源如下。":head+" 目前無純數值欄位可繪圖；請檢查資料格式。";
+ return result.metrics.length?head+" 已完成 "+result.metrics.length+" 個數值欄位的描述統計，自動建議"+({line:"折線圖",bar:"長條圖",scatter:"散佈圖",pie:"圓餅圖",numberline:"數線圖"}[result.chartKind])+"；"+(result.insights?.join(" ")||"")+" 圖表與來源如下。":head+" 目前無純數值欄位可繪圖；請檢查資料格式。";
 }
 export function creamInstruction(text:string):{kind:CreamChartKind|"auto";csv:string}|null{
  const source=text.trim(),explicit=/^(?:CREAM|分析資料|繪製圖表)\s*[：:]\s*([\s\S]+)$/i.exec(source);
  let raw=explicit?.[1].trim()||"";
  // Recognize ordinary chat instructions only when actual table rows follow.
- if(!explicit&&/(?:分析|圖表|統計|視覺化|整理|趨勢)/.test(source.slice(0,100))){
+ if(!explicit&&/(?:分析|圖表|統計|視覺化|整理|趨勢|圓餅|數線|折線|畫圖|繪圖)/.test(source.slice(0,100))){
   const lines=source.split(/\r?\n/);
   const start=lines.findIndex((line,i)=>i<4&&/[,\t]/.test(line)&&!/^\s*[-*#]/.test(line));
   if(start>=0&&lines.length-start>=3)raw=lines.slice(start).join("\n").trim();
  }
  if(!raw||!raw.includes("\n")&&!raw.includes("\t"))return null;
- const instruction=source.slice(0,Math.max(60,source.indexOf(raw)));
- const kind:CreamChartKind|"auto"=/折線|line/i.test(instruction)?"line":/散佈|scatter/i.test(instruction)?"scatter":/長條|柱狀|bar/i.test(instruction)?"bar":"auto";
+ const instruction=source.slice(0,source.indexOf(raw)).trim()||source.slice(0,100);
+ const kind:CreamChartKind|"auto"=/圓餅|餅圖|pie/i.test(instruction)?"pie":/數線圖|點數線|number\s*line/i.test(instruction)?"numberline":/折線|line\s*chart/i.test(instruction)?"line":/散佈|scatter/i.test(instruction)?"scatter":/長條|柱狀|bar/i.test(instruction)?"bar":"auto";
  return {kind,csv:raw};
 }
 export function creamChartFollowup(text:string):CreamChartKind|null{
- if(!/(?:改成|切換|換成|畫成|變成)/.test(text))return null;
- if(/折線圖/.test(text))return "line";
+ if(!/(?:改成|切換|換成|畫成|變成|畫|生成|製作|顯示)/.test(text))return null;
+ if(/圓餅圖|餅圖|pie\s*chart/i.test(text))return "pie";
+ if(/數線圖|點數線|number\s*line/i.test(text))return "numberline";
+ if(/折線圖|趨勢線圖/.test(text))return "line";
  if(/長條圖|柱狀圖/.test(text))return "bar";
  if(/散佈圖|散點圖/.test(text))return "scatter";
  return null;

@@ -1,5 +1,5 @@
 import {inspectExternalText} from "../security/trust-boundary";
-import {getSearchBridge} from "./search-bridge";
+import {getSearchBridge,webReaderHeaders} from "./search-bridge";
 export type ReadPage={url:string;title:string;text:string;readMethod:"browser"|"bridge"};
 export function validatePublicPageURL(raw:string):string{
  const url=new URL(raw.trim());
@@ -58,7 +58,7 @@ export async function readPublicPage(input:string):Promise<ReadPage>{
    const backend=getSearchBridge();
    if(!backend)throw Error("此網站無法由 iPhone 直接讀取（CORS 或網站限制），且尚未設定網頁擷取後端。"+String(directError));
    const path=readBridgeURL(backend,url);
-   const res=await fetch(path,{mode:"cors",credentials:"omit",signal:controller.signal});
+   const res=await fetch(path,{mode:"cors",credentials:"omit",headers:webReaderHeaders(),signal:controller.signal});
    if(!res.ok)throw Error("網頁擷取後端回應 HTTP "+res.status);
    const raw=await res.json() as Partial<ReadPage>;
    if(typeof raw.text!=="string"||raw.text.length<120||typeof raw.url!=="string")throw Error("網頁擷取服務沒有回傳足夠正文");

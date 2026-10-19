@@ -139,5 +139,28 @@ class FamilyGatewayEndpointTests(unittest.TestCase):
             self.assertEqual(gateway.allowed_origins(), ["https://easylearnfromtw.github.io.evil.example"])
 
 
+    def test_medusa_requires_session_consent_and_active_backend(self):
+        from medusa_routes import _recent
+        _recent.clear()
+        job = {"language": "python", "source_code": "print(1)", "stdin": "", "approved": True}
+        path = "/v1/family/medusa/execute"
+        self.assertEqual(self.client.post(path, json=job).status_code, 401)
+        viewer = self.token_for(SUB_VIEW)
+        self.assertEqual(self.client.post(path, json=job, headers=viewer).status_code, 403)
+        alice = self.token_for(SUB_A)
+        self.assertEqual(self.client.post(path, json={**job, "approved": False}, headers=alice).status_code, 403)
+        # No Judge0 URL is configured in the test gateway: fail closed.
+        self.assertEqual(self.client.post(path, json=job, headers=alice).status_code, 503)
+        with patch("medusa_routes.execute_code", new_callable=AsyncMock) as runner:
+            runner.return_value = {"engine": "medusa-judge0", "success": True,
+                                   "status": {"id": 3, "description": "Accepted"}}
+            reply = self.client.post(path, json=job, headers=alice)
+            self.assertEqual(reply.status_code, 200, reply.text)
+            self.assertEqual(reply.json()["engine"], "medusa-judge0")
+            self.assertEqual(reply.headers["cache-control"], "private, no-store")
+            self.assertEqual(self.client.post(path, json=job, headers=alice).status_code, 429)
+
+
+
 if __name__ == "__main__":
     unittest.main()

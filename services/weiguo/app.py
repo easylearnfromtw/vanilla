@@ -11,10 +11,12 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Header, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
+from auth import google_login, family_user, family_reader, FamilyIdentity
 
 class PlanRequest(BaseModel):
     task: str = Field(min_length=3, max_length=1200)
@@ -28,6 +30,9 @@ class ExecuteRequest(BaseModel):
 class StartTaskRequest(BaseModel):
     start_url: str = Field(max_length=2048)
     steps: list[dict] = Field(min_length=1,max_length=12)
+
+class GoogleLoginRequest(BaseModel):
+    credential: str = Field(min_length=100,max_length=8192)
 
 class ToolsRequest(BaseModel):
     tools: list[dict] = Field(max_length=30)
@@ -54,6 +59,63 @@ async def operator(authorization: str | None = Header(default=None)):
 async def health():
     return {"service":"weiguo","configured":len(os.environ.get("WEIGUO_ADMIN_TOKEN",""))>=32 and bool(allow_hosts()),
       "actions":"https allowlist only","ollama":bool(os.environ.get("WEIGUO_OLLAMA_URL"))}
+
+
+# Browser-origin approval is NOT user authentication: each task still requires a
+# verified signed family session. Never use allow_origins=["*"].
+def allowed_origins() -> list[str]:
+    from urllib.parse import urlsplit
+    raw = os.environ.get("WEIGUO_CORS_ORIGINS", "")
+    valid = []
+    for origin in raw.split(","):
+        origin = origin.strip()
+        if not origin:
+            continue
+        parts = urlsplit(origin)
+        if (parts.scheme != "https" or not parts.hostname or parts.username or parts.password
+            or parts.path or parts.query or parts.fragment or parts.port not in (None, 443)
+            or origin != "https://" + parts.hostname + (":443" if parts.port == 443 else "")):
+            raise RuntimeError("WEIGUO_CORS_ORIGINS must contain exact HTTPS origins")
+        valid.append(origin)
+    return valid
+
+app.add_middleware(CORSMiddleware, allow_origins=allowed_origins(),
+                   allow_credentials=False, allow_methods=["GET", "POST"],
+                   allow_headers=["Authorization", "Content-Type"])
+
+@app.post("/v1/auth/google")
+async def sign_in_google(request: GoogleLoginRequest):
+    token, identity = google_login(request.credential)
+    return {"token": token, "expiresIn": 900, "member": identity.member,
+            "role": identity.role, "email": identity.email}
+
+@app.get("/v1/auth/me")
+async def family_me(user: FamilyIdentity = Depends(family_user)):
+    return {"member": user.member, "role": user.role, "email": user.email}
+
+@app.post("/v1/family/tasks", status_code=202)
+async def family_start_task(request: StartTaskRequest, background: BackgroundTasks,
+                            user: FamilyIdentity = Depends(family_reader)):
+    try:
+        validate_url(request.start_url, allow_hosts(), check_dns=True)
+        steps = validate_steps(request.steps, approved=False, allow_mutations=False)
+        for step in steps:
+            if step["action"] == "navigate":
+                validate_url(step["url"], allow_hosts(), check_dns=True)
+        item = new_task(request.start_url, steps, owner_sub=user.sub, limit_per_minute=6)
+    except PolicyError as e:
+        raise HTTPException(400, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(429, str(e)) from e
+    background.add_task(run_background_job, item["id"], ExecuteRequest(start_url=request.start_url, steps=steps))
+    return item
+
+@app.get("/v1/family/tasks/{task_id}")
+async def family_get_task(task_id: str, user: FamilyIdentity = Depends(family_reader)):
+    item = lookup_task(task_id, owner_sub=user.sub)
+    if item is None:
+        raise HTTPException(404, "找不到指定任務")
+    return item
 
 @app.post("/v1/tools")
 async def tools(request:ToolsRequest,_:bool=Depends(operator)):

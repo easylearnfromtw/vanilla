@@ -18,6 +18,10 @@ services:
       WEIGUO_CORS_ORIGINS: "https://easylearnfromtw.github.io"
       WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
       WEIGUO_ALLOW_JAVASCRIPT: "false"
+      # Default preserves the reviewed Chromium route. Moli is not bundled.
+      WEIGUO_BROWSER_ENGINE: "chromium"
+      # Only true AFTER a real egress host/domain firewall/proxy is enforced.
+      WEIGUO_MOLI_EGRESS_ISOLATED: "false"
       WEIGUO_ALLOW_MUTATIONS: "false"
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"

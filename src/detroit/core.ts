@@ -41,16 +41,16 @@ export function merlinParse(text:string,opts:{image?:boolean;file?:boolean;priva
  const research=/(?:研究|文獻|查證|引文|來源|最新|現況|比較.*資料|市場分析|法律條文)/i.test(q);
  const analysis=/(?:分析|統計|趨勢|比較|評估|估計|數據|算出|模型)/i.test(q);
  const visual=/(?:圖表|圖片|視覺|插畫|設計圖|畫一張)/i.test(q);
- const intent:DetroitPlan["intent"]=email?"email":document?"document":code?"code":research?"research":analysis?"analysis":visual?"visual":opts.file?"file":"chat";
+ const intent:DetroitPlan["intent"]=humanize?"chat":email?"email":document?"document":code?"code":research?"research":analysis?"analysis":visual?"visual":opts.file?"file":"chat";
  const complex=/(?:全面|詳細|深入|完整|逐步|嚴謹|多角度|比較|交叉驗證|系統設計|完整程式)/i.test(q)||q.length>280;
  const depth:DetroitDepth=opts.deepRequested||/深度思考|認真想|多想一點|仔細推敲/i.test(q)?"deep":complex||intent==="research"||intent==="code"||intent==="document"||intent==="email"||intent==="analysis"||humanize?"standard":"quick";
- const needsEvidence=research||/(?:依據|來源|引用|佐證)/.test(q);
+ const needsEvidence=!humanize&&(research||/(?:依據|來源|引用|佐證)/.test(q));
  const requiresNetwork=needsEvidence&&!opts.privateMode;
- const needsArtifact=document||email;
+ const needsArtifact=!humanize&&(document||email);
  const engines:DetroitEngine[]=["merlin","athena","zeus"];
  if(depth!=="quick"){
   if(requiresNetwork)engines.push("scouts");
-  if(analysis||intent==="analysis")engines.push("cream");
+  if(!humanize&&(analysis||intent==="analysis"))engines.push("cream");
   engines.push("dionysus","er-ya");
   if(intent==="email")engines.push("janus");
   else if(needsArtifact)engines.push("orchestra","retina");

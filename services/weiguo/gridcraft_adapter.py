@@ -192,10 +192,8 @@ def build_cream_report(request: CreamReportRequest) -> tuple[list[dict], str | N
         raise HTTPException(422, "圖表來源列號不可重複")
     if any(not isfinite(p.value) or (p.x is not None and not isfinite(p.x)) for p in request.points):
         raise HTTPException(422, "圖表包含無效數值")
-    if any(p.row > request.rowCount + 1 for p in request.points):
-        # Original CSV may have blank skipped rows; allow known raw rows only up to
-        # the CREAM import limit while preserving source numbering.
-        raise HTTPException(422, "圖表來源列號超出工作簿範圍")
+    # Source row numbers may exceed rowCount+1 when blank original CSV
+    # rows were skipped. Preserve CREAM's actual source row trace.
     chart_kind = {
         "bar": "column", "line": "line", "scatter": "scatter", "pie": "pie",
     }.get(request.chartKind)

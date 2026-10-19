@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useState} from "react";
-import {FolderOpen,Trash2,RefreshCw,Save,Image,FileText,Cloud,HardDrive} from "lucide-react";
+import {FolderOpen,Trash2,RefreshCw,Save,FileText,Cloud,HardDrive} from "lucide-react";
 import {attachmentOwner,changeChatAttachment,getChatAttachment,listChatAttachments,removeChatAttachment,type SavedAttachment} from "./attachment-vault";
 import {signedChatAccount} from "../vault/chat-sync";
 import {driveSession} from "../workspace/cloud-drive";
@@ -43,7 +43,7 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
  useEffect(()=>{
   setPreview("");setTextContent("");
   if(!active)return;
-  setName(active.entry.name??active.entry.title);
+  setName(active.kind==="device"?active.entry.name:active.entry.title);
   setNote(active.kind==="device"?active.entry.note:active.entry.description);
   let alive=true,url="";
   void (async()=>{

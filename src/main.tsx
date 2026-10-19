@@ -3,6 +3,7 @@ declare global {interface Window {__vanillaBootOk?:()=>void;__vanillaBootError?:
 import {createRoot} from "react-dom/client";
 import App from "./App";
 import "./style.css";
+import "./local-ai/chatgpt-layout.css";
 
 type State={error:string|null};
 class AppErrorBoundary extends React.Component<React.PropsWithChildren,State>{

@@ -23,7 +23,7 @@ Quirinus is a separate **tool**, not another language model and not a replacemen
   - `POST /v1/operator/quirinus/scan` — accepts **no user path, URL, command, model or scan parameters**. Scans only `/scan-src` mounted by the operator.
 - Existing `WEIGUO_ADMIN_TOKEN` bearer and `WEIGUO_PUBLIC_FAMILY_ONLY=true` protections apply. PWA and family accounts have no scan execution access.
 - Fixed argv: `/usr/local/bin/vulnclaw code scan /scan-src --layer L1,L2 --format json --no-progress`. L1/L2 are offline static rules; exit code 1 indicates high/critical findings and is handled as a completed scan, not a tool failure.
-- Bounded runtime (35 seconds), a single concurrent scan per worker, 3,000-file preflight limit, 512 KiB JSON response cap, 80 returned finding previews, and strict status parsing. Raw source/evidence/stdout/stderr are **never returned** by the API. Symlink-containing trees fail closed.
+- Bounded runtime (35 seconds), a single concurrent scan per worker, 3,000-file / 128 MiB source preflight, incrementally enforced 512 KiB stdout cap (kills the process if exceeded), 80 returned finding previews, and strict status parsing. Raw source/evidence/stdout/stderr are **never returned** by the API. Symlink-containing trees and parent-directory paths in scanner findings fail closed or are redacted.
 - No active website reconnaissance, exploits, credential use, L3 cloud source uploads, plugin installation, or dynamic agent commands.
 
 ## IMPORTANT: separate isolated deployment required

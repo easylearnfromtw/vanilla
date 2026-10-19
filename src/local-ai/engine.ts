@@ -12,6 +12,8 @@ import {validateWebLLMMessages} from "./request-guard";
 import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError,isSystemPromptOrderError,type LocalChatMessage} from "./chat-messages";
 import {LOCAL_CATALOG,DEFAULT_LOCAL_MODEL,profileFor} from "../ai/model-profiles";
 import {webllmRequestOptions} from "../ai/generation-config";
+import {localInferenceQueue} from "../detroit/zeus";
+import {isPinnedWebLLMModelSupported,isDisposedWebLLMFailure} from "./webllm-compat";
 import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../ai/prompts";
 import {classifyTask,type TaskKind} from "../ai/task-kind";
 import {fitHistory,estimateTokens} from "../ai/context-budget";
@@ -55,20 +57,21 @@ export function isLocalWorkerActive():boolean{return usingWorker;}
 export function isLocalModelReady(model?:LocalModelId):boolean{return engine!==null&&(!model||loadedModel===model);}
 /** Best effort before WebLLM is loaded (catalog), exact afterwards (installed prebuilt list). */
 export function isLocalModelSupported(model:LocalModelId):boolean{
+ if(!isPinnedWebLLMModelSupported(model))return false;
  if(supported)return supported.has(model);
  return LOCAL_CATALOG.some(x=>x.id===model);
 }
 export async function refreshSupportedModels():Promise<string[]>{
  await webllm();
- return LOCAL_CATALOG.filter(x=>supported!.has(x.id)).map(x=>x.id);
+ return LOCAL_CATALOG.filter(x=>isPinnedWebLLMModelSupported(x.id)&&supported!.has(x.id)).map(x=>x.id);
 }
 /** True when the weights are already in this browser's cache (no download needed). */
 export async function isLocalModelCached(model:LocalModelId):Promise<boolean>{
- try{const mod=await webllm();return typeof mod.hasModelInCache==="function"?await mod.hasModelInCache(model):false;}catch{return false;}
+ try{if(!isLocalModelSupported(model))return false;const mod=await webllm();return typeof mod.hasModelInCache==="function"?await mod.hasModelInCache(model):false;}catch{return false;}
 }
 const SELECTED_KEY="vanilla.local.model";
 export function preferredLocalModel():LocalModelId{
- try{const saved=localStorage.getItem(SELECTED_KEY);if(saved&&LOCAL_CATALOG.some(x=>x.id===saved))return saved;}catch{}
+ try{const saved=localStorage.getItem(SELECTED_KEY);if(saved&&LOCAL_CATALOG.some(x=>x.id===saved)&&isPinnedWebLLMModelSupported(saved))return saved;}catch{}
  return LOCAL_MODEL;
 }
 
@@ -102,27 +105,33 @@ async function createEngine(model:LocalModelId,onProgress:(message:string,progre
  return mod.CreateMLCEngine(model,{initProgressCallback:report=>onProgress(report.text,report.progress)});
 }
 
+/** Model reload shares the same GPU queue as inference.
+ * Avoid unloading an engine while a streaming reply still holds it.
+ */
 export async function loadLocalModel(onProgress:(message:string,progress:number)=>void,model:LocalModelId=LOCAL_MODEL):Promise<void>{
  if(engine&&loadedModel===model)return;
  if(!("gpu" in navigator))throw new Error("目前瀏覽器不支援 WebGPU，無法使用裝置端模型。iPhone 需 iOS 26 以上的 Safari。");
+ if(!isPinnedWebLLMModelSupported(model))throw new Error("這個模型需要較新的 WebLLM，但該版本有已知的 GPU 釋放問題。請先選擇 Qwen2.5 或 Qwen3 模型。");
  await webllm();
  if(!isLocalModelSupported(model))throw new Error("目前 WebLLM 版本沒有內建這個模型，請選擇其他本地模型。");
  if(loading){
   await loading;
   if(engine&&loadedModel===model)return;
  }
- if(engine&&loadedModel!==model){
-  await engine.unload();
-  engine=null;
-  loadedModel=null;
- }
  loadingModel=model;
- const task=(async()=>{
+ const task=localInferenceQueue.run(async()=>{
+  if(engine&&loadedModel===model)return;
+  if(engine){
+   const old=engine;
+   engine=null;
+   loadedModel=null;
+   await old.unload();
+  }
   const next=await createEngine(model,onProgress);
   engine=next;
   loadedModel=model;
   try{localStorage.setItem(SELECTED_KEY,model);}catch{}
- })();
+ });
  loading=task;
  try{await task;}
  finally{if(loading===task){loading=null;loadingModel=null;}}
@@ -153,7 +162,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  const turns=fitHistory(history.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string").map(x=>({role:x.role,content:x.content})),budget,480);
  const messages=buildLocalChatMessages(turns,"",{system,maxTurnChars:Infinity});
  assertLocalMessages(messages);
- const abort=()=>{void interruptLocalGeneration();};
+ const abort=()=>{try{void Promise.resolve((currentEngine as unknown as {interruptGenerate?:()=>void|Promise<void>}).interruptGenerate?.()).catch(()=>{});}catch{}};
  options.signal?.addEventListener("abort",abort,{once:true});
 
  async function streamReply(requestMessages:LocalChatMessage[],mode:"normal"|"recovery"):Promise<string>{
@@ -191,6 +200,12 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
    }
   );
  }catch(error){
+  if(isDisposedWebLLMFailure(error)){
+   // A disposed TVM object cannot be safely reused on the next turn.
+   if(engine===currentEngine){engine=null;loadedModel=null;}
+   try{await currentEngine.unload();}catch{}
+   throw new Error("手機本地 WebLLM 的 GPU 物件已失效（Object has already been disposed）。請關閉 Vanilla 後重新開啟並重新載入本地模型；此問題與 GridCraft 後端無關。");
+  }
   if(isSystemPromptOrderError(error)){
    throw Error("WebLLM 的實際請求仍回報 System Prompt 順序錯誤。Vanilla Build "+VANILLA_BUILD+
     "；已通過角色序列檢查並嘗試一次本機恢復。請確認裝置版本與正式網站一致後回報版本號。");

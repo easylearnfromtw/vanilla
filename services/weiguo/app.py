@@ -22,6 +22,7 @@ from gridcraft_adapter import router as gridcraft_router
 from medusa_adapter import router as medusa_router
 from medusa_family import router as medusa_family_router
 from quirinus_adapter import router as quirinus_router
+from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
 from pdfcraft_native import probe_sandbox
@@ -107,6 +108,7 @@ async def operator(authorization: str | None = Header(default=None)):
 app.include_router(medusa_router, dependencies=[Depends(operator)])
 app.include_router(medusa_family_router)
 app.include_router(quirinus_router, dependencies=[Depends(operator)])
+app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 
 @app.get("/v1/health")
 @app.get("/health")

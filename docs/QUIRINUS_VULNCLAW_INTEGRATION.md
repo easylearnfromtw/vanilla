@@ -59,3 +59,19 @@ python3 -m unittest discover -s services/weiguo -p 'test_*.py'
 ```
 
 Upstream MIT copyright and license obligations apply if distributing any portion of upstream software. This integration contains a thin original adapter only; it does not vendor upstream code.
+
+## Detroit-approved Quirinus workflow (second-stage integration)
+
+**Status: implemented in code, disabled by default; not a deployed/connected scanner.**
+An operator-only workflow coordinates `Athena -> Quirinus -> CREAM -> JENSEN HUANG` without adding a new local LLM or granting the PWA any admin access.
+
+- `POST /v1/operator/detroit/quirinus/prepare` checks that Quirinus is deployed and returns a source-content SHA-256 plus an in-memory one-time approval token (expires in 120 seconds). The operator must inspect the source scope and explicitly approve the request; tokens are never included in source code or frontend state.
+- `POST /v1/operator/detroit/quirinus/execute` accepts `{"approval_token":"<one-time-token>","approved":true}`. It consumes the token before rechecking the approved bytes and running the existing fixed L1/L2 Quirinus scanner. Expired/replayed tokens or modified source snapshots are rejected.
+- These routes inherit the WeiGuo `WEIGUO_ADMIN_TOKEN` operator dependency and `WEIGUO_PUBLIC_FAMILY_ONLY` 404 filtering, plus no-store response headers. Keep them private and single-worker; ephemeral approvals do not survive restart or work across multiple workers.
+- **CREAM** deterministically validates totals and severities, computes a small non-clinical priority score, and emits a bounded summary.
+- **JENSEN HUANG** receives a deduplicated, data-only remediation backlog with predefined generic fixes; no raw evidence, source lines, LLM prompt, shell command or autonomous patching is allowed. `autoPatch=false`, `autoMerge=false`, `llmInvoked=false`. The next trusted human-reviewed development workflow is a separate action.
+- **LUCA** can record static operation names and status codes if its existing privacy-first telemetry is enabled; approval tokens and findings are never sent to LUCA.
+
+Activation requires an already isolated trusted Quirinus operator environment **plus** server-only `DETROIT_QUIRINUS_DISPATCH_ENABLED=true`. This is not a frontend feature switch and does not provision VulnClaw. No internet penetration-testing commands, model code uploads, access to personal files, or unrestricted background monitoring.
+
+Tests: `python -m unittest discover -s services/weiguo -p 'test_detroit_quirinus_dispatcher.py'`.

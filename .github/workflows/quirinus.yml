@@ -29,4 +29,6 @@ jobs:
       - name: Verify Quirinus secure adapter without external VulnClaw
         run: python -m unittest discover -s services/weiguo -p 'test_quirinus_adapter.py'
       - name: Verify Quirinus adapter syntax
-        run: python -m py_compile services/weiguo/quirinus_adapter.py
+        run: python -m py_compile services/weiguo/quirinus_adapter.py services/weiguo/detroit_quirinus_dispatcher.py
+      - name: Verify approved Detroit dispatch, CREAM summary and JENSEN handoff
+        run: python -m unittest discover -s services/weiguo -p 'test_detroit_quirinus_dispatcher.py'

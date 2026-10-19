@@ -183,8 +183,13 @@ async function executeIntent(question:string):Promise<boolean>{
  const intent=planAppIntent(question);
  if(!intent)return false;
  if(intent.kind==="open"){
-  const eventName=intent.section==="sheets"?"vanilla-open-sheets":intent.section==="files"?"vanilla-open-files":intent.section==="builder"?"vanilla-open-builder":"vanilla-open-settings";
+  const eventName=intent.section==="mobile"?"vanilla-open-mobile":intent.section==="sheets"?"vanilla-open-sheets":intent.section==="files"?"vanilla-open-files":intent.section==="builder"?"vanilla-open-builder":"vanilla-open-settings";
   window.dispatchEvent(new Event(eventName));setDraft("");return true;
+ }
+ if(intent.kind==="mobile"){
+  if(privateMode&&!window.confirm("這是私密對話。要將手機操作需求交給一般工作區做預覽嗎？不會自動傳送到雲端或控制手機。"))return true;
+  toolReply(question,intent.message+"。請先在手機操作 Agent 檢查內容；尚未控制裝置。");
+  window.dispatchEvent(new CustomEvent("vanilla-open-mobile",{detail:{goal:intent.goal}}));return true;
  }
  if(intent.kind==="integration"){
   if(privateMode&&!window.confirm("要把私密模式的 API 串接構想帶入一般 Self-Build 工作室嗎？你沒有貼入金鑰才應繼續。"))return true;

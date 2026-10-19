@@ -1,4 +1,5 @@
 import LocalChat from "./local-ai/LocalChat";
+import MobileAutomation from "./mobile/MobileAutomation";
 import BuildStudio from "./builder/BuildStudio";
 import FeatureRuntime from "./builder/FeatureRuntime";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
@@ -14,9 +15,10 @@ import ChatSyncSettings from "./vault/ChatSyncSettings";
 import {useState,useEffect} from "react";
 import {loadProviderConfigs} from "./vault/provider-sync";
 import {BrainCircuit,MessageCircle,Users,ListTodo,Database,Plane,HeartPulse,Settings2,Upload,ShieldCheck,Menu,PanelLeftClose,Plus,LockKeyhole,Table2,FolderOpen,WandSparkles,Puzzle} from "lucide-react";
-type Section="chat"|"sheets"|"files"|"builder"|"feature"|"agents"|"tasks"|"memory"|"travel"|"health"|"line"|"settings";
+type Section="chat"|"mobile"|"sheets"|"files"|"builder"|"feature"|"agents"|"tasks"|"memory"|"travel"|"health"|"line"|"settings";
 const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string}[]=[
 {id:"chat",label:"AI 對話",icon:MessageCircle,description:"你的私人裝置端 AI 助手"},
+{id:"mobile",label:"手機操作 Agent",icon:ShieldCheck,description:"Mobilerun 裝置控制任務預覽與人工核准"},
 {id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存"},
 {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯、上傳與垃圾桶"},
 {id:"builder",label:"Self-Build Studio",icon:WandSparkles,description:"用自然語言新增與改進 Vanilla 自建工具"},
@@ -30,6 +32,7 @@ const items:{id:Section;label:string;icon:typeof BrainCircuit;description:string
 ];
 export default function App(){
 const [section,setSection]=useState<Section>("chat");
+const [mobileGoal,setMobileGoal]=useState("");
 const [fontMode,setFontMode]=useState(()=>localStorage.getItem("vanilla.font.mode")||"auto");
 useEffect(()=>{document.documentElement.dataset.fontMode=fontMode;localStorage.setItem("vanilla.font.mode",fontMode);},[fontMode]);
 useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");if(!raw)return;const session=JSON.parse(raw) as {token?:string;expiresAt?:number};if(session.token&&session.expiresAt&&session.expiresAt>Date.now()+60000){void loadProviderConfigs(session.token).catch(()=>{});}}catch{}},[]);
@@ -55,6 +58,7 @@ useEffect(()=>{
   try{localStorage.setItem("vanilla.sheets.pending-import.v1",JSON.stringify(detail));setSection("sheets");setMenuOpen(false);}catch{window.alert("無法暫存表格，請檢查裝置儲存空間");}
  };
  const openFiles=()=>{setSection("files");setMenuOpen(false);};
+ const openMobile=(event:Event)=>{const detail=(event as CustomEvent<{goal?:string}>).detail;if(detail?.goal)setMobileGoal(detail.goal.slice(0,280));setSection("mobile");setMenuOpen(false);};
  const openSettings=()=>{setSection("settings");setMenuOpen(false);};
  const openSheets=()=>{setSection("sheets");setMenuOpen(false);};
  const openBuilder=(event:Event)=>{
@@ -64,10 +68,11 @@ useEffect(()=>{
  };
  window.addEventListener("vanilla-open-sheet",openSheet);
  window.addEventListener("vanilla-open-files",openFiles);
+ window.addEventListener("vanilla-open-mobile",openMobile);
  window.addEventListener("vanilla-open-settings",openSettings);
  window.addEventListener("vanilla-open-sheets",openSheets);
  window.addEventListener("vanilla-open-builder",openBuilder);
- return()=>{window.removeEventListener("vanilla-open-sheet",openSheet);window.removeEventListener("vanilla-open-files",openFiles);window.removeEventListener("vanilla-open-settings",openSettings);window.removeEventListener("vanilla-open-sheets",openSheets);window.removeEventListener("vanilla-open-builder",openBuilder);};
+ return()=>{window.removeEventListener("vanilla-open-sheet",openSheet);window.removeEventListener("vanilla-open-mobile",openMobile);window.removeEventListener("vanilla-open-files",openFiles);window.removeEventListener("vanilla-open-settings",openSettings);window.removeEventListener("vanilla-open-sheets",openSheets);window.removeEventListener("vanilla-open-builder",openBuilder);};
 },[]);
 const activeFeature=features.find(x=>x.id===activeFeatureId);
 const selected=items.find(x=>x.id===section)||{id:"feature" as const,label:activeFeature?.name||"自建工具",icon:Puzzle,description:activeFeature?.description||"Vanilla 自建模組"};
@@ -78,7 +83,7 @@ return <div className="shell">
 <div className="brand"><span className="brand-mark"><BrainCircuit size={22}/></span><div><strong>vanilla</strong><small>PERSONAL INTELLIGENCE</small></div><button className="sidebar-collapse" aria-label="收合選單" onClick={()=>setMenuOpen(false)}><PanelLeftClose size={19}/></button></div>
 <button className="new-chat" onClick={()=>{try{localStorage.removeItem(chatStorageKey(false));}catch{}setChatKey(k=>k+1);navigate("chat");}}><Plus size={18}/> 新對話</button>
 <div className="nav-caption">工作空間</div>
-<nav aria-label="主要導覽">{items.filter(x=>x.id==="chat"||x.id==="settings").map(x=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)}><x.icon size={18}/><span>{x.label}</span></button>)}</nav>
+<nav aria-label="主要導覽">{items.filter(x=>x.id==="chat"||x.id==="mobile"||x.id==="settings").map(x=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)}><x.icon size={18}/><span>{x.label}</span></button>)}</nav>
 
 <div className="sidebar-footer"><ShieldCheck size={16}/> 本地優先 · 隱私優先</div>
 </aside>
@@ -88,6 +93,7 @@ return <div className="shell">
 <div className="topbar-account">{signedIn?<span title={"登入帳號："+signedIn.email} className="account-email">{signedIn.email}</span>:<button type="button" disabled={loginBusy} onClick={()=>void connectAccount()} className="google-login">{loginBusy?"連線中…":"Google 登入"}</button>}{loginNotice&&<span className="sr-only" role="status">{loginNotice}</span>}</div><div className="privacy-chip">{section==="files"?<><FolderOpen size={14}/> Google Drive 檔案</>:section==="sheets"||section==="builder"||section==="feature"?<><ShieldCheck size={14}/> 本機草稿 · 手動確認</>:<><LockKeyhole size={14}/> 裝置端優先</>}</div>
 </header>
 {section==="chat"?<LocalChat key={chatKey}/>:
+ section==="mobile"?<MobileAutomation initialGoal={mobileGoal}/>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:

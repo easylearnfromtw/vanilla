@@ -4,22 +4,22 @@
 import {DETROIT_ENGINES} from "./core";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {makeHumanizeRequest} from "../erya/humanize";
-export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"jensen-huang"|"zeus"|"athena"|"medusa"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
+export type DianaTarget="ceres"|"diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"jensen-huang"|"zeus"|"athena"|"medusa"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
 export type DianaDecision={kind:"delegate"|"open"|"report";tool:DianaTarget;label:string;reason:string;alternatives:string[];command?:string;event?:string;tab?:string;message?:string;nextSteps?:DianaTarget[]};
 const NAMES:Record<string,DianaTarget>={
- diana:"diana",merlin:"merlin",cream:"cream",scouts:"scouts",atriensis:"atriensis",
+ ceres:"ceres",diana:"diana",merlin:"merlin",cream:"cream",scouts:"scouts",atriensis:"atriensis",
  janus:"janus",retina:"retina",orchestra:"orchestra",bard:"bard",luna:"luna",jensen:"jensen-huang",
  "jensen-huang":"jensen-huang",zeus:"zeus",athena:"athena",medusa:"medusa",gridcraft:"gridcraft",
  moli:"moli","persistent-jobs":"persistent-jobs",luca:"luca",quirinus:"quirinus",erya:"er-ya",humanize:"er-ya","er-ya":"er-ya",weiguo:"weiguo",venus:"venus",veritas:"veritas",mnemosyne:"mnemosyne",hermes:"hermes",chronos:"chronos",dionysus:"dionysus","holy-roman-empire":"holy-roman-empire"
 };
 const LABELS:Record<DianaTarget,string>={
- diana:"Diana",merlin:"Merlin",cream:"CREAM",scouts:"Scouts",atriensis:"Atriensis",
+ ceres:"Ceres",diana:"Diana",merlin:"Merlin",cream:"CREAM",scouts:"Scouts",atriensis:"Atriensis",
  janus:"Janus",retina:"Retina",orchestra:"Orchestra",bard:"Bard",luna:"LUNA",
  "jensen-huang":"JENSEN HUANG / Self-Build CODE",zeus:"Zeus",athena:"Athena",medusa:"Medusa",
  gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs",luca:"LUCA",quirinus:"Quirinus",
  "er-ya":"爾雅 Erya",weiguo:"衞國系統",venus:"Venus",veritas:"Veritas",mnemosyne:"Mnemosyne",hermes:"Hermes",chronos:"Chronos",dionysus:"Dionysus","holy-roman-empire":"Holy Roman Empire"
 };
-const DISABLED=new Set<DianaTarget>(["gridcraft","moli","persistent-jobs","quirinus","chronos"]);
+const DISABLED=new Set<DianaTarget>(["ceres","gridcraft","moli","persistent-jobs","quirinus","chronos"]);
 export type DianaContext={privateMode:boolean;hasCreamResult:boolean;online?:boolean;hasModel?:boolean};
 export function parseDianaInvocation(message:string):{request:string;forcedTool:DianaTarget|null}|null{
  const raw=message.trim();
@@ -52,6 +52,7 @@ type Candidate={tool:DianaTarget;score:number;reason:string};
 function candidates(q:string,ctx:DianaContext):Candidate[]{
  const out:Candidate[]=[];
  const add=(tool:DianaTarget,score:number,reason:string)=>out.push({tool,score,reason});
+ if(/(?:LINE\s*(?:Bot|機器人)|Telegram|Discord|Slack|通訊(?:平台|機器人)|跨平台(?:訊息|聊天))/i.test(q))add("ceres",99,"跨平台訊息需要 Ceres 平台轉接、身分綁定與核准；預設停用");
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");

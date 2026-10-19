@@ -86,7 +86,7 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
    const fallback=active.kind==="drive"&&!matched.some(x=>x.source==="drive-memory"&&x.id===active.entry.id);
    const count=matched.length+(fallback?1:0);
    if(!count){setNotice("沒有確認可刪除的附件，請重新整理");return;}
-   const places=matched.map(x=>x.source==="device"?"本機 IndexedDB":x.source==="drive-memory"?"Google Drive 原檔＋記憶索引":"Google Drive 工作區");
+   const places:string[]=matched.map(x=>x.source==="device"?"本機 IndexedDB":x.source==="drive-memory"?"Google Drive 原檔＋記憶索引":"Google Drive 工作區");
    if(fallback)places.push("Google Drive 記憶索引");
    if(!window.confirm("確定刪除「"+filename+"」的 "+count+" 份實際記錄嗎？\n"+
     places.map((p,i)=>(i+1)+". "+p).join("\n")+

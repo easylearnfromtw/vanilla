@@ -1,7 +1,7 @@
 import {useState,useEffect,useRef} from "react";
 import {driveSession} from "../workspace/cloud-drive";
 import {renderWeiGuoGoogleButton} from "../vault/google-auth";
-import {weiGuoApiBase,weiGuoIdentity,signInWeiGuo,clearWeiGuoSession,startWeiGuoTask,getWeiGuoTask,type WeiGuoTask,type WeiGuoIdentity} from "./api";
+import {weiGuoApiBase,weiGuoIdentity,signInWeiGuo,clearWeiGuoSession,startWeiGuoTask,getWeiGuoTask,type WeiGuoTask,type WeiGuoIdentity,getWeiGuoHealth,type WeiGuoHealth} from "./api";
 import {Globe2,ShieldCheck,Server,Plus,Copy,AlertTriangle,BookOpen} from "lucide-react";
 import {BUILTIN_TOOLS,loadToolManifests,saveToolManifests,validateToolManifest,type WeiGuoTool} from "./registry";
 import {attachmentOwner} from "../library/attachment-vault";
@@ -19,6 +19,9 @@ export default function WeiGuo(){
  const [task,setTask]=useState<WeiGuoTask|null>(null);
  const [busy,setBusy]=useState(false);
  const [taskNotice,setTaskNotice]=useState("");
+ const [health,setHealth]=useState<WeiGuoHealth|null>(null);
+ const [healthNotice,setHealthNotice]=useState("");
+ const [healthBusy,setHealthBusy]=useState(false);
  useEffect(()=>{
   const update=()=>{setSigned(Boolean(driveSession()));setIdentity(weiGuoIdentity());setTask(null);};
   const expire=()=>{if(identity&&!weiGuoIdentity()){setIdentity(null);setTaskNotice("衞國授權已到期，請重新使用 Google 登入");}};
@@ -39,6 +42,14 @@ export default function WeiGuo(){
   }).catch(error=>{if(live)setTaskNotice(String(error instanceof Error?error.message:error));});
   return()=>{live=false;};
  },[signed,identity]);
+ async function checkHealth(){
+  setHealthBusy(true);setHealthNotice("");
+  try{
+   const result=await getWeiGuoHealth();setHealth(result);
+   setHealthNotice(result.configured?"後端連線正常；Google 身分與實際擷取仍需另行驗收":"已連上後端，但伺服器尚未完成任務設定");
+  }catch(e){setHealth(null);setHealthNotice(e instanceof Error?e.message:String(e));}
+  finally{setHealthBusy(false);}
+ }
  async function submitTask(){
   setBusy(true);setTaskNotice("");
   try{const created=await startWeiGuoTask(taskUrl.trim(),[{action:"extract"}]);setTask(created);setTaskNotice("任務已交由後端執行；關閉手機也不會取消已送出的工作。");}
@@ -60,6 +71,12 @@ export default function WeiGuo(){
    <header><div className="weiguo-identity"><Globe2 size={26}/><div><small>DETROIT / BROWSER TOOLS</small><h1>衞國 <span>Browser System</span></h1></div></div>
    <p>將 Playwright、Browser Use、Scouts 與日後加入的工具納入 Zeus 調度；iPhone 負責指令和授權，真正瀏覽器操作交給有安全隔離的後端。</p></header>
    <div className="weiguo-status"><Server size={16}/><span>{!weiGuoApiBase()?"尚未配置衞國 HTTPS 後端":identity?"Google 家庭授權已連結":"後端入口已設定 · 等待身分授權"}</span></div>
+   <div className="weiguo-panel"><h2><Server size={17}/> 衞國後端連線診斷</h2>
+    <p>只檢查公開健康端點，不傳送 Google 登入資訊。iPhone 可直接檢測 Railway 是否正常；實際登入仍需本人授權。</p>
+    <button type="button" onClick={()=>void checkHealth()} disabled={healthBusy||!weiGuoApiBase()}>{healthBusy?"正在檢測…":"檢測後端連線"}</button>
+    {health&&<p role="status">瀏覽器引擎：{health.engine_configured||"chromium"} · Moli 已安裝：{health.moli_installed?"是":"否"} · Moli 已啟用：{health.moli_enabled?"是":"否"}</p>}
+    {healthNotice&&<p role="status" className="weiguo-notice">{healthNotice}</p>}
+   </div>
    <div className="weiguo-panel">
     <h2><ShieldCheck size={17}/> Google 家庭授權代理</h2>
     <p>沿用 Vanilla 的 Google 帳號，但使用獨立身分驗證，不會把 Google Drive 權杖或衞國管理金鑰送給後端。家庭角色由伺服器以 Google 固定帳號 ID 核對。</p>

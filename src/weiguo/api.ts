@@ -2,12 +2,15 @@
 import {driveSession} from "../workspace/cloud-drive";
 
 export type WeiGuoIdentity={member:string;role:"owner"|"member"|"viewer";email:string};
+export type WeiGuoHealth={service:string;configured:boolean;engine_configured?:string;moli_installed?:boolean;moli_enabled?:boolean};
+// Verified Railway domain for this Vanilla deployment: an origin only, never a token.
+export const WEIGUO_FALLBACK_ORIGIN="https://weiguo-browser-production.up.railway.app";
 export type WeiGuoTask={id:string;status:"queued"|"running"|"completed"|"failed";result?:{title?:string;url?:string;events?:Array<{action:string;text?:string;source?:string}>}|null;error?:string|null;createdAt?:number};
 type AuthResult=WeiGuoIdentity&{token:string;expiresIn:number};
 let auth:({token:string;expiresAt:number}&WeiGuoIdentity)|null=null;
 
 export function weiGuoApiBase():string|null{
- const raw=String(import.meta.env.VITE_WEIGUO_API_URL||"").trim();
+ const raw=String(import.meta.env.VITE_WEIGUO_API_URL||WEIGUO_FALLBACK_ORIGIN).trim();
  if(!raw)return null;
  try{
   const url=new URL(raw);
@@ -40,6 +43,9 @@ async function request<T>(path:string,body?:unknown,withAuth=false):Promise<T>{
  if(response.status===403){clearWeiGuoSession();throw Error("這個 Google 帳號沒有對應的家庭任務權限");}
  if(!response.ok){const data=await response.json().catch(()=>({})) as {detail?:string};throw Error(typeof data.detail==="string"?data.detail:"衞國後端錯誤："+response.status);}
  return await response.json() as T;
+}
+export async function getWeiGuoHealth():Promise<WeiGuoHealth>{
+ return request<WeiGuoHealth>("/v1/health");
 }
 export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIdentity>{
  if(!driveSession())throw Error("請先在 Vanilla 登入 Google Drive");

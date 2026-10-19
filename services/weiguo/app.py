@@ -15,7 +15,8 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
-from moli_engine import maybe_moli_extract
+from moli_engine import maybe_moli_extract, moli_eligible
+from shutil import which
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -60,7 +61,10 @@ async def operator(authorization: str | None = Header(default=None)):
 @app.get("/health")
 async def health():
     return {"service":"weiguo","configured":len(os.environ.get("WEIGUO_ADMIN_TOKEN",""))>=32 and bool(allow_hosts()),
-      "actions":"https allowlist only","ollama":bool(os.environ.get("WEIGUO_OLLAMA_URL"))}
+      "actions":"https allowlist only","ollama":bool(os.environ.get("WEIGUO_OLLAMA_URL")),
+      "engine_configured":os.environ.get("WEIGUO_BROWSER_ENGINE","chromium").lower(),
+      "moli_installed":bool(which("moli")),
+      "moli_enabled":moli_eligible([{"action":"extract"}]) and bool(which("moli"))}
 
 
 # Browser-origin approval is NOT user authentication: each task still requires a

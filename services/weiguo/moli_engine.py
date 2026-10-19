@@ -22,8 +22,6 @@ def moli_eligible(steps: list[dict[str, Any]], *, approved_interactions: bool = 
     return (
         os.getenv("WEIGUO_BROWSER_ENGINE", "chromium").lower() in ("auto", "moli")
         and os.getenv("WEIGUO_MOLI_EGRESS_ISOLATED", "false").lower() == "true"
-        # Moli runs page JavaScript; do not silently override WeiGuo's JS policy.
-        and os.getenv("WEIGUO_ALLOW_JAVASCRIPT", "false").lower() == "true"
         and not approved_interactions
         and len(steps) == 1
         and steps[0].get("action") == "extract"
@@ -40,7 +38,11 @@ async def _read_moli(binary: str, url: str) -> str:
         "LANG": "C.UTF-8",
     }
     process = await asyncio.create_subprocess_exec(
-        binary, "fetch", "--dump", "markdown", "--wait-until", "done", url,
+        binary, "fetch", "--dump", "markdown", "--wait-until", "done",
+        "--block-private-networks", "--disable-subframes",
+        "--fail", "--timeout", "12000",
+        *(["--disable-js"] if os.getenv("WEIGUO_ALLOW_JAVASCRIPT", "false").lower() != "true" else []),
+        url,
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,

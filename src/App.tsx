@@ -1,5 +1,6 @@
 import {useState,useEffect,useRef,lazy,Suspense} from "react";
 import type {OrchestraChart} from "./orchestra/cream-chart";
+import {makeHumanizeRequest} from "./erya/humanize";
 import LocalChat from "./local-ai/LocalChat";
 import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
@@ -94,6 +95,12 @@ useEffect(()=>{
  const handlers:Array<[string,(e:Event)=>void]>=[
   ["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
   ["vanilla-open-weiguo",go("weiguo")],
+  ["vanilla-open-erya",(event:Event)=>{
+   const body=(event as CustomEvent<{body?:string}>).detail?.body;
+   if(!body?.trim())return;
+   try{sessionStorage.setItem("vanilla.erya.pending-draft.v1",makeHumanizeRequest(body));setChatKey(k=>k+1);setSection("chat");setMenuOpen(false);}
+   catch(e){window.alert("無法建立爾雅潤稿草稿："+String(e instanceof Error?e.message:e));}
+  }],
   ["vanilla-open-luna",go("luna")],
   ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);

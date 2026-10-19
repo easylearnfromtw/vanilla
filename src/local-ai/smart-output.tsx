@@ -29,3 +29,17 @@ export function renderTable(source:string):ReactNode{
  const rows=parseTable(source);if(!rows)return null;
  return <div className="smart-table-wrap"><table className="smart-table"><thead><tr>{rows[0].map((c,i)=><th key={i}>{c}</th>)}</tr></thead><tbody>{rows.slice(1).map((row,i)=><tr key={i}>{rows[0].map((_,j)=><td key={j}>{row[j]||""}</td>)}</tr>)}</tbody></table></div>;
 }
+
+/** Once a Markdown table has a real visual rendering, omit its raw syntax.
+ * Keep all surrounding narrative exactly once; do not duplicate text/table.
+ */
+export function stripRenderedTable(source:string):string{
+ if(!parseTable(source))return source;
+ const lines=source.split(/\r?\n/);
+ const start=lines.findIndex((line,i)=>line.trim().startsWith("|")&&line.trim().endsWith("|")&&i+1<lines.length&&
+  /^\|?[\s:|-]+\|?$/.test(lines[i+1].trim())&&lines[i+1].includes("---"));
+ if(start<0)return source;
+ let end=start+2;
+ while(end<lines.length&&lines[end].trim().startsWith("|"))end++;
+ return [...lines.slice(0,start),...lines.slice(end)].join("\n").replace(/\n{3,}/g,"\n\n").trim();
+}

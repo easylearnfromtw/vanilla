@@ -78,7 +78,7 @@ export function validateOpenAPI(input:unknown,filename:string):APIDefinition{
  if(!server)throw Error("OpenAPI 文件缺少 HTTPS servers[0].url");
  const url=new URL(server);
  const host=url.hostname.toLowerCase();
- if(url.protocol!=="https:"||url.username||url.password||url.port||url.search||host==="localhost"||
+ if(url.protocol!=="https:"||url.username||url.password||url.port||url.search||url.hash||host==="localhost"||
   host.endsWith(".local")||host.endsWith(".internal")||/^(?:\d+\.){3}\d+$/.test(host))
   throw Error("API 必須提供公開的 HTTPS 網域；本機 API 請由私有後端代理");
  const pathRecord=(x.paths&&typeof x.paths==="object"?x.paths:{}) as Record<string,unknown>;
@@ -90,6 +90,6 @@ export function validateOpenAPI(input:unknown,filename:string):APIDefinition{
   }
  }
  if(!paths.length)throw Error("沒有可以安全試讀的 GET API 路徑；POST／DELETE 必須透過受保護的專屬 Adapter");
- return {name:String((x.info as {title?:string}|undefined)?.title||filename).slice(0,120),origin:url.origin,
+ return {name:String((x.info as {title?:string}|undefined)?.title||filename).slice(0,120),origin:url.toString().replace(/\/$/,""),
   paths,source:filename};
 }

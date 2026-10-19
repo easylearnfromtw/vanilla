@@ -370,17 +370,45 @@ async function send(value=draft){
   return;
  }
   // CREAM is deterministic and local: it can run even without an LLM.
+ const parsedText=extractTextMeasurements(question);
+ if(parsedText){
+  try{
+   const result=analyzeCream(parsedText),now=Date.now();
+   let status="CREAM 從文字辨識 "+parsedText.rows.length+" 筆日期與數值紀錄。";
+   if(!privateMode){
+    try{
+     const saved=await persistCreamDataset(parsedText,attachmentOwner(signedChatAccount()));
+     const report=await longitudinalReport(attachmentOwner(signedChatAccount()));
+     status+=(saved.created?" 已保存":" 同樣資料已存在")+"，現在有 "+report.trends.length+" 個可追蹤指標。";
+    }catch(e){status+=" 長期保存未完成："+String(e);}
+   }
+   setCreamDataset(parsedText);
+   setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:now},
+     {role:"assistant",content:status+"\n\n"+summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
+   setDraft("");setLastRoute("CREAM 已依真實文字自動分析。");
+  }catch(e){toolReply(question,"CREAM 文字分析失敗："+String(e));}
+  return;
+ }
  const pasted=creamInstruction(question);
  if(pasted){
   try{
    const parsed=parseCreamCSV(pasted.csv,"聊天貼上的 CSV");
    setCreamDataset(parsed);
+   let note="";
+   if(!privateMode)try{
+    const stored=await persistCreamDataset(parsed,attachmentOwner(signedChatAccount()));
+    note=stored.created?"已保存於 CREAM 長期歷史。":"已有相同來源資料，未重複匯入。";
+   }catch(e){note="長期保存失敗："+String(e);}
    const result=analyzeCream(parsed,pasted.kind),now=Date.now();
    setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
-    {role:"assistant",content:summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
+    {role:"assistant",content:summarizeCream(result)+"\n"+note,cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
    setDraft("");setLastRoute("CREAM 已在本機計算，不需使用雲端 AI。");
   }catch(error){toolReply(question.slice(0,220),"CREAM 分析失敗："+String(error));}
   return;
+ }
+ if(/^(?:開啟|打開|查看|前往)(?:CREAM|長期分析|數據中心|PROJECT HUB|專案庫|所有專案)[！!。.?？\s]*$/i.test(question)){
+  window.dispatchEvent(new Event(/PROJECT|專案/.test(question)?"vanilla-open-projects":"vanilla-open-cream"));
+  setDraft("");return;
  }
  const chartChange=creamChartFollowup(question),previous=[...history].reverse().find(x=>x.cream)?.cream;
  if(chartChange&&previous){

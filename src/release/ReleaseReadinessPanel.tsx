@@ -8,6 +8,7 @@ import {getOllamaConfig,isOllamaConfigured,testOllama} from "../ai/ollama";
 import {getGoogleClientId,getAnalyticsConnection} from "../cream/google-sources";
 import {getSearchBridge,getWebReaderToken,fetchSearchBridge} from "../search/search-bridge";
 import {readNoodles} from "../noodles/storage";
+import {availableProviders} from "../vault/providers";
 import "./release.css";
 
 type ProbeKey="pages"|"drive"|"ollama"|"web";
@@ -16,7 +17,7 @@ const names:Record<ProbeKey,string>={pages:"正式網站版本",drive:"Google Dr
 function snapshot():LaunchInput{
  const online=typeof navigator!=="undefined"?navigator.onLine:false;
  return {
-  online,localModelLoaded:Boolean(getLoadedLocalModel()),webGPU:typeof navigator!=="undefined"&&"gpu" in navigator,
+  online,cloudProvidersConfigured:availableProviders().length>0,localModelLoaded:Boolean(getLoadedLocalModel()),webGPU:typeof navigator!=="undefined"&&"gpu" in navigator,
   indexedDB:typeof indexedDB!=="undefined",driveAuthorized:Boolean(driveSession()),
   analyticsClientConfigured:Boolean(getGoogleClientId("analytics")),
   analyticsAuthorized:getAnalyticsConnection(),ollamaConfigured:isOllamaConfigured(),
@@ -64,7 +65,7 @@ export default function ReleaseReadinessPanel(){
  const [expanded,setExpanded]=useState(true);
  const refresh=useCallback(()=>setInput(snapshot()),[]);
  useEffect(()=>{
-  const events=["online","offline","vanilla-drive-connected","vanilla-drive-disconnected","vanilla-noodles-changed","vanilla-search-bridge-changed"];
+  const events=["online","offline","vanilla-providers-changed","vanilla-drive-connected","vanilla-drive-disconnected","vanilla-noodles-changed","vanilla-search-bridge-changed"];
   for(const type of events)window.addEventListener(type,refresh);
   return()=>{for(const type of events)window.removeEventListener(type,refresh);};
  },[refresh]);

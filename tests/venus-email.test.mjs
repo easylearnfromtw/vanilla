@@ -34,3 +34,28 @@ test("Venus rendering is integrated while preserving Janus opt-in editor",()=>{
  assert.match(renderer,/renderToHtml\(tree\)/);
  assert.doesNotMatch(ui,/sendEmail\(|gmail\.send|fetch\(/);
 });
+
+test("Venus preheader is escaped, hidden and does not duplicate on editor export",async()=>{
+ const {applyInboxPreheader,auditRenderedEmail}=await import("../src/email/email-quality.ts");
+ const html='<html><body><table><tr><td>Newsletter</td></tr></table></body></html>';
+ const output=applyInboxPreheader(html,'新品 <script>alert("X")</script>');
+ assert.match(output,/JANUS-VENUS-PREHEADER/);
+ assert.match(output,/display:none!important/);
+ assert.match(output,/&lt;script&gt;/);
+ assert.doesNotMatch(output,/<script>alert/);
+ const twice=applyInboxPreheader(output,"更新摘要");
+ assert.equal((twice.match(/<!-- JANUS-VENUS-PREHEADER -->/g)||[]).length,1);
+ assert.match(twice,/更新摘要/);
+ assert.doesNotMatch(twice,/新品/);
+ assert.equal(auditRenderedEmail(html).status,"checked");
+ assert.equal(auditRenderedEmail("").status,"unavailable");
+});
+test("Venus checks HTML after external visual editing, including missing image alt and bad links",async()=>{
+ const {auditRenderedEmail}=await import("../src/email/email-quality.ts");
+ const bad='<html><body><img src="https://example.com/tracking.png"><a href="javascript:alert(1)">click</a><script>alert(1)</script></body></html>';
+ const audit=auditRenderedEmail(bad);
+ const codes=audit.findings.map(f=>f.code);
+ for(const code of ["active-content","active-attribute","link-policy","missing-alt","remote-images"])assert.ok(codes.includes(code),code);
+ const okay=auditRenderedEmail('<html lang="zh-Hant"><body><p>資訊</p><a href="https://example.com">閱讀</a></body></html>');
+ assert.deepEqual(okay.findings,[]);
+});

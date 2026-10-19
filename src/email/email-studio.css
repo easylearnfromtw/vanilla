@@ -47,3 +47,6 @@
 .email-preview-canvas.is-phone iframe{width:min(360px,100%);min-width:0}
 .email-preview-canvas .email-preview-empty{flex:1}
 @media(max-width:600px){.email-preview-canvas{padding:8px}.email-preview-canvas iframe{height:430px}}
+
+.email-preview .email-venus-audit{margin-top:4px}
+.email-output-stale{font-weight:700;color:#8c3c25!important}

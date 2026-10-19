@@ -41,3 +41,11 @@ Local storage is partitioned by Google account email when available. Signed-out 
 - 變更主題不會覆蓋已儲存檔案；按「產生郵件」才套用新主題。已匯入 JSON／第三方編輯後的郵件，不會被自動判定為通過 Venus 檢查。
 - 存檔格式及本機帳號分區維持向下相容；基本流程不新增外部網路依賴。
 - 實作：src/venus/email-design.ts、src/email/email-templates.tsx、src/email/EmailStudio.tsx；驗證：tests/venus-email.test.mjs。
+
+## Venus × Janus 第二階段：成品檢查與草稿一致性
+- 表單檢查（文案／CTA）與 HTML 成品檢查分開呈現。後者直接根據已生成、已保存或由 Unlayer 同步的 HTML 進行 **本機啟發式檢查**，提示非 HTTPS 連結、可執行內容、未加 alt 的圖片和遠端圖片風險。**不宣稱為 HTML 安全清理器或 Gmail/Outlook 實際渲染驗證。**
+- 收件匣摘要以隱藏的 preheader 寫入下載 HTML，不再重複顯示在正文；最終是否用作收件匣摘要仍取決於收件端。
+- 新版草稿可選擇性保存原始欄位／模板／Venus 主題；還原草稿後同步恢復編輯畫面。舊版只有 HTML／JSON 的草稿仍可開啟。JSON-only 匯入仍必須先由雲端編輯器匯出 HTML 才能進行成品審核。
+- 更換登入帳號時清除目前郵件畫面與輸入欄位，避免上一個家庭帳號的內容留在畫面。更改欄位但尚未重新生成時明確提示預覽／下載仍是舊版。
+- Unlayer 同步後保留 preheader 並重新檢查同步 HTML；標示已透過外部編輯器修改，避免誤認原始表單為最新內容。
+- 實作：`src/email/email-quality.ts`、`src/email/email-policy.ts`；測試：`tests/venus-email.test.mjs`、`tests/email-studio.test.mjs`。

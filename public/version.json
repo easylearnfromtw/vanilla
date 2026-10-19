@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.10-diana-orchestration",
-  "description": "Diana Detroit conversational tool routing, multi-tool sequencing and safe handoffs"
+  "build": "2026.10.20.11-venus-janus-v2",
+  "description": "Venus x Janus v2: final HTML audit, hidden inbox preheader, source-aware draft restore and account isolation"
 }

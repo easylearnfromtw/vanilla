@@ -4,6 +4,8 @@ import {generateCloudReply,getConfigs} from "../vault/providers";
 import {generateOllamaReply,isOllamaConfigured} from "../ai/ollama";
 import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
 import {recordNoodles} from "../noodles/storage";
+import {readNoodles} from "../noodles/storage";
+import {noodlesIterationPlans} from "../noodles/iteration-plan";
 import {
  configureCodeBridge,disconnectCodeBridge,getCodeBridgeURL,getCodeBridgeToken,checkCodeBridge,
  readCodeSource,parseCodePatch,createCodePR,reviseCodePR,getCodePRStatus,safeCodePath,
@@ -37,6 +39,7 @@ export default function AutonomousCodeStudio({initialIdea}:{initialIdea:string})
  const requestProvider=useRef<AIProvider>("gemini");
  useEffect(()=>{if(initialIdea.trim())setIdea(initialIdea);},[initialIdea]);
  const clientReady=Boolean(getCodeBridgeURL()&&getCodeBridgeToken());
+ const suggestions=noodlesIterationPlans(readNoodles());
  async function setup(){
   setStage("connecting");setMessage("");
   try{
@@ -151,6 +154,12 @@ export default function AutonomousCodeStudio({initialIdea}:{initialIdea:string})
    <label>Worker 專屬存取權杖（留空沿用目前分頁）<input type="password" autoComplete="off" value={tokenInput} placeholder={getCodeBridgeToken()?"本分頁已設定":"不使用 GitHub PAT，填 Worker 自訂 Token"} onChange={e=>setTokenInput(e.target.value)}/></label>
    <div className="autocode-actions"><button type="button" disabled={busy} onClick={()=>void setup()}>連線並驗證安全後端</button><button type="button" disabled={busy} onClick={disconnect}>中斷並清除 Token</button></div>
    <small>此後端需由所有者自行部署，且 GitHub PAT 必須存入 Worker Secret，不會在網站上公開。只允許本 Repository 的 Draft PR。</small>
+  </div>
+  <div className="autocode-source"><strong>NOODLES 自主改善建議</strong>
+   <small>只有重複兩次以上、由使用者明確標記的問題，才會形成原始碼改進候選。程式修改、PR 和 CI 仍須你授權。</small>
+   {suggestions.length?suggestions.map((x,i)=><button type="button" key={i} onClick={()=>{setPath(x.path);setIdea(x.idea);setPreview(null);setSource(null);setMessage("已從 NOODLES "+x.reason+" 載入候選；請先讀取原始碼再產生修改。");}}>
+     {x.reason} → {x.path}
+   </button>):<small>目前還沒有足夠的同類問題標記；可以先自行提出改善需求。</small>}
   </div>
   <div className="autocode-workflow">
    <label>要修改的 GitHub 原始碼路徑<input type="text" value={path} onChange={e=>{setPath(e.target.value);setSource(null);setPreview(null);}} placeholder="src/noodles/core.ts"/></label>

@@ -35,6 +35,7 @@
     "test:providers": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/provider-streaming.test.mjs",
     "test:cream-gridcraft": "node --experimental-strip-types --test tests/cream-gridcraft.test.mjs",
     "test:orchestra": "node --experimental-strip-types --test tests/orchestra.test.mjs",
+    "test:luna": "node --experimental-strip-types --test tests/luna.test.mjs",
     "test:retina": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/retina-exports.test.mjs",
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs",

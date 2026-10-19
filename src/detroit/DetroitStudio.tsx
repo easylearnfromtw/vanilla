@@ -1,14 +1,13 @@
 import {useEffect,useState} from 'react';
-import {Image,FileText,ShieldCheck,Clock3,Download,Layers3} from 'lucide-react';
+import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette} from 'lucide-react';
 import OrchestraStudio from '../orchestra/OrchestraStudio';
 import {bardGenerate,bardSave,type BardImage} from './bard';
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from './retina';
 import {currentChatMode} from '../local-ai/chat-session';
 import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api';
 import {DETROIT_ENGINES} from './core';
-import {DETROIT_FACTORY_TOOLS} from './factory';
 import './studio.css';
-type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra';
+type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna';
 export default function DetroitStudio({initialBody}:{initialBody?:string|null}={}){
  const [tab,setTab]=useState<Tab>('retina');
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,160000));setTab('retina');}},[initialBody]);
@@ -62,7 +61,7 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
  return <div className="detroit-studio">
   <header><p className="detroit-eyebrow">VANILLA / DETROIT</p><h1>DETROIT <em>STUDIO</em></h1><p>同一套 AI，專門工具協作。生成有依據的成品，並清楚標示雲端服務是否啟用。</p></header>
   <div className="detroit-studio-tabs" role="tablist" aria-label="Detroit 工作室工具">
-   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
+   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3],['luna','LUNA 設計',Palette]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
   </div>
   {tab==='retina'&&<section className="detroit-studio-form"><h2>Retina · 正式文件產製</h2><p>輸入標題與內容，支援 Markdown 標題、段落和清單；在手機本機真正產生可下載的文件，不需要模型重複生成。</p>
    <label>文件名稱<input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)}/></label>
@@ -76,6 +75,7 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
    </div>
   </section>}
   {tab==='orchestra'&&<OrchestraStudio compact/>}
+  {tab==='luna'&&<section className="detroit-studio-form"><h2>LUNA · 海報與視覺設計</h2><p>可拖曳的本機海報畫布、文字與圖片圖層、活動／品牌模板，以及 PNG 與 JSON 匯出。完全獨立於迅排的管理後台，不使用其預設帳號或 API。</p><button className="detroit-primary" type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-luna'))}><Palette size={17}/>開啟 LUNA 設計畫布</button></section>}
   {tab==='bard'&&<section className="detroit-studio-form"><h2>Bard · 圖片生成</h2><p>透過你已連接的 Gemini API 圖片模型生成，並非裝置端 GPU 生圖。模型能否使用與費率取決於你的 Google API 專案。</p>
    <label>生圖描述<textarea rows={6} maxLength={3000} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例：極簡蒙太奇拼貼海報，幾何色塊，文字區保留留白…"/></label>
    <label className="detroit-consent"><input type="checkbox" checked={approve} onChange={e=>setApprove(e.target.checked)}/> 我同意將這段描述傳送到 Gemini API，且了解可能產生費用。</label>
@@ -86,6 +86,5 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
   {tab==='jobs'&&<section className="detroit-studio-form"><h2>Persistent Jobs · 背景工作</h2><p>排程服務需部署 Cloudflare Worker 與 D1，並配置私密的通知 Webhook。手機 Safari 關閉後，只有已部署的後端能執行排程。</p><label>已部署 Worker 網址<input inputMode="url" value={workerEndpoint} onChange={e=>setWorkerEndpoint(e.target.value)} placeholder="https://your-worker.your-domain.workers.dev"/></label><button type="button" onClick={()=>void checkWorker()}>檢查後端連線</button><p role="status">{health}</p><p><strong>重要：</strong>後端管理 Token 只能放在伺服器端，不可填進 Vanilla PWA 或公開 GitHub。背景任務與通知須經管理端授權建立。</p></section>}
   {status&&<p className="detroit-tool-status" role="status">{status}</p>}
   <details className="detroit-engine-catalog"><summary>查看 Detroit 各模組開發狀態</summary><div>{DETROIT_ENGINES.map(e=><article key={e.id}><strong>{e.label}</strong><span>{e.status}</span><p>{e.description}</p></article>)}</div></details>
-  <details className="detroit-engine-catalog"><summary>Detroit Factory · 工具目錄</summary><div>{DETROIT_FACTORY_TOOLS.map(t=><article key={t.id}><strong>{t.label}</strong><span>{t.status} · {t.enabledByDefault?"啟用":"預設關閉"}</span><p>{t.description}</p><small>協作：{t.engine} · 技術：{t.provider}</small></article>)}</div></details>
  </div>;
 }

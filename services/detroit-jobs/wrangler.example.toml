@@ -11,3 +11,9 @@ database_name = "vanilla-detroit-jobs"
 database_id = "REPLACE_WITH_CREATED_D1_DATABASE_ID"
 [triggers]
 crons = ["*/15 * * * *"]
+
+# Optional notifications: configure trusted fixed host and webhook URL SERVER-SIDE ONLY.
+# DETROIT_NOTIFY_HOST = "notifications.example.com"
+# DETROIT_NOTIFY_WEBHOOK = "https://notifications.example.com/detroit"
+# DETROIT_PUBLIC_ORIGIN = "https://easylearnfromtw.github.io"
+# Store DETROIT_NOTIFY_SECRET and DETROIT_ADMIN_TOKEN as Cloudflare secrets, never in this file.

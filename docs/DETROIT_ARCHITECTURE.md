@@ -52,3 +52,8 @@
 
 ## 資料治理與可擴展性
 每個模組獨立檔案、純函式決策與測試；Zeus 不得修改自己的權限或自動提交程式更新。自動優化只能產生 PR/建議，必須通過測試並由使用者明確批准。對家庭不同帳號分開保存記憶、任務與附件。
+
+## D2 已落實（v0.2 開發）
+- Detroit Studio 作為工具工作區；保留對話內的 CREAM 圖表，並可將回答直接交給 Retina 在裝置端匯出 PDF（Canvas 影像頁面）、DOCX 與 PPTX。
+- Bard 依明確同意與現有 Gemini API key 啟動圖片生成，不載入第二組手機端模型。Athena 加入隔離 Worker 與檔案容器簽章掃描，不代表商用防毒。
+- Persistent Jobs 具有 D1 通知 outbox 與 HMAC-SHA256 Webhook 重試設計。**需自行部署 Cloudflare + D1 + Cron + 通知接收服務**才有實際持續監控。詳細指引見 `docs/DETROIT_COMPLETION_PHASE2.md`。

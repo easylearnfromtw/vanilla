@@ -57,3 +57,9 @@
 - Detroit Studio 作為工具工作區；保留對話內的 CREAM 圖表，並可將回答直接交給 Retina 在裝置端匯出 PDF（Canvas 影像頁面）、DOCX 與 PPTX。
 - Bard 依明確同意與現有 Gemini API key 啟動圖片生成，不載入第二組手機端模型。Athena 加入隔離 Worker 與檔案容器簽章掃描，不代表商用防毒。
 - Persistent Jobs 具有 D1 通知 outbox 與 HMAC-SHA256 Webhook 重試設計。**需自行部署 Cloudflare + D1 + Cron + 通知接收服務**才有實際持續監控。詳細指引見 `docs/DETROIT_COMPLETION_PHASE2.md`。
+
+## Detroit Factory / Medusa（Judge0，選用）
+- Medusa 是獨立的程式執行工具，不是另外載入的模型。程式碼只能經既有衞國家庭驗證與使用者逐次核准，交給獨立隔離的 Judge0 後端。
+- 本版提供手動 Detroit Studio 頁籤、驗證後端、固定語言白名單、CPU／記憶體／時間與輸出限制；預設停用，不安裝 Judge0，也不在手機執行不可信程式碼。
+- Zeus 可在程式任務顯示 Medusa 這個候選階段，但不能因此假稱已執行。JENSEN HUANG／CREAM 的自動派工與測試迴圈尚未接線。
+- 實際啟用前必須完成獨立 Judge0 部署和網路隔離。詳見 `docs/MEDUSA_JUDGE0_INTEGRATION.md`。

@@ -2,8 +2,8 @@
  * PPTX/DOCX use ZIP + OOXML; PDF uses PDF.js text layer (not OCR).
  */
 import {unzipSync,strFromU8} from "fflate";
-import {inspectExternalText,wrapExternalText} from "../security/trust-boundary";
-import {parseCreamCSV} from "../cream/core";
+import {inspectExternalText,wrapExternalText} from "../security/trust-boundary.ts";
+import {parseCreamCSV} from "../cream/core.ts";
 export type ExtractedDocument={name:string;kind:"text"|"pdf"|"docx"|"pptx"|"xlsx";
  text:string;pages:number;tables:string[][][];truncated:boolean;warnings:string[]};
 const MAX_UPLOAD=15*1024*1024, MAX_UNZIPPED=14*1024*1024, MAX_TEXT=28000;
@@ -63,7 +63,7 @@ export async function extractBrowserDocument(file:File):Promise<ExtractedDocumen
  if(file.size>MAX_UPLOAD)throw Error("附件超過 15 MB，請先縮小檔案");
  const name=file.name,lower=name.toLowerCase(),warnings:string[]=[];
  let text="",pages=1,tables:string[][][]=[],kind:ExtractedDocument["kind"]="text";
- if(/\.(?:txt|md|csv|json|tsv|html)$/i.test(lower)||/^(text\/|application\/json)/.test(file.type)){
+ if(/\.(?:txt|md|csv|json|jsonl|tsv|html|js|jsx|mjs|cjs|ts|tsx|py|rb|go|rs|java|kt|swift|c|cpp|h|cs|sh|sql|css|xml|yaml|yml|toml|vue|svelte|log)$/i.test(lower)||/^(text\/|application\/(?:json|javascript|xml))/.test(file.type)){
   text=await file.text();kind="text";
   tables=detectTable(text);
   if(/\.csv$/i.test(lower)){

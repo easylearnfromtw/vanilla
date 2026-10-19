@@ -118,7 +118,7 @@ export default function CloudFiles(){
  async function trash(file:WorkspaceFile){
   if(!token||busy||!window.confirm("確定要將「"+file.name+"」移至 Google Drive 垃圾桶？可從 Google Drive 垃圾桶還原。"))return;
   setBusy(true);
-  try{await trashWorkspaceFile(token,file);if(editor?.file.id===file.id)setEditor(null);await refresh(token);setStatus("已移至垃圾桶："+file.name);}
+  try{await trashWorkspaceFile(token,file);const after=await listWorkspaceFiles(token);if(after.some(x=>x.id===file.id))throw Error("Google Drive 刪除請求已送出，但檔案仍在工作區列表；請檢查權限");if(editor?.file.id===file.id)setEditor(null);setFiles(after);setStatus("已確認移至 Google Drive 垃圾桶："+file.name);}
   catch(e){setStatus(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }

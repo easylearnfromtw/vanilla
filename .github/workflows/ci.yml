@@ -23,6 +23,7 @@ jobs:
           npm run test:assistant
           npm run test:resource-integration
           npm run test:cream
+          npm run test:cream-longitudinal
           npm run test:cream-google
           npm run test:noodles
           npm run test:noodles-teacher
@@ -35,6 +36,7 @@ jobs:
           npm run test:workspace
           npm run test:builder
           npm run test:autocode
+          npm run test:file-lifecycle
       - name: Validate NOODLES GPU trainer syntax and sample JSONL (no GPU)
         run: |
           python3 -m py_compile training/noodles_train.py

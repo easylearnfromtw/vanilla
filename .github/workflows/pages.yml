@@ -22,11 +22,13 @@ jobs:
       - run: npm run test:workspace
       - run: npm run test:builder
       - run: npm run test:autocode
+      - run: npm run test:file-lifecycle
       - run: npm run test:local-chat
       - run: npm run test:webllm-guard
       - run: npm run test:assistant
       - run: npm run test:resource-integration
       - run: npm run test:cream
+      - run: npm run test:cream-longitudinal
       - run: npm run test:cream-google
       - run: npm run test:noodles
       - run: npm run test:noodles-teacher

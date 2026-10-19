@@ -122,7 +122,7 @@ development, resource testing and privacy review.
 `services/weiguo/Dockerfile` now compiles the real `gridcraft-cli` from the
 GridCraft **v0.8.0** tag pinned to upstream commit
 `823c56582d00be91e31b4f7f3680496cf89e84fb`, with `cargo --locked` in
-a dedicated Rust 1.90 build stage. The runtime only receives the CLI binary,
+a dedicated Rust 1.99 build stage (EULER_GAMMA stabilized in 1.94). The runtime only receives the CLI binary,
 not the Rust compiler or upstream source. A mismatched release tag fails the
 build instead of silently adopting new source code.
 

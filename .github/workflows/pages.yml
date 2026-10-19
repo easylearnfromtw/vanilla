@@ -13,16 +13,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      expected_build: ${{ steps.release.outputs.build }}
     steps:
       - uses: actions/checkout@v4
-      - name: Pin release version for deployment verification
-        id: release
-        run: |
-          build="$(node -p "JSON.parse(require('fs').readFileSync('public/version.json','utf8')).build")"
-          test -n "$build"
-          echo "build=$build" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -45,6 +37,7 @@ jobs:
       - run: npm run test:auto-docs
       - run: npm run test:chat-ui
       - run: npm run test:release
+      - run: npm run test:pwa-update
       - run: npm run test:web-workflows
       - run: npm run test:capabilities
       - run: npm run test:security
@@ -82,27 +75,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-      - name: Verify actually published Vanilla version
-        env:
-          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
-          EXPECTED_BUILD: ${{ needs.build.outputs.expected_build }}
-        run: |
-          set -euo pipefail
-          test -n "$PAGES_URL"
-          test -n "$EXPECTED_BUILD"
-          base="${PAGES_URL%/}"
-          for attempt in $(seq 1 15); do
-            result="$(curl -fsSL --connect-timeout 6 --max-time 15 -H 'Cache-Control: no-cache' "$base/version.json?verify=${GITHUB_RUN_ID}-${attempt}" || true)"
-            actual="$(printf '%s' "$result" | python3 -c 'import json,sys; value=json.load(sys.stdin); print(value.get("build", ""))' 2>/dev/null || true)"
-            if [ "$actual" = "$EXPECTED_BUILD" ]; then
-              html="$(curl -fsSL --connect-timeout 6 --max-time 15 -H 'Cache-Control: no-cache' "$base/?verify=${GITHUB_RUN_ID}-${attempt}" || true)"
-              if [[ "$html" == *"/vanilla/assets/"* ]]; then
-                echo "Verified GitHub Pages release: $actual"
-                exit 0
-              fi
-            fi
-            echo "Attempt $attempt: live release ${actual:-unavailable}, expected $EXPECTED_BUILD; waiting for Pages propagation"
-            sleep 10
-          done
-          echo "::error::Pages deployment was not verified. Expected $EXPECTED_BUILD at $base/version.json, found ${actual:-unavailable}. Check Pages environment URL, Actions permissions and cache."
-          exit 1

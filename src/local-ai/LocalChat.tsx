@@ -11,6 +11,7 @@ import MessageArtifacts from "./MessageArtifacts";
 import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,creamChartFollowup,type CreamDataset,type CreamResult} from "../cream/core";
 import {planConversationSave,composeSavedContent} from "../assistant/conversation-save";
+import {extractBrowserDocument,documentContext,documentSummary} from "./document-extract";
 import {readPublicPage,linkReadingIntent} from "../search/web-reader";
 import {uploadWorkspaceFile} from "../workspace/cloud-drive";
 
@@ -70,12 +71,30 @@ async function attachFile(file?:File){
    if(file.size>8*1024*1024)throw Error("圖片辨識單張上限 8 MB");
    const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(Error("圖片讀取失敗"));reader.readAsDataURL(file);});
    setImage({mimeType:file.type,data});setImageName(file.name);
-  }else if(file.size<=1.5*1024*1024&&(/^(text\/|application\/json)/.test(file.type)||/\.(txt|md|csv|json)$/i.test(file.name))){
-   const raw=(await file.text()).slice(0,10000);
-   const inspection=inspectExternalText(raw,"document");
-   if(inspection.blocked){suspiciousAttachment=true;setFileContext("");setFileStatus("已偵測附件內的提示詞注入，文字已隔離，不會交給 AI 執行。"+inspection.signals.join("、"));}
-   else setFileContext(wrapExternalText(raw,"document"));
-  }
+   }else{
+    const doc=await extractBrowserDocument(file);
+    setFileContext(documentContext(doc));
+    setFileStatus(documentSummary(doc));
+    const table=doc.tables.find(rows=>rows.length>=2&&rows.length<=3001&&rows[0].length>=2&&rows[0].length<=12);
+    const stamp=Date.now();
+    if(table){
+     try{
+      const dataset=fromCreamRows(table,file.name),result=analyzeCream(dataset);
+      setCreamDataset(dataset);
+      setHistory(prev=>[...prev,{role:"user",content:"自動分析文件："+file.name,id:crypto.randomUUID(),createdAt:stamp},
+       {role:"assistant",content:documentSummary(doc)+"\n\n"+summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:stamp+1}]);
+      setLastRoute("已讀取文件，並自動執行 CREAM 統計分析。");
+     }catch(err){
+      setFileStatus(documentSummary(doc)+"；表格無法計算統計："+String(err));
+     }
+    }else{
+     const excerpt=doc.text.slice(0,1200);
+     setHistory(prev=>[...prev,{role:"user",content:"自動讀取文件："+file.name,id:crypto.randomUUID(),createdAt:stamp},
+      {role:"assistant",content:documentSummary(doc)+"\n\n**實際擷取文字：**\n"+excerpt+
+       (doc.text.length>excerpt.length?"\n\n（接著提問即可使用全文進行摘要、分析；並非所有 PDF 都有可擷取文字。）":""),id:crypto.randomUUID(),createdAt:stamp+1}]);
+     setLastRoute("已自動解析文件；你可以直接詢問摘要或分析。");
+    }
+   }
   let localSaved=false;
   let localError="";
   if(!privateMode){
@@ -95,23 +114,7 @@ async function attachFile(file?:File){
      localSaved?"已自動保存於本機附件庫；目前未連線 Google Drive，尚無雲端副本。":
      "附件未能保存到本機："+localError+"；目前也沒有 Google Drive 連線。");
   }
-  // Analyze tabular attachments AFTER durable-save attempts, so CSV/XLSX
-  // stays in the library rather than disappearing from the conversation.
-  if(/\.(?:csv|xlsx)$/i.test(file.name)&&file.size<=2000000){
-   try{
-    let dataset:CreamDataset;
-    if(/\.xlsx$/i.test(file.name)){
-     const {readSheet}=await import("read-excel-file/browser");
-     dataset=fromCreamRows(await readSheet(file),file.name);
-    }else dataset=parseCreamCSV(await file.text(),file.name);
-    setCreamDataset(dataset);
-    const result=analyzeCream(dataset),time=Date.now();
-    setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析附件「"+file.name+"」",id:crypto.randomUUID(),createdAt:time},
-      {role:"assistant",content:summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:time+1}]);
-    setLastRoute("CREAM 已在裝置端計算並於對話中產生互動圖表");
-   }catch(err){setFileStatus("附件已處理，但 CREAM 無法分析："+String(err));}
-  }
- }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
+  }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
  finally{setAssetBusy(false);}
 }
 const [busy,setBusy]=useState(false);

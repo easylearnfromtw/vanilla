@@ -5,6 +5,7 @@ import {generateLocalReply,type ChatTurn} from "../local-ai/engine";
 import {getHealthAdjustment,recordModelRun} from "./model-health";
 import {noodlesModelAdjustment} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
+import {preferTaideForTaiwan,isTaideModel} from "./taiwan-routing";
 
 export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
@@ -62,7 +63,7 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
   if(options.online||!officialCloud){
   const approved=[...new Set([ollama.model,...ollama.models])].filter(Boolean).slice(0,4);
   for(const model of approved){
-   result.push({id:"ollama:"+model,source:"ollama",model,label:"Ollama · "+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
+   result.push({id:"ollama:"+model,source:"ollama",model,label:(isTaideModel(model)?"TAIDE · ":"Ollama · ")+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
   }
   }
  }
@@ -91,7 +92,7 @@ function baseScore(candidate:ModelCandidate,task:TaskKind):number{
  if(candidate.source==="gemini")return (task==="vision"?95:task==="code"?81:task==="analysis"?87:task==="writing"?87:task==="casual"?65:85)-(candidate.model.includes("lite")?11:0);
  return task==="code"?84:task==="analysis"?79:task==="writing"?80:task==="casual"?62:76;
 }
-export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true):ModelCandidate[]{
+export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true,question=""):ModelCandidate[]{
  const allVotes=votes().filter(v=>v.task===task);
  const feedback=ratings().filter(r=>r.task===task);
  const score=(candidate:ModelCandidate)=>{
@@ -107,10 +108,10 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
   return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore+(useNoodles?noodlesModelAdjustment(readNoodles(),task,candidate.id):0);
  };
- return [...candidates].sort((a,b)=>score(b)-score(a));
+ return preferTaideForTaiwan([...candidates].sort((a,b)=>score(b)-score(a)),question);
 }
-export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true):ModelCandidate[]{
- const ordered=rankedCandidates(candidates,task,priority,useNoodles);
+export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true,question=""):ModelCandidate[]{
+ const ordered=rankedCandidates(candidates,task,priority,useNoodles,question);
  if(ordered.length<2)return ordered;
  const first=ordered[0];
  const different=ordered.find(x=>x.source!==first.source);

@@ -3,6 +3,7 @@ import {Cable,CheckCircle2,RefreshCw,ShieldAlert} from "lucide-react";
 import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConfig,testOllama,generateOllamaReply,type OllamaModel} from "./ollama";
 import {getVoteCount,getRatingCount,resetModelChoices} from "./model-orchestrator";
 import {clearModelHealth,recordModelRun} from "./model-health";
+import {isTaiwanTaideEnabled,setTaiwanTaideEnabled,isTaideModel} from "./taiwan-routing";
 export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
  const [url,setUrl]=useState(stored.endpoint);
@@ -14,6 +15,7 @@ export default function ModelConnections(){
  const [notice,setNotice]=useState("");
  const [count,setCount]=useState(getVoteCount);
  const [ratingCount,setRatingCount]=useState(getRatingCount);
+ const [taiwanRoute,setTaiwanRoute]=useState(isTaiwanTaideEnabled);
  async function test(){
   if(!url.trim()){setNotice("請先輸入 Ollama 主機網址");return;}
   setBusy(true);setNotice("正在連接 Ollama 並讀取模型清單…");
@@ -78,6 +80,13 @@ export default function ModelConnections(){
   {stored.endpoint&&<p className="connection-current"><CheckCircle2 size={14}/>已設定：{stored.model}（候選模型 {stored.models.length} 個）。儲存設定不代表主機持續在線。</p>}
   <div className="connection-status" role="status">{notice}</div>
   <div className="connection-security"><ShieldAlert size={16}/><span>iPhone 開啟的 GitHub Pages 網站使用 HTTPS，無法可靠連接家中未加密的 HTTP 服務。瀏覽器中的 localhost 指的是 iPhone，而不是家庭伺服器。可透過已驗證的 HTTPS 私有代理提供連線。</span></div>
+  <div className="connection-preferences"><div>
+   <strong>臺灣在地議題 · TAIDE 優先</strong>
+   <p>法律問題（未指定國家時預設臺灣法）、臺灣歷史與在地政策，自動優先使用已連線 Ollama 候選中的 TAIDE Chat 模型。外國法律／非臺灣史不會被強制導向 TAIDE；私密／只用手機本地模式永不外傳。</p>
+   <label><input type="checkbox" checked={taiwanRoute} onChange={event=>{setTaiwanRoute(event.target.checked);setTaiwanTaideEnabled(event.target.checked);}}/> 啟用臺灣主題 TAIDE 優先路由（預設開啟）</label>
+   <p>{[stored.model,...stored.models].some(isTaideModel)?"已設定 TAIDE 名稱的 Ollama 候選模型（仍須連線與實際推論驗證）。":"目前未設定 TAIDE 模型：請先從官方權重取得相容模型並部署於自有 Ollama 主機，於上方勾選／填入實際已載入的模型 ID；本設定不會自動下載權重。"}</p>
+   <p><a href="https://www.taide.tw/public/download-model" target="_blank" rel="noreferrer">TAIDE 官方模型與授權</a> · <a href="https://huggingface.co/taide/Llama-3.1-TAIDE-LX-8B-Chat" target="_blank" rel="noreferrer">TAIDE 8B Chat</a> · <a href="https://huggingface.co/taide/Gemma-3-TAIDE-12b-Chat-2602" target="_blank" rel="noreferrer">TAIDE 12B Chat</a>。模型偏好不是法規或史料查證；需核對官方原始來源。</p>
+  </div></div>
   <div className="connection-preferences"><div><strong>雙答案偏好學習</strong><p>目前本機記錄 {count} 次雙答案選擇，以及 {ratingCount} 次單則回答評價。另外會在本機記錄各模型的成功／失敗及耗時，用來避開不穩定或緩慢的模型；不記錄問題內容、答案或 API Key。這不是重新訓練模型。</p></div><button type="button" onClick={()=>{if(window.confirm("確定清除本裝置的模型偏好學習紀錄？")){resetModelChoices();clearModelHealth();setCount(0);setRatingCount(0);}}}>清除本機學習紀錄</button></div>
  </section>;
 }

@@ -1,5 +1,5 @@
 /* App-shell cache only. WebLLM handles its own model artifacts. */
-const CACHE_NAME="vanilla-shell-v3";
+const CACHE_NAME="vanilla-shell-v4";
 const ROOT=self.registration.scope;
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.add(ROOT)).then(()=>self.skipWaiting()));

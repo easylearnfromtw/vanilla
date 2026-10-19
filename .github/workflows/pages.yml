@@ -23,6 +23,7 @@ jobs:
       - run: npm run test:builder
       - run: npm run test:autocode
       - run: npm run test:file-lifecycle
+      - run: npm run test:taide
       - run: npm run test:local-chat
       - run: npm run test:webllm-guard
       - run: npm run test:assistant

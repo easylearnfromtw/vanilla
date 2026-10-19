@@ -1,7 +1,7 @@
 import {Converter} from "opencc-js";
 import * as webllm from "@mlc-ai/web-llm";
 import {toneInstruction} from "../ai/tone-adaptation";
-import {buildLocalChatMessages} from "./chat-messages";
+import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError} from "./chat-messages";
 
 const toTraditionalChinese=Converter({from:"cn",to:"tw"});
 const baseModels=[
@@ -63,14 +63,32 @@ export async function loadLocalModel(onProgress:(message:string,progress:number)
 export function getLoadingLocalModel():LocalModelId|null{return loadingModel;}
 
 export async function generateLocalReply(history:ChatTurn[],onText:(text:string)=>void):Promise<string>{
- if(!engine)throw new Error("本地模型尚未就緒，請等待載入完成。");
- const messages=buildLocalChatMessages(history,toneInstruction(undefined,history[history.length-1]?.content||"")) as webllm.ChatCompletionMessageParam[];
+ const currentEngine=engine;
+ if(!currentEngine)throw new Error("本地模型尚未就緒，請載入模型後再試。");
+ const style=toneInstruction(undefined,history[history.length-1]?.content||"");
+ const messages=buildLocalChatMessages(history,style);
+ assertLocalMessages(messages);
  const maxTokens=loadedModel===LOCAL_MODEL?768:1280;
- const stream=await engine.chat.completions.create({messages,temperature:0.35,top_p:0.9,max_tokens:maxTokens,stream:true});
- let answer="";
- for await(const chunk of stream){
-  answer+=chunk.choices[0]?.delta?.content??"";
-  onText(toTraditionalChinese(answer));
+
+ async function streamReply(requestMessages:webllm.ChatCompletionMessageParam[]):Promise<string>{
+  const stream=await currentEngine!.chat.completions.create({
+   messages:requestMessages,temperature:0.35,top_p:0.9,max_tokens:maxTokens,stream:true
+  });
+  let answer="";
+  for await(const chunk of stream){
+   answer+=chunk.choices[0]?.delta?.content??"";
+   onText(toTraditionalChinese(answer));
+  }
+  return toTraditionalChinese(answer);
  }
- return toTraditionalChinese(answer);
+ return retryOnSystemPromptError(
+  ()=>streamReply(messages),
+  async()=>{
+   // Reset the stale KV/context state, then retry locally just once.
+   await currentEngine.resetChat(false,loadedModel||undefined);
+   onText("");
+   const recovery=buildSystemlessRecoveryMessages(history,style);
+   return streamReply(recovery);
+  }
+ );
 }

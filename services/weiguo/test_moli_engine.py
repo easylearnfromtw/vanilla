@@ -111,7 +111,7 @@ class MoliExecutionTests(unittest.IsolatedAsyncioTestCase):
                 self.returncode = -9
 
         fake = Process()
-        with patch.dict(os.environ, {"WEIGUO_ADMIN_TOKEN": "do-not-leak", "WEIGUO_SESSION_SECRET": "also-private"}), \
+        with patch.dict(os.environ, {"WEIGUO_ADMIN_TOKEN": "do-not-leak", "WEIGUO_SESSION_SECRET": "also-private", "WEIGUO_ALLOW_JAVASCRIPT": "true"}), \
              patch("moli_engine.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=fake) as spawn:
             result = await moli_engine._read_moli("/usr/bin/moli", "https://example.org/")
         self.assertEqual(result, "# harmless")

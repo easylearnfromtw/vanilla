@@ -5,7 +5,6 @@ import {signedChatAccount} from "../vault/chat-sync";
 import {exactOwnedCopies,deleteOwnedCopy} from "../local-ai/saved-file-resolver";
 import {driveSession} from "../workspace/cloud-drive";
 import {listMemories,previewMemoryAttachment,updateMemoryDetails,type MemoryRecord} from "../memory/drive-memory";
-import {deleteOwnedCopy} from "../local-ai/saved-file-resolver";
 import "./library.css";
 type Item={kind:"device";entry:SavedAttachment}|{kind:"drive";entry:MemoryRecord};
 const uid=(x:Item)=>x.kind+":"+x.entry.id;

@@ -427,3 +427,31 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .nav.active{box-shadow:inset 0 0 0 1px var(--hair)}
 .nav.active::after{content:"";width:6px;height:6px;border-radius:1px;background:var(--red);margin-left:auto}
 .control-sheet-head{background:#f9f6f0}
+
+
+/* iPhone composer v3: compact and adjacent to the visual viewport/keyboard. */
+.vh-home{gap:13px;padding-top:4px;padding-bottom:12px;max-width:530px}
+.vh-hero .vh-mark{width:min(142px,33vw)}
+.vh-wordmark{margin-top:9px}
+.vh-tiles{gap:8px}
+.vh-tile{max-height:80px;min-height:64px;gap:4px}
+.chat-empty .vh-home{margin:auto}
+.chat-empty .chat-messages{padding-bottom:0}
+.main-chat .composer-wrap{padding-top:3px;padding-bottom:6px}
+.composer{border-radius:23px;box-shadow:0 2px 12px rgba(44,32,16,.09),inset 0 0 0 1px rgba(44,32,16,.07)}
+.composer:focus-within{box-shadow:0 2px 14px rgba(44,32,16,.12),inset 0 0 0 1px rgba(44,32,16,.2)}
+.composer textarea{min-height:38px;padding:9px 4px}
+.composer-attach,.send-button{width:38px;height:38px}
+@media(max-width:760px){
+ .main-chat .composer-wrap{width:calc(100% - 16px);padding-bottom:calc(4px + env(safe-area-inset-bottom))}
+ :root[data-keyboard="open"] .shell{height:var(--app-height,100dvh);min-height:0}
+ :root[data-keyboard="open"] .main-chat .composer-wrap{padding-bottom:3px}
+ :root[data-keyboard="open"] .composer-private{display:none}
+ :root[data-keyboard="open"] .vh-hero,:root[data-keyboard="open"] .vh-tiles,:root[data-keyboard="open"] .vh-status{display:none}
+ :root[data-keyboard="open"] .chat-empty .chat-messages{justify-content:flex-end;min-height:0;overflow:visible}
+ :root[data-keyboard="open"] .chat-empty .vh-home{margin:0 auto;padding:0 8px 4px;justify-content:flex-end;flex:0 0 auto;max-width:100%}
+ :root[data-keyboard="open"] .chat-empty .vh-home-composer{margin:0}
+ :root[data-keyboard="open"] .vh-home-composer .composer-wrap{width:100%;padding-bottom:0}
+ :root[data-keyboard="open"] .chat-controls{padding-top:3px;padding-bottom:0}
+ :root[data-keyboard="open"] .composer{border-radius:20px;background:var(--card,#fff);-webkit-backdrop-filter:none;backdrop-filter:none}
+}

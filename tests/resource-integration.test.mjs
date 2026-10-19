@@ -33,3 +33,12 @@ test("attachment storage uses separate account namespaces",()=>{
  assert.equal(attachmentOwner(" Person-A@EXAMPLE.COM "),"account:person-a@example.com");
  assert.equal(attachmentOwner(""),"guest:device");
 });
+
+test("custom search backend accepts only public HTTPS origins without embedded secrets",async()=>{
+ const {validateSearchBridge}=await import("../src/search/search-bridge.ts");
+ assert.equal(validateSearchBridge("https://search.example.net/search"),"https://search.example.net/search");
+ for(const url of ["http://example.com/search","https://localhost/search","https://127.0.0.1/search",
+  "https://user:pass@example.com/search","https://search.example.net/search?token=abc","https://10.0.0.1/search"]){
+  assert.throws(()=>validateSearchBridge(url),undefined,url);
+ }
+});

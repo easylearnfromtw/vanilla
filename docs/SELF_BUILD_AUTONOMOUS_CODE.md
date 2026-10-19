@@ -31,6 +31,22 @@ NOODLES 已由本機帳戶範圍模型回饋資料辨識重複（≥2 次）的�
 - 建議有效期短且定期輪替，開啟 GitHub branch protection／rulesets 禁止機器人直接寫 main。
 - **不要把 GitHub PAT 貼到 ChatGPT、Vanilla 對話、Repository、GitHub Pages 或 Google Drive**。
 
+### 2A. 直接用 GitHub Actions 部署（只有 iPhone 也能操作）
+
+本專案額外提供 GitHub Actions **`Deploy Self-Build GitHub Worker`**，可代替電腦終端機。注意：仍需有自己的 Cloudflare 帳戶與 Token。
+
+1. 從 GitHub Repository 的 **Settings → Secrets and variables → Actions** 新增四個 **Repository secrets**（建議於 `selfbuild-worker` Environment 設定環境審核）：
+   - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare Account ID。
+   - `CLOUDFLARE_API_TOKEN`：Cloudflare 受限 API Token，至少具 Workers Scripts Edit 權限，僅選必要帳戶。
+   - `SELFBUILD_GITHUB_PAT`：只授權 easylearnfromtw/vanilla 的 Fine-grained GitHub PAT，Contents／Pull requests Read & write、Checks Read。
+   - `SELFBUILD_ACCESS_TOKEN`：自行生成的長隨機字串（建議至少 32 bytes 等級，使用密碼管理器生成），作為 Vanilla 控制 Worker 的授權權杖。
+2. 到 GitHub Repository **Actions → Deploy Self-Build GitHub Worker → Run workflow**，選 `main`，手動執行。
+3. 只有 Action 的 Worker 部署與兩個 Secret 設置步驟均成功，才算真正將後端部署到 Cloudflare。取得該 run 實際顯示的 `https://….workers.dev` 網址。
+4. 在 Vanilla 的 **Self-Build → CODE** 貼入這個部署 URL 及你持有的 `SELFBUILD_ACCESS_TOKEN`，點「連線並驗證安全後端」。
+5. 再從 GitHub 讀取 `src/noodles/core.ts`，測試建立真正 Draft PR 與 CI。部署成功與 GitHub 實際 PR 測試是兩個不同驗收步驟。
+
+**禁止**把四項值貼到對話、Commit、公開 `wrangler.jsonc`；GitHub Actions Secrets 只透過 Runner 環境變數傳入 Wrangler。Workflow 必須由 Repository owner 在 main 上手動啟動，不能由網頁自行啟動。建議在 GitHub Settings → Environments 建立 `selfbuild-worker` 審核規則。
+
 ### 2. 部署 Worker 並設定 secrets
 程式位置 `services/self-build-github-worker/index.mjs`，設定檔 `wrangler.jsonc`，其 CORS origin 只允許 `https://easylearnfromtw.github.io`。
 

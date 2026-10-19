@@ -40,7 +40,7 @@ export default function CreamLongitudinal({isPrivate=false}:{isPrivate?:boolean}
  const owner=attachmentOwner(signedChatAccount());
  const [report,setReport]=useState<Awaited<ReturnType<typeof longitudinalReport>>|null>(null);
  const [notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[raw,setRaw]=useState("");
- const [metric,setMetric]=useState(""),[goalValue,setGoalValue]=useState(""),[direction,setDirection]=useState<SeriesDirection>("increase"),[due,setDue]=useState("");
+ const [goalValue,setGoalValue]=useState(""),[direction,setDirection]=useState<SeriesDirection>("increase"),[due,setDue]=useState("");
  const [selected,setSelected]=useState("");
  const refresh=useCallback(async()=>{try{const result=await longitudinalReport(owner);setReport(result);}
  catch(e){setNotice("CREAM 歷史載入失敗："+String(e));}},[owner]);
@@ -107,7 +107,7 @@ export default function CreamLongitudinal({isPrivate=false}:{isPrivate?:boolean}
    <div className="cream-long-main">
     <section className="cream-long-card"><div className="cream-long-section"><Activity size={17}/><strong>追蹤結果與趨勢</strong></div>
      {choices.length?<><div className="cream-long-choices">{choices.map(x=><button type="button" key={x.metric+"\u0000"+x.unit}
-      className={active?.metric===x.metric&&active.unit===x.unit?"active":""} onClick={()=>{setSelected(x.metric+"\u0000"+x.unit);setMetric(x.metric);}}>
+      className={active?.metric===x.metric&&active.unit===x.unit?"active":""} onClick={()=>{setSelected(x.metric+"\u0000"+x.unit);}}>
        {x.metric}{x.unit?" · "+x.unit:""}</button>)}</div>
      {active&&<>
       <div className="cream-long-current"><div><small>最新觀察</small><strong>{active.latest.toFixed(2)} <span>{active.unit}</span></strong></div>

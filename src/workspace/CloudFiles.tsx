@@ -30,7 +30,18 @@ export default function CloudFiles(){
   }catch(e){setStatus(e instanceof Error?e.message:String(e));}
   finally{setLoading(false);}
  },[]);
- useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{
+  void refresh();
+  const changed=()=>void refresh();
+  window.addEventListener("vanilla-workspace-changed",changed);
+  window.addEventListener("vanilla-drive-connected",changed);
+  window.addEventListener("vanilla-memory-changed",changed);
+  return()=>{
+   window.removeEventListener("vanilla-workspace-changed",changed);
+   window.removeEventListener("vanilla-drive-connected",changed);
+   window.removeEventListener("vanilla-memory-changed",changed);
+  };
+ },[refresh]);
  async function connect(){
   setBusy(true);
   try{const authorized=await connectWorkspaceDrive();setSession(authorized);await refresh(authorized.token);}

@@ -461,14 +461,18 @@ async function send(value=draft){
     const labels=copies.map(x=>(x.source==="device"?"本機":x.source==="drive-memory"?"Google Drive 原始附件與索引":"Google Drive 工作區")+"："+x.name);
     if(!window.confirm("確定刪除以下 "+copies.length+" 份已保存的檔案？\\n"+labels.join("\\n")+
       "\\nGoogle Drive 檔案會移至垃圾桶，本機附件會刪除。"))return;
-    const ok:string[]=[],fail:string[]=[];
+    const ok:string[]=[],unverified:string[]=[],fail:string[]=[];
     for(const item of copies){
-     try{await deleteOwnedCopy(item);ok.push(item.source+" / "+item.name);}
-     catch(e){fail.push(item.source+" / "+item.name+"："+String(e));}
+     try{
+      const outcome=await deleteOwnedCopy(item);
+      (outcome.status==="verified"?ok:unverified).push(outcome.detail);
+     }catch(e){fail.push(item.source+" / "+item.name+"："+String(e));}
     }
-    toolReply(question,ok.length?"已確認刪除 "+ok.length+" 份：\\n"+ok.join("\\n")+
-     (fail.length?"\\n其餘 "+fail.length+" 份未完成：\\n"+fail.join("\\n"):""):
-      "檔案刪除未完成：\\n"+fail.join("\\n"));
+    toolReply(question,"刪除操作結果：\n"+
+     (ok.length?"已驗證處理 "+ok.length+" 份：\n"+ok.join("\n")+"\n":"")+
+     (unverified.length?"僅移除 Vanilla 索引（原始檔無法確認是否存在）：\n"+unverified.join("\n")+"\n":"")+
+     (fail.length?"未完成 "+fail.length+" 份，資料可能仍存在：\n"+fail.join("\n"):
+      (!ok.length&&!unverified.length?"沒有確認完成的操作。":"")));
     return;
    }
    const file=await locateSavedFile(namedIntent.name,/(?:雲端|Drive)/i.test(question)?"cloud":"any");

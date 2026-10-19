@@ -1,5 +1,5 @@
 import {inspectExternalText,wrapExternalText} from "../security/trust-boundary";
-import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,getWorkspaceBlob,updateWorkspaceText,uploadWorkspaceFile,trashWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
+import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,getWorkspaceBlob,updateWorkspaceText,uploadWorkspaceFile,trashWorkspaceFile,getWorkspaceMetadata,DriveFileNotFoundError,type WorkspaceFile} from "../workspace/cloud-drive";
 
 export type MemoryKind="note"|"image"|"video"|"file"|"website"|"chat";
 export type MemoryRecord={
@@ -151,14 +151,18 @@ export async function knowledgeContext(query:string):Promise<string>{
 
 export async function forgetMemory(query:string):Promise<MemoryRecord>{
  const {token}=session();
- const all=await searchMemories(query);
- const exact=all.filter(x=>x.title.toLocaleLowerCase()===query.trim().toLocaleLowerCase()||x.id===query.trim());
- const chosen=(exact.length===1?exact:all.length===1?all:[])[0];
- if(!chosen)throw Error(all.length?"找到多筆符合的記憶，請輸入完整標題以免刪錯":"找不到符合的記憶");
+ // Memory UUIDs are not indexed as search text; resolve immutable IDs before title search.
+ const records=await allRecords(),byId=records.find(x=>x.id===query.trim());
+ const matches=byId?[byId]:await searchMemories(query);
+ const exact=matches.filter(x=>x.title.toLocaleLowerCase()===query.trim().toLocaleLowerCase()||x.id===query.trim());
+ const chosen=byId||(exact.length===1?exact[0]:matches.length===1?matches[0]:undefined);
+ if(!chosen)throw Error(matches.length?"找到多筆符合的記憶，請輸入完整標題以免刪錯":"找不到符合的記憶");
  const files=await listWorkspaceFiles(token);
  const index=files.find(x=>x.name===PREFIX+chosen.id+".json");
  if(!index)throw Error("雲端記憶索引已不存在，未執行任何刪除");
  await trashWorkspaceFile(token,index);
+ // Check both remote state (inside trashWorkspaceFile) and active workspace listing.
+ if((await listWorkspaceFiles(token)).some(x=>x.id===index.id))throw Error("雲端記憶索引仍在 Drive 工作區，無法確認刪除");
  cached=null;
  window.dispatchEvent(new Event("vanilla-memory-changed"));
  return chosen;
@@ -186,16 +190,36 @@ export async function previewMemoryAttachment(id:string):Promise<Blob>{
  if(!record?.fileId)throw Error("這筆記憶沒有實體附件");
  return getWorkspaceBlob(token,record.fileId);
 }
-export async function forgetMemoryWithAttachment(id:string,deleteFile:boolean):Promise<MemoryRecord>{
+export type MemoryAttachmentDeleteResult={
+ record:MemoryRecord;
+ original:"trashed"|"already-trashed"|"missing-or-inaccessible"|"untrusted-reference"|"no-attachment";
+};
+/** Remove a selected memory and its recorded original if its provenance is trustworthy.
+ * A missing/inaccessible original must NEVER be reported as verified deleted:
+ * we still remove the stale Vanilla index explicitly requested by the user.
+ */
+export async function forgetMemoryWithAttachment(id:string,deleteFile:boolean):Promise<MemoryAttachmentDeleteResult>{
  const {token}=session(),records=await allRecords(),item=records.find(x=>x.id===id);
  if(!item)throw Error("找不到這筆雲端記憶");
+ let original:MemoryAttachmentDeleteResult["original"]="no-attachment";
  if(deleteFile&&item.fileId){
-  const files=await listWorkspaceFiles(token),source=files.find(x=>x.id===item.fileId);
-  if(!source)throw Error("Drive 工作區找不到可管理的原始附件，因此不能確認已刪除");
-  await trashWorkspaceFile(token,source);
-  if((await listWorkspaceFiles(token)).some(f=>f.id===source.id))throw Error("原始附件仍在 Google Drive 工作區，已停止刪除索引");
+  try{
+   // Direct immutable-ID lookup works after moving a file out of Vanilla Workspace.
+   const source=await getWorkspaceMetadata(token,item.fileId);
+   // Metadata JSON can be edited by users or imported; only delete files tagged as created
+   // by Vanilla. Never use an untrusted index to trash an unrelated Drive document.
+   if(source.description!=="Created by Vanilla Workspace")original="untrusted-reference";
+   else if(source.trashed)original="already-trashed";
+   else{
+    await trashWorkspaceFile(token,source);
+    original="trashed";
+   }
+  }catch(error){
+   if(error instanceof DriveFileNotFoundError)original="missing-or-inaccessible";
+   else throw error; // 401, 403, network failure, or unverifiable PATCH keep index.
+  }
  }
- const result=await forgetMemory(id);
+ const record=await forgetMemory(id);
  if((await listMemories()).some(x=>x.id===id))throw Error("雲端記憶索引仍存在，刪除尚未確認");
- return result;
+ return {record,original};
 }

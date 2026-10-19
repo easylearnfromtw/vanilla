@@ -26,7 +26,8 @@
     "test:auto-docs": "node --experimental-strip-types --test tests/auto-document-web.test.mjs",
     "test:file-lifecycle": "node --experimental-strip-types --test tests/file-read-delete.test.mjs",
     "test:cream-longitudinal": "node --experimental-strip-types --test tests/cream-longitudinal-projects.test.mjs",
-    "test:taide": "node --experimental-strip-types --test tests/taide-routing.test.mjs"
+    "test:taide": "node --experimental-strip-types --test tests/taide-routing.test.mjs",
+    "test:drive-orphan": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/drive-orphan-delete.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

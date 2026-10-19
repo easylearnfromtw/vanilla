@@ -4,7 +4,9 @@ const API="https://www.googleapis.com/drive/v3/files";
 const UPLOAD="https://www.googleapis.com/upload/drive/v3/files";
 const SESSION_KEY="vanilla.drive.session.v1";
 const FOLDER="Vanilla Workspace";
-export type WorkspaceFile={id:string;name:string;mimeType:string;modifiedTime?:string;size?:string;version?:string;webViewLink?:string;description?:string};
+export type WorkspaceFile={id:string;name:string;mimeType:string;modifiedTime?:string;size?:string;version?:string;webViewLink?:string;description?:string;trashed?:boolean;parents?:string[]};
+/** 404 can mean deleted, moved out of the OAuth grant, or inaccessible. Never call this verified deletion. */
+export class DriveFileNotFoundError extends Error{constructor(){super("Google Drive 無法以原始檔案 ID 找到附件（可能已刪除、搬移或失去權限）");this.name="DriveFileNotFoundError";}}
 type Session={token:string;expiresAt:number;email:string};
 export function driveSession():Session|null{
  try{const data=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null") as Session|null;
@@ -28,7 +30,7 @@ async function checked(res:Response):Promise<Response>{
  const raw=await res.text().catch(()=>"");
  if(res.status===401)throw Error("Google 授權已過期，請重新登入");
  if(res.status===403)throw Error("Google Drive 權限不足。請重新登入並允許 Vanilla 建立與管理所選檔案。"+(raw.includes("accessNotConfigured")?" 可能需要 Google Cloud 啟用 Drive API。":""));
- if(res.status===404)throw Error("找不到檔案，可能已移動、刪除或沒有存取權");
+ if(res.status===404)throw new DriveFileNotFoundError();
  throw Error("Google Drive "+res.status+"："+raw.slice(0,180));
 }
 async function request(token:string,url:string,init:RequestInit={}):Promise<Response>{
@@ -69,7 +71,7 @@ export async function listWorkspaceFiles(token:string):Promise<WorkspaceFile[]>{
  return (await listQuery(token,"'"+folder.replace(/'/g,"\\'")+"' in parents and trashed = false","id,name,mimeType,modifiedTime,size,version,webViewLink,description")).filter(file=>!protectedResource(file.name));
 }
 export async function getWorkspaceMetadata(token:string,id:string):Promise<WorkspaceFile>{
- const res=await request(token,API+"/"+encodeURIComponent(id)+"?fields=id,name,mimeType,modifiedTime,size,version,webViewLink,description");
+ const res=await request(token,API+"/"+encodeURIComponent(id)+"?fields=id,name,mimeType,modifiedTime,size,version,webViewLink,description,trashed,parents");
  const meta=await res.json() as WorkspaceFile;
  assertPublicWorkspaceName(meta.name,"讀取");
  return meta;
@@ -115,11 +117,19 @@ export async function updateWorkspaceText(token:string,file:WorkspaceFile,text:s
  });
  return result.json() as Promise<WorkspaceFile>;
 }
+/** Trash by the immutable file ID, even if a user moved the file out of Vanilla Workspace.
+ * Confirm the actual remote 'trashed' state, not just absence from a folder listing.
+ */
 export async function trashWorkspaceFile(token:string,file:WorkspaceFile):Promise<void>{
  assertPublicWorkspaceName(file.name,"刪除");
  const check=await getWorkspaceMetadata(token,file.id);
  if(file.version&&check.version&&file.version!==check.version)throw Error("檔案已由其他裝置更新，請重新整理後再刪除");
- await request(token,API+"/"+encodeURIComponent(file.id)+"?fields=id",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({trashed:true})});
+ if(!check.trashed){
+  await request(token,API+"/"+encodeURIComponent(file.id)+"?fields=id",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({trashed:true})});
+ }
+ const verify=await getWorkspaceMetadata(token,file.id);
+ if(verify.trashed!==true)throw Error("Drive 尚未確認原始附件移至垃圾桶，不能宣稱刪除成功");
+ if(typeof window!=="undefined")window.dispatchEvent(new Event("vanilla-workspace-changed"));
 }
 export async function renameWorkspaceFile(token:string,file:WorkspaceFile,name:string):Promise<WorkspaceFile>{
  assertPublicWorkspaceName(file.name,"重新命名");assertPublicWorkspaceName(name,"重新命名");

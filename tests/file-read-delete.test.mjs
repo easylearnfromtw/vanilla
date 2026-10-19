@@ -73,7 +73,9 @@ test("regression: library delete button invokes verified local/Drive resolver an
  const memory=source("src/memory/drive-memory.ts");
  assert.match(ui,/await deleteOwnedCopy\(target\)/);
  assert.match(ui,/await refresh\(\)/);
- assert.match(memory,/if\(!source\)throw Error/);
+ assert.match(memory,/getWorkspaceMetadata\(token,item.fileId\)/);
+ assert.match(memory,/missing-or-inaccessible/);
+ assert.match(ui,/removeAllCopies\(\)/);
  assert.match(memory,/await listWorkspaceFiles\(token\)/);
  assert.match(memory,/await listMemories\(\)/);
 });

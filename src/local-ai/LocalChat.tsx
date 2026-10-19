@@ -1,5 +1,6 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
+import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {inspectExternalText,wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
 import {planAppIntent,PROJECTS} from "../assistant/intent-router";
 import {proposeSheetAction,commitSheetAction} from "../assistant/sheet-actions";
@@ -433,7 +434,8 @@ async function copyMessage(content:string,index:number){try{await navigator.clip
 return <section className="chat">
 <div className="assistant-runtime-strip">
  <span><Sparkles size={15}/> Vanilla 自動調度</span>
- <span className="runtime-status" role="status">{loadingModel?"載入本地模型 "+modelProgress+"%":ready?"手機本地 AI 已就緒":capabilities.webgpu?"本地模型待載入":"此裝置未提供 WebGPU"}{!online?" · 離線":""}</span>
+ <PWAUpdateNotice/>
+  <span className="runtime-status" role="status">{loadingModel?"載入本地模型 "+modelProgress+"%":ready?"手機本地 AI 已就緒":capabilities.webgpu?"本地模型待載入":"此裝置未提供 WebGPU"}{!online?" · 離線":""}</span>
  {capabilities.webgpu&&!ready&&!loadingModel&&<button type="button" onClick={()=>void initialize()} disabled={busy}>下載最小本地模型</button>}
  <button type="button" className={privateMode?"runtime-private":""} disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode}>{privateMode?"私密 · 僅本機":"一般模式"}</button>
  <label className="runtime-compare"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/> 比較兩個答案</label>

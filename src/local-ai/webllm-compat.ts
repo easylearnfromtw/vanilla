@@ -11,3 +11,23 @@ export function isDisposedWebLLMFailure(error:unknown):boolean{
  const message=error instanceof Error?error.message:String(error);
  return /(?:Object|Module) has already been disposed/i.test(message);
 }
+
+/** A disposed TVM handle cannot be reused. Rebuild the engine outside the inference
+ * queue, then replay the same request once. Other errors and cancellations are not retried.
+ * Keeping the retry bounded prevents an invalid GPU runtime from looping forever.
+ */
+export async function retryDisposedLocalInference<T>(
+ attempt:()=>Promise<T>,
+ recover:()=>Promise<void>,
+ resetPartial:()=>void=()=>{},
+ signal?:AbortSignal,
+):Promise<T>{
+ try{return await attempt();}
+ catch(error){
+  if(!isDisposedWebLLMFailure(error)||signal?.aborted)throw error;
+  await recover();
+  if(signal?.aborted)throw new DOMException("任務已取消","AbortError");
+  resetPartial();
+  return attempt();
+ }
+}

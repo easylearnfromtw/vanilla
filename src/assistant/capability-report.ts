@@ -18,7 +18,7 @@ export function capabilityIntent(question:string):CapabilityTopic|null{
  const isOverview=/^(?:(?:你|Vanilla|這個(?:AI|助手|系統|App))\s*)?(?:能|會|可以|有|支援)?\s*(?:做什麼|幫我做什麼|提供什麼|做哪些事|哪些功能|什麼功能|多少功能|所有功能|全部功能|功能清單|功能列表|功能介紹|能力介紹|能耐|有哪些能力|可以做哪些事|可以幫我做什麼)$/i.test(q)||
  /^(?:介紹|說明|列出|顯示|查看|告訴我|請介紹|幫我整理)\s*(?:你|Vanilla|你的|目前|現有|所有|全部)?\s*(?:的)?\s*(?:功能|能力|功能清單|支援項目|可用功能)$/i.test(q)||
  /^(?:你|Vanilla)(?:現在|目前)?(?:能|可以|會)?(?:幫我)?(?:做|處理)什麼$/i.test(q);
- if(isOverview)return "overview";
+ if(isOverview||/^(?:(?:你|Vanilla)(?:的)?)?(?:功能|能力)(?:介紹|清單|列表)$/.test(q))return "overview";
  const isCapability=/^(?:你|Vanilla|這個(?:AI|助手|系統)|目前的Vanilla)(?:現在|目前)?(?:能不能|可不可以|能否|可以|能|會|是否支援|支援|有辦法|有沒有|能幫我|可以幫我)/i.test(q)||
  /^(?:請問|我想問|想知道|想了解)(?:你|Vanilla)?(?:現在|目前)?(?:能不能|可不可以|可以|能|是否支援|支援|有沒有)/i.test(q)||
  /^(?:你|Vanilla)(?:的)?(?:表格|記憶|搜尋|研究|統計|手機控制|圖片辨識|模型|雲端|報告|家庭|旅行)(?:功能)?(?:完成了嗎|做好了嗎|上線了嗎|能用了嗎|可以用了嗎)$/i.test(q);
@@ -45,9 +45,9 @@ export function capabilityItems(s:CapabilitySnapshot):Record<Exclude<CapabilityT
  const remote=!s.privateMode&&s.online&&(s.geminiConfigured||s.deepseekConfigured||s.ollamaConfigured);
  const connected=s.driveSession&&!s.privateMode&&s.online;
  return {
-  models:{name:"AI 對話與模型",status:s.localReady||remote?"available":"setup",detail:s.localReady?
+  models:{name:"AI 對話與模型",status:s.localReady?"available":"setup",detail:s.localReady?
    "本機模型已載入"+(s.localModel?"（"+s.localModel+"）":"")+"；可在這支裝置生成文字"+(remote?"，也可使用已設定的外部模型。":"。"):
-   "目前沒有已載入的可用本地模型"+(!s.webgpu?"（此瀏覽器沒有可用 WebGPU）":"")+"；"+(remote?"已設定外部模型可供一般模式使用。":"請先下載／載入本地模型，或在設定中連接雲端模型／Ollama。"),example:"幫我解釋全人工髖關節置換術"},
+   "目前沒有已載入的可用本地模型"+(!s.webgpu?"（此瀏覽器沒有可用 WebGPU）":"")+"；"+(remote?"已偵測到外部模型設定，但尚未檢查連線與額度。":"請先下載／載入本地模型，或在設定中連接雲端模型／Ollama。"),example:"幫我解釋全人工髖關節置換術"},
   sheets:{name:"Vanilla Sheets",status:"available",detail:"可建立與編輯本機多工作表、套用部分公式、匯入 CSV、匯出 CSV／JSON；聊天可建立表格草稿及提出逐格修改，修改前需確認。不是完整 Excel 或 Google Sheets。",example:"幫我做一份家庭收支表格"},
   drive:{name:"Google Drive 雲端檔案",status:connected?"available":"setup",detail:connected?
    "偵測到 Google Drive 登入工作階段；可透過既有介面讀取、建立、上傳、改名及移至垃圾桶。實際能否成功仍取決於網路、權限與 API。":

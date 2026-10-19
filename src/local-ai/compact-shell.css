@@ -1,0 +1,10 @@
+.vanilla-tools-drawer{border-bottom:1px solid #ececec;background:#fff;flex:none;max-height:45vh;overflow-y:auto;scrollbar-width:thin}
+.vanilla-tools-drawer>summary{cursor:pointer;display:flex;gap:10px;align-items:center;padding:8px 16px;font-size:11px;color:#6b6b6b;list-style:none;min-height:35px}
+.vanilla-tools-drawer>summary::-webkit-details-marker{display:none}
+.vanilla-tools-drawer>summary:before{content:"＋";font-weight:800;font-size:15px}
+.vanilla-tools-drawer[open]>summary:before{content:"−"}
+.vanilla-tools-drawer>summary>span{font-size:10px;opacity:.7;margin-left:auto}
+.vanilla-tools-drawer .assistant-tool-shelf{margin-top:2px}
+.teacher-learning>summary{list-style:none}.teacher-learning>summary::-webkit-details-marker{display:none}
+.chat .vanilla-tools-drawer>.noodles-box,.chat .vanilla-tools-drawer>.cream-google{max-width:100%;margin:6px 12px}
+@media(max-width:760px){.vanilla-tools-drawer{max-height:38vh}.vanilla-tools-drawer>summary{padding:7px 12px}}

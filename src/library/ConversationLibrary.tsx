@@ -5,6 +5,7 @@ import {signedChatAccount} from "../vault/chat-sync";
 import {exactOwnedCopies,deleteOwnedCopy} from "../local-ai/saved-file-resolver";
 import {driveSession} from "../workspace/cloud-drive";
 import {forgetMemoryWithAttachment,listMemories,previewMemoryAttachment,updateMemoryDetails,type MemoryRecord} from "../memory/drive-memory";
+import {deleteOwnedCopy} from "../local-ai/saved-file-resolver";
 import "./library.css";
 type Item={kind:"device";entry:SavedAttachment}|{kind:"drive";entry:MemoryRecord};
 const uid=(x:Item)=>x.kind+":"+x.entry.id;
@@ -78,37 +79,19 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
  }
  async function remove(){
   if(!active||busy)return;
-  const filename=active.kind==="device"?active.entry.name:active.entry.fileName||active.entry.title;
-  setBusy(true);setNotice("");
+  const target=active.kind==="device"?
+   {id:active.entry.id,name:active.entry.name,source:"device" as const}:
+   {id:active.entry.id,name:active.entry.title,source:"drive-memory" as const};
+  setBusy(true);setNotice("正在從 "+(active.kind==="device"?"本機附件庫":"Google Drive 記憶索引與原始附件")+" 刪除...");
   try{
-   const matched=await exactOwnedCopies(filename);
-   // A Drive note without a physical attachment is still a deletable index.
-   const fallback=active.kind==="drive"&&!matched.some(x=>x.source==="drive-memory"&&x.id===active.entry.id);
-   const count=matched.length+(fallback?1:0);
-   if(!count){setNotice("沒有確認可刪除的附件，請重新整理");return;}
-   const places:string[]=matched.map(x=>x.source==="device"?"本機 IndexedDB":x.source==="drive-memory"?"Google Drive 原檔＋記憶索引":"Google Drive 工作區");
-   if(fallback)places.push("Google Drive 記憶索引");
-   if(!window.confirm("確定刪除「"+filename+"」的 "+count+" 份實際記錄嗎？\n"+
-    places.map((p,i)=>(i+1)+". "+p).join("\n")+
-    "\n本機將刪除，Drive 檔案會移入 Google 垃圾桶。"))return;
-   const success:string[]=[],failed:string[]=[];
-   for(const item of matched){
-    try{await deleteOwnedCopy(item);success.push(item.source+"："+item.name);}
-    catch(e){failed.push(item.source+"："+String(e));}
-   }
-   if(fallback){
-    try{await forgetMemoryWithAttachment(active.entry.id,true);
-     const list=await listMemories();
-     if(list.some(x=>x.id===active.entry.id))throw Error("記憶索引尚未確認刪除");
-     success.push("Google Drive 記憶索引");}
-    catch(e){failed.push("雲端記憶："+String(e));}
-   }
+   await deleteOwnedCopy(target);
+   setSelected("");setPreview("");setTextContent("");setOriginalText("");
+   setNotice("已確認刪除「"+target.name+"」的 "+(active.kind==="device"?"本機附件":"雲端記憶及可管理的原始檔案")+"。");
    await refresh();
-   if(success.length){setSelected("");setPreview("");setTextContent("");setOriginalText("");}
-   setNotice("實際完成 "+success.length+"/"+count+" 份刪除"+(failed.length?"；未完成："+failed.join("；"):"。本機與對應雲端副本均已查核。"));
-  }catch(e){setNotice("刪除未完成："+String(e));}
+  }catch(e){setNotice("刪除未完成，原檔案可能仍存在："+String(e));}
   finally{setBusy(false);}
  }
+
  const fileType=active?.kind==="device"?active.entry.type:active?.entry.fileMimeType||"";
  return <section className="conversation-library">
   <div className="library-header"><div><small>VANILLA / PERSONAL LIBRARY</small><h2>對話檔案與圖片</h2><p>管理對話附件的本機副本與已授權的 Google Drive 記憶；不同帳號的資料不會自動合併。</p></div><button type="button" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={15}/>重新整理</button></div>

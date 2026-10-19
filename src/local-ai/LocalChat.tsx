@@ -1,6 +1,7 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
 import CreamMessage from "../cream/CreamMessage";
+import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,creamChartFollowup,type CreamDataset,type CreamResult} from "../cream/core";
 import {planConversationSave,composeSavedContent} from "../assistant/conversation-save";
 import {readPublicPage,linkReadingIntent} from "../search/web-reader";
@@ -591,6 +592,15 @@ return <section className="chat">
  <label className="runtime-compare"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/> 比較兩個答案</label>
 </div>
 <AssistantTools onPrompt={query=>void send(query)}/>
+<GoogleSourcesPanel privateMode={privateMode} onAnalyze={(dataset,summary)=>{
+ const result=analyzeCream(dataset,"line");
+ setCreamDataset(dataset);
+ const now=Date.now();
+ setHistory(previous=>[...previous,
+  {role:"user",content:"CREAM：從 Google Analytics 匯入唯讀資料「"+dataset.source+"」",id:crypto.randomUUID(),createdAt:now},
+  {role:"assistant",content:summary,cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
+ setLastRoute("GA4 資料已由 CREAM 本機計算；Studio 僅為外部報表延伸。");
+}}/>
 {(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice" role="status">{lastRoute||fileStatus||(modelError?status:"")}</p>}
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small style={{display:"block",fontSize:11,marginTop:3}}>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">

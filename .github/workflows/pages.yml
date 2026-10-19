@@ -26,6 +26,7 @@ jobs:
       - run: npm run test:assistant
       - run: npm run test:resource-integration
       - run: npm run test:cream
+      - run: npm run test:cream-google
       - run: npm run test:web-workflows
       - run: npm run test:capabilities
       - run: npm run test:security

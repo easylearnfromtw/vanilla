@@ -168,7 +168,7 @@ section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
 section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed}/></div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart}/></div>:
-section==="luna"?<div className="workspace-page"><LunaStudio owner={signedIn?.email||"guest"}/></div>:
+section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:
 <div className="content-page"><div className="eyebrow">VANILLA / SETTINGS</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p><SettingsPage/></div>}

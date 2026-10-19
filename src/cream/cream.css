@@ -17,3 +17,14 @@
 .cream-chart-reason{color:#6b615a;background:#f1eeea;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.65;margin:2px 0 6px}
 .cream-insights{border-top:1px solid #e7e1db;border-bottom:1px solid #e7e1db;padding:14px 0 12px;margin:4px 0 14px}
 .cream-insights strong{font-size:13px;letter-spacing:.02em}.cream-insights p{font-size:12px;line-height:1.75;margin:7px 0;color:#554e49}.cream-insights small{font-size:10px;color:#8b8078}
+
+/* CREAM D2: independent, traceable pie and numerical-distribution charts. */
+.cream-extended-plot{width:100%;max-width:660px;margin:8px auto 12px}
+.cream-extended-plot svg{display:block;width:100%;max-height:270px;overflow:visible}
+.cream-extended-plot .cream-pie-svg{max-width:360px;margin:auto}
+.cream-pie-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px 12px;margin:4px 0 8px}
+.cream-pie-legend>div{display:flex;align-items:center;gap:7px;min-width:0;font-size:12px}
+.cream-pie-legend i{width:11px;height:11px;border-radius:50%;flex:none}
+.cream-pie-legend span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.cream-pie-legend strong{font-variant-numeric:tabular-nums;font-size:12px}
+.cream-extended-plot circle:focus-visible,.cream-extended-plot path:focus-visible{outline:2px solid #ba4937;outline-offset:2px}

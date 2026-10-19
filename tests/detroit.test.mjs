@@ -7,9 +7,10 @@ import {allowedURL,requireAdmin} from "../services/detroit-jobs/worker.mjs";
 const req=(token)=>new Request("https://worker.example/health",{headers:{authorization:"Bearer "+token}});
 
 test("registry groups independent roles without multiple loaded AI models",()=>{
- assert.equal(DETROIT_ENGINES.length,18);
+ assert.equal(DETROIT_ENGINES.length,19);
  assert.equal(new Set(DETROIT_ENGINES.map(x=>x.id)).size,DETROIT_ENGINES.length);
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"adapter");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="medusa").status,"adapter");
 });
 test("simple requests skip pipeline and deep analysis enumerates auditable phases",()=>{
  assert.equal(merlinParse("你好").depth,"quick");

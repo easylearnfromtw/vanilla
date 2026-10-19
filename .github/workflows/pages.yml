@@ -39,6 +39,7 @@ jobs:
       - run: npm run test:resource-integration
       - run: npm run test:cream
       - run: npm run test:detroit
+      - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio
       - run: npm run test:retina
       - run: npm run test:detroit-notifications
@@ -59,6 +60,8 @@ jobs:
       - run: npm run test:providers
       - name: Athena private scanner unit tests (no AV daemon)
         run: python3 -m unittest discover -s services/detroit-scanner -p 'test_*.py'
+      - name: 衞國 browser policy unit tests
+        run: python3 -m unittest discover -s services/weiguo -p 'test_*.py'
       - name: Validate NOODLES trainer (no GPU)
         run: |
           python3 -m py_compile training/noodles_train.py

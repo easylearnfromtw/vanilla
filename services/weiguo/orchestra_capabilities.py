@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TypedDict
 
 from wordcraft_engine import available as wordcraft_available
+from pdfcraft_engine import available as pdfcraft_available
 
 
 class Capability(TypedDict):
@@ -25,15 +26,17 @@ ENGINE_IDS = (
 
 
 def orchestra_capabilities() -> dict:
-    """Only WordCraft currently has an executable adapter; others are not routable."""
+    """Only separately reviewed WordCraft/PdfCraft adapters may be configured."""
     tools: list[Capability] = []
     for name in ENGINE_IDS:
-        configured = name == "wordcraft" and wordcraft_available()
+        word = name == "wordcraft" and wordcraft_available()
+        pdf = name == "pdfcraft" and pdfcraft_available()
+        configured = word or pdf
         tools.append({
             "id": name,
             "status": "configured" if configured else "unavailable",
-            "operations": ["convert-markdown"] if configured else [],
-            "outputFormats": ["docx", "pdf"] if configured else [],
+            "operations": ["convert-markdown"] if word else ["combine-pdf"] if pdf else [],
+            "outputFormats": ["docx", "pdf"] if word else ["pdf"] if pdf else [],
             # A configured executable is NOT proof of a real successful conversion.
             "runtimeVerified": False,
         })

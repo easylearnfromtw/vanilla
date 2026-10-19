@@ -27,7 +27,7 @@ User / Vanilla chat / CREAM
 | DeckCraft | Slides, charts and animations | PPTX, PDF, slides | Adapter contract only |
 | VectorCraft | Vector illustrations/icons | SVG, PDF, PNG | Adapter contract only |
 | PhotoCraft | Image layers, masking, retouching | PNG, JPEG | Adapter contract only |
-| PdfCraft | PDF review, editing and operations | PDF | Adapter contract only |
+| PdfCraft | PDF inspection, editing and operations | PDF | Optional fixed-argument native PDF combine adapter, off by default; no Rust binary bundled |
 | EffectCraft | Motion graphics and video composition | MP4, GIF | Adapter contract only |
 | DesignCraft | Page layout and publication | PDF, PNG | Adapter contract only |
 

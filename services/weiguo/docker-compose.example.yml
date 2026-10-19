@@ -34,6 +34,11 @@ services:
       # WordCraft remains off. Never attest to isolation until enforced at the host/VPC.
       WEIGUO_WORDCRAFT_ENABLED: "false"
       WEIGUO_WORDCRAFT_EGRESS_ISOLATED: "false"
+      # Optional PdfCraft CLI: default disabled and not shipped in this image.
+      WEIGUO_PDFCRAFT_ENABLED: "false"
+      WEIGUO_PDFCRAFT_EGRESS_ISOLATED: "false"
+      # Production additionally requires a reviewed binary, SHA-256 digest,
+      # host-level network denial and filesystem/process isolation.
       # Once a trusted binary is deployed, set WEIGUO_WORDCRAFT_SHA256 server-side
       # to the actual independently verified 64-digit digest, NOT to an example value.
       # Set true for any publicly routed family-only Railway instance.

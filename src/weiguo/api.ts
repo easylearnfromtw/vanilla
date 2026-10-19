@@ -100,6 +100,46 @@ export async function convertWeiGuoWordCraft(title:string,body:string,format:"do
  return {bytes,filename:title.replace(/[\\/:*?"<>|\x00-\x1f]/g,"_").trim().slice(0,70)+"."+format,mime};
 }
 
+/** Native PdfCraft merge on a separately admitted binary; never sends local paths. */
+export async function mergeWeiGuoPdfCraft(files:readonly File[]):Promise<Uint8Array>{
+ const identity=weiGuoIdentity(),base=weiGuoApiBase();
+ if(!identity||identity.role==="viewer"||!auth)throw Error("請先以衞國家庭帳號登入");
+ if(!base)throw Error("尚未配置衞國安全後端");
+ if(files.length<2||files.length>3)throw Error("PdfCraft 一次只接受 2–3 個 PDF 檔");
+ const encoded:string[]=[];
+ for(const file of files){
+  if(file.size<32||file.size>2*1024*1024)throw Error("單份 PDF 限 2 MB");
+  const b=new Uint8Array(await file.arrayBuffer());
+  const signature=new TextDecoder().decode(b.slice(0,5));
+  const tail=new TextDecoder().decode(b.slice(-2048));
+  if(signature!=="%PDF-"||!tail.includes("%%EOF"))throw Error("檔案不是有效 PDF 容器："+file.name);
+  const parts:string[]=[];
+  for(let i=0;i<b.length;i+=8192)parts.push(String.fromCharCode(...b.subarray(i,i+8192)));
+  encoded.push(btoa(parts.join("")));
+ }
+ let response:Response;
+ try{
+  response=await fetch(base+"/v1/family/orchestra/pdfcraft/combine",{
+   method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+auth.token},
+   body:JSON.stringify({files:encoded}),cache:"no-store",credentials:"omit",
+   referrerPolicy:"no-referrer",mode:"cors"
+  });
+ }catch{throw Error("無法連接 PdfCraft 後端");}
+ if(response.status===401||response.status===403){clearWeiGuoSession();throw Error("衞國文件授權無效，請重新登入");}
+ if(!response.ok){
+  const error=await response.json().catch(()=>({})) as {detail?:string};
+  throw Error(typeof error.detail==="string"?error.detail:"PdfCraft 合併失敗："+response.status);
+ }
+ const declared=Number(response.headers.get("Content-Length")||"0");
+ if(declared>12*1024*1024)throw Error("PdfCraft 輸出超出限制");
+ const pdf=new Uint8Array(await response.arrayBuffer());
+ if(pdf.length<32||pdf.length>12*1024*1024||
+    new TextDecoder().decode(pdf.slice(0,5))!=="%PDF-"||
+    !new TextDecoder().decode(pdf.slice(-2048)).includes("%%EOF"))
+  throw Error("PdfCraft 回傳資料不是合格 PDF");
+ return pdf;
+}
+
 export type GridCraftCell={cell:string;input:string};
 /** Explicitly authorized export of the current Vanilla Sheets tab only. */
 export async function exportWeiGuoGridCraft(cells:GridCraftCell[]):Promise<Blob>{

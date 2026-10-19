@@ -52,3 +52,11 @@
 
 ## 資料治理與可擴展性
 每個模組獨立檔案、純函式決策與測試；Zeus 不得修改自己的權限或自動提交程式更新。自動優化只能產生 PR/建議，必須通過測試並由使用者明確批准。對家庭不同帳號分開保存記憶、任務與附件。
+
+
+## D2 實際交付（2026-10-19）
+- `Detroit Studio` 從 Vanilla 工具列或「開啟 Detroit Studio」進入。Bard 用已設定的 Gemini API 生成圖片，須逐次授權並確認可能有費用；無雲端授權或私密模式不會生圖。
+- Retina 本機輸出 PDF（Canvas 點陣頁）、可編輯 DOCX 及 PPTX；文字與清單樣式已初步支援。長文件複雜排版、圖表嵌入簡報仍需個案驗收。
+- Athena 擴充隔離 Worker、檔案簽章、ZIP 中央目錄檢查、Office 巨集及 PDF 動作封鎖；可另外自架 ClamAV Gateway。**GitHub Pages 的瀏覽器檢查不是完整防毒，部署並串接可信掃描服務後才可提供正式防毒結果**。
+- Persistent Jobs 增加固定 HTTPS 主機 Webhook、HMAC-SHA256 簽章、D1 outbox、最多五次重試及送達紀錄。需建立自有 Cloudflare Worker／D1／Cron，還需部署 webhook 接收端並測試送達才能真正長期監控。參見 `services/detroit-jobs/DEPLOY.md`。
+- Single Model Runtime 繼續保障本機僅有一個 WebGPU 推論模型；Bard 是選擇性呼叫獲授權的雲端圖片模型。

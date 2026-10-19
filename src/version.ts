@@ -1,2 +1,2 @@
-/** Increment together with public/version.json to identify deployed PWA bundles. */
-export const VANILLA_BUILD="2026.10.19.5-resource-execution";
+/** Increment alongside public/version.json so iOS PWA displays its actual build. */
+export const VANILLA_BUILD="2026.10.19.6-cream-web-autosave";

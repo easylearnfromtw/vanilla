@@ -5,14 +5,7 @@ import {parseTable,renderTable} from "./smart-output";
 import SwipeDeck,{type SwipeItem} from "./SwipeDeck";
 import {ExternalLink,BookOpen} from "lucide-react";
 
-export function safeExternalURL(input:string):string|null{
- try{
-  const url=new URL(input);
-  if(url.protocol!=="https:"&&url.protocol!=="http:")return null;
-  if(url.username||url.password)return null;
-  return url.toString();
- }catch{return null;}
-}
+import {safeExternalURL} from "./chat-ui-utils";
 /** Real, swipeable output blocks, not a second text copy of the same table. */
 export default function MessageArtifacts({turn,onOpenTable,onOpenSheet,onOpenCream}:{
  turn:ChatTurn;

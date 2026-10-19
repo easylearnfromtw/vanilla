@@ -98,10 +98,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          /tmp/moli fetch --dump markdown --wait-until done --timeout 15000 \
-            --disable-js --disable-subframes --block-private-networks --fail \
-            https://example.org/ > /tmp/example.md
-          grep -qi "Example Domain" /tmp/example.md
+          # Capture diagnostics separately: a silent grep failure previously masked
+          # whether the browser failed to run or returned unexpected content.
+          if /tmp/moli fetch --dump markdown --wait-until done --timeout 15000 \
+              --disable-js --disable-subframes --block-private-networks --fail \
+              https://example.org/ > /tmp/example.md 2>/tmp/example.err; then
+            echo "Moli public HTTPS fetch exited successfully"
+          else
+            code=$?
+            echo "::error::Moli public HTTPS fetch exited with code $code"
+            sed -n '1,50p' /tmp/example.err
+            exit 1
+          fi
+          if ! grep -qi "Example Domain" /tmp/example.md; then
+            echo "::error::Moli fetch succeeded but Markdown is missing expected Example Domain text"
+            wc -c /tmp/example.md
+            sed -n '1,30p' /tmp/example.md
+            exit 1
+          fi
           if /tmp/moli fetch --dump markdown --timeout 3000 \
               --disable-js --disable-subframes --block-private-networks \
               https://127.0.0.1/ >/tmp/private-network.txt 2>/tmp/private-network.err; then

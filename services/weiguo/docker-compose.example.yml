@@ -1,0 +1,21 @@
+services:
+  weiguo:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9080:8080"
+    environment:
+      WEIGUO_ALLOWED_HOSTS: "example.org,www.example.org"
+      # Set WEIGUO_ADMIN_TOKEN in a server-side .env (minimum 32 random chars).
+      WEIGUO_ADMIN_TOKEN: "${WEIGUO_ADMIN_TOKEN:?Required}"
+      WEIGUO_ALLOW_MUTATIONS: "false"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=128m
+    pids_limit: 180
+    mem_limit: 1g
+    # Restrict egress to approved public destinations at cloud firewall layer.

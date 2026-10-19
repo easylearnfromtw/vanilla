@@ -13,23 +13,22 @@ export type CapabilityItem={name:string;status:CapabilityStatus;detail:string;ex
 const LABEL:Record<CapabilityStatus,string>={available:"目前可用",setup:"需要設定／授權",limited:"部分功能",planned:"尚未上線"};
 export function capabilityIntent(question:string):CapabilityTopic|null{
  const raw=question.trim();
- const q=raw.replace(/[！!？?。．\s]+$/g,"");
+ const q=raw.replace(/[！!？?。．\s]+$/g,"").replace(/\s+/g,"");
  if(!q||q.length>160)return null;
- // Only a self-description question belongs here; never intercept requests to
- // CREATE a sheet, WRITE a report, CONNECT an API, or perform another action.
- const overview=/^(?:(?:請問|我想知道|想了解|告訴我|介紹一下|說明一下)\s*)?(?:(?:你|Vanilla|這個(?:AI|助手|系統|App))\s*)?(?:現在|目前|實際上|到底|具體|真正)?\s*(?:(?:能|會|可以|有|支援)\s*)?(?:做什麼|幫我做什麼|提供什麼|做哪些事|哪些功能|什麼功能|所有功能|全部功能|功能清單|功能列表|功能介紹|能力介紹|有哪些能力|可以做哪些事|可以幫我做什麼)|(?:能做什麼|能幫我做什麼))$/i.test(q)||
- /^(?:介紹|說明|列出|顯示|查看|告訴我|請介紹|幫我整理)\s*(?:你|Vanilla|你的|目前|現有|所有|全部)?\s*(?:的)?\s*(?:功能|能力|功能清單|支援項目|可用功能)$/i.test(q)||
- /^(?:(?:你|Vanilla)(?:的)?)?(?:功能|能力)(?:介紹|清單|列表)$/.test(q)||
- /^(?:你|Vanilla)(?:現在|目前)?(?:能|可以|會)?(?:幫我)?(?:做|處理)什麼$/i.test(q)||
- /^(?:我想知道|想了解)(?:你|Vanilla)(?:能|可以|會)(?:做|幫我做)什麼$/i.test(q);
- if(overview)return "overview";
- const self=/^(?:(?:請問|想知道|我想問)\s*)?(?:你|Vanilla|這個(?:AI|助手|系統|App)|目前的Vanilla)(?:現在|目前)?/i.test(q);
- if(!self)return null;
- const statusQuestion=/(?:功能|能力|支援|具備|上線|完成了嗎|做好了嗎|可以用了嗎|能用了嗎|做得到嗎|有辦法嗎|可不可以|能不能|能否|是否|嗎|么|呢)$/.test(q)||/[?？]\s*$/.test(raw);
- if(!statusQuestion)return null;
- // Avoid routing assertions or imperative requests through capabilities.
- const rx:[CapabilityTopic,RegExp][]=[
-  ["phone",/(?:手機|iPhone|Android|Mobilerun|跨App|裝置控制|開啟其他App|操作其他App)/i],
+ // Only answer a self-description query. Do not hijack actual user commands.
+ const subject="(?:你|Vanilla|這個(?:AI|助手|系統|App))";
+ const ask="(?:做什麼|幫我做什麼|提供什麼|做哪些事|哪些功能|什麼功能|所有功能|全部功能|功能清單|功能列表|功能介紹|能力介紹|有哪些能力|可以做哪些事|可以幫我做什麼)";
+ const direct=new RegExp("^"+subject+"(?:現在|目前|實際上|到底|具體|真正)?(?:能|會|可以|有|支援)?"+ask+"$","i");
+ const prefixed=new RegExp("^(?:請問|我想知道|想了解|我想問)"+subject+"(?:現在|目前)?(?:能|會|可以|有|支援)?"+ask+"$","i");
+ const intro=/^(?:介紹|說明|列出|顯示|查看|告訴我|請介紹|幫我整理)(?:你|Vanilla|你的|目前|現有|所有|全部)?的?(?:功能|能力|功能清單|支援項目|可用功能)$/i;
+ const short=/^(?:你的|Vanilla的|你|Vanilla)?(?:功能|能力)(?:介紹|清單|列表)$/i;
+ const ability=/^(?:我想知道|想了解)(?:你|Vanilla)(?:能|可以|會)(?:做|幫我做)什麼$/i;
+ if(direct.test(q)||prefixed.test(q)||intro.test(q)||short.test(q)||ability.test(q))return "overview";
+ if(!new RegExp("^(?:(?:請問|想知道|我想問))?"+subject+"(?:現在|目前)?","i").test(q))return null;
+ const asksStatus=/(?:功能|能力|支援|具備|上線|完成了嗎|做好了嗎|可以用了嗎|能用了嗎|做得到嗎|有辦法嗎|可不可以|能不能|能否|是否|嗎|么|呢)$/.test(q)||/[?？]\s*$/.test(raw);
+ if(!asksStatus)return null;
+ const topics:[CapabilityTopic,RegExp][]=[
+  ["phone",/(?:手機|iPhone|Android|Mobilerun|跨App|裝置控制|操作其他App)/i],
   ["research",/(?:CREAM|統計|圖表|資料分析|研究|論文|文獻|回歸|儀表板|dashboard)/i],
   ["family",/(?:家庭成員|家庭帳號|家庭權限|帳號隔離|家人|多人|身分識別|家人的資料)/i],
   ["travel",/(?:旅行|旅遊|導遊|行程規劃|機票|酒店|飯店)/i],
@@ -43,7 +42,7 @@ export function capabilityIntent(question:string):CapabilityTopic|null{
   ["report",/(?:報告|匯出|下載|做成PDF|簡報|PowerPoint)/i],
   ["models",/(?:模型|本地AI|離線|WebLLM|Ollama|Gemini|DeepSeek|聊天|回答問題)/i]
  ];
- for(const [topic,pattern] of rx)if(pattern.test(q))return topic;
+ for(const [topic,pattern] of topics)if(pattern.test(q))return topic;
  return null;
 }
 export function capabilityItems(s:CapabilitySnapshot):Record<Exclude<CapabilityTopic,"overview">,CapabilityItem>{

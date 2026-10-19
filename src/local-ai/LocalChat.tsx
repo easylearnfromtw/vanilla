@@ -451,7 +451,7 @@ async function send(value=draft){
  }
  let inlineFileContext="";
  const namedIntent=filenameFromQuestion(question);
- if(namedIntent&&!/^(?:src|tests|docs)\\//.test(namedIntent.name)){
+  if(namedIntent&&!/^(?:src|tests|docs)\//.test(namedIntent.name)){
   if(privateMode){toolReply(question,"私密模式不會讀取或刪除一般附件庫；請在一般模式操作。");return;}
   setBusy(true);
   try{

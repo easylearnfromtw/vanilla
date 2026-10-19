@@ -52,6 +52,7 @@ jobs:
           npm run test:drive-orphan
           npm run test:taide
           npm run test:chat-router
+          npm run test:email
           npm run test:model-tuning
           npm run test:archive
           npm run test:providers

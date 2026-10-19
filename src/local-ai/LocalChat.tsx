@@ -678,6 +678,7 @@ return <section className="chat">
  <button type="button" className={privateMode?"runtime-private":""} disabled={busy} onClick={switchPrivacy} aria-pressed={privateMode}>{privateMode?"私密 · 僅本機":"一般模式"}</button>
  <label className="runtime-compare"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/> 比較兩個答案</label>
 </div>
+<details className="vanilla-tools-drawer"><summary>工具與資料 <span>CREAM · NOODLES · Google</span></summary>
 <AssistantTools onPrompt={query=>void send(query)}/>
 <NoodlesPanel privateMode={privateMode}/>
 <TeacherLearningPanel privateMode={privateMode}/>
@@ -690,6 +691,7 @@ return <section className="chat">
   {role:"assistant",content:summary,cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
  setLastRoute("GA4 資料已由 CREAM 本機計算；Studio 僅為外部報表延伸。");
 }}/>
+</details>
 {(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice" role="status">{lastRoute||fileStatus||(modelError?status:"")}</p>}
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small style={{display:"block",fontSize:11,marginTop:3}}>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">

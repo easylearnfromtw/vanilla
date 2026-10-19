@@ -49,7 +49,7 @@ test("iPhone empty chat excludes RECENT; Detroit status belongs to the assistant
  const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
  assert.ok(!home.includes("vh-recent")&&!home.includes("props.recent.slice"));
  assert.ok(app.includes("RECENT · 最近對話"));
- const msg=chat.indexOf('index===latestAssistant&&<DetroitStages plan={detroitPlan}/>');
+ const msg=chat.indexOf('index===latestAssistant&&history[history.length-1]?.role==="assistant"&&<DetroitStages plan={detroitPlan}/>');
  assert.ok(msg>chat.indexOf('className="message-list"'));
  assert.ok(app.includes('label:"衞國系統"'));
 });

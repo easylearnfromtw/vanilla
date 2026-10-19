@@ -1,4 +1,5 @@
 import {useState,useEffect,useRef,lazy,Suspense} from "react";
+import type {OrchestraChart} from "./orchestra/cream-chart";
 import LocalChat from "./local-ai/LocalChat";
 import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
@@ -53,6 +54,7 @@ const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
 const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream">("manual");
+const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
 const [compactTabs,setCompactTabs]=useState(false);
 const [recent,setRecent]=useState<ArchiveSummary[]>([]);
 const mainRef=useRef<HTMLElement|null>(null);
@@ -88,9 +90,9 @@ useEffect(()=>{
  const handlers:Array<[string,(e:Event)=>void]>=[
   ["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
   ["vanilla-open-weiguo",go("weiguo")],
-  ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string}>).detail;
+  ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
-   setOrchestraSource(detail?.source==="cream"?"cream":"manual");setSection("orchestra");setMenuOpen(false);}],
+   setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
   ["vanilla-open-detroit",(event:Event)=>{const body=(event as CustomEvent<{body?:string}>).detail?.body;setRetinaSeed(typeof body==="string"?body.slice(0,160000):null);setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
@@ -160,7 +162,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
 section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed}/></div>:
-section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource}/></div>:
+section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:
 <div className="content-page"><div className="eyebrow">VANILLA / SETTINGS</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p><SettingsPage/></div>}

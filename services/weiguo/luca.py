@@ -28,6 +28,8 @@ _ROUTES = {
     "/v1/tasks/{task_id}": ("scouts", "operator.task.read"),
     "/v1/execute": ("scouts", "browser.execute"),
     "/v1/operator/medusa/run": ("gateway", "medusa.run"),
+    "/v1/operator/detroit/quirinus/prepare": ("zeus", "detroit.quirinus.prepare"),
+    "/v1/operator/detroit/quirinus/execute": ("zeus", "detroit.quirinus.execute"),
     "/v1/plan": ("zeus", "browser.plan"),
     "/v1/family/gridcraft/xlsx": ("cream", "gridcraft.xlsx"),
     "/v1/family/wordcraft/convert": ("retina", "wordcraft.convert"),

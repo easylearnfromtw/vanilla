@@ -1,6 +1,6 @@
 /** CREAM -> Orchestra deterministic line chart, no model or remote renderer. */
 export type OrchestraChart={label:string;unit:string;points:readonly {date:string;value:number}[]};
-export const escapeSvg=(s:string)=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/"/g,"&quot;").replace(/'/g,"&apos;");
+export const escapeSvg=(s:string)=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
 
 /** A standalone, valid SVG file: bounded data, readable Traditional Chinese labels. */
 export function creamLineSvg(input:OrchestraChart):string{

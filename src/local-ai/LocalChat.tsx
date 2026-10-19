@@ -318,6 +318,7 @@ async function executeIntent(question:string):Promise<boolean>{
 async function send(value=draft){
  const question=value.trim()||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
  if(!question||busy||comparison||assetBusy)return;
+ recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
  const capabilityTopic=capabilityIntent(question);
  if(capabilityTopic){
   toolReply(question,capabilityAnswer(capabilityTopic,{

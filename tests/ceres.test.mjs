@@ -10,7 +10,7 @@ test("Ceres is a disabled native Detroit gateway, not an AstrBot runtime",()=>{
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="ceres")?.status,"adapter");
  const factory=DETROIT_FACTORY_TOOLS.find(x=>x.id==="ceres");
  assert.equal(factory?.enabledByDefault,false);
- assert.match(factory?.provider||"","Vanilla");
+ assert.match(factory?.provider||"",/Vanilla/);
  assert.equal(BUILTIN_TOOLS.find(x=>x.id==="ceres-telegram")?.enabled,false);
  assert.throws(()=>validateToolManifest({
   id:"ceres-telegram",label:"Overridden",kind:"custom",

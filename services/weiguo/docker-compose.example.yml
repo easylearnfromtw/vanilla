@@ -23,6 +23,9 @@ services:
       # Only true AFTER a real egress host/domain firewall/proxy is enforced.
       WEIGUO_MOLI_EGRESS_ISOLATED: "false"
       WEIGUO_ALLOW_MUTATIONS: "false"
+      # Optional: enable only after installing a reviewed gridcraft-cli binary
+      # into the trusted backend PATH. No binary is bundled in this image.
+      WEIGUO_GRIDCRAFT_ENABLED: "false"
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:

@@ -191,7 +191,11 @@ export async function forgetMemoryWithAttachment(id:string,deleteFile:boolean):P
  if(!item)throw Error("找不到這筆雲端記憶");
  if(deleteFile&&item.fileId){
   const files=await listWorkspaceFiles(token),source=files.find(x=>x.id===item.fileId);
-  if(source)await trashWorkspaceFile(token,source);
+  if(!source)throw Error("沒有找到可管理的原始附件，不能宣稱檔案已刪除");
+  await trashWorkspaceFile(token,source);
+  if((await listWorkspaceFiles(token)).some(f=>f.id===source.id))throw Error("原始附件仍在 Drive 工作區，無法確認已刪除");
  }
- return forgetMemory(id);
+ const record=await forgetMemory(id);
+ if((await listMemories()).some(x=>x.id===id))throw Error("雲端記憶索引仍存在，刪除尚未確認");
+ return record;
 }

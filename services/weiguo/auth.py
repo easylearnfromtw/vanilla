@@ -73,7 +73,7 @@ def google_login(credential: str) -> tuple[str, FamilyIdentity]:
     _signing_key()
     try:
         claims = id_token.verify_oauth2_token(credential, Request(), audience=client)
-    except (ValueError, Exception) as exc:
+    except Exception as exc:
         # Intentionally never include the token, claims or verifier response.
         raise HTTPException(401, "Google 身分驗證失敗") from exc
     sub = claims.get("sub")

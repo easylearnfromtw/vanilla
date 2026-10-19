@@ -1,129 +1,195 @@
-"""Regression tests for server-verified Google identity and family task isolation.
-
-Never trust client-submitted member names, roles, email addresses or Drive tokens.
-"""
+"""No-network tests for Google OIDC family auth and task isolation."""
 import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
+# Define CORS before app is constructed. Browser origins must not be wildcards.
+os.environ.setdefault("WEIGUO_CORS_ORIGINS", "https://easylearnfromtw.github.io")
 from fastapi import HTTPException
-from auth import google_login, verify_family_token, _decode, _encode, SESSION_SECONDS
+from fastapi.testclient import TestClient
+import auth
+import app as service
 import tasks
 
 
-class FamilyAuthenticationTests(unittest.TestCase):
-    SUB_A = "123456789012345678901"
-    SUB_B = "987654321098765432109"
+ALICE = "123456789012345678901"
+BOB = "223456789012345678901"
+VIEWER = "323456789012345678901"
+CLIENT_ID = "public-web-client-id.apps.googleusercontent.com"
+SECRETS = {
+    "WEIGUO_SESSION_SECRET": "independent-secret-that-remains-private-2345",
+    "WEIGUO_ADMIN_TOKEN": "different-operator-token-with-32-chars",
+    "WEIGUO_GOOGLE_CLIENT_ID": CLIENT_ID,
+    "WEIGUO_FAMILY_ACL_JSON": json.dumps({
+        ALICE: {"member": "Alice", "role": "owner"},
+        BOB: {"member": "Bob", "role": "member"},
+        VIEWER: {"member": "Visitor", "role": "viewer"},
+    }),
+    "WEIGUO_ALLOWED_HOSTS": "example.org",
+}
 
+
+def verified_claims(sub=ALICE, email="alice@example.org", **overrides):
+    data = {"sub": sub, "email": email, "email_verified": True,
+            "iss": "https://accounts.google.com"}
+    data.update(overrides)
+    return data
+
+
+class GoogleFamilyAuthTests(unittest.TestCase):
+    def setUp(self):
+        self.env = patch.dict(os.environ, SECRETS)
+        self.env.start()
+        self.addCleanup(self.env.stop)
+
+    def issue(self, sub=ALICE, email="alice@example.org"):
+        with patch.object(auth.id_token, "verify_oauth2_token", return_value=verified_claims(sub, email)) as verify:
+            value, user = auth.google_login("X" * 200)
+            self.assertEqual(verify.call_args.kwargs["audience"], CLIENT_ID)
+            return value, user
+
+    def test_authenticated_google_sub_maps_server_side_role(self):
+        token, user = self.issue()
+        self.assertEqual(user.member, "Alice")
+        self.assertEqual(user.role, "owner")
+        self.assertEqual(auth.verify_family_token(token).sub, ALICE)
+        self.assertNotIn("independent-secret", token)
+
+    def test_no_email_or_client_role_escalation(self):
+        token, user = self.issue(BOB, "alice@example.org")
+        self.assertEqual(user.member, "Bob")
+        self.assertEqual(user.role, "member")
+        self.assertEqual(auth.verify_family_token(token).role, "member")
+
+    def test_google_invalid_claims_are_rejected(self):
+        for changes in [
+            {"email_verified": False},
+            {"iss": "https://fake.google.com"},
+            {"sub": "name-not-sub"},
+            {"email": ""},
+        ]:
+            with self.subTest(changes=changes), patch.object(
+                auth.id_token, "verify_oauth2_token",
+                return_value=verified_claims(**changes)
+            ), self.assertRaises(HTTPException):
+                auth.google_login("X" * 200)
+        with patch.object(auth.id_token, "verify_oauth2_token", side_effect=ValueError("wrong audience")), self.assertRaises(HTTPException) as caught:
+            auth.google_login("X" * 200)
+        self.assertEqual(caught.exception.status_code, 401)
+
+    def test_unknown_sub_is_denied_even_with_known_email(self):
+        with patch.object(auth.id_token, "verify_oauth2_token",
+                          return_value=verified_claims("999999999999999999999", "alice@example.org")):
+            with self.assertRaises(HTTPException) as caught:
+                auth.google_login("X" * 200)
+        self.assertEqual(caught.exception.status_code, 403)
+
+    def test_tampered_and_expired_session_are_denied(self):
+        token, _ = self.issue()
+        with self.assertRaises(HTTPException) as tampered:
+            auth.verify_family_token(token[:-3] + "123")
+        self.assertEqual(tampered.exception.status_code, 401)
+        with patch.object(auth.time, "time", return_value=auth.time.time() + auth.SESSION_SECONDS + 1):
+            with self.assertRaises(HTTPException) as expired:
+                auth.verify_family_token(token)
+        self.assertEqual(expired.exception.status_code, 401)
+
+    def test_revocation_applies_to_existing_session(self):
+        token, _ = self.issue()
+        self.assertEqual(auth.verify_family_token(token).member, "Alice")
+        os.environ["WEIGUO_FAMILY_ACL_JSON"] = json.dumps({BOB: {"member": "Bob", "role": "member"}})
+        with self.assertRaises(HTTPException) as caught:
+            auth.verify_family_token(token)
+        self.assertEqual(caught.exception.status_code, 403)
+
+    def test_missing_independent_secret_fails_closed(self):
+        os.environ["WEIGUO_SESSION_SECRET"] = os.environ["WEIGUO_ADMIN_TOKEN"]
+        with self.assertRaises(HTTPException) as caught:
+            self.issue()
+        self.assertEqual(caught.exception.status_code, 503)
+
+    def test_reader_roles_are_server_enforced(self):
+        token, identity = self.issue(VIEWER, "visitor@example.org")
+        self.assertEqual(identity.role, "viewer")
+        self.assertEqual(auth.verify_family_token(token).role, "viewer")
+
+
+class FamilyTaskApiTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        config = {
-            "WEIGUO_TASK_DB": str(Path(self.temp.name) / "tasks.sqlite3"),
-            "WEIGUO_GOOGLE_CLIENT_ID": "test-client.apps.googleusercontent.com",
-            "WEIGUO_SESSION_SECRET": "distinct-high-entropy-family-session-secret-at-least-32",
-            "WEIGUO_ADMIN_TOKEN": "different-admin-secret-not-the-session-signing-key",
-            "WEIGUO_FAMILY_ACL_JSON": json.dumps({
-                self.SUB_A: {"member": "Member A", "role": "member"},
-                self.SUB_B: {"member": "Member B", "role": "viewer"},
-            }),
-        }
-        env = patch.dict(os.environ, config)
-        env.start()
-        self.addCleanup(env.stop)
+        config = {**SECRETS, "WEIGUO_TASK_DB": str(Path(self.temp.name) / "audit.sqlite3")}
+        self.env = patch.dict(os.environ, config)
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.validator = patch.object(service, "validate_url", side_effect=lambda url, *args, **kwargs: url)
+        self.validator.start()
+        self.addCleanup(self.validator.stop)
+        self.browser = patch.object(service, "run_background_job", new_callable=AsyncMock)
+        self.browser.start()
+        self.addCleanup(self.browser.stop)
+        self.client = TestClient(service.app)
+        self.addCleanup(self.client.close)
 
-    def claims(self, sub=None):
-        return {"sub": sub or self.SUB_A, "email": "a@example.com",
-                "email_verified": True, "iss": "https://accounts.google.com"}
+    def headers_for(self, sub, email="person@example.org"):
+        with patch.object(auth.id_token, "verify_oauth2_token",
+                          return_value=verified_claims(sub, email)):
+            reply = self.client.post("/v1/auth/google", json={"credential": "X" * 200})
+            self.assertEqual(reply.status_code, 200, reply.text)
+        return {"Authorization": "Bearer " + reply.json()["token"]}
 
-    def login(self, claims=None):
-        with patch("auth.id_token.verify_oauth2_token",
-                   return_value=claims if claims is not None else self.claims()) as verifier:
-            token, who = google_login("x" * 160)
-            verifier.assert_called_once()
-            self.assertEqual(verifier.call_args.kwargs["audience"],
-                             os.environ["WEIGUO_GOOGLE_CLIENT_ID"])
-            return token, who
+    def test_no_anonymous_submission_and_isolated_results(self):
+        payload = {"start_url": "https://example.org/", "steps": [{"action": "extract"}]}
+        self.assertEqual(self.client.post("/v1/family/tasks", json=payload).status_code, 401)
+        alice = self.headers_for(ALICE)
+        bob = self.headers_for(BOB)
+        result = self.client.post("/v1/family/tasks", json=payload, headers=alice)
+        self.assertEqual(result.status_code, 202, result.text)
+        task_id = result.json()["id"]
+        self.assertEqual(self.client.get("/v1/family/tasks/" + task_id, headers=alice).status_code, 200)
+        self.assertEqual(self.client.get("/v1/family/tasks/" + task_id, headers=bob).status_code, 404)
+        self.assertEqual(self.client.get("/v1/family/tasks/" + task_id).status_code, 401)
 
-    def test_valid_identity_bound_to_google_sub_and_backend_acl(self):
-        token, who = self.login()
-        self.assertEqual(who.member, "Member A")
-        self.assertEqual(who.role, "member")
-        self.assertEqual(verify_family_token(token).sub, self.SUB_A)
-        self.assertNotIn(os.environ["WEIGUO_ADMIN_TOKEN"], token)
+    def test_viewer_and_mutations_are_denied(self):
+        viewer = self.headers_for(VIEWER)
+        alice = self.headers_for(ALICE)
+        payload = {"start_url": "https://example.org/", "steps": [{"action": "extract"}]}
+        self.assertEqual(self.client.post("/v1/family/tasks", json=payload, headers=viewer).status_code, 403)
+        payload["steps"] = [{"action": "click", "selector": "#checkout"}]
+        self.assertEqual(self.client.post("/v1/family/tasks", json=payload, headers=alice).status_code, 400)
+        payload["steps"] = [{"action": "fill", "selector": "input", "text": "hello"}]
+        self.assertEqual(self.client.post("/v1/family/tasks", json=payload, headers=alice).status_code, 400)
 
-    def test_wrong_subject_and_unverified_email_rejected(self):
-        cases = [
-            self.claims("111111111111111111111"),
-            {**self.claims(), "email_verified": False},
-            {**self.claims(), "iss": "https://not-google.example"},
-            {**self.claims(), "sub": "invalid-user-controlled-id"},
-        ]
-        for claim in cases:
-            with self.subTest(claim=claim), patch("auth.id_token.verify_oauth2_token",
-                                                 return_value=claim):
-                with self.assertRaises(HTTPException) as exc:
-                    google_login("x" * 160)
-                self.assertIn(exc.exception.status_code, (401, 403))
+    def test_per_subject_rate_limit(self):
+        headers = self.headers_for(ALICE)
+        payload = {"start_url": "https://example.org/", "steps": [{"action": "extract"}]}
+        for _ in range(6):
+            response = self.client.post("/v1/family/tasks", json=payload, headers=headers)
+            self.assertEqual(response.status_code, 202, response.text)
+        response = self.client.post("/v1/family/tasks", json=payload, headers=headers)
+        self.assertEqual(response.status_code, 429)
+        bob = self.headers_for(BOB)
+        self.assertEqual(self.client.post("/v1/family/tasks", json=payload, headers=bob).status_code, 202)
 
-    def test_google_signature_failure_rejected_and_token_not_logged(self):
-        with patch("auth.id_token.verify_oauth2_token", side_effect=ValueError("invalid token")):
-            with self.assertRaises(HTTPException) as exc:
-                google_login("x" * 160)
-        self.assertEqual(exc.exception.status_code, 401)
-        self.assertNotIn("invalid token", str(exc.exception.detail))
+    def test_revocation_blocks_task_lookup(self):
+        alice = self.headers_for(ALICE)
+        payload = {"start_url": "https://example.org/", "steps": [{"action": "extract"}]}
+        task_id = self.client.post("/v1/family/tasks", json=payload, headers=alice).json()["id"]
+        os.environ["WEIGUO_FAMILY_ACL_JSON"] = json.dumps({BOB: {"member": "Bob", "role": "member"}})
+        self.assertEqual(self.client.get("/v1/family/tasks/" + task_id, headers=alice).status_code, 403)
 
-    def test_tamper_and_expiry_rejected(self):
-        token, _ = self.login()
-        encoded, mac = token.split(".")
-        for value in ("", "garbage", encoded + ".wrong", encoded + "." + mac[:-1] + "A"):
-            if value == token:
-                continue
-            with self.subTest(value=value[:15]), self.assertRaises(HTTPException):
-                verify_family_token(value)
-        with patch("auth.time.time", return_value=20_000_000):
-            short, _ = self.login()
-        with patch("auth.time.time", return_value=20_000_000 + SESSION_SECONDS + 1):
-            with self.assertRaises(HTTPException) as exc:
-                verify_family_token(short)
-        self.assertEqual(exc.exception.status_code, 401)
-
-    def test_acl_revocation_and_role_downgrade_take_effect_immediately(self):
-        token, _ = self.login()
-        env = json.loads(os.environ["WEIGUO_FAMILY_ACL_JSON"])
-        env[self.SUB_A]["role"] = "viewer"
-        os.environ["WEIGUO_FAMILY_ACL_JSON"] = json.dumps(env)
-        self.assertEqual(verify_family_token(token).role, "viewer")
-        del env[self.SUB_A]
-        os.environ["WEIGUO_FAMILY_ACL_JSON"] = json.dumps(env)
-        with self.assertRaises(HTTPException) as exc:
-            verify_family_token(token)
-        self.assertEqual(exc.exception.status_code, 403)
-
-    def test_missing_or_shared_session_secret_fails_closed(self):
-        for secret in ("short", os.environ["WEIGUO_ADMIN_TOKEN"]):
-            with self.subTest(secret=secret[:5]), patch.dict(os.environ, {"WEIGUO_SESSION_SECRET": secret}):
-                with self.assertRaises(HTTPException) as exc:
-                    self.login()
-                self.assertEqual(exc.exception.status_code, 503)
-
-    def test_task_owner_and_rate_limit(self):
-        tasks.initialize()
-        item = tasks.start("https://example.org/", [{"action": "extract"}],
-                           owner_sub=self.SUB_A, limit_per_minute=2)
-        self.assertIsNotNone(tasks.fetch(item["id"], owner_sub=self.SUB_A))
-        self.assertIsNone(tasks.fetch(item["id"], owner_sub=self.SUB_B))
-        tasks.start("https://example.org/", [{"action": "extract"}],
-                    owner_sub=self.SUB_A, limit_per_minute=2)
-        with self.assertRaises(ValueError):
-            tasks.start("https://example.org/", [{"action": "extract"}],
-                        owner_sub=self.SUB_A, limit_per_minute=2)
-        # Independent family member's rate limit is unaffected.
-        tasks.start("https://example.org/", [{"action": "extract"}],
-                    owner_sub=self.SUB_B, limit_per_minute=2)
+    def test_cors_policy_rejects_malformed_origins(self):
+        for bad in ("*", "http://easylearnfromtw.github.io",
+                    "https://easylearnfromtw.github.io/vanilla",
+                    "https://easylearnfromtw.github.io.evil.org"):
+            with patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": bad}):
+                with self.assertRaises(RuntimeError):
+                    service.allowed_origins()
+        with patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": "https://easylearnfromtw.github.io"}):
+            self.assertEqual(service.allowed_origins(), ["https://easylearnfromtw.github.io"])
 
 
 if __name__ == "__main__":

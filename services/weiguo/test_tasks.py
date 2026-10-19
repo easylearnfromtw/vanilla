@@ -37,6 +37,18 @@ class TaskAuditTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             tasks.update(item["id"], "admin-authorized")
 
+    def test_family_owner_isolation_and_rate_limit(self):
+        alice = tasks.start("https://example.org/", [{"action": "extract"}],
+                            owner_sub="alice", limit_per_minute=1)
+        self.assertIsNotNone(tasks.fetch(alice["id"], owner_sub="alice"))
+        self.assertIsNone(tasks.fetch(alice["id"], owner_sub="bob"))
+        with self.assertRaises(ValueError):
+            tasks.start("https://example.org/", [{"action": "extract"}],
+                        owner_sub="alice", limit_per_minute=1)
+        bob = tasks.start("https://example.org/", [{"action": "extract"}],
+                          owner_sub="bob", limit_per_minute=1)
+        self.assertIsNotNone(tasks.fetch(bob["id"], owner_sub="bob"))
+
     def test_single_canonical_service_entrypoint(self):
         directory = Path(__file__).parent
         server = (directory / "server.py").read_text()

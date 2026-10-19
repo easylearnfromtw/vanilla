@@ -22,7 +22,8 @@
     "test:chat-ui": "node --experimental-strip-types --test tests/chat-ui.test.mjs",
     "test:release": "node --experimental-strip-types --test tests/release-readiness.test.mjs",
     "test:autocode": "node --experimental-strip-types --test tests/autonomous-selfbuild.test.mjs",
-    "test:noodles-teacher": "node --experimental-strip-types --test tests/noodles-teacher.test.mjs"
+    "test:noodles-teacher": "node --experimental-strip-types --test tests/noodles-teacher.test.mjs",
+    "test:auto-docs": "node --experimental-strip-types --test tests/auto-document-web.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

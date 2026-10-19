@@ -10,7 +10,7 @@ test("natural save commands persist the previous assistant answer, not a fake su
  assert.equal(planConversationSave("上次你說的檔案儲存在哪？"),null);
 });
 test("explicit save whole chat generates meaningful Markdown content",()=>{
- const p=planConversationSave("將這個對話儲存成檔案")!;
+ const p=planConversationSave("將這個對話儲存成檔案");
  assert.equal(p.scope,"conversation");
  const text=composeSavedContent(p,[{role:"user",content:"早安"},{role:"assistant",content:"你好"}]);
  assert.match(text,/## 使用者/);assert.match(text,/## Vanilla/);

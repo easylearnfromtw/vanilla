@@ -1,5 +1,7 @@
 # PdfCraft — native PDF combine in Orchestra
 
+**Dedicated worker option:** The Railway production host rejected Bubblewrap user namespace isolation. A standalone Linux-worker service, HMAC-authenticated HTTPS WeiGuo bridge, systemd/Caddy deployment kit and operational runbook are now available at [services/pdfcraft-worker/README.md](../services/pdfcraft-worker/README.md). Both the Railway-local native path and the remote-worker path stay disabled unless their independent host checks succeed. **Do not set the local Railway egress-isolation attestation to true to bypass that block.**
+
 **Status:** a native Linux release `v0.9.0` has passed real golden-PDF tests on GitHub Actions. The optional image `services/weiguo/Dockerfile.pdfcraft` provisions exactly that upstream CLI with both published archive SHA-256 and observed executable SHA-256 pinned. The standard Docker image remains disabled by default. Real Railway activation requires its kernel to permit rootless Bubblewrap namespaces; an unsupported sandbox must fail closed.
 
 Source: https://github.com/storytold/pdfcraft (README documents `pdfcraft-cli combine report.pdf appendix.pdf --out combined.pdf`). The project advertises MIT OR Apache-2.0; verify LICENSE/NOTICE/asset obligations and pin a specific source commit or signed release before shipping.

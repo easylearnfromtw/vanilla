@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {parseCreamCSV,analyzeCream,creamInstruction,creamChartFollowup} from "../src/cream/core.ts";
 import {pieSeries,numberLineSeries} from "../src/cream/extended-charts.ts";
-import {validateCustomTool,classifyWeiGuoOperation,WEIGUO_BUILTINS} from "../src/weiguo/registry.ts";
+import {validateToolManifest,BUILTIN_TOOLS} from "../src/weiguo/registry.ts";
 import {readFileSync} from "node:fs";
 
 test("CREAM: recognizes requested pie and number-line plots in a pasted CSV conversation",()=>{
@@ -33,15 +33,13 @@ test("CREAM: number line keeps real distances and stacks identical coordinates",
  assert.equal(data.points[1].stack,1);
  assert.equal(data.points[2].x,1);
 });
-test("衞國: metadata tools cannot execute, cannot overwrite builtins, and require verified approval",()=>{
- assert.ok(WEIGUO_BUILTINS.some(t=>t.id==="playwright"&&!t.enabled));
- assert.equal(validateCustomTool({id:"my-tool",name:"Research",description:"Read only",capabilities:["extract"]}).enabled,false);
- assert.throws(()=>validateCustomTool({id:"playwright",name:"X",capabilities:["extract"]}),/不可覆蓋/);
- assert.throws(()=>validateCustomTool({id:"my-tool",name:"X",capabilities:["execute"]}),/不正確/);
- assert.equal(classifyWeiGuoOperation("click",false,true),"deny");
- assert.equal(classifyWeiGuoOperation("click",true,false),"needs-approval");
- assert.equal(classifyWeiGuoOperation("click",true,true),"read");
- assert.equal(classifyWeiGuoOperation("run-python",true,true),"deny");
+test("衞國: manifests require safe, account-isolated declarative permissions",()=>{
+ assert.ok(BUILTIN_TOOLS.some(t=>t.id==="scouts-browser"));
+ const valid=validateToolManifest({id:"my-tool",label:"Research",kind:"custom",description:"Read only",enabled:false,permissions:["read"]});
+ assert.equal(valid.kind,"custom");
+ assert.throws(()=>validateToolManifest({...valid,id:"scouts-browser"}),/不可覆蓋/);
+ assert.throws(()=>validateToolManifest({...valid,permissions:["execute"]}),/權限/);
+ assert.throws(()=>validateToolManifest({...valid,code:"eval(1)"}),/不接受/);
 });
 test("iPhone empty chat excludes RECENT; Detroit status belongs to the assistant message",()=>{
  const home=readFileSync(new URL("../src/local-ai/ChatHome.tsx",import.meta.url),"utf8");

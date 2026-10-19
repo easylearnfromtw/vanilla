@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.13-webllm-disposed-fix";
+export const VANILLA_BUILD="2026.10.20.15-quirinus-family-actions";

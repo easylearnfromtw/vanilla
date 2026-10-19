@@ -1,0 +1,21 @@
+name: GridCraft real Docker smoke
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/weiguo/Dockerfile'
+      - 'services/weiguo/gridcraft-smoke.jsonl'
+      - 'services/weiguo/gridcraft-smoke.py'
+      - 'services/weiguo/gridcraft_adapter.py'
+      - '.github/workflows/gridcraft-image.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned GridCraft CLI and verify native CREAM XLSX output
+        run: docker build --pull --progress plain -f services/weiguo/Dockerfile -t vanilla-weiguo-gridcraft-smoke services/weiguo

@@ -10,11 +10,12 @@ import os
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Header, BackgroundTasks
+from fastapi import Depends, FastAPI, HTTPException, Header, BackgroundTasks, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
-from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest
+from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
 
@@ -82,6 +83,15 @@ def allowed_origins() -> list[str]:
 app.add_middleware(CORSMiddleware, allow_origins=allowed_origins(),
                    allow_credentials=False, allow_methods=["GET", "POST"],
                    allow_headers=["Authorization", "Content-Type"])
+
+
+@app.middleware("http")
+async def private_operator_boundary(request: Request, call_next):
+    # A single publicly exposed Railway service must never advertise admin routes.
+    # Private operators may use a separate private deployment with this flag disabled.
+    if os.environ.get("WEIGUO_PUBLIC_FAMILY_ONLY", "false").lower() == "true" and private_operator_route(request.url.path):
+        return JSONResponse(status_code=404, content={"detail": "not found"})
+    return await call_next(request)
 
 @app.post("/v1/auth/google")
 async def sign_in_google(request: GoogleLoginRequest):

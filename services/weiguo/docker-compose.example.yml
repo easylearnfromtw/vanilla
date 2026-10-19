@@ -19,6 +19,8 @@ services:
       WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
       WEIGUO_ALLOW_JAVASCRIPT: "false"
       WEIGUO_ALLOW_MUTATIONS: "false"
+      # Set true for any publicly routed family-only Railway instance.
+      WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:
       # WEIGUO_OLLAMA_URL: "http://ollama:11434"
       # WEIGUO_OLLAMA_MODEL: "qwen3:4b"

@@ -1,10 +1,17 @@
 import unittest
 from unittest.mock import patch
-from policy import PolicyError, validate_url, validate_steps, validate_tools_manifest
+from policy import PolicyError, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 
 class BrowserPolicyTests(unittest.TestCase):
     def setUp(self):
         self.allow = {"example.org", "www.example.org"}
+    def test_operator_api_cannot_be_published_on_family_origin(self):
+        for path in ("/v1/execute", "/v1/plan", "/v1/tools", "/v1/tasks", "/v1/tasks/a", "/openapi.json"):
+            self.assertTrue(private_operator_route(path))
+        for path in ("/v1/auth/google", "/v1/auth/me", "/v1/family/tasks",
+                     "/v1/family/tasks/abc", "/v1/health"):
+            self.assertFalse(private_operator_route(path))
+
     def test_public_https_exact_hosts_only(self):
         self.assertEqual(validate_url("https://example.org/info",self.allow),"https://example.org/info")
         for url in ("http://example.org","https://evil.example.org","file:///etc/passwd","https://localhost", "https://example.org:8000","https://attacker@example.org"):

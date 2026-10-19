@@ -90,6 +90,7 @@ WEIGUO_ADMIN_TOKEN: 32+ random characters, never distributed to the browser.
 WEIGUO_SESSION_SECRET: separate, random 32+ character HMAC key, server-only.
 WEIGUO_GOOGLE_CLIENT_ID: exact Google web OAuth client ID used by GIS.
 WEIGUO_FAMILY_ACL_JSON: server-owned JSON mapping immutable Google `sub` to member and role; no browser-controlled roles.
+WEIGUO_PUBLIC_FAMILY_ONLY: set to true before enabling a public Railway domain; hides /v1/execute, /v1/plan, /v1/tools, operator /v1/tasks and OpenAPI. Use another private instance for operator-only workflows.
 WEIGUO_CORS_ORIGINS: exact allowed HTTPS web origins, e.g. `https://easylearnfromtw.github.io`. Empty defaults to no cross-origin requests.
 WEIGUO_ALLOWED_HOSTS: comma-separated exact public HTTPS origins.
 WEIGUO_TASK_DB: SQLite path, /data/weiguo-tasks.sqlite3 in Docker.

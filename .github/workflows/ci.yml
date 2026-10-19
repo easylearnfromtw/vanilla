@@ -110,8 +110,10 @@ jobs:
             sed -n '1,50p' /tmp/example.err
             exit 1
           fi
-          if ! grep -qi "Example Domain" /tmp/example.md; then
-            echo "::error::Moli fetch succeeded but Markdown is missing expected Example Domain text"
+          # IANA example.org serves different valid text variants across versions.
+          # Assert recognizable documentation-page content without requiring a specific heading.
+          if ! grep -Eqi "Example Domain|This domain is for use in documentation examples" /tmp/example.md; then
+            echo "::error::Moli fetch succeeded but Markdown is missing expected documentation-page text"
             wc -c /tmp/example.md
             sed -n '1,30p' /tmp/example.md
             exit 1

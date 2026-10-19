@@ -19,6 +19,7 @@ BINARY = "/usr/local/bin/vulnclaw"
 SKIP_DIRS = {".git", ".venv", "node_modules", "dist", "build", "__pycache__"}
 LOCK = asyncio.Semaphore(1)
 MAX_FILES = 3000
+MAX_TOTAL_SOURCE_BYTES = 128 * 1024 * 1024
 MAX_JSON_BYTES = 512 * 1024
 VALID_SEVERITIES = {"Critical", "High", "Medium", "Low", "Info"}
 
@@ -37,6 +38,7 @@ def validate_source() -> Path:
     if not os.path.isfile(BINARY) or not os.access(BINARY, os.X_OK):
         raise HTTPException(503, "未安裝已審核的 VulnClaw CLI")
     count = 0
+    total_bytes = 0
     for directory, dirs, filenames in os.walk(ROOT, followlinks=False):
         for name in dirs + filenames:
             if (Path(directory) / name).is_symlink():
@@ -45,6 +47,15 @@ def validate_source() -> Path:
         count += len(filenames)
         if count > MAX_FILES:
             raise HTTPException(413, "掃描檔案超過限制")
+        for name in filenames:
+            entry = Path(directory) / name
+            try:
+                if entry.is_file():
+                    total_bytes += entry.stat().st_size
+            except OSError as exc:
+                raise HTTPException(422, "無法驗證掃描檔案") from exc
+            if total_bytes > MAX_TOTAL_SOURCE_BYTES:
+                raise HTTPException(413, "掃描原始碼總大小超過限制")
     return ROOT
 
 
@@ -68,6 +79,9 @@ def _clean_result(payload: object) -> dict:
             target = ""
         try:
             safe_path = str(Path(target).relative_to(ROOT))
+            if (not safe_path or ".." in Path(safe_path).parts
+                    or any(ord(char) < 32 for char in safe_path)):
+                safe_path = "[redacted]"
         except ValueError:
             safe_path = "[redacted]"
         line = item.get("line", 0)
@@ -104,6 +118,41 @@ async def quirinus_status():
     }
 
 
+async def _read_bounded_output(process) -> bytes:
+    """Drain stdout incrementally; never buffer an unlimited scanner response."""
+    if process.stdout is None:
+        raise HTTPException(502, "Quirinus 掃描器未提供標準輸出")
+    parts = []
+    received = 0
+
+    async def collect():
+        nonlocal received
+        while True:
+            chunk = await process.stdout.read(64 * 1024)
+            if not chunk:
+                break
+            received += len(chunk)
+            if received > MAX_JSON_BYTES:
+                raise HTTPException(502, "Quirinus 報告超過輸出上限")
+            parts.append(chunk)
+        await process.wait()
+
+    try:
+        await asyncio.wait_for(collect(), timeout=35)
+    except BaseException as exc:
+        # Includes timeout and cancellation; do not leave an orphan subprocess.
+        if process.returncode is None:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+        await process.wait()
+        if isinstance(exc, asyncio.TimeoutError):
+            raise HTTPException(504, "Quirinus 已超過時間上限並中止") from exc
+        raise
+    return b"".join(parts)
+
+
 @router.post("/scan")
 async def quirinus_scan():
     async with LOCK:
@@ -113,21 +162,16 @@ async def quirinus_scan():
                 BINARY, "code", "scan", str(root), "--layer", "L1,L2",
                 "--format", "json", "--no-progress",
                 stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                 cwd="/",
                 env={"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp",
                      "PYTHONNOUSERSITE": "1", "VULNCLAW_HOME": "/tmp/quirinus"},
             )
         except OSError as exc:
             raise HTTPException(503, "Quirinus 執行環境不可用") from exc
-        try:
-            out, _err = await asyncio.wait_for(process.communicate(), timeout=35)
-        except asyncio.TimeoutError as exc:
-            process.kill()
-            await process.wait()
-            raise HTTPException(504, "Quirinus 已超過時間上限並中止") from exc
-        if len(out) > MAX_JSON_BYTES or process.returncode not in (0, 1):
-            raise HTTPException(502, "Quirinus 掃描失敗或回傳內容超過限制")
+        out = await _read_bounded_output(process)
+        if process.returncode not in (0, 1):
+            raise HTTPException(502, "Quirinus 掃描失敗")
         try:
             parsed = json.loads(out.decode("utf-8"))
         except (UnicodeError, ValueError) as exc:

@@ -25,6 +25,7 @@ export function fromCreamRows(rows:readonly (readonly unknown[])[],source:string
  if(rows.some(row=>!Array.isArray(row)))throw Error("CREAM：表格列的格式不正確。");
  const width=rows[0].length;
  if(width<2||width>MAX_COLS)throw Error("CREAM：資料應有 2–12 個欄位。");
+ if(rows.slice(1).some((row:readonly unknown[])=>row.length>width))throw Error("CREAM：某些資料列的欄位數超過標題列，請修正多餘分隔符號。");
  const headers=rows[0].map((v:unknown,i:number)=>safeText(v)||"欄位 "+(i+1));
  const used=new Set<string>();
  for(const header of headers){if(used.has(header))throw Error("CREAM：欄位名稱必須唯一，請先重新命名重複欄位："+header);used.add(header);}

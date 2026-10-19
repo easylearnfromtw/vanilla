@@ -1,0 +1,6 @@
+.detroit-stages{margin:10px 14px 12px;padding:10px 12px;border:1px solid var(--border,#e2dfda);border-radius:14px;background:color-mix(in srgb,var(--background,#fff) 93%,#e9a48b 7%);font-size:12px;color:var(--text,#373533)}
+.detroit-stages summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.detroit-stages summary strong{letter-spacing:.045em;font-size:11px}.detroit-stages summary>span{opacity:.75}
+.detroit-stages ol{list-style:none;padding:6px 0 0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:5px 12px}
+.detroit-stages li{display:flex;gap:6px;align-items:baseline;min-width:0}.detroit-stages li strong{white-space:nowrap;font-weight:600}.detroit-stages li span:last-child{opacity:.72;overflow-wrap:anywhere}
+.detroit-stages li.phase-running{color:#b44a3b}.detroit-stages li.phase-done{color:#26785f}.detroit-stages li.phase-skipped{opacity:.55}.detroit-stages .phase-symbol{min-width:12px;font-weight:700}.detroit-stages>p{opacity:.6;margin:8px 0 0;font-size:10px}
+@media(max-width:480px){.detroit-stages{margin:8px 8px}.detroit-stages ol{grid-template-columns:1fr}}

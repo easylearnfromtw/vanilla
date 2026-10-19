@@ -131,7 +131,7 @@ export async function interruptLocalGeneration():Promise<void>{
  try{await (engine as unknown as {interruptGenerate?:()=>void|Promise<void>})?.interruptGenerate?.();}catch{}
 }
 
-export type LocalReplyOptions={task?:TaskKind;signal?:AbortSignal;purpose?:"chat"|"structured"};
+export type LocalReplyOptions={task?:TaskKind;signal?:AbortSignal;purpose?:"chat"|"structured";deep?:boolean};
 /** Token budget left for the newest user message on the loaded local model. */
 export function localPromptBudget(task:TaskKind,model:LocalModelId=loadedModel||LOCAL_MODEL):number{
  const profile=profileFor("local",model);
@@ -148,7 +148,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  const profile=profileFor("local",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
  const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest});
- const request=webllmRequestOptions(model,task);
+ const request=webllmRequestOptions(model,task,Boolean(options.deep));
  const budget=profile.contextTokens-Number(request.max_tokens)-estimateTokens(system)-48;
  const turns=fitHistory(history.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string").map(x=>({role:x.role,content:x.content})),budget,480);
  const messages=buildLocalChatMessages(turns,"",{system,maxTurnChars:Infinity});

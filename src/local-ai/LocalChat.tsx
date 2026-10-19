@@ -21,6 +21,9 @@ import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner} from "../library/attachment-vault";
 import {signedChatAccount} from "../vault/chat-sync";
 import {searchLiveWeb,searchWebSummary} from "../search/live-search";
+import {formatIndexedPages,implicitResearchQuery,type IndexedPage} from "../search/search-evidence";
+import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
+import {listChatAttachments} from "../library/attachment-vault";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {inspectExternalText,wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
@@ -386,31 +389,74 @@ async function send(value=draft){
   finally{setBusy(false);}
   return;
  }
+ // Real read-only self-inspection from the actual Vanilla GitHub repository.
+ const ownPaths=selfInspectIntent(question);
+ if(ownPaths){
+  if(privateMode){toolReply(question,"私密模式不會存取 GitHub，請使用一般模式。");return;}
+  setBusy(true);
+  try{
+   const inspected=await inspectOwnRepository(ownPaths);
+   toolReply(question,inspected.map(x=>x.summary+"\n來源："+(x.source==="worker"?"已設定的 GitHub Worker":"GitHub 公開唯讀 API")+
+    "\nhttps://github.com/easylearnfromtw/vanilla/blob/main/"+x.path+"\n\n程式碼擷取：\n"+x.excerpt.slice(0,850)).join("\n\n"));
+  }catch(e){toolReply(question,"Vanilla 自我檢查失敗："+String(e)+"；私人 GitHub 專案需部署受保護 Worker。");}
+  finally{setBusy(false);}
+  return;
+ }
+ const savedMatch=/^(?:請|幫我)?(?:讀取|查看|分析|摘要|檢查|整理)(?:一下)?(?:我)?(?:已儲存的|本機的|附件庫的|對話儲存的)(?:檔案|文件)?[：:\\s]*(.{1,150})$/i.exec(question);
+ if(savedMatch){
+  if(privateMode){toolReply(question,"私密模式不會讀取一般附件庫。");return;}
+  setBusy(true);
+  try{
+   const files=await listChatAttachments(attachmentOwner(signedChatAccount()));
+   const target=files.find(x=>x.name===savedMatch[1].trim())||files.find(x=>x.name.includes(savedMatch[1].trim()));
+   if(!target)throw Error("附件庫找不到這個檔案；請在左側「對話圖片與資料」查看完整名稱。");
+   const doc=await extractBrowserDocument(new File([target.blob],target.name,{type:target.type}));
+   const table=doc.tables.find(rows=>rows.length>=2&&rows[0].length>=2&&rows[0].length<=12);
+   let result:CreamResult|null=null;
+   if(table){
+    try{const dataset=fromCreamRows(table,target.name);setCreamDataset(dataset);result=analyzeCream(dataset);}
+    catch{/* The original table still gets read even if no numeric columns match CREAM. */}
+   }
+   setFileContext(documentContext(doc));setFileName(target.name);
+   const time=Date.now();
+   setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:time},
+    {role:"assistant",content:documentSummary(doc)+"\n\n"+(result?summarizeCream(result):doc.text.slice(0,1750)),
+      ...(result?{cream:result}:{}),id:crypto.randomUUID(),createdAt:time+1}]);
+   setDraft("");setLastRoute("已從本機附件庫重新讀取文件；可進一步要求分析與統整。");
+  }catch(e){toolReply(question,"本機文件讀取／分析失敗："+String(e));}
+  finally{setBusy(false);}
+  return;
+ }
  // Read a public URL or search multiple domains, retrieve actual body text when
  // possible, then give grounded excerpts to the already-approved AI model.
  let webContext="";
  let webSources:import("./engine").WebCitation[]=[];
  const pageUrl=linkReadingIntent(question);
- const searchRequest=/^(?:(?:請|幫我|麻煩)?\s*)?(?:上網搜尋|網路搜尋|搜尋|Google搜尋|全網搜尋|上網查|幫我找資料)\s*[：:]?\s*(.{2,180})$/i.exec(question);
- if(pageUrl||searchRequest){
+ const searchRequest=/^(?:(?:請|幫我|麻煩)?\\s*)?(?:上網搜尋|網路搜尋|搜尋|Google搜尋|全網搜尋|上網查|幫我找資料)\\s*[：:]?\\s*(.{2,180})$/i.exec(question);
+ const autoQuery=!privateMode&&!pageUrl&&!searchRequest?implicitResearchQuery(question):null;
+ const webIndex:IndexedPage[]=[];
+ if(!privateMode&&(pageUrl||searchRequest||autoQuery)){
   setBusy(true);setLastRoute("正在實際查詢來源並讀取可公開存取的網頁正文…");
   try{
    if(pageUrl){
     const page=await readPublicPage(pageUrl);
     webSources=[{title:page.title,url:page.url,kind:"full"}];
+    webIndex.push({title:page.title,url:page.url,kind:"full",excerpt:page.text});
     webContext="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
-   }else if(searchRequest){
-    const query=searchRequest[1];
+   }else if(searchRequest||autoQuery){
+    const query=searchRequest?.[1]||autoQuery||"";
     const report=await searchLiveWeb(query);
     setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(query)]);
     for(const hit of report.results.slice(0,3)){
      try{
       const article=await readPublicPage(hit.url);
       webSources.push({title:article.title,url:article.url,kind:"full"});
+      webIndex.push({title:article.title,url:article.url,kind:"full",excerpt:article.text});
       webContext+="\n["+webSources.length+"] "+article.title+"\n來源："+article.url+"\n已讀取正文：\n"+wrapExternalText(article.text.slice(0,7500),"web")+"\n";
      }catch{
       // A search snippet is explicitly labeled as such, never as read article.
       webSources.push({title:hit.title,url:hit.url,kind:"snippet"});
+      webIndex.push({title:hit.title,url:hit.url,kind:"snippet",excerpt:hit.snippet});
       webContext+="\n["+webSources.length+"] "+hit.title+"\n來源："+hit.url+"\n僅取得搜尋摘要："+wrapExternalText(hit.snippet,"web")+"\n";
      }
     }
@@ -420,6 +466,7 @@ async function send(value=draft){
   }catch(error){toolReply(question,"網頁實際讀取失敗，未產生虛構摘要："+String(error));setBusy(false);return;}
   finally{setBusy(false);}
  }
+ if(webContext&&!canReply){toolReply(question,formatIndexedPages(webIndex));return;}
  if(!webContext&&await executeIntent(question))return;
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:表格|Sheets)(?:編輯器)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-sheets"));setDraft("");return;

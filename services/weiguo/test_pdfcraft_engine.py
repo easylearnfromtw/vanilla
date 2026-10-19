@@ -12,6 +12,7 @@ from unittest.mock import patch
 import httpx
 import app as gateway
 import pdfcraft_engine as p
+import pdfcraft_native as sandbox
 from auth import FamilyIdentity, family_reader
 
 
@@ -50,7 +51,7 @@ class PdfCraftTests(unittest.IsolatedAsyncioTestCase):
                 "WEIGUO_PDFCRAFT_CLI":str(cli),
                 "WEIGUO_PDFCRAFT_SHA256":digest,
             }
-            with patch.dict(os.environ,env):
+            with patch.dict(os.environ,env),patch.object(p,"probe_sandbox",return_value=True):
                 self.assertTrue(p.available())
                 cli.write_bytes(cli.read_bytes()+b"tampered")
                 self.assertFalse(p.available())
@@ -60,43 +61,48 @@ class PdfCraftTests(unittest.IsolatedAsyncioTestCase):
                 with patch.dict(os.environ,{"WEIGUO_PDFCRAFT_CLI":str(link)}):
                     self.assertFalse(p.available())
 
+    async def test_sandbox_policy_is_mandatory(self):
+        cmd=sandbox.sandbox_argv(2)
+        self.assertIn("--unshare-net",cmd)
+        self.assertIn("--unshare-user",cmd)
+        self.assertIn("--cap-drop",cmd)
+        self.assertIn("--ro-bind",cmd)
+        self.assertIn("--bind",cmd)
+        self.assertNotIn("/data",cmd)
+        self.assertNotIn("/app",cmd)
+        with self.assertRaises(ValueError):
+            sandbox.sandbox_argv(5)
+        with patch.dict(os.environ, {"WEIGUO_PDFCRAFT_SANDBOX":""}):
+            self.assertFalse(sandbox.probe_sandbox())
+
     async def test_native_args_sanitization_and_cleanup(self):
         calls=[]
         class FakeProc:
             async def wait(self):return 0
-        async def launch(*args,**kwargs):
-            calls.append((args,kwargs))
-            Path(args[-1]).write_bytes(sample_pdf(b"merged"))
+        async def launch(directory,inputs):
+            calls.append((directory,inputs))
+            (Path(directory)/"merged.pdf").write_bytes(sample_pdf(b"merged"))
             return FakeProc()
         docs=[base64.b64encode(sample_pdf(b"a")).decode(),base64.b64encode(sample_pdf(b"b")).decode()]
-        with patch.object(p,"available",return_value=True),patch(
-            "pdfcraft_engine.asyncio.create_subprocess_exec",side_effect=launch
-        ),patch.dict(os.environ,{"WEIGUO_ADMIN_TOKEN":"TOP-SECRET","WEIGUO_SESSION_SECRET":"HIDDEN"}):
+        with patch.object(p,"available",return_value=True),patch.object(p,"spawn_sandboxed",side_effect=launch):
             output=await p.combine_pdfs(docs)
         self.assertIn(b"merged",output)
         self.assertEqual(len(calls),1)
-        argv,options=calls[0]
-        self.assertEqual(argv[1],"combine")
-        self.assertEqual(argv[-2],"--out")
-        self.assertTrue(argv[2].endswith("source-1.pdf"))
-        self.assertTrue(argv[3].endswith("source-2.pdf"))
-        self.assertNotIn("WEIGUO_ADMIN_TOKEN",options["env"])
-        self.assertNotIn("WEIGUO_SESSION_SECRET",options["env"])
-        self.assertEqual(options["stdin"],asyncio.subprocess.DEVNULL)
-        self.assertFalse(Path(argv[-1]).exists())
+        directory,inputs=calls[0]
+        self.assertEqual(inputs,2)
+        self.assertFalse(Path(directory).exists())
 
     async def test_bad_native_output_fails_closed(self):
         class FakeProc:
             async def wait(self):return 0
-        async def launch(*args,**kwargs):
-            Path(args[-1]).write_bytes(b"Invalid native PDF output")
+        async def launch(directory,inputs):
+            (Path(directory)/"merged.pdf").write_bytes(b"Invalid native PDF output")
             return FakeProc()
         docs=[base64.b64encode(sample_pdf()).decode()]*2
-        with patch.object(p,"available",return_value=True),patch(
-            "pdfcraft_engine.asyncio.create_subprocess_exec",side_effect=launch
-        ):
+        with patch.object(p,"available",return_value=True),patch.object(p,"spawn_sandboxed",side_effect=launch):
             with self.assertRaises(p.PdfCraftFailed):
                 await p.combine_pdfs(docs)
+
 
     async def test_authenticated_route_and_no_store(self):
         docs=[base64.b64encode(sample_pdf()).decode()]*2

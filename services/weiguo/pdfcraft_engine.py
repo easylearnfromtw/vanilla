@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
+from pdfcraft_native import probe_sandbox, spawn_sandboxed
 
 MAX_FILE = 2 * 1024 * 1024
 MAX_BASE64 = 2_800_000
@@ -47,7 +48,7 @@ def available() -> bool:
             return False
         with cli.open("rb") as f:
             actual = hashlib.file_digest(f, "sha256").hexdigest()
-        return hmac.compare_digest(actual, expected)
+        return hmac.compare_digest(actual, expected) and probe_sandbox()
     except OSError:
         return False
 
@@ -97,31 +98,16 @@ async def combine_pdfs(encoded_pdfs: list[str]) -> bytes:
                 path.write_bytes(pdf)
                 paths.append(str(path))
             output = root / "merged.pdf"
-            cli = os.environ.get("WEIGUO_PDFCRAFT_CLI", "/usr/local/bin/pdfcraft-cli")
-            # Exact documented upstream syntax. Never forward user CLI arguments.
-            argv = (cli, "combine", *paths, "--out", str(output))
-            environment = {
-                "PATH": "/usr/bin:/bin",
-                "HOME": directory,
-                "TMPDIR": directory,
-                "XDG_CACHE_HOME": directory,
-                "LANG": "C.UTF-8",
-            }
             try:
-                process = await asyncio.create_subprocess_exec(
-                    *argv, cwd=directory, env=environment,
-                    stdin=asyncio.subprocess.DEVNULL,
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL,
-                )
+                process = await spawn_sandboxed(directory, len(sources))
                 try:
                     code = await asyncio.wait_for(process.wait(), timeout=TIMEOUT_SECONDS)
                 except asyncio.TimeoutError as exc:
                     process.kill()
                     await process.wait()
                     raise PdfCraftFailed("PdfCraft 處理超時") from exc
-            except OSError as exc:
-                raise PdfCraftUnavailable("無法執行 PdfCraft CLI") from exc
+            except (OSError, ValueError, PermissionError) as exc:
+                raise PdfCraftUnavailable("無法在隔離沙盒啟動 PdfCraft CLI") from exc
             if code != 0:
                 raise PdfCraftFailed("PdfCraft 合併失敗，來源可能加密或受損")
             return _check_output(output)

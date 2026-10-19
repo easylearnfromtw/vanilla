@@ -20,6 +20,7 @@ The `wordcraft_engine.py` adapter accepts only Markdown body up to 50,000 charac
    WEIGUO_WORDCRAFT_ENABLED=true
    WEIGUO_WORDCRAFT_EGRESS_ISOLATED=true
    WEIGUO_WORDCRAFT_CLI=/usr/local/bin/wordcraft-cli
+   WEIGUO_WORDCRAFT_SHA256=<independently-verified-64-character-sha256>
    ```
    The `EGRESS_ISOLATED` variable is only an **attestation**, not a security control. Never set it to true without real network denial.
 5. Retain `WEIGUO_PUBLIC_FAMILY_ONLY=true`, HTTPS, exact CORS origins, Google verified-`sub` allowlist, separate admin/session secrets and the existing per-owner isolation. Do not expose the operator bearer to the PWA.

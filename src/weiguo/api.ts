@@ -1,5 +1,6 @@
 /** Public-PWA WeiGuo client. No admin keys, Drive tokens or durable session storage. */
 import {driveSession} from "../workspace/cloud-drive";
+import {validateOrchestraCapabilities,type OrchestraCapabilities} from "../orchestra/capability-contract";
 
 export type WeiGuoIdentity={member:string;role:"owner"|"member"|"viewer";email:string};
 export type WeiGuoTask={id:string;status:"queued"|"running"|"completed"|"failed";result?:{title?:string;url?:string;events?:Array<{action:string;text?:string;source?:string}>}|null;error?:string|null;createdAt?:number};
@@ -61,6 +62,12 @@ export async function startWeiGuoTask(start_url:string,steps:Array<{action:"extr
 export async function getWeiGuoTask(id:string):Promise<WeiGuoTask>{
  if(!/^[a-f0-9-]{36}$/i.test(id))throw Error("任務識別碼不正確");
  return request<WeiGuoTask>("/v1/family/tasks/"+encodeURIComponent(id),undefined,true);
+}
+
+/** Backend-declared capabilities only; never executes or installs tools. */
+export async function getWeiGuoOrchestraCapabilities():Promise<OrchestraCapabilities>{
+ const raw=await request<unknown>("/v1/family/orchestra/capabilities",undefined,true);
+ return validateOrchestraCapabilities(raw);
 }
 
 /** Optional document conversion. Sends only the explicitly approved text to the family backend. */

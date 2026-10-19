@@ -31,11 +31,14 @@ class MoliEligibilityTests(unittest.TestCase):
     def test_egress_and_js_must_be_explicit_opt_ins(self):
         for changes in (
             {"WEIGUO_MOLI_EGRESS_ISOLATED": "false"},
-            {"WEIGUO_ALLOW_JAVASCRIPT": "false"},
             {"WEIGUO_BROWSER_ENGINE": "untrusted"},
         ):
             with self.subTest(changes=changes), patch.dict(os.environ, {**CONFIG, **changes}):
                 self.assertFalse(moli_engine.moli_eligible([{"action": "extract"}]))
+
+    def test_disabled_javascript_is_preserved_without_blocking_safe_reads(self):
+        with patch.dict(os.environ, {**CONFIG, "WEIGUO_ALLOW_JAVASCRIPT": "false"}):
+            self.assertTrue(moli_engine.moli_eligible([{"action": "extract"}]))
 
     def test_only_one_read_only_extract_is_routed(self):
         with patch.dict(os.environ, CONFIG):
@@ -114,11 +117,32 @@ class MoliExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "# harmless")
         args = spawn.await_args.args
         self.assertEqual(args, ("/usr/bin/moli", "fetch", "--dump", "markdown",
-                                "--wait-until", "done", "https://example.org/"))
+                                "--wait-until", "done", "--block-private-networks",
+                                "--disable-subframes", "--fail", "--timeout", "12000",
+                                "https://example.org/"))
         env = spawn.await_args.kwargs["env"]
         self.assertNotIn("WEIGUO_ADMIN_TOKEN", env)
         self.assertNotIn("WEIGUO_SESSION_SECRET", env)
         self.assertEqual(spawn.await_args.kwargs["cwd"], "/tmp")
+
+    async def test_js_off_passes_disable_js_to_browser_cli(self):
+        class Stdout:
+            items = [b"ok", b""]
+            async def read(self, _size):
+                return self.items.pop(0)
+        class Process:
+            returncode = None
+            stdout = Stdout()
+            async def wait(self):
+                self.returncode = 0
+                return 0
+            def kill(self):
+                self.returncode = -9
+        with patch.dict(os.environ, {"WEIGUO_ALLOW_JAVASCRIPT": "false"}), \
+             patch("moli_engine.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=Process()) as spawn:
+            await moli_engine._read_moli("/usr/bin/moli", "https://example.org/")
+        self.assertIn("--disable-js", spawn.await_args.args)
+        self.assertIn("--block-private-networks", spawn.await_args.args)
 
     async def test_oversized_output_terminates_process(self):
         class TooMuch:

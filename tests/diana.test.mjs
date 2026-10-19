@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {parseDianaInvocation,chooseDianaTool,dianaCatalog} from "../src/detroit/diana.ts";
 import {routeMessage,expandSlashCommand} from "../src/assistant/chat-router.ts";
 import {DETROIT_ENGINES} from "../src/detroit/core.ts";
@@ -45,4 +46,41 @@ test("Factory and governance adapters cannot be triggered in chat",()=>{
  assert.equal(chooseDianaTool("",normal).kind,"report");
  const requested=parseDianaInvocation("@Medusa 執行 Python");
  assert.equal(chooseDianaTool(requested?.request||"",normal,requested?.forcedTool||null).tab,"medusa");
+});
+
+test("Diana supports Chinese, full-width and full-name @ mentions without fabricating execution",()=>{
+ assert.equal(parseDianaInvocation("＠Diana 研究")?.request,"研究");
+ assert.equal(parseDianaInvocation("@衛國 管理瀏覽器")?.forcedTool,"weiguo");
+ assert.equal(parseDianaInvocation("@衞國")?.forcedTool,"weiguo");
+ assert.equal(parseDianaInvocation("@爾雅 這是原文")?.forcedTool,"er-ya");
+ assert.equal(parseDianaInvocation("@JENSEN HUANG 修復程式")?.forcedTool,"jensen-huang");
+ assert.equal(parseDianaInvocation("@Venus 做簡報")?.forcedTool,"venus");
+ assert.equal(chooseDianaTool("",normal,"weiguo").event,"vanilla-open-weiguo");
+ assert.equal(chooseDianaTool("任何任務",normal,"venus").kind,"report");
+});
+test("Diana creates data-first sequence rather than exporting unvalidated figures",()=>{
+ const p=chooseDianaTool("分析年度 CSV 數據並製作 PDF 報告",normal);
+ assert.equal(p.tool,"cream");
+ assert.deepEqual(p.nextSteps,["retina"]);
+ assert.equal(p.kind,"open");
+ assert.equal(chooseDianaTool("整理統計圖表到電子報",normal).tool,"cream");
+ assert.deepEqual(chooseDianaTool("整理統計圖表到電子報",normal).nextSteps,["janus"]);
+});
+test("Diana exposes offline and incomplete-tool constraints",()=>{
+ assert.equal(chooseDianaTool("最新醫學文獻",{...normal,online:false}).kind,"report");
+ assert.match(chooseDianaTool("",normal,"scouts").message||"",/請輸入/);
+ assert.equal(chooseDianaTool("安全掃描",normal,"quirinus").kind,"report");
+ assert.equal(chooseDianaTool("執行排程",normal,"chronos").kind,"report");
+});
+test("Diana Erya delegates through an existing guarded writing request",()=>{
+ const p=chooseDianaTool("原文：2026 年成功率 98%",{...normal,hasModel:true},"er-ya");
+ assert.equal(p.kind,"delegate");
+ assert.match(p.command||"",/【待潤稿原文】/);
+ assert.equal(routeMessage(p.command||"",normal).kind,"continue");
+ assert.equal(chooseDianaTool("一段話",{...normal,hasModel:false},"er-ya").kind,"report");
+ assert.equal(chooseDianaTool("",normal,"er-ya").kind,"report");
+});
+test("Diana never copies private conversation text into Orchestra automatically",()=>{
+ const source=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
 });

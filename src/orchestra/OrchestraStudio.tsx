@@ -105,7 +105,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
     </button>:<p className="orchestra-pending">目前沒有可執行的 {format.toUpperCase()} 匯出器，已保留 {meta.name} 整合位置。</p>}
     {tool==="pdfcraft"&&<div className="orchestra-remote">
       <strong>PdfCraft · 原生 PDF 合併（選用）</strong>
-      <p>請選擇 2–3 個本機 PDF，每份不超過 2 MB。需要家庭登入、可信任的 PdfCraft 執行檔與單次明確同意。不會存檔到衞國資料庫；不是手機上的本機合併。</p>
+      <p>請選擇 2–3 個本機 PDF，每份不超過 2 MB。需要家庭登入與單次明確同意。若啟用獨立 Linux Worker，檔案會經衞國後端以 HTTPS 轉送至該節點處理；不會存入衞國任務資料庫，也不是手機上的本機合併。</p>
       <input type="file" aria-label="選取 2 到 3 份 PDF" accept="application/pdf,.pdf" multiple disabled={busy||privateMode}
        onChange={e=>{const next=Array.from(e.target.files||[]);
         if(next.length>3){setPdfFiles([]);setStatus("一次最多 3 份 PDF");}else{setPdfFiles(next);setStatus("");}

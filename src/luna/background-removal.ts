@@ -64,7 +64,8 @@ export async function removeLunaBackground(src:string):Promise<string>{
   if(!(raw instanceof Float32Array))throw Error("模型未回傳有效遮罩");
   const pixels=lunaMaskPixels(raw);
   const mask=document.createElement("canvas");mask.width=SIDE;mask.height=SIDE;
-  mask.getContext("2d")?.putImageData(new ImageData(pixels,SIDE,SIDE),0,0);
+  const maskData=new ImageData(SIDE,SIDE);maskData.data.set(pixels);
+  mask.getContext("2d")?.putImageData(maskData,0,0);
   const out=document.createElement("canvas");out.width=w;out.height=h;
   const ctx=out.getContext("2d",{willReadFrequently:true});if(!ctx)throw Error("Canvas 不能套用遮罩");
   ctx.drawImage(img,0,0,w,h);

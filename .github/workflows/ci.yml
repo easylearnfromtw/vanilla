@@ -25,6 +25,7 @@ jobs:
           npm run test:cream
           npm run test:cream-extra
           npm run test:weiguo
+          npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:cream-weiguo
           npm run test:detroit-studio
@@ -52,7 +53,9 @@ jobs:
           npm run test:providers
       - name: Athena private scanner unit tests (no AV daemon)
         run: python3 -m unittest discover -s services/detroit-scanner -p 'test_*.py'
-      - name: 衞國 browser policy unit tests
+      - name: Install 衞國 authentication test dependencies
+        run: python3 -m pip install --user "fastapi>=0.115,<1" "google-auth>=2.40,<3"
+      - name: 衞國 browser policy and identity gateway tests
         run: python3 -m unittest discover -s services/weiguo -p 'test_*.py'
       - name: Validate NOODLES GPU trainer syntax and sample JSONL (no GPU)
         run: |

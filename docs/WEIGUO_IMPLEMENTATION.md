@@ -32,3 +32,9 @@ Zeus 維持 iPhone 本地只有一個主要推論模型。Merlin、衞國、Scou
 2. GitHub Pages 發布 + iPhone Safari 及已加入主畫面的 PWA 測試。
 3. 私有後端正式部署與 OAuth、每位家人的 ACL、來源稽核及通知送達測試。
 4. 針對手機鍵盤升起／收起、橫豎屏、縮放、安全區域做真機驗收。
+
+## Google OIDC 家庭登入代理（後續實作）
+
+採用 Vanilla 現有 Web OAuth Client ID，新增 Google Identity Services 身分按鈕，僅將短暫有效的 Google **ID token** 送到衞國 HTTPS 後端驗證；不傳送 Google Drive access token。後端依 Google `sub` 在私人 ACL 對照家庭成員與角色，再核發 15 分鐘獨立簽章 session。前端 session 僅存在記憶體，帳號不同或登出時清除。家庭只能執行唯讀的網頁擷取任務，且稽核資料以 Google `sub` 隔離；不取得 admin token。
+
+**尚需實際操作**：部署後端並於私有環境設定 `WEIGUO_SESSION_SECRET`、`WEIGUO_GOOGLE_CLIENT_ID`、`WEIGUO_FAMILY_ACL_JSON`、`WEIGUO_CORS_ORIGINS`、`WEIGUO_ALLOWED_HOSTS` 與舊有管理憑證。GitHub Actions 變數 `WEIGUO_API_URL` 指向真實 HTTPS 網域。沒有這些設定，iPhone 介面會保持未連線，不能宣稱實際任務已送出。請參閱 `services/weiguo/README.md`。

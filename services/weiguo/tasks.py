@@ -38,6 +38,9 @@ def connect() -> sqlite3.Connection:
             updated_at INTEGER NOT NULL
         )"""
     )
+    columns = {column[1] for column in db.execute("PRAGMA table_info(tasks)")}
+    if "owner_sub" not in columns:
+        db.execute("ALTER TABLE tasks ADD COLUMN owner_sub TEXT NOT NULL DEFAULT 'operator'")
     return db
 
 
@@ -62,13 +65,19 @@ def initialize() -> None:
         db.execute("DELETE FROM tasks WHERE updated_at < ?", (int(time.time()) - 7 * 86400,))
 
 
-def start(url: str, steps: list[dict]) -> dict:
+def start(url: str, steps: list[dict], owner_sub: str = "operator", limit_per_minute: int | None = None) -> dict:
     task_id = str(uuid.uuid4())
     now = int(time.time())
     with session() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if limit_per_minute is not None:
+            recent = db.execute("SELECT COUNT(*) FROM tasks WHERE owner_sub=? AND created_at>=?",
+                                (owner_sub, now - 60)).fetchone()[0]
+            if recent >= limit_per_minute:
+                raise ValueError("已達每分鐘任務上限，請稍後再試")
         db.execute(
-            "INSERT INTO tasks (id,state,url,steps,created_at,updated_at) VALUES (?,?,?,?,?,?)",
-            (task_id, "queued", url, json.dumps(steps, ensure_ascii=False), now, now),
+            "INSERT INTO tasks (id,state,url,steps,created_at,updated_at,owner_sub) VALUES (?,?,?,?,?,?,?)",
+            (task_id, "queued", url, json.dumps(steps, ensure_ascii=False), now, now, owner_sub),
         )
     return {"id": task_id, "status": "queued"}
 
@@ -85,11 +94,12 @@ def update(task_id: str, status: str, result: dict | None = None, error: str | N
         )
 
 
-def fetch(task_id: str) -> dict | None:
+def fetch(task_id: str, owner_sub: str | None = None) -> dict | None:
     with session() as db:
         row = db.execute(
-            "SELECT id,state,result,error,created_at,updated_at FROM tasks WHERE id=?",
-            (task_id,),
+            "SELECT id,state,result,error,created_at,updated_at FROM tasks WHERE id=?"
+            + (" AND owner_sub=?" if owner_sub is not None else ""),
+            (task_id, owner_sub) if owner_sub is not None else (task_id,),
         ).fetchone()
     if row is None:
         return None

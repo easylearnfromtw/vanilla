@@ -40,6 +40,7 @@ jobs:
       - run: npm run test:cream
       - run: npm run test:cream-extra
       - run: npm run test:weiguo
+      - run: npm run test:weiguo-auth-ui
       - run: npm run test:detroit
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio
@@ -62,7 +63,9 @@ jobs:
       - run: npm run test:providers
       - name: Athena private scanner unit tests (no AV daemon)
         run: python3 -m unittest discover -s services/detroit-scanner -p 'test_*.py'
-      - name: 衞國 browser policy unit tests
+      - name: Install 衞國 authentication test dependencies
+        run: python3 -m pip install --user "fastapi>=0.115,<1" "google-auth>=2.40,<3"
+      - name: 衞國 browser policy and identity gateway tests
         run: python3 -m unittest discover -s services/weiguo -p 'test_*.py'
       - name: Validate NOODLES trainer (no GPU)
         run: |
@@ -72,6 +75,7 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
+          VITE_WEIGUO_API_URL: ${{ vars.WEIGUO_API_URL }}
       - name: Verify compiled GitHub Pages assets
         run: |
           test -f dist/index.html

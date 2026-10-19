@@ -63,3 +63,12 @@ test("only explicit tabular requests route to CREAM; follow-up chart changes are
 test("extra CSV cells are rejected rather than silently dropped",()=>{
  assert.throws(()=>parseCreamCSV("欄一,欄二\n1,2,3"),/欄位數/);
 });
+
+test("trace keeps original line numbers even when blank input rows are skipped",()=>{
+ const ds=parseCreamCSV("月份,數值\n甲,5\n,\n乙,7");
+ assert.equal(ds.rows.length,2);
+ assert.deepEqual(ds.rowNumbers,[2,4]);
+ const result=analyzeCream(ds,"line");
+ assert.deepEqual(result.metrics[0].points.map(p=>p.row),[2,4]);
+ assert.deepEqual(result.metrics[0].points.map(p=>p.label),["甲","乙"]);
+});

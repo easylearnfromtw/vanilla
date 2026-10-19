@@ -125,6 +125,16 @@ class FamilyGatewayEndpointTests(unittest.TestCase):
         bob = self.token_for(SUB_B)
         self.assertEqual(self.client.post("/v1/family/tasks", json=self.job, headers=bob).status_code, 202)
 
+    def test_public_family_only_hides_operator_routes_even_with_admin_token(self):
+        with patch.dict(os.environ, {"WEIGUO_PUBLIC_FAMILY_ONLY": "true"}):
+            admin = {"Authorization": "Bearer " + os.environ["WEIGUO_ADMIN_TOKEN"]}
+            for path in ("/v1/execute", "/v1/plan", "/v1/tools", "/v1/tasks", "/openapi.json"):
+                with self.subTest(path=path):
+                    response = self.client.post(path, json=self.job, headers=admin) if path != "/openapi.json" else self.client.get(path, headers=admin)
+                    self.assertEqual(response.status_code, 404)
+            self.assertEqual(self.client.get("/v1/health").status_code, 200)
+            self.assertEqual(self.client.post("/v1/family/tasks", json=self.job).status_code, 401)
+
     def test_cors_source_validation(self):
         with patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": "https://easylearnfromtw.github.io"}):
             self.assertEqual(gateway.allowed_origins(), ["https://easylearnfromtw.github.io"])

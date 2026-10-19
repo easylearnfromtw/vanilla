@@ -54,6 +54,7 @@ import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversation
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
 import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
+import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 
@@ -66,6 +67,7 @@ function readContextPrefs():ContextPrefs{
  catch{return {memory:true,cream:true,project:true,web:true};}
 }
 function restoreMode(){try{return localStorage.getItem(MODE_KEY)==="true";}catch{return false;}}
+function takeHumanizeDraft():string{try{const key="vanilla.erya.pending-draft.v1";const value=sessionStorage.getItem(key)||"";sessionStorage.removeItem(key);return value;}catch{return "";}}
 function restoreHistory(key=chatStorageKey(false)):ChatTurn[]{
   try{const raw=localStorage.getItem(key);if(!raw)return [];const parsed:unknown=JSON.parse(raw);return Array.isArray(parsed)?parsed.filter((x):x is ChatTurn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];}catch{return [];}
 }
@@ -91,7 +93,7 @@ function sourceLabel(turn:ChatTurn):string{
 export default function LocalChat({onNavigate}:{onNavigate?:(section:"library"|"settings"|"cream")=>void}){
 const [privateMode,setPrivateMode]=useState(restoreMode);
 const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(chatStorageKey(restoreMode())));
-const [draft,setDraft]=useState("");
+const [draft,setDraft]=useState(takeHumanizeDraft);
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
 const [fileContext,setFileContext]=useState("");
@@ -717,6 +719,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const merlin=optimizeMerlinPrompt(question,detroit);
+ const humanize=prepareHumanization(question);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
  if(detroit.depth!=="quick"){
   markDetroit("merlin","done",merlin.receipt);
@@ -727,7 +730,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   if(found.webSources.length)markDetroit("scouts","done","已讀取 "+found.webSources.length+" 個來源");
   if(detroit.stages.some(x=>x.engine==="cream"))markDetroit("cream","skipped","數值由 CREAM 程式分析；此題未觸發新的表格統計");
  }
- const task=classifyTask(question,Boolean(image));
+ const task=humanize?"writing":classifyTask(question,Boolean(image));
  const taiwanTopic=image?null:classifyTaiwanTopic(question);
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  let activeModel=selectedLocalModel,localReady=ready;
@@ -821,7 +824,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(recalled)contexts.push({id:"memory",label:"Drive 記憶",priority:2,text:"使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance;
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(displayQuestion,contexts,guidance,promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
@@ -846,7 +849,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     const result=await generateCandidate(candidate,compose(candidate).history,image||undefined,text=>{
      setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
     },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:result||"（無回答）",status:"done" as const}:x)}:prev);
+    setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:finalizeHumanizedText(humanize,result||""),status:"done" as const}:x)}:prev);
    }catch(error){
     const msg=error instanceof Error?error.message:String(error);
     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,error:msg,status:"error" as const}:x)}:prev);
@@ -871,9 +874,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  try{
   const result=await generateCandidate(primary,primaryPrompt.history,image||undefined,text=>{
    partial=text;
-   setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
+   if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-  setHistory([...next,{role:"assistant",content:result||"（模型沒有產生內容）",source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
+  setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,result||""),source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
   if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","回答已由現有 Markdown／圖表元件呈現");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
@@ -893,9 +896,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    const altBase:Partial<ChatTurn>={webSources,contexts:altPrompt.labels,notice:[primary.label+" 失敗，已改用 "+alternative.label,altPrompt.notice].filter(Boolean).join("；")};
    try{
     const recovered=await generateCandidate(alternative,altPrompt.history,undefined,text=>{
-     setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);
+     if(!humanize)setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);
     },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-    setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
+    setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,recovered||""),source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     if(detroit.depth!=="quick")markDetroit("dionysus","done","備援推論已完成");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){

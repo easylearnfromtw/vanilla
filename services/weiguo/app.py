@@ -7,6 +7,7 @@ import hmac
 import asyncio
 import json
 import os
+import time
 from contextlib import asynccontextmanager
 from typing import Literal
 from urllib.parse import urlsplit
@@ -54,6 +55,18 @@ async def lifespan(app: FastAPI):
     yield
 
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.
+WORDCRAFT_RATE_LOCK = asyncio.Lock()
+WORDCRAFT_RATE: dict[str,list[float]] = {}
+
+async def require_wordcraft_quota(sub: str) -> None:
+    """Three conversion tasks per verified family identity per rolling minute."""
+    async with WORDCRAFT_RATE_LOCK:
+        now = time.monotonic()
+        recent = [t for t in WORDCRAFT_RATE.get(sub, []) if now-t < 60.0]
+        if len(recent) >= 3:
+            raise HTTPException(429, "WordCraft 每分鐘最多 3 次轉換，請稍後再試")
+        WORDCRAFT_RATE[sub] = recent + [now]
+
 
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
 async def operator(authorization: str | None = Header(default=None)):
@@ -138,6 +151,7 @@ async def family_get_task(task_id: str, user: FamilyIdentity = Depends(family_re
 @app.post("/v1/family/wordcraft/convert")
 async def family_wordcraft_convert(request: WordCraftRequest, user: FamilyIdentity = Depends(family_reader)):
     """Explicit, signed-in document conversion; no arbitrary paths or commands."""
+    await require_wordcraft_quota(user.sub)
     try:
         result = await convert_markdown(request.title, request.body, request.format)
     except ValueError as exc:

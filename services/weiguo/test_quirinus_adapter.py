@@ -53,9 +53,9 @@ class QuirinusTests(unittest.TestCase):
                 }],
             }
             fake = SimpleNamespace(returncode=1, stdout=json.dumps(upstream), stderr="secret error")
-            with patch.dict(os.environ, SAFE_ENV), \\
-                 patch.object(quirinus, "_SOURCE_ROOT", root), \\
-                 patch.object(quirinus, "_CLI_BIN", cli), \\
+            with patch.dict(os.environ, SAFE_ENV), \
+                 patch.object(quirinus, "_SOURCE_ROOT", root), \
+                 patch.object(quirinus, "_CLI_BIN", cli), \
                  patch.object(quirinus.subprocess, "run", return_value=fake) as runner:
                 result = quirinus.run_fixed_scan()
             command = runner.call_args.args[0]
@@ -84,8 +84,8 @@ class QuirinusTests(unittest.TestCase):
             cli = Path(temp) / "vulnclaw"
             cli.write_text("#!/bin/sh\n", encoding="utf-8")
             cli.chmod(0o700)
-            with patch.dict(os.environ, SAFE_ENV), \\
-                 patch.object(quirinus, "_SOURCE_ROOT", root), \\
+            with patch.dict(os.environ, SAFE_ENV), \
+                 patch.object(quirinus, "_SOURCE_ROOT", root), \
                  patch.object(quirinus, "_CLI_BIN", cli):
                 with patch.object(quirinus.subprocess, "run",
                                   return_value=SimpleNamespace(returncode=2, stdout="", stderr="private")):

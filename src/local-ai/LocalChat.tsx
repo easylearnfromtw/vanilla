@@ -57,6 +57,7 @@ import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
 import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
+import {chooseDianaTool} from "../detroit/diana";
 
 const BASE=import.meta.env.BASE_URL;
 const MODE_KEY=CHAT_MODE_KEY;
@@ -75,7 +76,7 @@ const TOOL={
  capability:{id:"capability",label:"功能實況"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
- github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"}
+ github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"},diana:{id:"diana",label:"Diana 工具選擇"}
 } as const;
 type ToolKey=keyof typeof TOOL;
 const TOOL_ICON:Record<string,typeof Search>={search:Search,web:Globe,cream:BarChart3,sheets:BarChart3,memory:Database,files:FolderOpen,save:FolderOpen,github:Code2,builder:Wrench,project:Code2,privacy:LockKeyhole};
@@ -470,7 +471,7 @@ async function gatherWeb(kind:"read"|"search",target:string):Promise<{context:st
  }catch(error){toolReply(target,"網頁實際讀取失敗，未產生虛構摘要："+String(error),kind==="read"?"web":"search");return null;}
  finally{setBusy(false);}
 }
-async function send(value=draft){
+async function send(value=draft):Promise<void>{
  let raw=value.trim();
  if(raw.startsWith("/")){
   const expanded=expandSlashCommand(raw);
@@ -491,6 +492,22 @@ async function send(value=draft){
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
  switch(route.kind){
+  case "diana":{
+   const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream)},route.forcedTool);
+   if(pick.kind==="delegate"&&pick.command){
+    if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
+    setDraft("");setLastRoute("Diana → "+pick.label+"："+pick.reason);
+    await send(pick.command);
+    return;
+   }
+   if(pick.kind==="open"&&pick.event){
+    const detail=pick.event==="vanilla-open-detroit"?{tab:pick.tab}:pick.event==="vanilla-open-builder"?{idea:route.request,mode:"code"}:pick.event==="vanilla-open-orchestra"?{body:route.request}:{};
+    window.dispatchEvent(new CustomEvent(pick.event,{detail}));
+    toolReply(question,"Diana 選擇 "+pick.label+"（"+pick.reason+"），已開啟工具工作區。真正產製、雲端連線及寫入仍需要在該工具操作與確認。","diana");
+    return;
+   }
+   toolReply(question,pick.message||"Diana 無法執行這個工具。","diana");return;
+  }
   case "capability":{
    const capabilityTopic=capabilityIntent(question);
    if(capabilityTopic)toolReply(question,capabilityAnswer(capabilityTopic,{
@@ -723,6 +740,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
  if(detroit.depth!=="quick"){
   markDetroit("merlin","done",merlin.receipt);
+  markDetroit("diana","done","已檢查既有工具路由與限制，不自動啟動未部署工具");
   markDetroit("athena","running","檢查輸入及外部來源");
   const scan=athenaScanText((found.webContext||"")+"\n"+(found.inlineFileContext||""));
   markDetroit("athena","done",scan.findings.length?"發現不可信指令，僅作資料引用":"外部資料僅用於回答，不取得系統權限");

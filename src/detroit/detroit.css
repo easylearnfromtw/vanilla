@@ -4,3 +4,22 @@
 .detroit-stages li{display:flex;gap:6px;align-items:baseline;min-width:0}.detroit-stages li strong{white-space:nowrap;font-weight:600}.detroit-stages li span:last-child{opacity:.72;overflow-wrap:anywhere}
 .detroit-stages li.phase-running{color:#b44a3b}.detroit-stages li.phase-done{color:#26785f}.detroit-stages li.phase-skipped{opacity:.55}.detroit-stages .phase-symbol{min-width:12px;font-weight:700}.detroit-stages>p{opacity:.6;margin:8px 0 0;font-size:10px}
 @media(max-width:480px){.detroit-stages{margin:8px 8px}.detroit-stages ol{grid-template-columns:1fr}}
+
+
+/* Quiet, message-inline execution details, collapsed until explicitly opened. */
+.message-content .detroit-stages{width:100%;margin:9px 0 5px;padding:0;border:0;border-radius:0;background:transparent;color:var(--ink-2,#555);font-size:12px}
+.message-content .detroit-stages summary{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-height:29px;padding:2px 0;list-style:none;cursor:pointer}
+.message-content .detroit-stages summary::-webkit-details-marker{display:none}
+.message-content .detroit-stages summary .detroit-stage-title{flex:none;font-size:12px;font-weight:500}
+.message-content .detroit-stages summary small{font-size:11px;color:var(--muted,#777);font-variant-numeric:tabular-nums}
+.message-content .detroit-mini-dot{width:8px;height:8px;border-radius:50%;background:#7f9486;flex:none}
+.message-content .detroit-mini-dot.is-running{background:#bc725c;animation:detroit-pulse 1.6s infinite}
+.message-content .detroit-mini-dot.is-error{background:#ab4444}
+.message-content .detroit-stage-arrow{margin-left:auto;transition:transform .15s;opacity:.65}
+.message-content .detroit-stages[open] .detroit-stage-arrow{transform:rotate(180deg)}
+.message-content .detroit-stages ol{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0 4px 13px;border-left:1px solid var(--hair,#ddd);margin:4px 0 0 3px}
+.message-content .detroit-stages li{display:grid;grid-template-columns:13px minmax(54px,auto) 1fr;align-items:start;gap:7px;line-height:1.5;font-size:11px}
+.message-content .detroit-stages li strong{font-size:11px;font-weight:600}
+.message-content .detroit-stages>p{margin:8px 0 0;font-size:10px;color:var(--muted,#777)}
+@keyframes detroit-pulse{50%{opacity:.28;transform:scale(.72)}}
+@media(prefers-reduced-motion:reduce){.message-content .detroit-mini-dot.is-running{animation:none}}

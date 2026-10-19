@@ -57,6 +57,7 @@ const [section,setSection]=useState<Section>("chat");
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
+const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca">("retina");
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
 const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream">("manual");
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
@@ -105,7 +106,7 @@ useEffect(()=>{
   ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
    setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
-  ["vanilla-open-detroit",(event:Event)=>{const body=(event as CustomEvent<{body?:string}>).detail?.body;setRetinaSeed(typeof body==="string"?body.slice(0,160000):null);setSection("detroit");setMenuOpen(false);}],
+  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-email",go("email")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
  ];
@@ -174,7 +175,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
-section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed}/></div>:
+section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/></div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:

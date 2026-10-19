@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.07-erya-humanize",
-  "description": "Erya Humanize: natural Taiwanese Traditional Chinese editing via existing model, with private routing and source integrity checks"
+  "build": "2026.10.20.08-diana-router",
+  "description": "Diana Detroit dialogue tool routing, with Erya Humanize, LUCA, Medusa, LUNA, Janus and existing functionality preserved"
 }

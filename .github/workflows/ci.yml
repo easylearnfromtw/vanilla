@@ -27,6 +27,7 @@ jobs:
           npm run test:weiguo
           npm run test:weiguo-auth-ui
           npm run test:detroit
+          npm run test:diana
           npm run test:api-registry
           npm run test:merlin
           npm run test:erya

@@ -59,3 +59,7 @@ test("only explicit tabular requests route to CREAM; follow-up chart changes are
  assert.equal(creamChartFollowup("切換成散佈圖"),"scatter");
  assert.equal(creamChartFollowup("幫我整理文獻"),null);
 });
+
+test("extra CSV cells are rejected rather than silently dropped",()=>{
+ assert.throws(()=>parseCreamCSV("欄一,欄二\n1,2,3"),/欄位數/);
+});

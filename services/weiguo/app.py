@@ -8,14 +8,16 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
+from typing import Literal
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Header, BackgroundTasks, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
 from moli_engine import maybe_moli_extract
+from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -35,6 +37,11 @@ class StartTaskRequest(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     credential: str = Field(min_length=100,max_length=8192)
+
+class WordCraftRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=50000)
+    format: Literal['docx', 'pdf']
 
 class ToolsRequest(BaseModel):
     tools: list[dict] = Field(max_length=30)
@@ -127,6 +134,23 @@ async def family_get_task(task_id: str, user: FamilyIdentity = Depends(family_re
     if item is None:
         raise HTTPException(404, "找不到指定任務")
     return item
+
+@app.post("/v1/family/wordcraft/convert")
+async def family_wordcraft_convert(request: WordCraftRequest, user: FamilyIdentity = Depends(family_reader)):
+    """Explicit, signed-in document conversion; no arbitrary paths or commands."""
+    try:
+        result = await convert_markdown(request.title, request.body, request.format)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except WordCraftUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except WordCraftFailed as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return Response(content=result, media_type=WORDCRAFT_MIME[request.format],
+                    headers={"Content-Disposition": 'attachment; filename="vanilla-wordcraft.' + request.format + '"',
+                             "Cache-Control": "private, no-store",
+                             "X-Content-Type-Options": "nosniff"})
+
 
 @app.post("/v1/tools")
 async def tools(request:ToolsRequest,_:bool=Depends(operator)):

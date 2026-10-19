@@ -66,7 +66,7 @@ export function capabilityItems(s:CapabilitySnapshot):Record<Exclude<CapabilityT
   media:{name:"附件與圖片",status:"limited",detail:s.privateMode?
    "可在當次私密對話處理部分文字附件；圖片理解需要相容且已授權的視覺模型，單靠本地文字模型無法識圖，私密模式不傳雲端。PDF、PPTX 和影片不具備完整解析。":
    "可附加圖片及部分文字檔；圖片辨識要有可用的 Gemini 視覺模型且明確同意傳送。PDF／DOCX／PPTX／影片目前不具備完整內容解析，不能只靠上傳就宣稱已讀取。",example:"＋ 附件"},
-  builder:{name:"Self-Build／API 規劃",status:"limited",detail:"可把新增功能或第三方 API 串接需求轉為可審查的規劃與草稿；不是自己修改 GitHub 原始碼、部署網站或連上未授權服務。",example:"新增功能：建立讀書進度小工具"},
+  builder:{name:"Self-Build 本機工具／GitHub 原始碼改善",status:"limited",detail:"本機可實際安裝、更新與復原宣告式小工具。新增 CODE 模式可使用選定模型產生真正 TypeScript/React 程式修改；必須另行部署並設定受保護 GitHub Worker 才能讀寫 Repository、建立 Draft PR、執行 CI 與最多兩次修正。未配置 Worker 前不能聲稱已連線 GitHub；CI 通過也不會自行合併 main。",example:"自主迭代：改善 NOODLES 模型品質評估"},
   fitness:{name:"健人資料橋接",status:"limited",detail:"在同一瀏覽器有健人資料且獲得確認時，可讀取已儲存的跑步／重訓摘要，並經確認新增符合格式的跑步紀錄；不等於已同步所有裝置或取得別人的健康資料。",example:"查詢健人的跑步數據"},
   research:{name:"CREAM／進階數據分析",status:"limited",detail:"CREAM P0 已正式整合於聊天：貼上 CSV 或上傳 CSV／XLSX 即可在裝置端計算描述統計，產生可互動長條圖、折線圖和散佈圖並匯出 CSV。完整 14 模組中的跨文獻研究、推論統計、PDF 專業報告及全面證據驗證仍待開發，不能聲稱已具備。",example:"CREAM：月份,數值\\n一月,10\\n二月,20"},
   phone:{name:"Mobilerun／手機操作",status:"planned",detail:"Mobilerun 裝置操作仍是待整合功能；iPhone PWA 沒有跨 App 系統控制權，不能直接點擊其他 App、操控設定或自動發送訊息。"},

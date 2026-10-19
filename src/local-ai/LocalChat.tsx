@@ -459,6 +459,7 @@ async function send(value=draft){
 }
 function openCreamInSheets(result:CreamResult){
  if(!creamDataset||creamDataset.importedAt!==result.importedAt||creamDataset.source!==result.source){setLastRoute("這份資料的原始列已不在目前記憶體；重新匯入 CSV／XLSX 才能建立可編輯副本。");return;}
+ if(creamDataset.rows.length>199){setLastRoute("Vanilla Sheets 目前每張表格最多 200 列（含標題）。CREAM 資料超出上限，為避免截斷，未建立副本；請先篩選 CSV。");return;}
  if(privateMode&&!window.confirm("要將私密對話的資料複製到一般本機 Sheets 工作區嗎？不會自動上傳 Google Drive。"))return;
  window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows:[creamDataset.columns,...creamDataset.rows]}}));
 }

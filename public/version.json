@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.12-diana-proactive",
-  "description": "Diana 3.0: default proactive routing and verified local CREAM-to-Retina exports; retains Venus x Janus v2"
+  "build": "2026.10.20.13-webllm-disposed-fix",
+  "description": "Diana 3.0 + Venus Janus v2 retained; fix iPhone WebLLM disposed objects with stable 0.2.82 and serialized engine reloads"
 }

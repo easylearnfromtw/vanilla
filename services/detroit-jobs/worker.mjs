@@ -2,6 +2,7 @@
  * No JavaScript execution, no arbitrary scraping, no AI model or API secrets in job payloads.
  * v0 supports allowlisted public-page change checks only; server must be deployed separately.
  */
+import {enqueueChangeNotice,dispatchNotifications,notificationEndpoint} from "./notifications.mjs";
 const JSON_HEADERS={"content-type":"application/json;charset=utf-8","cache-control":"no-store"};
 function json(body,status=200){return new Response(JSON.stringify(body),{status,headers:JSON_HEADERS});}
 function requireAdmin(request,env){
@@ -40,6 +41,7 @@ async function pageCheck(job,env,now){
    env.DETROIT_DB.prepare("INSERT INTO job_runs(job_id,owner_id,checked_at,status,changed,digest,detail) VALUES(?,?,?,?,?,?,?)")
     .bind(job.id,job.owner_id,now,"ok",changed?1:0,digest,changed?"內容摘要已變更":"無變更")
   ]);
+  if(changed)await enqueueChangeNotice(env.DETROIT_DB,job,digest,now);
  }finally{clearTimeout(timeout);}
 }
 async function tick(env){
@@ -61,7 +63,7 @@ export default {
   if(!requireAdmin(request,env))return json({error:"unauthorized"},401);
   if(!env.DETROIT_DB)return json({error:"D1 not configured"},503);
   const url=new URL(request.url);
-  if(request.method==="GET"&&url.pathname==="/health")return json({status:"configured",execution:"worker-cron",modelsLoaded:0});
+  if(request.method==="GET"&&url.pathname==="/health")return json({status:"configured",execution:"worker-cron",modelsLoaded:0,notificationsConfigured:Boolean(notificationEndpoint(env)&&env.DETROIT_NOTIFY_SECRET?.length>=32)});
   if(request.method==="POST"&&url.pathname==="/v1/jobs"){
    let body;try{body=await request.json();}catch{return json({error:"invalid JSON"},400);}
    let ownerId,target;try{ownerId=owner(body.owner);target=allowedURL(body.url,env);}catch(e){return json({error:String(e.message||e)},400);}
@@ -83,6 +85,14 @@ export default {
    const rows=await env.DETROIT_DB.prepare("SELECT job_id,checked_at,status,changed,detail FROM job_runs WHERE owner_id=? ORDER BY checked_at DESC LIMIT 100").bind(ownerId).all();
    return json({runs:rows.results||[]});
   }
+  if(request.method==="GET"&&url.pathname==="/v1/notifications"){
+   let ownerId;try{ownerId=owner(url.searchParams.get("owner"));}catch{return json({error:"invalid owner"},400);}
+   const rows=await env.DETROIT_DB.prepare("SELECT id,job_id,created_at,attempts,status,delivered_at,last_error FROM notification_outbox WHERE owner_id=? ORDER BY created_at DESC LIMIT 100").bind(ownerId).all();
+   return json({notifications:rows.results||[]});
+  }
+  if(request.method==="POST"&&url.pathname==="/v1/admin/dispatch"){
+   try{return json(await dispatchNotifications(env));}catch(e){return json({error:String(e instanceof Error?e.message:e)},503);}
+  }
   if(request.method==="DELETE"&&url.pathname.startsWith("/v1/jobs/")){
    let ownerId;try{ownerId=owner(url.searchParams.get("owner"));}catch{return json({error:"invalid owner"},400);}
    const id=url.pathname.slice("/v1/jobs/".length);
@@ -92,6 +102,6 @@ export default {
   }
   return json({error:"unknown route"},404);
  },
- async scheduled(_event,env,ctx){ctx.waitUntil(tick(env));}
+ async scheduled(_event,env,ctx){ctx.waitUntil((async()=>{await tick(env);await dispatchNotifications(env);})());}
 };
 export {allowedURL,requireAdmin};

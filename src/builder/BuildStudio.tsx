@@ -1,4 +1,5 @@
 import {useEffect,useState,useRef} from "react";
+import AutonomousCodeStudio from "./AutonomousCodeStudio";
 import {Sparkles,Plus,ShieldCheck,Download,ArrowUpRight,CheckCircle2,AlertTriangle,RefreshCcw,Trash2,Code2,BookOpen} from "lucide-react";
 import {getConfigs,generateCloudReply} from "../vault/providers";
 import {isOllamaConfigured,generateOllamaReply,getOllamaConfig} from "../ai/ollama";
@@ -43,6 +44,7 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  const [busy,setBusy]=useState(false);
  const [selectedKind,setSelectedKind]=useState<FeatureKind>("checklist");
  const [offlineHint,setOfflineHint]=useState("");
+ const [buildMode,setBuildMode]=useState<"visual"|"code">(()=>{try{const wanted=sessionStorage.getItem("vanilla.builder.pending-mode.v1");sessionStorage.removeItem("vanilla.builder.pending-mode.v1");return wanted==="code"?"code":"visual";}catch{return "visual";}});
  const [backupPreview,setBackupPreview]=useState<ValidatedBackup|null>(null);
  const importRef=useRef<HTMLInputElement>(null);
  useEffect(()=>{const update=()=>setInstalled(loadFeatures());window.addEventListener("vanilla-features-changed",update);return()=>window.removeEventListener("vanilla-features-changed",update);},[]);
@@ -186,7 +188,12 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
  }
  return <div className="builder-studio">
   <div className="workspace-banner"><div className="workspace-banner-icon"><Sparkles size={26}/></div><div><h2>Vanilla Self-Build Studio</h2><p>你說想要什麼，Vanilla 生成可安裝的小工具；先檢查方案、再批准，不會擅自改動程式碼。</p></div></div>
-  <div className="builder-disclosure"><ShieldCheck size={18}/><div><strong>安全的自我擴充，不是無限制自我改寫。</strong><p>第一階段讓 Vanilla 自動建立待辦、追蹤器、計算器、筆記模組，會在瀏覽器本機執行；不會執行 AI 任意 JavaScript、存取 API Key、修改 GitHub 原始碼或自行部署。</p></div></div>
+  <div className="builder-mode-switch" role="group" aria-label="Self-Build 模式">
+ <button type="button" className={buildMode==="visual"?"active":""} onClick={()=>setBuildMode("visual")}>快速安裝小工具</button>
+ <button type="button" className={buildMode==="code"?"active":""} onClick={()=>setBuildMode("code")}>自主修改程式碼／GitHub CI</button>
+ </div>
+ {buildMode==="visual"&&<>
+ <div className="builder-disclosure"><ShieldCheck size={18}/><div><strong>兩種真正的 Self-Build 模式</strong><p>快速模式在本機直接安裝安全模組。CODE 模式需連上你部署的受保護 GitHub Worker，能讀程式碼、由 AI 產生變更、建立 Draft PR 並透過 CI 自主修正；只有你批准合併後才會更新正式網站。兩種模式都不會在瀏覽器直接執行未審核的 AI 原始碼。</p></div></div>
   <section className="builder-panel"><div className="builder-section-heading"><span>01 / 需求</span><h3>{current?"改進現有功能："+current.name:"描述你想新增的功能"}</h3></div>
    <textarea value={idea} onChange={e=>{setIdea(e.target.value);setPending(null);}} rows={4} placeholder="例如：幫我做一個家庭開支追蹤器，紀錄日期、支出、類別，手機上能新增並匯出 CSV。" maxLength={1800}/>
    <div className="builder-controls"><label>生成模型 <select value={provider} onChange={e=>setProvider(e.target.value as Provider)}><option value="auto">自動（Ollama → Gemini → 本地）</option><option value="local">手機本地 AI</option><option value="ollama">Ollama</option><option value="gemini">Gemini API</option></select></label><button type="button" className="workspace-primary" disabled={busy||!idea.trim()} onClick={()=>void generate()}><Sparkles size={16}/>{busy?"正在設計…":"AI 生成方案"}</button></div>
@@ -231,17 +238,19 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    </div>}
    <p className="builder-backup-warning">這不是端對端加密備份；若包含個人或家庭敏感資訊，請保存於受保護的位置，不要公開分享。</p>
   </section>
-  <section className="builder-panel builder-engineering"><div className="builder-section-heading"><span>05 / 進階</span><h3>原始碼等級的功能修改</h3></div>
-   <p>如果需求超出這四種模組，例如新增完整 AI Agent、資料庫、3D 功能或串接外部服務，可以產生工程需求。真正修改 React 原始碼仍需 GitHub 分支、程式碼審查、測試與你批准合併，不能從手機頁面直接無審核部署。</p>
+  <section className="builder-panel builder-engineering"><div className="builder-section-heading"><span>05 / 程式碼開發</span><h3>自主修改 Vanilla 原始碼</h3></div>
+   <p>原有「匯出需求」及「GitHub Issue」仍可用。現在也可以使用下方 CODE 模式，真正建立程式修改、Draft PR 與 CI 自動修正；但這需要你先部署並連上專屬安全後端。</p>
    <div className="builder-engineering-actions">
     <button type="button" disabled={!idea.trim()} onClick={()=>downloadProposal("Vanilla-Self-Build-需求.md",issueMarkdown(idea))}><Download size={16}/>匯出工程需求</button>
     <button type="button" disabled={!idea.trim()} onClick={()=>{
      const url="https://github.com/easylearnfromtw/vanilla/issues/new?title="+encodeURIComponent("Self-Build: "+idea.slice(0,65))+"&body="+encodeURIComponent(issueMarkdown(idea).slice(0,6000));
      window.open(url,"_blank","noopener,noreferrer");
     }}><ArrowUpRight size={16}/>提交 GitHub Issue</button>
-   </div><p className="builder-engineering-footnote"><Code2 size={15}/>提交 Issue 會開啟 GitHub 網頁供你確認；不會自行提交 PR、使用 GitHub 權杖或跳過部署審核。</p>
+   </div><p className="builder-engineering-footnote"><Code2 size={15}/>工程 Issue 仍需手動確認；若要由 AI 真正修改原始碼，使用下一個 CODE 工作台建立受控 Draft PR。</p>
   </section>
+  </>}
+  {buildMode==="code"&&<AutonomousCodeStudio initialIdea={idea}/>}
   <p className="builder-status" role="status">{status}</p>
-  <p className="workspace-footnote"><BookOpen size={13}/>已安裝工具和資料只留在本機瀏覽器，跨裝置同步及進階程式碼自動建置需另行設計授權與後端。</p>
+  <p className="workspace-footnote"><BookOpen size={13}/>本機 Self-Build 模組保存在裝置。CODE 模式由你授權的 HTTPS Worker 才能寫入 GitHub Draft PR，永遠不能繞過人工合併與正式部署驗證。</p>
  </div>;
 }

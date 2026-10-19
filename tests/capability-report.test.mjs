@@ -66,7 +66,7 @@ test("Named capabilities clearly state limits, examples and pending development"
  assert.match(report,/Mobilerun/);
  assert.match(report,/跨網域搜尋|網頁正文/);
  assert.match(report,/功能登錄/);
- assert.match(capabilityAnswer("builder",connected),/不是自己修改 GitHub/);
+ assert.match(capabilityAnswer("builder",connected),/必須另行部署並設定受保護 GitHub Worker/);
 });
 
 

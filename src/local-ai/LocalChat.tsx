@@ -418,6 +418,12 @@ async function send(value=draft){
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{}}));setDraft("");return;
  }
+ const codeBuilder=/^(?:(?:請|幫我|我要|讓Vanilla|你可以|可以)?\\s*)?(?:自主迭代|自我優化|改進(?:Vanilla|自己|你的)?(?:的)?(?:程式碼|原始碼)|修復(?:Vanilla|自己的)?(?:的)?(?:bug|程式碼)|修改(?:Vanilla|自己|你的)(?:的)?(?:程式碼|原始碼)|Self[- ]?Build\\s*CODE|幫我改程式碼|程式碼自主開發)(?:[：:]?\\s*([\\s\\S]{0,1600}))?$/i.exec(question);
+ if(codeBuilder){
+  if(privateMode&&!window.confirm("這份私密對話內容要轉移至一般 GitHub 程式工作台嗎？請確認不包含任何金鑰或私密資料。"))return;
+  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:codeBuilder[1]?.trim()||question,mode:"code"}}));
+  setDraft("");setLastRoute("已切換 Self-Build CODE；只有你確認後才會讀取、產生與提交 GitHub 原始碼。");return;
+ }
  const buildRequest=/^(?:新增功能|製作功能|建立功能|功能需求)\s*[：:]\s*(.{3,1800})$/s.exec(question);
  const conversationalBuild=/^(?:(?:我想|我要|幫我|幫Vanilla|請|讓Vanilla).{0,25})?(?:新增|建立|製作|做一個|設計一個).{2,150}(?:功能|模組|小工具|工具)$/i.test(question)&&/(?:Vanilla|功能|工具|模組)/i.test(question);
  if(buildRequest||conversationalBuild){

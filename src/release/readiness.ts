@@ -4,7 +4,7 @@ export type LaunchInput={
  online:boolean;localModelLoaded:boolean;webGPU:boolean;indexedDB:boolean;cloudProvidersConfigured:boolean;
  driveAuthorized:boolean;analyticsClientConfigured:boolean;analyticsAuthorized:boolean;
  ollamaConfigured:boolean;webSearchConfigured:boolean;webSearchTokenConfigured:boolean;
- noodlesEnabled:boolean;
+ noodlesEnabled:boolean;selfBuildBridgeConfigured?:boolean;
 };
 export type LaunchRow={id:string;name:string;status:LaunchStatus;description:string;action?:string;};
 export const LAUNCH_LABEL:Record<LaunchStatus,string>={
@@ -28,6 +28,7 @@ export function launchReadiness(input:LaunchInput):LaunchRow[]{
   {id:"public-search",name:"公開來源搜尋與部分網頁閱讀",status:input.online?"limited":"setup",description:input.online?"具備 Wikipedia／Crossref 查詢及允許 CORS 網頁的正文讀取；不保證任何網站都可直接閱讀。":"離線時無法查詢即時網站。"},
   {id:"web",name:"全網搜尋／跨網域文章擷取",status:input.online&&input.webSearchConfigured&&input.webSearchTokenConfigured?"limited":"setup",description:input.online&&input.webSearchConfigured&&input.webSearchTokenConfigured?"已配置 HTTPS 搜尋後端與工作階段權杖；仍須實際測試端點並確認搜尋供應商金鑰有效。":"需要另外部署受保護的 HTTPS 搜尋／閱讀 Worker，並配置搜尋 API 金鑰及會話授權權杖。",action:"系統設定 → 偏好網站與搜尋"},
   {id:"builder",name:"Self-Build 可安裝本機小工具",status:"limited",description:"受限制的待辦、追蹤、計算器等宣告式小工具可運作；不具備無限制修改 GitHub 原始碼或自動發布權限。"},
+  {id:"builder-code",name:"Self-Build CODE 自主 GitHub 程式開發",status:input.selfBuildBridgeConfigured?"limited":"setup",description:input.selfBuildBridgeConfigured?"已設定受保護的 GitHub Worker 及工作階段 Token；仍須實際驗證 Worker 連線。模型可在明確授權後建立 Draft PR、CI 驗證與最多 2 次有限自動修正，但不能自行合併 main。":"程式編輯器與 GitHub PR 後端原始碼已部署，須先另外部署安全 Worker、配置 GitHub 權杖並手動授權連線，才能真正修改 Repository。",action:"Self-Build → 自主修改程式碼／GitHub CI"},
   {id:"family",name:"家庭成員完整 RBAC 權限與分享",status:"planned",description:"現階段主要依 Google 帳戶隔離；共用帳戶下的家庭成員隔離尚不足以宣稱完整伺服器端 RBAC。"},
   {id:"phone",name:"Mobilerun 跨 App 手機控制",status:"planned",description:"目前 iPhone PWA 無權控制其他 App；仍需獨立執行服務、裝置配對與使用者授權。"},
   {id:"travel",name:"旅行／醫療／健康專業完整代理",status:"planned",description:"可提供一般模型建議及表格，但即時訂票、完整專業醫療資料存取與代理工具尚未全面串接。"}

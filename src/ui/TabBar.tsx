@@ -1,6 +1,7 @@
-import {useRef,useState,type PointerEvent as RPointerEvent,type ComponentType} from "react";
+import {useRef,useState,type PointerEvent as RPointerEvent} from "react";
+import type {LucideIcon} from "lucide-react";
 
-export type TabItem={id:string;label:string;icon:ComponentType<{size?:number;strokeWidth?:number}>};
+export type TabItem={id:string;label:string;icon:LucideIcon};
 /** Floating Liquid Glass tab bar (phones only).
  * Tap a tab, or press and drag the glass capsule across tabs and release to switch —
  * the same gesture as iOS. The capsule swells while pressed and the tab under it magnifies. */

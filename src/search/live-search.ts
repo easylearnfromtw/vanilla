@@ -1,5 +1,6 @@
 import {inspectExternalText} from "../security/trust-boundary";
-export type LiveSearchResult={title:string;url:string;snippet:string;provider:"Wikipedia"|"Crossref"};
+import {getSearchBridge,fetchSearchBridge} from "./search-bridge";
+export type LiveSearchResult={title:string;url:string;snippet:string;provider:"Wikipedia"|"Crossref"|"自訂搜尋"};
 export type LiveSearchReport={results:LiveSearchResult[];errors:string[]};
 const safe=(value:unknown,max=450):string=>{
  const txt=String(value??"").replace(/<[^>]*>/g," ").replace(/&(?:quot|amp|lt|gt|nbsp|#39);/gi," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -41,11 +42,16 @@ export async function searchLiveWeb(query:string):Promise<LiveSearchReport>{
     const title=Array.isArray(item.title)?item.title[0]:undefined;
     results.push({title:safe(title,160),url:"https://doi.org/"+encodeURI(doi),snippet:"Crossref 文獻中繼資料 · DOI "+doi,provider:"Crossref"});
    }
+  })(),
+  (async()=>{
+   if(!getSearchBridge())return;
+   const hits=await fetchSearchBridge(q);
+   for(const hit of hits)results.push({title:safe(hit.title,160),url:hit.url,snippet:safe(hit.snippet),provider:"自訂搜尋"});
   })()
  ];
  const statuses=await Promise.allSettled(tasks);
  for(let i=0;i<statuses.length;i++)if(statuses[i].status==="rejected"){
-  const provider=i===0?"Wikipedia":"Crossref";
+  const provider=i===0?"Wikipedia":i===1?"Crossref":"自訂搜尋後端";
   errors.push(provider+" 無法取得內容（可能為 CORS、網路或服務限制）");
  }
  return {results:results.slice(0,9),errors};

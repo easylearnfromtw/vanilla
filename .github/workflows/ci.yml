@@ -1,4 +1,7 @@
 name: Vanilla CI
+concurrency:
+  group: vanilla-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 on:
   pull_request:
     branches: [main]
@@ -8,6 +11,7 @@ permissions:
   contents: read
 jobs:
   frontend:
+    timeout-minutes: 25
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +75,7 @@ jobs:
         run: test -f dist/index.html && test -f dist/manifest.webmanifest
 
   moli-release-smoke:
+    timeout-minutes: 12
     name: Verify pinned Moli CLI (no production activation)
     runs-on: ubuntu-latest
     steps:

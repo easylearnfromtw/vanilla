@@ -6,7 +6,7 @@ export type DetroitFactoryTool={
  status:"adapter"|"planned";enabledByDefault:boolean;description:string;
 };
 export const DETROIT_FACTORY_TOOLS:readonly DetroitFactoryTool[]=[
- {id:"medusa",label:"Medusa",engine:"JENSEN HUANG / CREAM",provider:"Judge0 / Google Cloud Run",
+ {id:"medusa",label:"Medusa",engine:"JENSEN HUANG / CREAM",provider:"Judge0",
   status:"adapter",enabledByDefault:false,
   description:"Judge0 或 Google Cloud Run Sandbox 雲端執行 Python；須管理者白名單與逐次同意，預設停用"},
  {id:"quirinus",label:"Quirinus",engine:"Athena / JENSEN HUANG / CREAM",provider:"VulnClaw",

@@ -8,7 +8,7 @@ import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync
 import {loadProviderConfigs} from "./vault/provider-sync";
 import {startNewConversation,recentConversations,reopenConversation,currentChatMode,CHAT_ARCHIVE_EVENT} from "./local-ai/chat-session";
 import type {ArchiveSummary} from "./library/conversation-archive";
-import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen} from "lucide-react";
+import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen,Mail} from "lucide-react";
 
 // Heavy sections load on demand so the chat opens fast on iPhone.
 const CreamLongitudinal=lazy(()=>import("./cream/CreamLongitudinal"));
@@ -22,9 +22,10 @@ const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
+const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 const items:NavItem[]=[
  {id:"chat",label:"AI 對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
@@ -38,6 +39,7 @@ const tools:NavItem[]=[
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"orchestra",label:"Orchestra Studio",icon:Puzzle,description:"Craft 七引擎調度、CREAM 跨格式輸出與作品製作",tone:"yellow"},
  {id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存",tone:"red"},
+ {id:"email",label:"Email Studio",icon:Mail,description:"郵件模板設計、HTML 與 Unlayer 編輯器",tone:"yellow"},
  {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
  {id:"builder",label:"Self-Build Studio",icon:WandSparkles,description:"用自然語言新增與改進 Vanilla 工具",tone:"ink"}
 ];
@@ -94,7 +96,7 @@ useEffect(()=>{
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
    setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
   ["vanilla-open-detroit",(event:Event)=>{const body=(event as CustomEvent<{body?:string}>).detail?.body;setRetinaSeed(typeof body==="string"?body.slice(0,160000):null);setSection("detroit");setMenuOpen(false);}],
-  ["vanilla-open-cream",go("cream")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
+  ["vanilla-open-cream",go("cream")],["vanilla-open-email",go("email")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
  ];
  for(const [name,fn] of handlers)window.addEventListener(name,fn);
@@ -159,6 +161,7 @@ return <div className="shell">
 section==="projects"?<div className="workspace-page"><ProjectHub/></div>:
 section==="library"?<div className="workspace-page"><ConversationLibrary onFiles={()=>navigate("files")}/></div>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:
+section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
 section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed}/></div>:

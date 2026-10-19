@@ -40,6 +40,14 @@ export function sanitizeNoodlesState(value:unknown,now=Date.now()):NoodlesState{
   if(v.kind==="rating"&&typeof v.liked!=="boolean")return false;
   if(v.kind==="issue"&&!ISSUES.includes(v.issue as NoodlesIssue))return false;
   return true;
+ }).map(v=>{
+  // Whitelist fields so imported/poisoned records cannot sneak user content
+  // or tokens into the durable telemetry store or JSON export.
+  const base={at:v.at,task:v.task,model:v.model,kind:v.kind};
+  if(v.kind==="run")return {...base,kind:"run" as const,ok:v.ok!,durationMs:v.durationMs!};
+  if(v.kind==="rating")return {...base,kind:"rating" as const,liked:v.liked!};
+  if(v.kind==="issue")return {...base,kind:"issue" as const,issue:v.issue!};
+  return {...base,kind:"tool" as const};
  });
  return {version:1,enabled:obj.enabled!==false,observations};
 }

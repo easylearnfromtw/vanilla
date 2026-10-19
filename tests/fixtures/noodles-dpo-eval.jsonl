@@ -1,0 +1,1 @@
+{"prompt":[{"role":"user","content":"請說明回歸分析中訓練測試資料分開的原因"}],"chosen":[{"role":"assistant","content":"保留獨立測試資料可評估模型在未見資料上的表現，減少只記住訓練資料的錯覺。"}],"rejected":[{"role":"assistant","content":"訓練與測試混在一起完全不會影響評估。"}]}

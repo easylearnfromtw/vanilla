@@ -85,7 +85,7 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
   if(!idea.trim()||busy)return;
   setBusy(true);setPending(null);setOfflineHint("");setStatus("正在規劃功能結構…");
   const permitted=provider==="auto"?(isOllamaConfigured()?"ollama":getConfigs().some(x=>x.provider==="gemini")?"gemini":getLoadedLocalModel()?"local":null):provider;
-  if(!permitted){setBusy(false);setStatus("未找到可用的本地 AI、Ollama 或 Gemini。你可以先使用下方功能模板，或貼上 JSON 規格。");return;}
+  if(!permitted){setBusy(false);draftOffline();setStatus("目前沒有可用的推論模型，已用本機規則產生可安裝的功能草稿；請先檢查再安裝。");return;}
   if(permitted==="local"&&!getLoadedLocalModel()){setBusy(false);setStatus("尚未載入本地 AI 模型");return;}
   if(permitted==="ollama"&&!isOllamaConfigured()){setBusy(false);setStatus("請先在系統設定連接 Ollama");return;}
   if(permitted==="gemini"&&!getConfigs().some(x=>x.provider==="gemini")){setBusy(false);setStatus("請先設定 Gemini API");return;}
@@ -113,8 +113,27 @@ export default function BuildStudio({onOpen,editingId,onEditingChange}:{onOpen:(
    const proposed=proposalFromAI(result,current);
    setPending(proposed);
    setStatus("已產生 "+proposed.kind+" 類型的功能預覽；尚未執行或修改 Vanilla。");
-  }catch(e){setStatus("生成或驗證失敗："+(e instanceof Error?e.message:String(e))+"。可以改用另一個模型或安全模板。");}
-  finally{setBusy(false);}
+  }catch(e){
+   // Existing Ollama/Gemini may have an expired endpoint or invalid JSON.
+   // First try the already-loaded on-device model; otherwise use a validated
+   // declarative offline draft. Never auto-install generated code or change APIs.
+   let recovered=false;
+   if(permitted!=="local"&&getLoadedLocalModel()){
+    try{
+     const alternative=await generateLocalReply([{role:"user",content:schema}],()=>{});
+     const verified=proposalFromAI(alternative,current);
+     setPending(verified);recovered=true;
+     setStatus("外部模型失敗，已使用本機 AI 生成並驗證安全的功能預覽；請審核後才安裝。");
+    }catch{/* Tiny on-device models may output invalid JSON; use deterministic fallback. */}
+   }
+   if(!recovered){
+    try{
+     const fallback=offlineFeatureDraft(idea,current);
+     setPending(fallback.spec);setOfflineHint(fallback.reason);
+     setStatus("AI 產生方案未通過檢查或連線失敗，已改為可實際安裝的離線草稿："+fallback.reason+"。請檢查欄位再確認。");
+    }catch(other){setStatus("Self-Build 尚無法產生這個功能："+String(other)+ "（原錯誤："+String(e)+"）");}
+   }
+  }finally{setBusy(false);}
  }
  function approve(){
   if(!pending)return;

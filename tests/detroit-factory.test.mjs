@@ -24,3 +24,20 @@ test('Medusa metadata in WeiGuo cannot enable operator execution',()=>{
   description:'bad',enabled:true,permissions:['analyze'],
  }),/內建工具 ID 不可覆蓋/);
 });
+
+test('Quirinus is separately discoverable but is never activated by frontend metadata',()=>{
+ const factory=DETROIT_FACTORY_TOOLS.find(t=>t.id==='quirinus');
+ assert.ok(factory);
+ assert.equal(factory.provider,'VulnClaw CodeScan');
+ assert.equal(factory.status,'adapter');
+ assert.equal(factory.enabledByDefault,false);
+ assert.match(factory.engine,/Athena/);
+ const catalog=BUILTIN_TOOLS.find(t=>t.id==='quirinus-vulnclaw');
+ assert.ok(catalog);
+ assert.equal(catalog.enabled,false);
+ assert.deepEqual(catalog.permissions,['analyze']);
+ assert.throws(()=>validateToolManifest({
+  id:'quirinus-vulnclaw',label:'Override',kind:'custom',
+  description:'unsafe',enabled:true,permissions:['analyze'],
+ }),/內建工具 ID 不可覆蓋/);
+});

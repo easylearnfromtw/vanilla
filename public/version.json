@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.02-janus-detroit",
-  "description": "Janus Detroit email designer with offline HTML/JSON generation and opt-in Unlayer editor; Veritas source verification preserved"
+  "build": "2026.10.20.03-quirinus",
+  "description": "Quirinus optional VulnClaw source-security adapter and Detroit Factory tool registry; operator-only and disabled by default"
 }

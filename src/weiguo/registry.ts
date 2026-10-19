@@ -2,6 +2,7 @@
 export type WeiGuoTool={id:string;label:string;kind:"scouts"|"cream"|"atriensis"|"web"|"custom";description:string;enabled:boolean;permissions:("read"|"analyze"|"export")[]};
 export const BUILTIN_TOOLS:readonly WeiGuoTool[]=[
  {id:"scouts-browser",label:"Scouts Browser",kind:"scouts",description:"Playwright 開啟、導覽及擷取已授權的公開網頁",enabled:true,permissions:["read"]},
+ {id:"moli-reader",label:"Moli Browser（實驗性）",kind:"scouts",description:"僅限受控唯讀網頁擷取，須由後端部署、驗證網路隔離後啟用；失敗回退 Chromium",enabled:false,permissions:["read"]},
  {id:"cream-data",label:"CREAM",kind:"cream",description:"確定性資料驗證、統計與圖表；交給既有本機引擎",enabled:true,permissions:["read","analyze"]},
  {id:"atriensis-files",label:"Atriensis",kind:"atriensis",description:"讀取已授權檔案並保留所有權邊界",enabled:true,permissions:["read"]}
 ];
@@ -36,6 +37,7 @@ export function saveToolManifests(owner:string,items:WeiGuoTool[]):void{
 export type LegacyWeiGuoTool={id:string;name:string;description:string;capabilities:string[];engine:string;source:"builtin"|"custom";enabled:boolean};
 export const WEIGUO_BUILTINS:readonly LegacyWeiGuoTool[]=[
  {id:"playwright",name:"Playwright Browser",description:"需獨立授權後端的唯讀瀏覽",capabilities:["navigate","click","fill","scroll","extract"],engine:"Scouts",source:"builtin",enabled:false},
+ {id:"moli",name:"Moli Lightweight Browser",description:"後端限定唯讀擷取、預設停用；具備網路隔離才可自動回退／切換",capabilities:["extract"],engine:"Scouts",source:"builtin",enabled:false},
  {id:"browser-use",name:"Browser Use",description:"可選的任務規劃適配器，未部署前不可操作",capabilities:["plan","navigate","extract"],engine:"Zeus",source:"builtin",enabled:false},
  {id:"web-reader",name:"Scouts Web Reader",description:"目前既有的唯讀網頁閱讀",capabilities:["extract","research"],engine:"Scouts",source:"builtin",enabled:true}
 ];

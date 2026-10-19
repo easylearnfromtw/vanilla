@@ -105,3 +105,29 @@ A single task runs per service process, with up to 12 steps, restricted domains 
 Browser network request interception and URL checks alone cannot prevent every DNS rebinding or WebSocket escape. Keep the service private, set outbound firewall controls and do not enable execution of untrusted code. A Google OIDC family gateway, household ACL, subject-isolated tasks, short session and per-member task rate limit are implemented. Do not claim production readiness until backend HTTPS, issuer/audience verification, CORS, private egress and iPhone end-to-end tests are performed. Higher-risk interactions and site logins are still NOT available to family sessions.
 
 Before production, smoke-test Chromium, blocked destinations, audit persistence, browser redirects and network egress restrictions on the actual host.
+
+
+## Moli hybrid browser adapter (experimental, opt-in)
+
+Vanilla/Zeus may attempt the [Moli](https://github.com/lexmount/moli) Rust browser for a **single, read-only `extract` step**. On every other request (navigation chains, scrolling, clicking, filling, unapproved conditions, missing Moli executable, timeouts or failed extraction), it continues through the established Playwright Chromium path. The family Google identity gateway, immutable `sub` task ownership, Athena step validation, rate limits and the response event format remain unchanged. A successful Moli response includes `"engine":"moli"`; Chromium responses include `"engine":"chromium"`. Moli returns the **requested** source URL, not a verified final redirect URL.
+
+Moli CLI is **not bundled into the normal Docker image**; the default engine remains Chromium. Do not fetch and execute a floating `curl | sh` installer in a production Docker build. Install an operator-reviewed, version-pinned Moli executable (and verify its official release checksum/signature where provided) into a trusted host/container, ensuring it is executable by the unprivileged `weiguo` user. For a Compose installation, a trusted locally installed binary can be bind-mounted read-only as `/usr/local/bin/moli`, ensuring the binary is compatible with the container architecture and libraries. This is optional; without it Chromium continues normally.
+
+**Required before opt-in:** Moli's CLI does not expose the same per-request interception that this application uses with Playwright. Enforce an **independent network egress proxy/firewall**, allowing only the server-approved public HTTPS hosts and blocking all other hosts, private/loopback/link-local/metadata IP ranges, DNS rebinding, cross-host redirects and disallowed subresources. Setting the flag below does **not** implement isolation itself. Do not turn it on if you cannot verify these controls in the actual deployment.
+
+Only after verifying outbound restrictions and Moli itself, configure these server-only settings:
+
+```dotenv
+WEIGUO_BROWSER_ENGINE=auto
+WEIGUO_MOLI_EGRESS_ISOLATED=true
+WEIGUO_ALLOW_JAVASCRIPT=true
+```
+
+- `WEIGUO_BROWSER_ENGINE=chromium` (default) never launches Moli; `auto` and `moli` try Moli only for the eligible read-only extraction and otherwise use Chromium.
+- `WEIGUO_MOLI_EGRESS_ISOLATED=true` is a declaration of independently verified network isolation, not a security mechanism.
+- Moli executes page JavaScript, so the adapter refuses Moli when `WEIGUO_ALLOW_JAVASCRIPT=false`. Normal Chromium behavior remains unchanged.
+- Each Moli read is an independent subprocess with a fixed argument list (no shell), a minimal environment that excludes operator/OIDC credentials, a 20-second timeout and 64 KiB stdout cap. Only the first 10,000 characters enter the existing event log. No imported browser profile or long-lived Moli session is used.
+- Moli currently supports **read-only single-page extraction only** in this adapter; its CDP, click/fill and multi-step interaction features are intentionally *not* enabled by this change.
+- If Moli times out, is absent, or returns an error, the existing Chromium engine is the fallback. A fallback may repeat the same public GET; do not use this adapter for state-changing URLs.
+
+Run tests with `python3 -m unittest discover -s services/weiguo -p 'test_*.py'`. Production enablement additionally requires real-browser integration tests against allowlisted pages and an outbound-network denial test. No deployment is performed by this PR.

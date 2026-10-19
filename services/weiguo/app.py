@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
+from moli_engine import maybe_moli_extract
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -172,6 +173,11 @@ async def execute(request:ExecuteRequest,_:bool=Depends(operator)):
             if step["action"]=="navigate":validate_url(step["url"],allowed,check_dns=True)
     except PolicyError as e:
         raise HTTPException(400,str(e)) from e
+    # Moli is optional and read-only. Athena already validated all URLs and steps.
+    # Ineligible tasks or Moli failures fall back to the existing Chromium path.
+    moli_result = await maybe_moli_extract(url, actions, approved_interactions=request.approved_interactions)
+    if moli_result is not None:
+        return moli_result
     event_log=[]
     async with async_playwright() as pw:
         # Isolated, nonpersistent browsing context: no download folder, no saved cookies.
@@ -213,7 +219,7 @@ async def execute(request:ExecuteRequest,_:bool=Depends(operator)):
                 # Recheck final navigation and automatic redirects.
                 validate_url(page.url,allowed,check_dns=False)
             return {"status":"completed","title":(await page.title())[:200],"url":page.url,"events":event_log,
-                    "models_loaded":0}
+                    "models_loaded":0,"engine":"chromium"}
         except Exception as e:
             # Never return full page content, cookie values, secrets or traceback on browser errors.
             raise HTTPException(422,"受控瀏覽器執行失敗；請檢查允許網域與步驟選擇器") from e

@@ -1,5 +1,12 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
+import SheetPreview from "./SheetPreview";
+import {makeSheetPreview} from "./sheet-preview-model";
+import {toRows} from "../workspace/sheets-model";
+import {stripRenderedTable} from "./smart-output";
+import {saveChatAttachment,attachmentOwner} from "../library/attachment-vault";
+import {signedChatAccount} from "../vault/chat-sync";
+import {searchLiveWeb,searchWebSummary} from "../search/live-search";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {inspectExternalText,wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
@@ -35,7 +42,7 @@ const [fileContext,setFileContext]=useState("");
 const [fileName,setFileName]=useState("");
 const [fileStatus,setFileStatus]=useState("");
 const [assetBusy,setAssetBusy]=useState(false);
-const [searchResults,setSearchResults]=useState<Array<{label:string;url:string}>>([]);
+const [searchResults,setSearchResults]=useState<Array<{label:string;url:string;snippet?:string;provider?:string}>>([]);
 const fileRef=useRef<HTMLInputElement>(null);
 async function attachFile(file?:File){
  if(!file)return;
@@ -55,11 +62,15 @@ async function attachFile(file?:File){
    if(inspection.blocked){suspiciousAttachment=true;setFileContext("");setFileStatus("已偵測附件內的提示詞注入，文字已隔離，不會交給 AI 執行。"+inspection.signals.join("、"));}
    else setFileContext(wrapExternalText(raw,"document"));
   }
+  if(!privateMode){
+   try{await saveChatAttachment(file,attachmentOwner(signedChatAccount()));}
+   catch(error){setFileStatus("本機附件保存失敗："+(error instanceof Error?error.message:String(error)));}
+  }
   if(!privateMode&&driveSession()){
    const record=await rememberFile(file);
    setFileStatus("已儲存到你的 Google Drive："+record.title+(suspiciousAttachment?"。注意：附件包含疑似 Prompt Injection，已隔離文字索引，原始檔案仍在 Drive。":""));
   }else{
-   setFileStatus((privateMode?"私密模式：附件未上傳，僅在本次對話使用":"尚未登入 Google Drive：附件未永久保存；請先登入再重新上傳")+(suspiciousAttachment?"。附件文字含疑似 Prompt Injection，已隔離。":""));
+   setFileStatus((privateMode?"私密模式：附件未上傳，僅在本次對話使用":"附件已嘗試保存在此裝置；尚未登入 Google Drive，不會跨裝置同步。可從左側「對話圖片與資料」查看")+(suspiciousAttachment?"。附件文字含疑似 Prompt Injection，已隔離。":""));
   }
  }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
  finally{setAssetBusy(false);}
@@ -196,14 +207,23 @@ async function executeIntent(question:string):Promise<boolean>{
  }
   if(intent.kind==="sheet"){
   if(privateMode&&!window.confirm("將這份表格從私密對話複製到一般本機工作簿？不會自動上傳雲端。"))return true;
-  toolReply(question,intent.message);
-  window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{workbook:intent.workbook}}));
+  const now=Date.now();
+  const sheet=makeSheetPreview(intent.name,toRows(intent.workbook,false));
+  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:now},
+   {role:"assistant",content:intent.message+" 下方是實際表格預覽；按「開啟實際表格並編輯」可進入 Sheets。",sheet,id:crypto.randomUUID(),createdAt:now+1}]);
+  setDraft("");setLastRoute("已由 Vanilla Sheets 工具建立結構化表格，不是 Markdown 文字模擬");
   return true;
  }
  if(intent.kind==="search"){
-  const links=searchLinks(intent.query);
-  setSearchResults(links);
-  toolReply(question,"已準備「"+intent.query+"」的網路搜尋入口。請從下方選擇一般搜尋或偏好網站；尚未取得與驗證網頁內容。");
+  setBusy(true);setLastRoute("正在從公開來源取得真正的搜尋結果…");
+  try{
+   const report=await searchLiveWeb(intent.query);
+   setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(intent.query)]);
+   toolReply(question,searchWebSummary(report,intent.query));
+  }catch(error){
+   setSearchResults(searchLinks(intent.query));
+   toolReply(question,"搜尋服務無法取得即時結果："+(error instanceof Error?error.message:String(error))+"。仍可開啟 Google 等外部搜尋。");
+  }finally{setBusy(false);}
   return true;
  }
  if(intent.kind==="project"){
@@ -362,7 +382,7 @@ async function send(value=draft){
  const assistantId=crypto.randomUUID(),assistantTime=Date.now()+1;
  const tableExpected=/(?:表格|比較表|試算表|工作簿)/.test(question);
  const extra=fileContext?"\n\n文件參考資料：\n"+fileContext:"";
- const tableInstruction=tableExpected?"\n\n請以標準 Markdown 表格（標題列加 --- 分隔列）呈現；表格資料不得捏造。":"";
+ const tableInstruction=tableExpected?"\n\n如需表格，請只輸出一份 Markdown 表格交由 Vanilla 轉成實際表格元件，不要再用文字重複表格；資料不得捏造。":"";
  const memoryRequested=!privateMode&&driveSession()&&/(?:我|我們|我的|家庭|家族|之前|以前|記憶|健康|運動|旅行|旅遊|資料|紀錄|計畫|偏好|預算)/.test(question);
  let recalled="";
  if(memoryRequested)try{recalled=await knowledgeContext(question);}catch{}
@@ -427,6 +447,10 @@ async function send(value=draft){
   }
  }finally{setBusy(false);}
 }
+function openCreatedSheet(sheet:import("./sheet-preview-model").SheetPreviewData){
+ if(privateMode&&!window.confirm("將這份私密對話表格複製到一般 Sheets 工作區嗎？"))return;
+ window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows:sheet.rows}}));
+}
 function openTableInSheets(content:string){
  const rows=parseTable(content);if(!rows){setLastRoute("目前回答沒有可轉換的 Markdown 表格");return;}
  if(privateMode&&!window.confirm("這份表格來自私密對話。要將其複製到一般本機表格工作區嗎？不會自動上傳 Google Drive。"))return;
@@ -458,10 +482,10 @@ return <section className="chat">
 </div>
 <AssistantTools onPrompt={query=>void send(query)}/>
 {(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice" role="status">{lastRoute||fileStatus||(modelError?status:"")}</p>}
-{searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer">{item.label} ↗</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
+{searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small style={{display:"block",fontSize:11,marginTop:3}}>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["你能做什麼？","幫我整理今天的想法","解釋一個複雜概念"].map(x=><button key={x} disabled={busy||Boolean(comparison)} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
-<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
+<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{(turn.role==="assistant"?stripRenderedTable(turn.content):turn.content)||(!turn.content?"正在生成回答…":"")}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.sheet&&<SheetPreview sheet={turn.sheet} onEdit={()=>openCreatedSheet(turn.sheet!)}/>}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>
  </span>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>

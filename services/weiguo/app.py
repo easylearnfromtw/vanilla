@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
 from moli_engine import maybe_moli_extract
+from gridcraft_adapter import router as gridcraft_router
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -49,6 +50,7 @@ async def lifespan(app: FastAPI):
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.
 
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
+app.include_router(gridcraft_router)
 async def operator(authorization: str | None = Header(default=None)):
     expected=os.environ.get("WEIGUO_ADMIN_TOKEN","")
     if len(expected) < 32: raise HTTPException(503,"未設定後端金鑰")

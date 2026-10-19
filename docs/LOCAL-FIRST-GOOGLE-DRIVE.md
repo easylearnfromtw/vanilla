@@ -1,5 +1,9 @@
 # Vanilla — iPhone local AI + Google Drive private data
 
+> **2026-10-19 實際狀態**：這份是早期設計目標。家庭自用決定不再加密 Drive 記憶與聊天同步：
+> 記憶／工作區檔案、聊天同步快照、API 金鑰目前在 Drive 中是明文 JSON（設定頁有提示）；
+> 只有「手動加密備份」是 AES-GCM 加密。目前架構以 `docs/ARCHITECTURE.md` 為準。
+
 ## Product decisions
 - Vanilla is an independent PWA. LINE is an optional manual import, not the main UI.
 - Inference target: iPhone Safari, on-device only; do not send prompts to remote model APIs by default.

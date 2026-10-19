@@ -2,11 +2,13 @@
 
 Vanilla 是以 React + Vite 開發的家庭 AI PWA，部署在 GitHub Pages，採 **iPhone 裝置端優先** 的混合模型架構。
 
+介面採 Bauhaus 紙感 × 液態玻璃設計（`docs/UI_BAUHAUS_GLASS.md`）；在輸入框打「/」可以叫出所有工具（搜尋、讀檔、記憶、表格、CREAM、Self-Build、私密模式、新對話）。模型調校細節見 `docs/MODEL_TUNING.md`。
+
 ## AI 模型
 
 - **WebLLM / WebGPU**：在支援的手機或電腦瀏覽器使用本地模型。開啟「裝置端 AI」可以選擇已支援的開源權重模型、檢視下載進度。
 - **Ollama**：可連接家庭電腦、樹莓派控制的主機或自行部署的 VM。Ollama 推論**發生在該主機**，不是手機端。
-- **Gemini API／DeepSeek API**：由使用者自行連接金鑰，須留意各模型的免費額度或計費規則。
+- **Gemini API／DeepSeek API**：由使用者自行連接金鑰，須留意各模型的免費額度或計費規則。2026-10 建議：`gemini-3.8-flash`／`gemini-3.5-flash-lite`、`deepseek-flash`。
 
 聊天上方可選 **智慧選擇 · 本地優先**、**智慧選擇 · 品質優先**，或強制使用本地／Ollama／特定供應商。
 

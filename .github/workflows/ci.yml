@@ -39,6 +39,10 @@ jobs:
           npm run test:file-lifecycle
           npm run test:drive-orphan
           npm run test:taide
+          npm run test:chat-router
+          npm run test:model-tuning
+          npm run test:archive
+          npm run test:providers
       - name: Validate NOODLES GPU trainer syntax and sample JSONL (no GPU)
         run: |
           python3 -m py_compile training/noodles_train.py

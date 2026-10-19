@@ -37,6 +37,17 @@ export function chatStorageKey(privateMode:boolean):string{
  if(!who)return privateMode?"vanilla.chat.private.v1":"vanilla.chat.history.v1";
  return (privateMode?"vanilla.chat.private.v2.":"vanilla.chat.history.v2.")+encodeURIComponent(who);
 }
+const RESET="vanilla.chat.sync.reset.v1.";
+/** Starting a new conversation (or reopening an archived one) intentionally replaces the active
+ * history. Mark it so the next push may overwrite THIS device's snapshot instead of treating the
+ * change as a conflict, and so a reload doesn't pull the old conversation back. Another device's
+ * newer snapshot is still never overwritten. */
+export function markChatSyncReset():void{
+ const who=account();if(!who)return;
+ try{localStorage.setItem(RESET+encodeURIComponent(who),String(Date.now()));}catch{}
+}
+function resetPending():boolean{const who=account();if(!who)return false;try{return Boolean(localStorage.getItem(RESET+encodeURIComponent(who)));}catch{return false;}}
+function clearReset():void{const who=account();if(!who)return;try{localStorage.removeItem(RESET+encodeURIComponent(who));}catch{}}
 export function chatSyncEnabled(){const who=account();return Boolean(who&&localStorage.getItem(PERMISSION+encodeURIComponent(who))==="true");}
 export function setChatSyncEnabled(enabled:boolean){
  const who=account();if(!who)throw Error("請先登入 Google");
@@ -79,11 +90,13 @@ export async function initializeChatSync():Promise<void>{
   const snapshots=await files();
   const newest=snapshots[0]?await read(session.token,snapshots[0].id):null;
   const stored=local();
-  if(newest?.turns.length&&!stored.length){
+  if(resetPending()&&!stored.length){
+   notice("已開始新對話；雲端舊快照保留，不會自動拉回");
+  }else if(newest?.turns.length&&!stored.length){
    localStorage.setItem(chatStorageKey(false),JSON.stringify(newest.turns));
    window.dispatchEvent(new Event("vanilla-chat-remote-loaded"));
    notice("已載入 "+newest.turns.length+" 則雲端訊息");
-  }else if(newest?.turns.length&&stored.length&&JSON.stringify(newest.turns)!==JSON.stringify(stored)){
+  }else if(newest?.turns.length&&stored.length&&JSON.stringify(newest.turns)!==JSON.stringify(stored)&&!(resetPending()&&newest.device===identity().id)){
    active=false;
    notice("本機與雲端對話存在差異，已暫停自動覆寫。請備份並決定要保留的版本");
    return;
@@ -106,7 +119,10 @@ export async function pushChatSync():Promise<void>{
   if(bodyText.length>6*1024*1024)throw Error("聊天快照超過 6MB，請先匯出重要對話");
   const snapshots=await files();
   const newest=snapshots[0]?await read(session.token,snapshots[0].id):null;
-  if(newest?.turns.length){
+  const ownNewest=Boolean(newest&&newest.device===id);
+  if(resetPending()&&(!newest||ownNewest)){
+   // Intentional reset on this device: overwrite our own snapshot below.
+  }else if(newest?.turns.length){
    const expectedPrefix=turns.slice(0,newest.turns.length);
    const samePrefix=JSON.stringify(newest.turns)===JSON.stringify(expectedPrefix);
    if(!samePrefix){
@@ -129,6 +145,7 @@ export async function pushChatSync():Promise<void>{
     headers:{Authorization:"Bearer "+session.token,"Content-Type":"multipart/related; boundary="+boundary},body});
    if(!response.ok)throw Error("Drive 寫入失敗 "+response.status);
   }
+  clearReset();
   notice("已同步 "+turns.length+" 則訊息（Google Drive 帳號："+who+"）");
  })().catch(e=>notice("同步暫停："+String(e instanceof Error?e.message:e))).finally(()=>{working=null;});
  return working;

@@ -8,9 +8,12 @@ export type MemoryRecord={
  createdAt:string;updatedAt:string;labels:string[];ownerEmail:string;
 };
 const PREFIX="vanilla-memory-";
-const MAX_RESULTS=80;
+const MAX_RESULTS=400;
 const SUMMARY_MAX=8000;
 let cached:{email:string;at:number;records:MemoryRecord[]}|null=null;
+/** Per-file cache keyed by Drive file id + version: unchanged memories are not downloaded again. */
+const recordCache=new Map<string,{version:string;record:MemoryRecord|null}>();
+let recordCacheEmail="";
 export function currentMemoryAccount(){return driveSession()?.email||"";}
 function session(){
  const item=driveSession();if(!item)throw Error("請先使用 Google 帳號登入；資料尚未儲存，請勿關閉頁面");
@@ -119,15 +122,22 @@ export async function rememberFile(file:File,description=""):Promise<MemoryRecor
 async function allRecords():Promise<MemoryRecord[]>{
  const {token,email}=session();
  if(cached&&cached.email===email&&Date.now()-cached.at<60000)return cached.records;
+ if(recordCacheEmail!==email){recordCache.clear();recordCacheEmail=email;}
  const files=await listWorkspaceFiles(token);
  const candidates=files.filter(x=>x.name.startsWith(PREFIX)&&x.name.endsWith(".json")).slice(0,MAX_RESULTS);
- const result:MemoryRecord[]=[];
- for(let i=0;i<candidates.length;i+=8){
-  const group=await Promise.all(candidates.slice(i,i+8).map(async(file:WorkspaceFile)=>{
-   try{return validateRecord(JSON.parse(await getWorkspaceText(token,file.id)) as unknown);}catch{return null;}
+ const stamp=(file:WorkspaceFile)=>file.version||file.modifiedTime||"";
+ const stale=candidates.filter(file=>recordCache.get(file.id)?.version!==stamp(file));
+ for(let i=0;i<stale.length;i+=8){
+  await Promise.all(stale.slice(i,i+8).map(async(file:WorkspaceFile)=>{
+   let record:MemoryRecord|null=null;
+   try{record=validateRecord(JSON.parse(await getWorkspaceText(token,file.id)) as unknown);}catch{record=null;}
+   recordCache.set(file.id,{version:stamp(file),record});
   }));
-  for(const record of group){if(record&&record.ownerEmail===email)result.push(record);}
  }
+ const live=new Set(candidates.map(x=>x.id));
+ for(const id of [...recordCache.keys()])if(!live.has(id))recordCache.delete(id);
+ const result:MemoryRecord[]=[];
+ for(const file of candidates){const record=recordCache.get(file.id)?.record;if(record&&record.ownerEmail===email)result.push(record);}
  const sorted=result.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
  cached={email,at:Date.now(),records:sorted};
  return sorted;

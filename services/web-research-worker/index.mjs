@@ -34,7 +34,10 @@ async function smallBody(response,limit=400000){
 async function search(query,env){
  if(!env.BRAVE_API_KEY)throw Error("BRAVE_API_KEY not configured");
  const u=new URL("https://api.search.brave.com/res/v1/web/search");
- u.searchParams.set("q",query);u.searchParams.set("count","8");u.searchParams.set("search_lang","en");
+ u.searchParams.set("q",query);u.searchParams.set("count","8");
+ // Taiwan-first results: Traditional Chinese pages from Taiwan unless the query is clearly English.
+ const latin=/^[\x00-\x7F]+$/.test(query);
+ u.searchParams.set("search_lang",latin?"en":"zh-hant");u.searchParams.set("country",latin?"ALL":"TW");u.searchParams.set("ui_lang","zh-TW");
  const response=await fetch(u.toString(),{headers:{"Accept":"application/json","X-Subscription-Token":env.BRAVE_API_KEY},signal:AbortSignal.timeout(9000)});
  if(!response.ok)throw Error("Search provider HTTP "+response.status);
  const data=await response.json();

@@ -1,6 +1,6 @@
 import type {CreamDataset} from "./core.ts";
 import {makeCreamSnapshot,analyzeLongitudinal,type CreamSnapshot,type CreamObservation,type CreamGoal,type CreamTrend} from "./longitudinal.ts";
-const DB="vanilla.cream.history.v1",SNAPSHOTS="snapshots",GOALS="goals",MAX_PER_OWNER=120;
+const DB="vanilla.cream.history.v1",SNAPSHOTS="snapshots",GOALS="goals",MAX_PER_OWNER=3000;
 function openDB():Promise<IDBDatabase>{
  return new Promise((resolve,reject)=>{
   if(typeof indexedDB==="undefined"){reject(Error("這個瀏覽器不支援 IndexedDB，長期資料不能保存"));return;}
@@ -37,7 +37,7 @@ export async function persistCreamDataset(dataset:CreamDataset,owner:string):Pro
  const existing=await listCreamSnapshots(owner);
  const match=existing.find(x=>x.fingerprint===snapshot.fingerprint&&x.source===snapshot.source);
  if(match)return {snapshot:match,created:false};
- if(existing.length>=MAX_PER_OWNER)throw Error("CREAM 已達 120 份長期資料上限；請匯出備份或刪除舊快照");
+ if(existing.length>=MAX_PER_OWNER)throw Error("CREAM 已達 "+MAX_PER_OWNER+" 份長期資料上限；請匯出 CSV 備份後刪除舊快照");
  await transact<IDBValidKey>(SNAPSHOTS,"readwrite",store=>store.put(snapshot));
  window.dispatchEvent(new Event("vanilla-cream-history-updated"));
  return {snapshot,created:true};

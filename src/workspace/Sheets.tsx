@@ -227,7 +227,7 @@ export default function Sheets(){
   const instruction='請只回傳 JSON 物件，格式 {"changes":[{"cell":"A1","value":"文字或 =SUM(B1:B5)"}]}；不要 Markdown、不加說明。只能修改 A1 至 Z200、最多 100 個儲存格。目標：'+aiPrompt+"。工作表："+tab.name+"。現有非空儲存格："+JSON.stringify(rows);
   setAiBusy(true);setNotice("正在生成 AI 修改預覽…");
   try{
-   const response=provider==="gemini"?await generateCloudReply("gemini",[{role:"user",content:instruction}]):await generateOllamaReply([{role:"user",content:instruction}]);
+   const response=provider==="gemini"?await generateCloudReply("gemini",[{role:"user",content:instruction}],undefined,undefined,{purpose:"structured"}):await generateOllamaReply([{role:"user",content:instruction}],undefined,{purpose:"structured"});
    const changes=readAIChanges(response,book);setAiPending(changes);setNotice("AI 已提出 "+changes.length+" 格修改，請先檢查差異再確認。");
   }catch(e){setNotice("AI 修改預覽失敗："+(e instanceof Error?e.message:String(e)));}
   finally{setAiBusy(false);}

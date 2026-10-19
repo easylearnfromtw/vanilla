@@ -6,10 +6,12 @@ import {getHealthAdjustment,recordModelRun} from "./model-health";
 import {noodlesModelAdjustment} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {preferTaideForTaiwan,isTaideModel} from "./taiwan-routing";
+import {profileFor,geminiLiteSibling} from "./model-profiles";
 
 export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
-export type TaskKind="casual"|"code"|"analysis"|"writing"|"vision"|"general";
+import {classifyTask,type TaskKind} from "./task-kind";
+export {classifyTask,type TaskKind};
 export type Vote={at:number;task:TaskKind;winner:string;loser:string};
 const VOTE_KEY="vanilla.model.choices.v1";
 const RATING_KEY="vanilla.model.ratings.v1";
@@ -27,14 +29,6 @@ export function saveAnswerRating(task:TaskKind,candidateId:string,liked:boolean)
  window.dispatchEvent(new Event("vanilla-preferences-changed"));
 }
 
-export function classifyTask(question:string,image=false):TaskKind{
- if(image)return "vision";
- if(/程式|程式碼|debug|bug|github|typescript|javascript|python|除錯|修復|編譯|\bAPI\b|regex/i.test(question))return "code";
- if(/分析|比較|研究|論文|醫學|證據|為什麼|推理|數據|計算|評估|規劃|策略/.test(question))return "analysis";
- if(/寫作|改寫|草稿|文案|電子郵件|文章|報告|故事|摘要|翻譯/.test(question))return "writing";
- if(/^(你好|哈囉|嗨|hi|hello|謝謝|早安|晚安)[!！。？?\s]*$/i.test(question))return "casual";
- return "general";
-}
 function votes():Vote[]{
  try{
   const data:unknown=JSON.parse(localStorage.getItem(VOTE_KEY)||"[]");
@@ -72,25 +66,23 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
  const gemini=cfg.find(x=>x.provider==="gemini");
  if(gemini){
   result.push({id:"gemini:"+gemini.model,source:"gemini",model:gemini.model,label:"Gemini · "+gemini.model,location:"Google 雲端",note:"依帳號額度／計費規則使用"});
-  if(gemini.model!=="gemini-2.5-flash-lite")result.push({id:"gemini:gemini-2.5-flash-lite",source:"gemini",model:"gemini-2.5-flash-lite",label:"Gemini · Flash-Lite",location:"Google 雲端",note:"較輕量的替代模型，仍受 API 額度限制"});
+  const lite=geminiLiteSibling(gemini.model);
+  if(gemini.model!==lite)result.push({id:"gemini:"+lite,source:"gemini",model:lite,label:"Gemini · Flash-Lite",location:"Google 雲端",note:"較輕量快速的替代模型，仍受 API 額度限制"});
  }
  const deepseek=cfg.find(x=>x.provider==="deepseek");
  if(deepseek&&!options.image)result.push({id:"deepseek:"+deepseek.model,source:"deepseek",model:deepseek.model,label:"DeepSeek · "+deepseek.model,location:"DeepSeek 雲端",note:"可能產生 API 費用"});
  return options.image?result.filter(x=>x.source==="gemini"):result;
 }
+/** Quality prior from the model profile, adjusted per task (fast models win casual chat). */
 function baseScore(candidate:ModelCandidate,task:TaskKind):number{
- if(candidate.source==="local"){
-  const size=candidate.model.match(/(0[.]5|1[.]5|1|2|3|4|7)B/i)?.[1];
-  const large=Number(size||0)>=1.5;
-  return task==="casual"?90:large?64:32;
- }
- if(candidate.source==="ollama"){
-  const size=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)b/i)?.[1]||"0");
-  const scale=size>=14?13:size>=7?9:size>=3?5:size>=1.5?2:-4;
-  return (task==="code"?77:task==="analysis"?77:78)+scale;
- }
- if(candidate.source==="gemini")return (task==="vision"?95:task==="code"?81:task==="analysis"?87:task==="writing"?87:task==="casual"?65:85)-(candidate.model.includes("lite")?11:0);
- return task==="code"?84:task==="analysis"?79:task==="writing"?80:task==="casual"?62:76;
+ const profile=profileFor(candidate.source,candidate.model);
+ let score=profile.tier;
+ if(task==="casual")score=candidate.source==="local"?90:Math.min(score,70)-4;
+ if(candidate.source==="local"&&task!=="casual")score-=4; // phone models: honest about depth
+ if(candidate.source==="gemini"&&task==="vision")score+=6;
+ if(candidate.source==="deepseek"&&task==="code")score+=3;
+ if(/coder/i.test(candidate.model))score+=task==="code"?14:-10;
+ return score;
 }
 export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true,question=""):ModelCandidate[]{
  const allVotes=votes().filter(v=>v.task===task);
@@ -102,7 +94,7 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const approvals=graded.filter(r=>r.liked).length;
   const rejections=graded.length-approvals;
   const feedbackScore=Math.max(-12,Math.min(12,30*(approvals-rejections)/(6+graded.length)));
-  const params=Number(candidate.model.match(/([0-9]+(?:[.][0-9]+)?)B/i)?.[1]||"0");
+  const params=profileFor(candidate.source,candidate.model).paramsB;
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
@@ -117,21 +109,33 @@ export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKin
  const different=ordered.find(x=>x.source!==first.source);
  return [first,different||ordered[1]];
 }
-export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onLocalText?:(text:string)=>void,optimization?:{task:TaskKind;privateMode:boolean}):Promise<string>{
+/** Tokens available for the newest user message (question + attached context) per candidate.
+ * Local phones have a 4K window; cloud models are capped for cost and latency, not capability. */
+export function promptBudgetFor(candidate:ModelCandidate,task:TaskKind):number{
+ const profile=profileFor(candidate.source,candidate.model);
+ if(candidate.source==="local")return Math.max(600,profile.contextTokens-profile.maxOutput[task]-(profile.compactPrompt?220:520)-520);
+ if(candidate.source==="ollama")return Math.max(1200,profile.contextTokens-profile.maxOutput[task]-900-1200);
+ return 24000;
+}
+export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal};
+export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onText?:(text:string)=>void,optimization?:GenerateOptions):Promise<string>{
  const start=Date.now();
+ const task=optimization?.task;
+ const signal=optimization?.signal;
  try{
   let result:string;
-  if(candidate.source==="local")result=await generateLocalReply(history,onLocalText||(()=>{}));
-  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model);
-  else result=await generateCloudReply(candidate.source,history,image,candidate.model);
+  if(candidate.source==="local")result=await generateLocalReply(history,onText||(()=>{}),{task,signal});
+  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal});
+  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal});
   const duration=Date.now()-start;
   recordModelRun(candidate.id,true,duration);
   if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:true,durationMs:duration},optimization.privateMode);
   return result;
  }catch(error){
   const duration=Date.now()-start;
-  recordModelRun(candidate.id,false,duration);
-  if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:false,durationMs:duration},optimization.privateMode);
+  // A user pressing "stop" is not a model failure.
+  if(!signal?.aborted)recordModelRun(candidate.id,false,duration);
+  if(optimization&&!signal?.aborted)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:false,durationMs:duration},optimization.privateMode);
   throw error;
  }
 }

@@ -36,14 +36,14 @@ async function checked(res:Response):Promise<Response>{
 async function request(token:string,url:string,init:RequestInit={}):Promise<Response>{
  return checked(await fetch(url,{...init,headers:{...bearer(token),...init.headers}}));
 }
-async function listQuery(token:string,q:string,fields:string):Promise<WorkspaceFile[]>{
+async function listQuery(token:string,q:string,fields:string,orderBy="modifiedTime desc"):Promise<WorkspaceFile[]>{
  let pageToken="",out:WorkspaceFile[]=[];
  do{
   const url=new URL(API);
   url.searchParams.set("q",q);
   url.searchParams.set("fields","nextPageToken,files("+fields+")");
   url.searchParams.set("pageSize","100");
-  url.searchParams.set("orderBy","modifiedTime desc");
+  url.searchParams.set("orderBy",orderBy);
   if(pageToken)url.searchParams.set("pageToken",pageToken);
   const res=await request(token,url.toString());
   const data=await res.json() as {files?:WorkspaceFile[];nextPageToken?:string};
@@ -51,24 +51,38 @@ async function listQuery(token:string,q:string,fields:string):Promise<WorkspaceF
  }while(pageToken&&out.length<500);
  return out;
 }
-export async function findWorkspaceFolder(token:string):Promise<string|undefined>{
+/** All "Vanilla Workspace" folders this app can see, oldest first. Two devices creating the
+ * folder at the same moment used to split files across folders; the oldest is now canonical
+ * and listings include every copy so nothing becomes invisible. */
+export async function findWorkspaceFolders(token:string):Promise<string[]>{
  const escaped=FOLDER.replace(/'/g,"\\'");
- const matches=await listQuery(token,"name = '"+escaped+"' and mimeType = 'application/vnd.google-apps.folder' and trashed = false","id,name,mimeType,modifiedTime");
- return matches[0]?.id;
+ const matches=await listQuery(token,"name = '"+escaped+"' and mimeType = 'application/vnd.google-apps.folder' and trashed = false","id,name,mimeType,modifiedTime","createdTime");
+ return matches.map(x=>x.id);
 }
+export async function findWorkspaceFolder(token:string):Promise<string|undefined>{
+ return (await findWorkspaceFolders(token))[0];
+}
+let creating:{token:string;promise:Promise<string>}|null=null;
 export async function ensureWorkspaceFolder(token:string):Promise<string>{
  const existing=await findWorkspaceFolder(token);if(existing)return existing;
- const res=await request(token,API+"?fields=id",{
-  method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:FOLDER,mimeType:"application/vnd.google-apps.folder"})
- });
- const data=await res.json() as {id?:string};
- if(!data.id)throw Error("Google Drive 沒有回傳資料夾 ID");
- return data.id;
+ // Concurrent uploads in one tab share a single folder creation.
+ if(creating?.token===token)return creating.promise;
+ const promise=(async()=>{
+  const res=await request(token,API+"?fields=id",{
+   method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:FOLDER,mimeType:"application/vnd.google-apps.folder"})
+  });
+  const data=await res.json() as {id?:string};
+  if(!data.id)throw Error("Google Drive 沒有回傳資料夾 ID");
+  return data.id;
+ })();
+ creating={token,promise};
+ try{return await promise;}finally{if(creating?.promise===promise)creating=null;}
 }
 export async function listWorkspaceFiles(token:string):Promise<WorkspaceFile[]>{
- const folder=await findWorkspaceFolder(token);
- if(!folder)return [];
- return (await listQuery(token,"'"+folder.replace(/'/g,"\\'")+"' in parents and trashed = false","id,name,mimeType,modifiedTime,size,version,webViewLink,description")).filter(file=>!protectedResource(file.name));
+ const folders=await findWorkspaceFolders(token);
+ if(!folders.length)return [];
+ const parents=folders.slice(0,10).map(id=>"'"+id.replace(/'/g,"\\'")+"' in parents").join(" or ");
+ return (await listQuery(token,"("+parents+") and trashed = false","id,name,mimeType,modifiedTime,size,version,webViewLink,description")).filter(file=>!protectedResource(file.name));
 }
 export async function getWorkspaceMetadata(token:string,id:string):Promise<WorkspaceFile>{
  const res=await request(token,API+"/"+encodeURIComponent(id)+"?fields=id,name,mimeType,modifiedTime,size,version,webViewLink,description,trashed,parents");

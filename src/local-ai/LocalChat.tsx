@@ -1,5 +1,8 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
+import NoodlesPanel from "../noodles/NoodlesPanel";
+import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
+import {readNoodles,recordNoodles} from "../noodles/storage";
 import CreamMessage from "../cream/CreamMessage";
 import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,creamChartFollowup,type CreamDataset,type CreamResult} from "../cream/core";
@@ -122,6 +125,7 @@ const [allowMetered,setAllowMetered]=useState(()=>{try{return localStorage.getIt
 const [comparison,setComparison]=useState<ComparisonSession|null>(null);
 const [ollamaConnected,setOllamaConnected]=useState(isOllamaConfigured);
 const [lastRoute,setLastRoute]=useState("");
+const [noodlesIssues,setNoodlesIssues]=useState<Record<string,NoodlesIssue>>({});
 
 useEffect(()=>{const update=()=>setProviders(availableProviders());window.addEventListener("vanilla-providers-changed",update);return()=>window.removeEventListener("vanilla-providers-changed",update);},[]);
 useEffect(()=>{const update=()=>setOllamaConnected(isOllamaConfigured());window.addEventListener("vanilla-ollama-changed",update);return()=>window.removeEventListener("vanilla-ollama-changed",update);},[]);
@@ -197,6 +201,7 @@ function chooseAnswer(id:string){
  const chosen=comparison.options.find(x=>x.candidate.id===id&&x.status==="done");
  if(!chosen)return;
  saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
+ recordNoodles({kind:"rating",at:Date.now(),task:comparison.task,model:chosen.candidate.id,liked:true},privateMode);
  setHistory(prev=>[...prev,{role:"assistant",content:chosen.text,source:chosen.candidate.source,model:chosen.candidate.model,id:crypto.randomUUID(),createdAt:Date.now()}]);
  setLastRoute("已選擇 "+chosen.candidate.label+"；偏好將用於下次模型排序");
  setComparison(null);
@@ -207,6 +212,7 @@ function dismissComparison(){
  setComparison(null);
 }
 function toolReply(question:string,answer:string){
+ recordNoodles({kind:"tool",at:Date.now(),task:classifyTask(question),model:"tool:vanilla"},privateMode);
  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:Date.now()},{role:"assistant",content:answer,id:crypto.randomUUID(),createdAt:Date.now()+1}]);
  setDraft("");setLastRoute("已由 Vanilla 工具執行 · 不消耗 AI API");
 }
@@ -452,13 +458,13 @@ async function send(value=draft){
  }
 
  const preference="quality" as const;
- const ranked=rankedCandidates(candidates,task,preference);
+ const ranked=rankedCandidates(candidates,task,preference,!privateMode);
  const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
   setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或開啟允許計費 API。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
   return;
  }
- const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference):[primary];
+ const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -491,7 +497,8 @@ async function send(value=draft){
  const memoryRequested=!privateMode&&driveSession()&&/(?:我|我們|我的|家庭|家族|之前|以前|記憶|健康|運動|旅行|旅遊|資料|紀錄|計畫|偏好|預算)/.test(question);
  let recalled="";
  if(memoryRequested)try{recalled=await knowledgeContext(question);}catch{}
- const modelNext:ChatTurn[]=[...history,{role:"user",content:question+extra+tableInstruction+(recalled?"\n\n使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled:"")}];
+ const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";
+ const modelNext:ChatTurn[]=[...history,{role:"user",content:question+extra+tableInstruction+noodlesExtra+(recalled?"\n\n使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled:"")}];
  setDraft("");setBusy(true);
  if(chosen.length===2){
   const initial:ComparisonSession={question,task,options:chosen.map(candidate=>({candidate,status:"running" as const,text:""}))};
@@ -502,7 +509,7 @@ async function send(value=draft){
    try{
     const result=await generateCandidate(candidate,modelNext,image||undefined,text=>{
      setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
-    });
+    },{task,privateMode});
     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:result||"（無回答）",status:"done" as const}:x)}:prev);
    }catch(error){
     const msg=error instanceof Error?error.message:String(error);
@@ -524,7 +531,7 @@ async function send(value=draft){
  try{
   const result=await generateCandidate(primary,modelNext,image||undefined,text=>{
    setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
-  });
+  },{task,privateMode});
   setHistory([...next,{role:"assistant",content:result||"（模型沒有產生內容）",source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答");
@@ -538,7 +545,7 @@ async function send(value=draft){
    try{
     const recovered=await generateCandidate(alternative,modelNext,undefined,text=>{
      setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,webSources,id:assistantId,createdAt:assistantTime}]);
-    });
+    },{task,privateMode});
     setHistory([...next,{role:"assistant",content:recovered||"（模型沒有產生內容）",source:alternative.source,model:alternative.model,webSources,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){
@@ -567,6 +574,15 @@ function openTableInSheets(content:string){
  if(privateMode&&!window.confirm("這份表格來自私密對話。要將其複製到一般本機表格工作區嗎？不會自動上傳 Google Drive。"))return;
  window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows}}));
 }
+function markNoodlesIssue(index:number,issue:NoodlesIssue){
+ if(privateMode)return;
+ const turn=history[index];
+ if(!turn||!turn.source||!turn.model||turn.rating!=="down"||noodlesIssues[turn.id||String(index)])return;
+ const question=history.slice(0,index).reverse().find(x=>x.role==="user")?.content||"";
+ recordNoodles({kind:"issue",at:Date.now(),task:classifyTask(question),model:turn.source+":"+turn.model,issue},false);
+ setNoodlesIssues(previous=>({...previous,[turn.id||String(index)]:issue}));
+ setLastRoute("NOODLES 已記錄改善原因；不儲存原始聊天文字。");
+}
 function reportTone(kind:ToneFeedback){
  if(privateMode)return;
  toneFeedback(kind);
@@ -578,6 +594,7 @@ function rateAnswer(index:number,liked:boolean){
  const question=history.slice(0,index).reverse().find(x=>x.role==="user")?.content||"";
  const task=classifyTask(question);
  saveAnswerRating(task,answer.source+":"+answer.model,liked);
+ recordNoodles({kind:"rating",at:Date.now(),task,model:answer.source+":"+answer.model,liked},privateMode);
  setHistory(prev=>prev.map((x,i)=>i===index?{...x,rating:liked?"up":"down"}:x));
  setLastRoute(liked?"已記錄喜歡的回答，模型偏好將逐步調整":"已記錄這個回答需要改進，往後會降低相同任務的模型優先度");
 }
@@ -592,6 +609,7 @@ return <section className="chat">
  <label className="runtime-compare"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/> 比較兩個答案</label>
 </div>
 <AssistantTools onPrompt={query=>void send(query)}/>
+<NoodlesPanel privateMode={privateMode}/>
 <GoogleSourcesPanel privateMode={privateMode} onAnalyze={(dataset,summary)=>{
  const result=analyzeCream(dataset,"line");
  setCreamDataset(dataset);
@@ -608,7 +626,10 @@ return <section className="chat">
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{(turn.role==="assistant"?stripRenderedTable(turn.content):turn.content)||(!turn.content?"正在生成回答…":"")}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.sheet&&<SheetPreview sheet={turn.sheet} onEdit={()=>openCreatedSheet(turn.sheet!)}/>}{turn.role==="assistant"&&turn.cream&&<CreamMessage result={turn.cream} onOpenSheets={creamDataset?.importedAt===turn.cream.importedAt?()=>openCreamInSheets(turn.cream!):undefined}/>}{turn.role==="assistant"&&turn.webSources&&turn.webSources.length>0&&<div className="assistant-search-links" aria-label="本次回答的來源">{turn.webSources.map((ref,i)=><a key={ref.url+"_"+i} href={ref.url} target="_blank" rel="noopener noreferrer">[{i+1}] {ref.title} · {ref.kind==="full"?"已讀正文":"僅搜尋摘要"} ↗</a>)}</div>}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>
- </span>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>
+ </span>}{turn.role==="assistant"&&turn.rating==="down"&&!privateMode&&turn.source&&turn.model&&<select className="noodles-issue" aria-label="NOODLES 問題標記" defaultValue="" disabled={Boolean(noodlesIssues[turn.id||String(index)])} onChange={e=>{if(e.target.value)markNoodlesIssue(index,e.target.value as NoodlesIssue);}}>
+ <option value="">{noodlesIssues[turn.id||String(index)]?"NOODLES 已標記":"NOODLES 問題原因…"}</option>
+ {NOODLES_ISSUES.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}
+ </select>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>
    <option value="">調整語氣…</option><option value="match">語氣很像我</option><option value="formal">太正式／太官腔</option><option value="verbose">太囉嗦</option><option value="cold">太冷淡</option>
   </select>}</div></div>)}<div ref={bottomRef}/></div>}
 {comparison&&<CompareAnswers comparison={comparison} onChoose={chooseAnswer} onCancel={dismissComparison}/>}

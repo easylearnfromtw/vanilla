@@ -9,7 +9,8 @@ const req=(token)=>new Request("https://worker.example/health",{headers:{authori
 test("registry groups independent roles without multiple loaded AI models",()=>{
  assert.equal(DETROIT_ENGINES.length,17);
  assert.equal(new Set(DETROIT_ENGINES.map(x=>x.id)).size,DETROIT_ENGINES.length);
- assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"planned");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"adapter");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="retina").status,"active");
 });
 test("simple requests skip pipeline and deep analysis enumerates auditable phases",()=>{
  assert.equal(merlinParse("你好").depth,"quick");

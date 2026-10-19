@@ -6,7 +6,7 @@ export type DetroitEngine="merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|
 export type DetroitStatus="active"|"adapter"|"planned";
 export type DetroitEngineInfo={id:DetroitEngine;label:string;group:"入口與治理"|"執行與運算"|"資料與產出"|"品質與持續任務";status:DetroitStatus;description:string};
 export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
- {id:"merlin",label:"Merlin",group:"入口與治理",status:"active",description:"解析問題、附件及目標；對照完成條件"},
+ {id:"merlin",label:"Merlin",group:"入口與治理",status:"active",description:"辨識任務、建立精簡結構化提示、保留原始意圖並核對完成條件"},
  {id:"athena",label:"Athena",group:"入口與治理",status:"active",description:"檢查不可信輸入、危險檔案與提示注入"},
  {id:"holy-roman-empire",label:"Holy Roman Empire",group:"入口與治理",status:"adapter",description:"保護不可由對話覆寫的管理權限與安全政策"},
  {id:"zeus",label:"Zeus",group:"執行與運算",status:"active",description:"依成本、複雜度、隱私與工具可用性調度工作"},

@@ -35,6 +35,7 @@
     "test:providers": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/provider-streaming.test.mjs",
     "test:cream-gridcraft": "node --experimental-strip-types --test tests/cream-gridcraft.test.mjs",
     "test:orchestra": "node --experimental-strip-types --test tests/orchestra.test.mjs",
+    "test:luna": "node --experimental-strip-types --test tests/luna.test.mjs",
     "test:retina": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/retina-exports.test.mjs",
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs",
@@ -45,7 +46,8 @@
     "test:cream-extra": "node --experimental-strip-types --test tests/cream-extended.test.mjs",
     "test:weiguo": "python3 -m unittest discover -s tests -p 'test_weiguo_policy.py'",
     "test:weiguo-auth-ui": "node --test tests/weiguo-auth-ui.test.mjs",
-    "test:email": "node --experimental-strip-types --test tests/email-studio.test.mjs"
+    "test:email": "node --experimental-strip-types --test tests/email-studio.test.mjs",
+    "test:api-registry": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/api-registry.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

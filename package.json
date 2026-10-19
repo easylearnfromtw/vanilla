@@ -47,7 +47,8 @@
     "test:weiguo": "python3 -m unittest discover -s tests -p 'test_weiguo_policy.py'",
     "test:weiguo-auth-ui": "node --test tests/weiguo-auth-ui.test.mjs",
     "test:email": "node --experimental-strip-types --test tests/email-studio.test.mjs tests/janus.test.mjs",
-    "test:api-registry": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/api-registry.test.mjs"
+    "test:api-registry": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/api-registry.test.mjs",
+    "test:erya": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/erya-humanize.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

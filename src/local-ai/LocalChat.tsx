@@ -497,6 +497,21 @@ async function send(value=draft):Promise<void>{
   case "diana":{
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
+   // Safe automatic follow-up: reuse an already computed CREAM result for local export.
+   const previousCream=[...history].reverse().find(x=>x.cream)?.cream;
+   if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)){
+    const report=composeDianaCreamDocument(route.request,previousCream);
+    if(report){
+     setBusy(true);
+     try{
+      const output=await createRetinaDocument(report);
+      downloadRetina(output);
+      toolReply(question,"Diana 已依已驗證的 CREAM 數據產生並觸發本機下載："+output.name+"。統計圖仍保留在聊天中，未嵌入匯出文件。","diana");
+     }catch(error){toolReply(question,"Diana：統計保留，但本機文件匯出失敗："+String(error),"diana");}
+     finally{setBusy(false);}
+     return;
+    }
+   }
    if(pick.kind==="delegate"&&pick.command){
     if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
     setDraft("");setLastRoute("Diana → "+pick.label+"："+pick.reason+next);

@@ -284,6 +284,27 @@ async function executeIntent(question:string):Promise<boolean>{
 async function send(value=draft){
  const question=value.trim()||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
  if(!question||busy||comparison||assetBusy)return;
+ const creamInput=creamInstruction(question);
+ if(creamInput){
+  try{
+   if(inspectExternalText(creamInput.csv,"document").blocked)throw Error("偵測到疑似提示詞注入，未匯入資料。");
+   const dataset=parseCreamCSV(creamInput.csv,"聊天貼上的 CSV");
+   const result=analyzeCream(dataset,creamInput.kind),now=Date.now();
+   setCreamDataset(dataset);
+   setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析聊天貼上的資料（"+dataset.rows.length+" 筆）",id:crypto.randomUUID(),createdAt:now},
+    {role:"assistant",content:summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:now+1}]);
+   setDraft("");setLastRoute("CREAM 以本地統計工具計算數值，沒有呼叫雲端模型。");
+  }catch(e){toolReply(question.slice(0,200),"CREAM 解析失敗："+(e instanceof Error?e.message:String(e)));}
+  return;
+ }
+ const selectedKind=creamChartFollowup(question);
+ const latestCream=[...history].reverse().find(x=>x.cream)?.cream;
+ if(selectedKind&&latestCream){
+  const updated:CreamResult={...latestCream,chartKind:selectedKind},now=Date.now();
+  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:now},
+   {role:"assistant",content:"CREAM 已切換圖表；統計結果與資料來源保持不變。",cream:updated,id:crypto.randomUUID(),createdAt:now+1}]);
+  setDraft("");setLastRoute("CREAM 已切換圖型，無須呼叫 AI。");return;
+ }
  if(await executeIntent(question))return;
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:表格|Sheets)(?:編輯器)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-sheets"));setDraft("");return;
@@ -436,6 +457,11 @@ async function send(value=draft){
   }
  }finally{setBusy(false);}
 }
+function openCreamInSheets(result:CreamResult){
+ if(!creamDataset||creamDataset.importedAt!==result.importedAt||creamDataset.source!==result.source){setLastRoute("這份資料的原始列已不在目前記憶體；重新匯入 CSV／XLSX 才能建立可編輯副本。");return;}
+ if(privateMode&&!window.confirm("要將私密對話的資料複製到一般本機 Sheets 工作區嗎？不會自動上傳 Google Drive。"))return;
+ window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows:[creamDataset.columns,...creamDataset.rows]}}));
+}
 function openTableInSheets(content:string){
  const rows=parseTable(content);if(!rows){setLastRoute("目前回答沒有可轉換的 Markdown 表格");return;}
  if(privateMode&&!window.confirm("這份表格來自私密對話。要將其複製到一般本機表格工作區嗎？不會自動上傳 Google Drive。"))return;
@@ -469,7 +495,7 @@ return <section className="chat">
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer">{item.label} ↗</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={busy||Boolean(comparison)} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
-<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
+<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.cream&&<CreamMessage result={turn.cream} onOpenSheets={creamDataset?.importedAt===turn.cream.importedAt&&creamDataset.source===turn.cream.source?()=>openCreamInSheets(turn.cream!):undefined}/>}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>
  </span>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>
@@ -477,6 +503,6 @@ return <section className="chat">
   </select>}</div></div>)}<div ref={bottomRef}/></div>}
 {comparison&&<CompareAnswers comparison={comparison} onChoose={chooseAnswer} onCancel={dismissComparison}/>}
 </div>
-<div className="composer-wrap">{fileName&&<div className="image-attachment">附件：{fileName} · {fileStatus||"正在處理"} <button type="button" onClick={()=>{setImage(null);setImageName("");setFileName("");setFileContext("");setFileStatus("");}}>移除本次附件</button></div>}<input ref={fileRef} type="file" accept="image/*,video/*,.txt,.md,.csv,.json,.pdf,.html,.xml,.docx,.xlsx,.pptx" style={{display:"none"}} onChange={e=>{void attachFile(e.target.files?.[0]);e.target.value="";}}/><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…（也可以說「開啟表格」）" value={draft} disabled={busy||assetBusy||Boolean(comparison)} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><button type="button" onClick={()=>fileRef.current?.click()} disabled={busy||assetBusy} title="加入圖片、文件或短影片；一般模式登入 Drive 後保存，私密模式不保存">＋ 附件</button><Sparkles size={14}/> {privateMode?"私密模式":providers.length||ollamaConnected?"Vanilla · 自動挑選模型":"Vanilla · 本地 AI"}</span><button type="submit" className="send-button" title="傳送" disabled={busy||assetBusy||Boolean(comparison)||(!draft.trim()&&!image&&!fileName)}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前保存在此瀏覽器；模型選擇與偏好紀錄留在此裝置"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>{setHistory([]);setComparison(null);}}><RotateCcw size={13}/> 清除本次對話</button>}</div>
+<div className="composer-wrap">{fileName&&<div className="image-attachment">附件：{fileName} · {fileStatus||"正在處理"} <button type="button" onClick={()=>{setImage(null);setImageName("");setFileName("");setFileContext("");setFileStatus("");}}>移除本次附件</button></div>}<input ref={fileRef} type="file" accept="image/*,video/*,.txt,.md,.csv,.json,.pdf,.html,.xml,.docx,.xlsx,.pptx" style={{display:"none"}} onChange={e=>{void attachFile(e.target.files?.[0]);e.target.value="";}}/><form className="composer" onSubmit={event=>{event.preventDefault();void send();}}><textarea aria-label="輸入訊息" rows={1} placeholder="傳訊息給 Vanilla…（支援 CREAM：CSV 分析）" value={draft} disabled={busy||assetBusy||Boolean(comparison)} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><div className="composer-toolbar"><span><button type="button" onClick={()=>fileRef.current?.click()} disabled={busy||assetBusy} title="加入圖片、文件或短影片；一般模式登入 Drive 後保存，私密模式不保存">＋ 附件</button><Sparkles size={14}/> {privateMode?"私密模式":providers.length||ollamaConnected?"Vanilla · 自動挑選模型":"Vanilla · 本地 AI"}</span><button type="submit" className="send-button" title="傳送" disabled={busy||assetBusy||Boolean(comparison)||(!draft.trim()&&!image&&!fileName)}><ArrowUp size={18}/></button></div></form><div className="composer-footnote">Vanilla 可能產生不正確資訊 · {privateMode?"私密對話僅儲存於此裝置，不會寫入一般聊天紀錄":"一般對話目前保存在此瀏覽器；模型選擇與偏好紀錄留在此裝置"}</div>{storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}{history.length>0&&<button className="clear-chat" type="button" disabled={busy} onClick={()=>{setHistory([]);setComparison(null);}}><RotateCcw size={13}/> 清除本次對話</button>}</div>
 </section>;
 }

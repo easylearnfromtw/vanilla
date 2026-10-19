@@ -1,0 +1,1 @@
+{"prompt":[{"role":"user","content":"請說明為什麼要對分析結果註明資料來源"}],"chosen":[{"role":"assistant","content":"註明來源能追溯證據、確認資料的適用範圍，並避免把推測當作已驗證事實。"}],"rejected":[{"role":"assistant","content":"資料來源不重要，直接採信任何文字結論即可。"}]}

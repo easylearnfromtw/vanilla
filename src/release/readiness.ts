@@ -4,7 +4,7 @@ export type LaunchInput={
  online:boolean;localModelLoaded:boolean;webGPU:boolean;indexedDB:boolean;cloudProvidersConfigured:boolean;
  driveAuthorized:boolean;analyticsClientConfigured:boolean;analyticsAuthorized:boolean;
  ollamaConfigured:boolean;webSearchConfigured:boolean;webSearchTokenConfigured:boolean;
- noodlesEnabled:boolean;selfBuildBridgeConfigured?:boolean;
+ noodlesEnabled:boolean;teacherLearningEnabled?:boolean;selfBuildBridgeConfigured?:boolean;
 };
 export type LaunchRow={id:string;name:string;status:LaunchStatus;description:string;action?:string;};
 export const LAUNCH_LABEL:Record<LaunchStatus,string>={
@@ -20,6 +20,7 @@ export function launchReadiness(input:LaunchInput):LaunchRow[]{
   {id:"cream",name:"CREAM P0 描述統計與互動圖表",status:"ready",description:"CSV／XLSX 匯入、描述統計與對話圖表已部署；進階研究、推論統計與原構想 14 模組並未全部完成。"},
   {id:"cream-advanced",name:"CREAM 14 模組完整版",status:"planned",description:"研究級整合、完整統計檢定、證據鏈、進階文件輸出等尚未全數實作。"},
   {id:"noodles",name:"NOODLES v0.1 跨模型回饋優化",status:input.noodlesEnabled?"ready":"setup",description:input.noodlesEnabled?"本機回饋、路由調整與提示詞改善已啟用，並非修改模型權重。":"功能已部署，但使用者已停用 NOODLES 自適應。"},
+  {id:"noodles-teacher",name:"NOODLES Teacher 跨模型蒸餾資料與 LoRA",status:input.teacherLearningEnabled?"limited":"setup",description:input.teacherLearningEnabled?"已明確同意在本機收集使用者選擇的跨模型學習案例，可匯出 SFT/DPO JSONL；需要另外在 GPU 執行訓練並通過評估，才能更新開源模型權重。":"資料收集預設關閉；必須確認來源訓練使用權並啟用 NOODLES TEACHER。資料集與 GPU 訓練腳本已整合，沒有自動微調遠端模型權重。",action:"聊天 → NOODLES TEACHER"},
   {id:"noodles-advanced",name:"NOODLES 自主 A/B 評估／權重訓練",status:"planned",description:"全自動跨模型評審、基準實驗和第三方模型權重更新尚未實作；不能視為每次對話都重新訓練模型。"},
   {id:"library",name:"對話檔案／圖片管理",status:input.indexedDB?"ready":"setup",description:input.indexedDB?"一般模式可在此瀏覽器保存與編輯附件；請注意瀏覽器儲存空間不是異地備份。":"此瀏覽器無法使用 IndexedDB，本機附件永久保存不能保證。"},
   {id:"drive",name:"Google Drive 雲端同步／存檔",status:input.online&&input.driveAuthorized?"limited":"setup",description:input.online&&input.driveAuthorized?"已有有效登入工作階段，尚需真正的唯讀 API 查詢確認；跨裝置同步視授權設定而定。":"需要網路與 Google Drive 登入授權，才能儲存雲端副本。",action:"系統設定 → Google Drive"},

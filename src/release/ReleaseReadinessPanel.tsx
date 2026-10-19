@@ -8,6 +8,7 @@ import {getOllamaConfig,isOllamaConfigured,testOllama} from "../ai/ollama";
 import {getGoogleClientId,getAnalyticsConnection} from "../cream/google-sources";
 import {getSearchBridge,getWebReaderToken,fetchSearchBridge} from "../search/search-bridge";
 import {readNoodles} from "../noodles/storage";
+import {readTeacherState} from "../noodles/teacher-store";
 import {getCodeBridgeURL,getCodeBridgeToken,checkCodeBridge} from "../builder/autocode-client";
 import {availableProviders} from "../vault/providers";
 import "./release.css";
@@ -23,7 +24,7 @@ function snapshot():LaunchInput{
   analyticsClientConfigured:Boolean(getGoogleClientId("analytics")),
   analyticsAuthorized:getAnalyticsConnection(),ollamaConfigured:isOllamaConfigured(),
   webSearchConfigured:Boolean(getSearchBridge()),webSearchTokenConfigured:Boolean(getWebReaderToken()),
-  noodlesEnabled:readNoodles().enabled,selfBuildBridgeConfigured:Boolean(getCodeBridgeURL()&&getCodeBridgeToken())
+  noodlesEnabled:readNoodles().enabled,teacherLearningEnabled:readTeacherState().settings.enabled,selfBuildBridgeConfigured:Boolean(getCodeBridgeURL()&&getCodeBridgeToken())
  };
 }
 function timeStamp(){return new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"});}
@@ -71,7 +72,7 @@ export default function ReleaseReadinessPanel(){
  const [expanded,setExpanded]=useState(true);
  const refresh=useCallback(()=>setInput(snapshot()),[]);
  useEffect(()=>{
-  const events=["online","offline","vanilla-providers-changed","vanilla-drive-connected","vanilla-drive-disconnected","vanilla-noodles-changed","vanilla-search-bridge-changed"];
+  const events=["online","offline","vanilla-providers-changed","vanilla-drive-connected","vanilla-drive-disconnected","vanilla-noodles-changed","vanilla-teacher-updated","vanilla-search-bridge-changed"];
   for(const type of events)window.addEventListener(type,refresh);
   return()=>{for(const type of events)window.removeEventListener(type,refresh);};
  },[refresh]);

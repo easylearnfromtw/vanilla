@@ -25,6 +25,7 @@ jobs:
           npm run test:cream
           npm run test:cream-google
           npm run test:noodles
+          npm run test:noodles-teacher
           npm run test:chat-ui
           npm run test:release
           npm run test:web-workflows
@@ -33,6 +34,11 @@ jobs:
           npm run test:workspace
           npm run test:builder
           npm run test:autocode
+      - name: Validate NOODLES GPU trainer syntax and sample JSONL (no GPU)
+        run: |
+          python3 -m py_compile training/noodles_train.py
+          python3 training/noodles_train.py --mode sft --train tests/fixtures/noodles-sft-train.jsonl --eval tests/fixtures/noodles-sft-eval.jsonl --check-only
+          python3 training/noodles_train.py --mode dpo --train tests/fixtures/noodles-dpo-train.jsonl --eval tests/fixtures/noodles-dpo-eval.jsonl --check-only
       - name: Typecheck and build
         run: npm run build
         env:

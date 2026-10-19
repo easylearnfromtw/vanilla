@@ -1,6 +1,9 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
 import NoodlesPanel from "../noodles/NoodlesPanel";
+import TeacherLearningPanel from "../noodles/TeacherLearningPanel";
+import {recordTeacherSample,readTeacherState} from "../noodles/teacher-store";
+import {teacherStyleHint} from "../noodles/teacher-core";
 import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import ChatMarkdown from "./ChatMarkdown";
@@ -203,6 +206,12 @@ function chooseAnswer(id:string){
  if(!chosen)return;
  saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
  recordNoodles({kind:"rating",at:Date.now(),task:comparison.task,model:chosen.candidate.id,liked:true},privateMode);
+ // Only a human-selected win can become a teacher preference example.
+ // Original prompts/answers are never persisted without separate opt-in.
+ const other=comparison.options.find(x=>x.status==="done"&&x.candidate.id!==id&&x.text.trim());
+ recordTeacherSample({task:comparison.task,prompt:comparison.question,chosen:chosen.text,
+  rejected:other?.text,provider:chosen.candidate.source,model:chosen.candidate.model,
+  selectedBy:"comparison"},privateMode);
  setHistory(prev=>[...prev,{role:"assistant",content:chosen.text,source:chosen.candidate.source,model:chosen.candidate.model,id:crypto.randomUUID(),createdAt:Date.now()}]);
  setLastRoute("已選擇 "+chosen.candidate.label+"；偏好將用於下次模型排序");
  setComparison(null);
@@ -506,7 +515,8 @@ async function send(value=draft){
  let recalled="";
  if(memoryRequested)try{recalled=await knowledgeContext(question);}catch{}
  const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";
- const modelNext:ChatTurn[]=[...history,{role:"user",content:question+extra+tableInstruction+noodlesExtra+(recalled?"\n\n使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled:"")}];
+ const teacherExtra=!privateMode?teacherStyleHint(readTeacherState(),task):"";
+ const modelNext:ChatTurn[]=[...history,{role:"user",content:question+extra+tableInstruction+noodlesExtra+teacherExtra+(recalled?"\n\n使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled:"")}];
  setDraft("");setBusy(true);
  if(chosen.length===2){
   const initial:ComparisonSession={question,task,options:chosen.map(candidate=>({candidate,status:"running" as const,text:""}))};
@@ -603,6 +613,8 @@ function rateAnswer(index:number,liked:boolean){
  const task=classifyTask(question);
  saveAnswerRating(task,answer.source+":"+answer.model,liked);
  recordNoodles({kind:"rating",at:Date.now(),task,model:answer.source+":"+answer.model,liked},privateMode);
+ if(liked)recordTeacherSample({task,prompt:question,chosen:answer.content,
+  provider:answer.source,model:answer.model,selectedBy:"thumbs-up"},privateMode);
  setHistory(prev=>prev.map((x,i)=>i===index?{...x,rating:liked?"up":"down"}:x));
  setLastRoute(liked?"已記錄喜歡的回答，模型偏好將逐步調整":"已記錄這個回答需要改進，往後會降低相同任務的模型優先度");
 }
@@ -618,6 +630,7 @@ return <section className="chat">
 </div>
 <AssistantTools onPrompt={query=>void send(query)}/>
 <NoodlesPanel privateMode={privateMode}/>
+<TeacherLearningPanel privateMode={privateMode}/>
 <GoogleSourcesPanel privateMode={privateMode} onAnalyze={(dataset,summary)=>{
  const result=analyzeCream(dataset,"line");
  setCreamDataset(dataset);

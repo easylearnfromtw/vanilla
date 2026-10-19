@@ -3,21 +3,21 @@
  */
 import {DETROIT_ENGINES} from "./core";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
-export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"jensen-huang"|"zeus"|"athena"|"medusa"|"gridcraft"|"moli"|"persistent-jobs";
+export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"jensen-huang"|"zeus"|"athena"|"medusa"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus";
 export type DianaDecision={kind:"delegate"|"open"|"report";tool:DianaTarget;label:string;reason:string;alternatives:string[];command?:string;event?:string;tab?:string;message?:string};
 const NAMES:Record<string,DianaTarget>={
  diana:"diana",merlin:"merlin",cream:"cream",scouts:"scouts",atriensis:"atriensis",
  janus:"janus",retina:"retina",orchestra:"orchestra",bard:"bard",luna:"luna",jensen:"jensen-huang",
  "jensen-huang":"jensen-huang",zeus:"zeus",athena:"athena",medusa:"medusa",gridcraft:"gridcraft",
- moli:"moli","persistent-jobs":"persistent-jobs"
+ moli:"moli","persistent-jobs":"persistent-jobs",luca:"luca",quirinus:"quirinus"
 };
 const LABELS:Record<DianaTarget,string>={
  diana:"Diana",merlin:"Merlin",cream:"CREAM",scouts:"Scouts",atriensis:"Atriensis",
  janus:"Janus",retina:"Retina",orchestra:"Orchestra",bard:"Bard",luna:"LUNA",
  "jensen-huang":"JENSEN HUANG / Self-Build CODE",zeus:"Zeus",athena:"Athena",medusa:"Medusa",
- gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs"
+ gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs",luca:"LUCA",quirinus:"Quirinus"
 };
-const DISABLED=new Set<DianaTarget>(["medusa","gridcraft","moli","persistent-jobs"]);
+const DISABLED=new Set<DianaTarget>(["gridcraft","moli","persistent-jobs","quirinus"]);
 export type DianaContext={privateMode:boolean;hasCreamResult:boolean};
 export function parseDianaInvocation(message:string):{request:string;forcedTool:DianaTarget|null}|null{
  const raw=message.trim();
@@ -74,9 +74,11 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(tool==="diana")return report("diana",dianaCatalog(),"工具目錄");
  if(DISABLED.has(tool))return report(tool,LABELS[tool]+" 未確認已部署並啟用執行後端；Diana 不能代替管理員安裝或執行。","適配器未就緒");
  if(ctx.privateMode&&tool==="scouts")return report(tool,"私密模式禁止網路存取。Diana 不會自行切換模式。","隱私限制");
+ if(ctx.privateMode&&tool==="medusa")return report(tool,"私密模式禁止向 Judge0 後端傳送程式碼。","隱私限制");
  if(ctx.privateMode&&tool==="jensen-huang")return report(tool,"私密模式不會將工作內容轉交 GitHub 程式工作台。","隱私限制");
  if(tool==="zeus"||tool==="athena")return report(tool,LABELS[tool]+" 是內部治理工具，無法由對話獲得額外權限。","內部工具");
  if(tool==="janus")return choose({kind:"open",event:"vanilla-open-email"});
+ if(tool==="medusa"||tool==="luca")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
  if(tool==="luna")return choose({kind:"open",event:"vanilla-open-luna"});
  if(tool==="retina"||tool==="bard")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
  if(tool==="orchestra")return choose({kind:"open",event:"vanilla-open-orchestra"});

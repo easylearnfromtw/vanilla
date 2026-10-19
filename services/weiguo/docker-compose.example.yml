@@ -6,9 +6,16 @@ services:
       - "127.0.0.1:9080:8080"
     environment:
       WEIGUO_ALLOWED_HOSTS: "example.org,www.example.org"
-      # Set WEIGUO_ADMIN_TOKEN in a server-side .env (minimum 32 random chars).
+      # Use ONLY private server-side environment variables.
       WEIGUO_ADMIN_TOKEN: "${WEIGUO_ADMIN_TOKEN:?Required}"
+      WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
+      WEIGUO_ALLOW_JAVASCRIPT: "false"
       WEIGUO_ALLOW_MUTATIONS: "false"
+      # Only set these for a trusted internal Ollama instance, never public URLs:
+      # WEIGUO_OLLAMA_URL: "http://ollama:11434"
+      # WEIGUO_OLLAMA_MODEL: "qwen3:4b"
+    volumes:
+      - weiguo_tasks:/data
     read_only: true
     security_opt:
       - no-new-privileges:true
@@ -18,4 +25,8 @@ services:
       - /tmp:rw,nosuid,nodev,size=128m
     pids_limit: 180
     mem_limit: 1g
-    # Restrict egress to approved public destinations at cloud firewall layer.
+    # DNS rebinding is not blocked by application URL validation alone.
+    # Restrict container egress/private IP ranges at the host/VPC firewall.
+
+volumes:
+  weiguo_tasks:

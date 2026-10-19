@@ -4,15 +4,17 @@ Real browser activity requires deployment, allowlisted domains and explicit appr
 """
 from __future__ import annotations
 import hmac
+import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Header
+from fastapi import Depends, FastAPI, HTTPException, Header, BackgroundTasks
 from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest
+from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 
 class PlanRequest(BaseModel):
     task: str = Field(min_length=3, max_length=1200)
@@ -23,14 +25,21 @@ class ExecuteRequest(BaseModel):
     steps: list[dict] = Field(min_length=1,max_length=12)
     approved_interactions: bool = False
 
+class StartTaskRequest(BaseModel):
+    start_url: str = Field(max_length=2048)
+    steps: list[dict] = Field(min_length=1,max_length=12)
+
 class ToolsRequest(BaseModel):
     tools: list[dict] = Field(max_length=30)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_tasks()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     yield
+
+TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.
 
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
 async def operator(authorization: str | None = Header(default=None)):
@@ -40,6 +49,7 @@ async def operator(authorization: str | None = Header(default=None)):
     if not hmac.compare_digest(supplied,expected):raise HTTPException(401,"未授權")
     return True
 
+@app.get("/v1/health")
 @app.get("/health")
 async def health():
     return {"service":"weiguo","configured":len(os.environ.get("WEIGUO_ADMIN_TOKEN",""))>=32 and bool(allow_hosts()),
@@ -95,16 +105,20 @@ async def execute(request:ExecuteRequest,_:bool=Depends(operator)):
         # Isolated, nonpersistent browsing context: no download folder, no saved cookies.
         browser=await pw.chromium.launch(headless=True)
         try:
-            context=await browser.new_context(accept_downloads=False,service_workers="block",ignore_https_errors=False)
+            context=await browser.new_context(accept_downloads=False,service_workers="block",ignore_https_errors=False,
+                java_script_enabled=os.environ.get("WEIGUO_ALLOW_JAVASCRIPT")=="true")
             page=await context.new_page()
             async def filter_request(route):
                 try:
                     # Do not load third-party trackers or off-domain resources.
+                    if route.request.method not in ("GET","HEAD"):
+                        await route.abort("blockedbyclient")
+                        return
                     validate_url(route.request.url,allowed,check_dns=False)
                     await route.continue_()
                 except (PolicyError,ValueError):
                     await route.abort("blockedbyclient")
-            await page.route("**/*",filter_request)
+            await context.route("**/*",filter_request)
             await page.goto(url,wait_until="domcontentloaded",timeout=14000)
             for index,step in enumerate(actions):
                 action=step["action"]
@@ -133,3 +147,34 @@ async def execute(request:ExecuteRequest,_:bool=Depends(operator)):
             raise HTTPException(422,"受控瀏覽器執行失敗；請檢查允許網域與步驟選擇器") from e
         finally:
             await browser.close()
+
+async def run_background_job(task_id:str,request:ExecuteRequest)->None:
+    async with TASK_LOCK:
+        update_task(task_id,"running")
+        try:
+            # Background work is strictly read-only, independent of any UI-provided approval flags.
+            result=await execute(ExecuteRequest(start_url=request.start_url,steps=request.steps,approved_interactions=False),True)
+            update_task(task_id,"completed",result=result)
+        except Exception:
+            update_task(task_id,"failed",error="瀏覽器執行失敗；詳情請由伺服器端管理員檢查。")
+
+@app.post("/v1/tasks",status_code=202)
+async def start_task(request:StartTaskRequest,background:BackgroundTasks,_:bool=Depends(operator)):
+    try:
+        validate_url(request.start_url,allow_hosts(),check_dns=True)
+        # Force read-only regardless of browser-side JSON fields.
+        steps=validate_steps(request.steps,approved=False,allow_mutations=False)
+        for step in steps:
+            if step["action"]=="navigate":
+                validate_url(step["url"],allow_hosts(),check_dns=True)
+    except PolicyError as e:
+        raise HTTPException(400,str(e)) from e
+    result=new_task(request.start_url,steps)
+    background.add_task(run_background_job,result["id"],ExecuteRequest(start_url=request.start_url,steps=steps))
+    return result
+
+@app.get("/v1/tasks/{task_id}")
+async def get_task(task_id:str,_:bool=Depends(operator)):
+    result=lookup_task(task_id)
+    if result is None: raise HTTPException(404,"找不到指定任務")
+    return result

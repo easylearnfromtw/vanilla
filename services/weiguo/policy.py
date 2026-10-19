@@ -24,9 +24,13 @@ def validate_url(raw: str, allowed: set[str], *, check_dns: bool = False) -> str
         raise PolicyError("網址不合法")
     parts = urlsplit(raw)
     host = (parts.hostname or "").lower().rstrip(".")
-    if parts.scheme != "https" or not host or parts.username or parts.password:
-        raise PolicyError("僅允許無帳密的 HTTPS 網址")
-    if parts.port not in (None, 443):
+    if parts.scheme != "https" or not host or parts.username or parts.password or parts.fragment:
+        raise PolicyError("僅允許無帳密、無片段的 HTTPS 網址")
+    try:
+        port=parts.port
+    except ValueError as e:
+        raise PolicyError("連接埠格式錯誤") from e
+    if port not in (None, 443):
         raise PolicyError("不允許自訂連接埠")
     if host not in allowed:
         raise PolicyError("網址不在後端明確允許的主機清單")

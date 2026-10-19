@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
 from moli_engine import maybe_moli_extract
 from gridcraft_adapter import router as gridcraft_router
+from ceres_gateway import router as ceres_router
 from medusa_adapter import router as medusa_router
 from medusa_family import router as medusa_family_router
 from quirinus_adapter import router as quirinus_router
@@ -97,6 +98,7 @@ async def require_wordcraft_quota(sub: str) -> None:
 
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
 app.include_router(gridcraft_router)
+app.include_router(ceres_router
 async def operator(authorization: str | None = Header(default=None)):
     expected=os.environ.get("WEIGUO_ADMIN_TOKEN","")
     if len(expected) < 32: raise HTTPException(503,"未設定後端金鑰")

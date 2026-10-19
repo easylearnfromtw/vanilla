@@ -16,6 +16,13 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Regression tests
+        run: |
+          npm run test:local-chat
+          npm run test:assistant
+          npm run test:security
+          npm run test:workspace
+          npm run test:builder
       - name: Typecheck and build
         run: npm run build
         env:

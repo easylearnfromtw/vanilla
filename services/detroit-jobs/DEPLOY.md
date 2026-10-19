@@ -1,0 +1,12 @@
+# Detroit Persistent Jobs — production setup
+
+The service runs separately from GitHub Pages and **cannot** run while the user closes Safari unless an operator deploys and enables Cron and D1. **Never expose `DETROIT_ADMIN_TOKEN` or `DETROIT_NOTIFY_SECRET` to a browser, Git repository, or frontend `.env`.**
+
+1. Create a Cloudflare account and D1 database: `npx wrangler d1 create detroit-jobs`; copy the returned database ID into a **private** `wrangler.toml` made from `wrangler.example.toml` (do not commit the real config).
+2. Apply `migrations.sql` and `002_notifications.sql` to the remote D1, in that order, with `npx wrangler d1 execute detroit-jobs --remote --file=services/detroit-jobs/migrations.sql` and then `.../002_notifications.sql`.
+3. Set long server secrets using `npx wrangler secret put DETROIT_ADMIN_TOKEN` and `npx wrangler secret put DETROIT_NOTIFY_SECRET` (distinct random values of at least 32 characters). Configure fixed `DETROIT_ALLOWED_HOSTS`, `DETROIT_NOTIFY_HOST`, and `DETROIT_NOTIFY_WEBHOOK` in server-side env. Notification webhooks must support HMAC SHA-256 verification of `x-detroit-signature`; only the configured, pinned HTTPS host receives change metadata.
+4. Deploy `npx wrangler deploy -c services/detroit-jobs/wrangler.toml` and verify real Cron activity in Cloudflare dashboard. All `/v1/*` API endpoints require server-side admin authorization. There is no user OAuth yet; do NOT put this bearer credential in the PWA.
+5. Create a monitored job from your protected administration server via `POST /v1/jobs` with `{ "owner":"<opaque-id>","url":"https://allowlisted-host/path","intervalMinutes":60 }`. This is **not** a public, self-service PWA API. Check `/v1/jobs`, `/v1/changes`, `/v1/notifications`. A delivery remains pending and retries with backoff; after 5 failures it is marked `dead` and requires operator intervention.
+6. Trigger a controlled, allowlisted content change and verify a real notification is received with a valid HMAC signature. Do not call the feature production-ready until delivery and owner routing pass.
+
+The service only watches approved *public* HTTPS pages and sends metadata (opaque owner, watched URL, digest, timestamp) to an operator-configured webhook. No email address, private credentials, page body, or chat history is sent by default. A multi-tenant OAuth control plane, end-user push subscriptions, and arbitrary recurring AI agents are **not** included. Backend cost depends on your Cloudflare and webhook subscription.

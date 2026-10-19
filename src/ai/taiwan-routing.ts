@@ -21,6 +21,8 @@ export function classifyTaiwanTopic(question:string):TaiwanTopic|null{
  const foreign=/(?:美國|日本|英國|法國|德國|韓國|香港|澳門|中國大陸|大陸地區|中華人民共和國|新加坡|加拿大|澳洲|歐盟|印度|俄羅斯|越南)/i.test(q);
  if(taiwan)return law?"law":history?"history":"local";
  if(law&&!foreign)return "law";
+ // Some Taiwan-specific historical events are commonly named without saying Taiwan.
+ if(history&&/(?:二二八|228事件|霧社事件|美麗島事件|鄭成功)/.test(q))return "history";
  return null;
 }
 export function preferTaideForTaiwan<T extends {source:string;model:string}>(

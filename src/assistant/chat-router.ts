@@ -5,6 +5,7 @@
  * broke "上網查…", "Self-Build CODE：…" and other phrasings).
  */
 import {capabilityIntent} from "./capability-report";
+import {parseDianaInvocation,type DianaTarget} from "../detroit/diana";
 import {makeHumanizeRequest,isHumanizeRequest} from "../erya/humanize";
 import {extractTextMeasurements} from "../cream/longitudinal";
 import {creamInstruction,creamChartFollowup,type CreamChartKind} from "../cream/core";
@@ -34,6 +35,7 @@ const OPEN:Array<{section:OpenSection;re:RegExp}>=[
 export type OpenSection="email"|"weiguo"|"cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
 
 export type ChatRoute=
+ |{kind:"diana";request:string;forcedTool:DianaTarget|null}
  |{kind:"capability"}
  |{kind:"cream-text"}
  |{kind:"cream-csv"}
@@ -55,6 +57,8 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
+ const diana=parseDianaInvocation(q);
+ if(diana)return {kind:"diana",...diana};
  // Explicit editing must not auto-search, run CREAM or execute commands quoted in the source.
  if(isHumanizeRequest(q))return {kind:"continue"};
  if(capabilityIntent(q))return {kind:"capability"};
@@ -94,6 +98,7 @@ export function routeTail(question:string):ChatRoute{
 /* ---------- slash commands ---------- */
 export type SlashCommand={cmd:string;label:string;hint:string;example:string;tone:"blue"|"red"|"yellow"|"ink"};
 export const SLASH_COMMANDS:SlashCommand[]=[
+ {cmd:"/Diana",label:"Diana · Detroit 工具導航",hint:"選擇並叫出最適合的實際工具",example:"/Diana 幫我分析年度數據",tone:"blue"},
  {cmd:"/潤稿",label:"爾雅 Erya 自然化",hint:"以現有模型潤稿，保留數據與引用",example:"/潤稿 這段文字...",tone:"yellow"},
  {cmd:"/Janus",label:"Janus · Detroit 郵件工具",hint:"本機產製 HTML／JSON、選用拖曳編輯",example:"/Janus",tone:"yellow"},
  {cmd:"/郵件",label:"Janus 郵件設計",hint:"相容舊版 Email Studio 指令",example:"/郵件",tone:"yellow"},
@@ -122,6 +127,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
  if(!m)return null;
  const [,cmd,rest]=m,arg=rest.trim();
  switch(cmd){
+  case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
   case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:null;
   case "衞國":case "衛國":return {text:"開啟 衞國系統"};

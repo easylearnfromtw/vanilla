@@ -68,15 +68,24 @@ async function attachFile(file?:File){
    if(inspection.blocked){suspiciousAttachment=true;setFileContext("");setFileStatus("已偵測附件內的提示詞注入，文字已隔離，不會交給 AI 執行。"+inspection.signals.join("、"));}
    else setFileContext(wrapExternalText(raw,"document"));
   }
+  let localSaved=false;
+  let localError="";
   if(!privateMode){
-   try{await saveChatAttachment(file,attachmentOwner(signedChatAccount()));}
-   catch(error){setFileStatus("本機附件保存失敗："+(error instanceof Error?error.message:String(error)));}
+   try{await saveChatAttachment(file,attachmentOwner(signedChatAccount()));localSaved=true;}
+   catch(error){localError=error instanceof Error?error.message:String(error);}
   }
-  if(!privateMode&&driveSession()){
-   const record=await rememberFile(file);
-   setFileStatus("已儲存到你的 Google Drive："+record.title+(suspiciousAttachment?"。注意：附件包含疑似 Prompt Injection，已隔離文字索引，原始檔案仍在 Drive。":""));
+  const account=privateMode?null:driveSession();
+  if(account){
+   try{
+    const record=await rememberFile(file);
+    setFileStatus("Google Drive 已儲存："+record.title+(localSaved?"；本機附件庫也已保存。":"；本機保存未成功："+localError)+(suspiciousAttachment?"。注意：可疑文字索引已隔離。":""));
+   }catch(error){
+    setFileStatus((localSaved?"本機附件已儲存；":"本機保存失敗："+localError+"；")+"Google Drive 上傳失敗："+String(error)+"。"+(localSaved?"可到左側對話圖片與資料查看本機副本。":"此檔案尚未永久保存。"));
+   }
   }else{
-   setFileStatus((privateMode?"私密模式：附件未上傳，僅在本次對話使用":"附件已嘗試保存在此裝置；尚未登入 Google Drive，不會跨裝置同步。可從左側「對話圖片與資料」查看")+(suspiciousAttachment?"。附件文字含疑似 Prompt Injection，已隔離。":""));
+   setFileStatus(privateMode?"私密模式：附件僅用於本次對話，不自動保存。":
+     localSaved?"已自動保存於本機附件庫；目前未連線 Google Drive，尚無雲端副本。":
+     "附件未能保存到本機："+localError+"；目前也沒有 Google Drive 連線。");
   }
   // Analyze tabular attachments AFTER durable-save attempts, so CSV/XLSX
   // stays in the library rather than disappearing from the conversation.

@@ -67,3 +67,19 @@ test("Named capabilities clearly state limits, examples and pending development"
  assert.match(report,/功能登錄/);
  assert.match(capabilityAnswer("builder",connected),/不是自己修改 GitHub/);
 });
+
+
+test("natural ability questions include runtime status, without hijacking real work",()=>{
+ for(const input of ["我想知道你能做什麼","你現在有什麼功能","Vanilla 有哪些功能","你目前可以幫我做什麼"]){
+  assert.equal(capabilityIntent(input),"overview",input);
+ }
+ for(const [input,topic] of [
+  ["你能搜尋網路嗎？","search"],
+  ["你能做 CREAM 統計嗎？","research"],
+  ["你可以做 Excel 表格嗎？","sheets"],
+  ["你有家庭成員隔離功能嗎？","family"]
+ ])assert.equal(capabilityIntent(input),topic,input);
+ for(const input of ["你可以幫我建立一個表格","你幫我寫一份旅行計畫","把圖改成折線圖","幫我整理這篇論文"]){
+  assert.equal(capabilityIntent(input),null,input);
+ }
+});

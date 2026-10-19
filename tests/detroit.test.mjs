@@ -7,10 +7,11 @@ import {allowedURL,requireAdmin} from "../services/detroit-jobs/worker.mjs";
 const req=(token)=>new Request("https://worker.example/health",{headers:{authorization:"Bearer "+token}});
 
 test("registry groups independent roles without multiple loaded AI models",()=>{
- assert.ok(DETROIT_ENGINES.length>=19);
- assert.equal(DETROIT_ENGINES.find(x=>x.id==="luna")?.status,"active");
+ assert.equal(DETROIT_ENGINES.length,19);
  assert.equal(new Set(DETROIT_ENGINES.map(x=>x.id)).size,DETROIT_ENGINES.length);
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"adapter");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="janus").status,"active");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="veritas").status,"adapter");
 });
 test("simple requests skip pipeline and deep analysis enumerates auditable phases",()=>{
  assert.equal(merlinParse("你好").depth,"quick");
@@ -64,4 +65,17 @@ test("background worker is locked down by admin secret and allowlisted hosts",()
  assert.throws(()=>allowedURL("https://127.0.0.1/",env));
  assert.throws(()=>allowedURL("https://other.example.com/",env));
  assert.throws(()=>allowedURL("https://example.com:444/",env));
+});
+
+
+test("Merlin routes email template work to Detroit Janus without Retina claims",()=>{
+ const p=merlinParse("幫我製作一份醫美診所電子報");
+ assert.equal(p.intent,"email");
+ assert.equal(p.needsArtifact,true);
+ assert.ok(p.stages.some(x=>x.engine==="janus"));
+ assert.ok(!p.stages.some(x=>x.engine==="retina"));
+ assert.ok(cloudDetroitBrief(p).includes("Janus"));
+ const report=merlinParse("請製作 PDF 正式報告");
+ assert.ok(report.stages.some(x=>x.engine==="retina"));
+ assert.ok(!report.stages.some(x=>x.engine==="janus"));
 });

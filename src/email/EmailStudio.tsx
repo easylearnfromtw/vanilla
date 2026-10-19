@@ -1,6 +1,8 @@
 import {useEffect,useRef,useState,lazy,Suspense,type ChangeEvent} from "react";
 import {Download,Mail,PenLine,FileJson,ShieldCheck} from "lucide-react";
 import {driveSession} from "../workspace/cloud-drive";
+import {currentChatMode} from "../local-ai/chat-session";
+import {janusPermission} from "../detroit/janus";
 import {buildEmailTemplate,type EmailTemplateFields,type EmailTemplateKind} from "./email-templates";
 import {isEmailDesign,MAX_DESIGN_BYTES,parseEmailSnapshot,scopedEmailStorageKey,type EmailSnapshot} from "./email-policy";
 import "./email-studio.css";
@@ -55,6 +57,8 @@ export default function EmailStudio(){
  }
  function generate(){
   try{
+   const verdict=janusPermission("render-local",{privateMode:currentChatMode()==="private",approved:false});
+   if(!verdict.allow)throw new Error(verdict.reason);
    const result=buildEmailTemplate(kind,fields);
    setSnapshot({design:result.design,html:result.html,title:fields.title.trim()||"email",updatedAt:new Date().toISOString()});
    setEditorOpen(false);
@@ -100,8 +104,8 @@ export default function EmailStudio(){
  const currentAccount=initialAccount();
  return <div className="email-studio">
   <div className="email-hero">
-   <div className="email-eyebrow"><Mail size={15}/> VANILLA / EMAIL STUDIO</div>
-   <h1>郵件設計工作室</h1>
+   <div className="email-eyebrow"><Mail size={15}/> VANILLA / DETROIT / JANUS</div>
+   <h1>JANUS <span>· 郵件設計</span></h1>
    <p>Unlayer Elements 在本機產生電子郵件 HTML 與可編輯 JSON。需要拖曳修改時，再由你決定是否開啟 Unlayer 線上編輯器。</p>
   </div>
   <div className="email-grid">
@@ -146,9 +150,9 @@ export default function EmailStudio(){
   </div>
   <section className="email-cloud">
    <h2>03 / 視覺化拖曳編輯（選用）</h2>
-   <p><ShieldCheck size={16}/> 此功能會載入第三方 Unlayer 線上程式，並將目前的設計內容交由該服務處理。請勿匯入機密信件、醫療資料或個人識別資料。基本 HTML 生成與匯出不需要啟用它。</p>
+   <p><ShieldCheck size={16}/> 私密模式只能使用 Janus 本機模板，不會開啟第三方編輯器。此功能會載入第三方 Unlayer 線上程式，並將目前的設計內容交由該服務處理。請勿匯入機密信件、醫療資料或個人識別資料。基本 HTML 生成與匯出不需要啟用它。</p>
    {!editorOpen?
-    <button className="email-primary" disabled={!snapshot} type="button" onClick={()=>setEditorOpen(true)}>同意載入並開啟 Unlayer 編輯器</button>:
+    <button className="email-primary" disabled={!snapshot} type="button" onClick={()=>{const verdict=janusPermission("hosted-editor",{privateMode:currentChatMode()==="private",approved:true});if(!verdict.allow){setNotice(verdict.reason);return;}setEditorOpen(true);}}>同意載入並開啟 Unlayer 編輯器</button>:
     <Suspense fallback={<p role="status">正在準備編輯器…</p>}>
      {snapshot?<EmailVisualEditor design={snapshot.design} onClose={()=>setEditorOpen(false)} onExport={(design,html)=>{
       setSnapshot(prev=>prev?{...prev,design,html,updatedAt:new Date().toISOString()}:null);
@@ -157,6 +161,6 @@ export default function EmailStudio(){
     </Suspense>}
   </section>
   <p className="email-footer-note" role="status">{notice}</p>
-  <p className="email-footer-note">本機存檔依目前 Google 登入帳號隔離；未登入時，使用共用裝置儲存空間。{currentAccount!==account?" 偵測到帳號變更，請重新確認儲存／讀取。":""}目前不會自動寄送郵件、同步 Drive 或呼叫 AI。</p>
+  <p className="email-footer-note">Detroit / Janus · 本機存檔依目前 Google 登入帳號隔離；未登入時，使用共用裝置儲存空間。{currentAccount!==account?" 偵測到帳號變更，請重新確認儲存／讀取。":""}目前不會自動寄送郵件、同步 Drive 或呼叫 AI。</p>
  </div>;
 }

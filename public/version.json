@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.01-email-studio",
-  "description": "Unlayer Email Studio: offline templates and HTML/JSON export, opt-in visual editing, account-isolated drafts"
+  "build": "2026.10.20.02-janus-detroit",
+  "description": "Janus Detroit email designer with offline HTML/JSON generation and opt-in Unlayer editor; Veritas source verification preserved"
 }

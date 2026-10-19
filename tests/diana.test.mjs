@@ -35,11 +35,14 @@ test("Diana supports CREAM, Janus, Retina and Studio handoffs",()=>{
  assert.equal(chooseDianaTool("修改 Vanilla GitHub 原始碼",normal).event,"vanilla-open-builder");
 });
 test("Factory and governance adapters cannot be triggered in chat",()=>{
- for(const id of ["medusa","gridcraft","moli","persistent-jobs","zeus","athena"]){
+ for(const id of ["gridcraft","moli","persistent-jobs","zeus","athena"]){
   assert.equal(chooseDianaTool("執行任務",normal,id).kind,"report",id);
  }
  assert.equal(chooseDianaTool("修改 Vanilla 原始碼",privateMode).kind,"report");
+ assert.equal(chooseDianaTool("執行 Python",privateMode,"medusa").kind,"report");
+ assert.equal(chooseDianaTool("執行 Python",normal,"medusa").tab,"medusa");
+ assert.equal(chooseDianaTool("系統效能",normal,"luca").tab,"luca");
  assert.equal(chooseDianaTool("",normal).kind,"report");
  const requested=parseDianaInvocation("@Medusa 執行 Python");
- assert.equal(chooseDianaTool(requested?.request||"",normal,requested?.forcedTool||null).tool,"medusa");
+ assert.equal(chooseDianaTool(requested?.request||"",normal,requested?.forcedTool||null).tab,"medusa");
 });

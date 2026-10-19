@@ -25,10 +25,10 @@ export function fromCreamRows(rows:readonly (readonly unknown[])[],source:string
  if(rows.some(row=>!Array.isArray(row)))throw Error("CREAM：表格列的格式不正確。");
  const width=rows[0].length;
  if(width<2||width>MAX_COLS)throw Error("CREAM：資料應有 2–12 個欄位。");
- const headers=rows[0].map((v,i)=>safeText(v)||"欄位 "+(i+1));
+ const headers=rows[0].map((v:unknown,i:number)=>safeText(v)||"欄位 "+(i+1));
  const used=new Set<string>();
  for(const header of headers){if(used.has(header))throw Error("CREAM：欄位名稱必須唯一，請先重新命名重複欄位："+header);used.add(header);}
- const records=rows.slice(1).filter(row=>row.some(cell=>safeText(cell)!=="")).map((row)=>Array.from({length:width},(_,i)=>safeText(row[i])));
+ const records=rows.slice(1).filter((row:readonly unknown[])=>row.some((cell:unknown)=>safeText(cell)!=="")).map((row)=>Array.from({length:width},(_,i)=>safeText(row[i])));
  if(!records.length)throw Error("CREAM：沒有可分析的資料列。");
  return {source:source.trim().slice(0,120)||"未命名資料",columns:headers,rows:records,importedAt:new Date().toISOString()};
 }

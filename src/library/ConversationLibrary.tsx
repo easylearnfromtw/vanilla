@@ -12,7 +12,7 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
  const [cloud,setCloud]=useState<MemoryRecord[]>([]);
  const [selected,setSelected]=useState<string>("");
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState("");
- const [preview,setPreview]=useState<string>(""),[textContent,setTextContent]=useState("");
+ const [preview,setPreview]=useState<string>(""),[textContent,setTextContent]=useState(""),[originalText,setOriginalText]=useState("");
  const [name,setName]=useState(""),[note,setNote]=useState("");
  const [filter,setFilter]=useState<"all"|"device"|"drive">("all");
  const owner=attachmentOwner(signedChatAccount());
@@ -41,7 +41,7 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
  const visible=items.filter(x=>filter==="all"||x.kind===filter);
  const active=items.find(x=>uid(x)===selected);
  useEffect(()=>{
-  setPreview("");setTextContent("");
+  setPreview("");setTextContent("");setOriginalText("");
   if(!active)return;
   setName(active.kind==="device"?active.entry.name:active.entry.title);
   setNote(active.kind==="device"?active.entry.note:active.entry.description);
@@ -51,7 +51,7 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
     const blob=active.kind==="device"?(await getChatAttachment(active.entry.id,owner)).blob:await previewMemoryAttachment(active.entry.id);
     if(!alive)return;
     const type=blob.type|| (active.kind==="device"?active.entry.type:active.entry.fileMimeType||"");
-    if(/^text\//.test(type)||/json/.test(type)){if(blob.size<=1000000)setTextContent((await blob.text()).slice(0,100000));return;}
+    if(/^text\//.test(type)||/json/.test(type)){if(blob.size<=1000000){const content=(await blob.text()).slice(0,100000);if(alive){setTextContent(content);setOriginalText(content);}}return;}
     if(blob.size<=16*1024*1024&&(/^(?:image|audio|video)\//.test(type)||type==="application/pdf")){url=URL.createObjectURL(blob);setPreview(url);}
    }catch(e){if(alive)setNotice("附件預覽失敗："+String(e));}
   })();
@@ -61,9 +61,12 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
   if(!active)return;
   setBusy(true);
   try{
-   if(active.kind==="device")await changeChatAttachment(active.entry.id,owner,{name,note});
+   if(active.kind==="device"){
+    const changed=textContent!==originalText&&active.entry.size<=1000000?new File([textContent],name,{type:active.entry.type||"text/plain"}):undefined;
+    await changeChatAttachment(active.entry.id,owner,{name,note,file:changed});
+   }
    else await updateMemoryDetails(active.entry.id,{title:name,description:note});
-   setNotice("已保存名稱與註記，不會覆寫原始雲端檔案。");
+   setOriginalText(textContent);setNotice("已保存修改；若為本機文字檔，文字內容也已寫回。Google Drive 原始檔案未被覆寫。");
    await refresh();
   }catch(e){setNotice("修改失敗："+String(e));}finally{setBusy(false);}
  }
@@ -100,7 +103,7 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
    {preview&&fileType.startsWith("video/")&&<video src={preview} controls preload="metadata" className="library-media"/>}
    {preview&&fileType.startsWith("audio/")&&<audio src={preview} controls/>}
    {preview&&fileType==="application/pdf"&&<iframe src={preview} title={"預覽 "+name} sandbox="" className="library-document"/>}
-   {textContent&&<pre className="library-text">{textContent.slice(0,5000)}</pre>}
+   {(textContent||originalText)&&<label>檔案文字內容（本機檔案可直接修改）<textarea className="library-text" rows={9} value={textContent} onChange={e=>setTextContent(e.target.value.slice(0,100000))} readOnly={active.kind!=="device"}/></label>}
    {!preview&&!textContent&&<p className="library-hint"><FileText size={15}/>此檔案暫不支援頁內預覽；可修改資訊，或到雲端檔案管理查看來源。</p>}
    <label>名稱 <input value={name} maxLength={180} onChange={e=>setName(e.target.value)}/></label>
    <label>註記／文字內容索引 <textarea rows={5} value={note} maxLength={4000} onChange={e=>setNote(e.target.value)} /></label>

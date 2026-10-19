@@ -6,6 +6,7 @@ export const BUILTIN_TOOLS:readonly WeiGuoTool[]=[
  {id:"wordcraft-documents",label:"WordCraft（選用）",kind:"atriensis",description:"Retina 進階文件排版／DOCX、PDF 轉檔；後端需安裝 Rust CLI 且通過隔離審查，預設停用",enabled:false,permissions:["read","export"]},
  {id:"gridcraft-sheets",label:"GridCraft Sheets（選用）",kind:"cream",description:"後端 CLI 產生 XLSX，須家庭授權、操作確認及管理員啟用；預設不部署",enabled:false,permissions:["read","export"]},
  {id:"medusa-judge0",label:"Medusa · Judge0（選用）",kind:"custom",description:"Detroit Factory 程式碼執行與驗證；僅限後端管理員、獨立 Judge0 沙盒，預設關閉",enabled:false,permissions:["analyze"]},
+ {id:"quirinus-vulnclaw",label:"Quirinus · VulnClaw（選用）",kind:"custom",description:"Detroit Factory 資安掃描工具；目前僅私有隔離後端管理員可呼叫 L1/L2 靜態掃描，預設關閉",enabled:false,permissions:["analyze"]},
  {id:"cream-data",label:"CREAM",kind:"cream",description:"確定性資料驗證、統計與圖表；交給既有本機引擎",enabled:true,permissions:["read","analyze"]},
  {id:"atriensis-files",label:"Atriensis",kind:"atriensis",description:"讀取已授權檔案並保留所有權邊界",enabled:true,permissions:["read"]}
 ];

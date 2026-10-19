@@ -26,6 +26,16 @@ services:
       # Optional: enable only after installing a reviewed gridcraft-cli binary
       # into the trusted backend PATH. No binary is bundled in this image.
       WEIGUO_GRIDCRAFT_ENABLED: "false"
+      # Medusa / Judge0 is never public, opt-in only.
+      MEDUSA_ENABLED: "false"
+      MEDUSA_SANDBOX_EGRESS_BLOCKED: "false"
+      # MEDUSA_JUDGE0_URL: "http://judge0:2358"
+      # MEDUSA_PYTHON_LANGUAGE_ID: "109" # Verify the deployment language ID first.
+      # WordCraft remains off. Never attest to isolation until enforced at the host/VPC.
+      WEIGUO_WORDCRAFT_ENABLED: "false"
+      WEIGUO_WORDCRAFT_EGRESS_ISOLATED: "false"
+      # Once a trusted binary is deployed, set WEIGUO_WORDCRAFT_SHA256 server-side
+      # to the actual independently verified 64-digit digest, NOT to an example value.
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:

@@ -2,7 +2,8 @@ import {useEffect,useMemo,useState} from "react";
 import {Download,FileText,ShieldCheck,Layers3,ArrowRight,ExternalLink} from "lucide-react";
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from "../detroit/retina";
 import {currentChatMode} from "../local-ai/chat-session";
-import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from "../weiguo/api";
+import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity,getWeiGuoOrchestraCapabilities} from "../weiguo/api";
+import {wordcraftConfigured,type OrchestraCapabilities} from "./capability-contract";
 import {downloadCreamSvg,type OrchestraChart} from "./cream-chart";
 import {ORCHESTRA_TOOLS,orchestraPlan,orchestraTool,type OrchestraFormat,type OrchestraToolId} from "./core";
 import "./orchestra.css";
@@ -17,10 +18,23 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  const [consent,setConsent]=useState(false);
  const [busy,setBusy]=useState(false);
  const [status,setStatus]=useState("");
+ const [capabilities,setCapabilities]=useState<OrchestraCapabilities|null>(null);
+ const [capNotice,setCapNotice]=useState("未連接後端");
+ const [checking,setChecking]=useState(false);
  const privateMode=currentChatMode()==="private";
+ const backendWordcraft=wordcraftConfigured(capabilities);
+ async function refreshCapabilities(){
+  if(privateMode){setCapabilities(null);setCapNotice("私人模式不連線至後端");return;}
+  if(!weiGuoApiBase()||!weiGuoIdentity()){setCapabilities(null);setCapNotice("需先登入衞國家庭後端");return;}
+  setChecking(true);
+  try{setCapabilities(await getWeiGuoOrchestraCapabilities());setCapNotice("已向家庭後端查詢工具配置；配置不代表原生轉檔已完成驗收");}
+  catch(e){setCapabilities(null);setCapNotice("無法驗證後端能力："+String(e instanceof Error?e.message:e));}
+  finally{setChecking(false);}
+ }
+ useEffect(()=>{void refreshCapabilities();},[privateMode]);
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,50000));setStatus("已接收 "+(source==="cream"?"CREAM 統計結果":"前一個工作區的文字")+"，尚未傳送到任何後端。");}},[initialBody,source]);
  const meta=orchestraTool(tool);
- const plan=useMemo(()=>orchestraPlan({tool,format,privateMode,cream:source==="cream",creamChart:!!chart&&chart.points.length>=2}),[tool,format,privateMode,source,chart]);
+ const plan=useMemo(()=>orchestraPlan({tool,format,privateMode,cream:source==="cream",creamChart:!!chart&&chart.points.length>=2,remoteAvailable:backendWordcraft}),[tool,format,privateMode,source,chart,backendWordcraft]);
  const creamSvg=format==="svg"&&tool==="vectorcraft"&&!!chart&&chart.points.length>=2;
  const local=["pdf","docx","pptx"].includes(format)||creamSvg;
  function selectTool(id:OrchestraToolId){
@@ -54,9 +68,10 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  return <section className={"orchestra-studio"+(compact?" is-compact":"")}>
   {!compact&&<header className="orchestra-head"><p>DETROIT / ORCHESTRA</p><h1>ORCHESTRA <em>STUDIO</em></h1><span>跨格式製作管弦系統 · 7 種 Craft 工具統一調度</span></header>}
   <div className="orchestra-summary"><Layers3 size={18}/><p><strong>Orchestra 是工作流及分工層，不是七個額外 AI 模型。</strong>目前可直接使用 Retina 的本機 DOCX／PDF／PPTX 匯出；七個 Craft 原生引擎屬選用整合，是否能執行需依後端部署與驗證結果。</p></div>
+  <div className="orchestra-capabilities"><p role="status">{capNotice}</p><button type="button" disabled={checking||privateMode} onClick={()=>void refreshCapabilities()}>{checking?"檢查中…":"重新檢查引擎"}</button></div>
   <div className="orchestra-tools" aria-label="選擇製作引擎">
    {ORCHESTRA_TOOLS.map(t=><button type="button" key={t.id} className={tool===t.id?"selected":""} aria-pressed={tool===t.id} onClick={()=>selectTool(t.id)}>
-     <small>CRAFT / {t.id.toUpperCase()}</small><strong>{t.name}</strong><span>{t.summary}</span>
+     <small>CRAFT / {t.id.toUpperCase()}</small><strong>{t.name}</strong><span>{t.summary}</span><span>{t.id==="wordcraft"&&backendWordcraft?"後端已配置 · 尚未完成實測":"原生引擎未啟用"}</span>
     </button>)}
   </div>
   <div className="orchestra-layout">
@@ -73,8 +88,9 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
     {tool==="wordcraft"&&<div className="orchestra-remote"><strong>WordCraft 原生後端（選用）</strong>
       <p>需安裝並隔離 WordCraft CLI、完成衞國家庭登入。此操作會將本次文字傳送到你設定的衞國後端。未安裝時會明確回報不可用。</p>
       <label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> 同意此次將文件內容送交衞國後端</label>
-      <button type="button" disabled={busy||privateMode||!consent||!body.trim()||!weiGuoApiBase()||!weiGuoIdentity()} onClick={()=>void makeWordcraft()}>透過 WordCraft 產製 {format.toUpperCase()}</button>
+      <button type="button" disabled={busy||privateMode||!consent||!body.trim()||!backendWordcraft||!weiGuoApiBase()||!weiGuoIdentity()} onClick={()=>void makeWordcraft()}>透過 WordCraft 產製 {format.toUpperCase()}</button>
       {(!weiGuoApiBase()||!weiGuoIdentity())&&<p>請先設定並登入「衞國系統」，才能測試選用 WordCraft 後端。</p>}
+      {!backendWordcraft&&<p>目前未取得後端 WordCraft 可用配置；不能執行原生轉檔。可使用本機 Retina。</p>}
     </div>}
     <p className="orchestra-feedback" role="status">{status}</p>
    </section>

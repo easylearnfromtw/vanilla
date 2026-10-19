@@ -6,8 +6,11 @@ Not active unless the operator deploys a trusted binary and verifies egress isol
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import os
 import pathlib
+import re
 import tempfile
 
 
@@ -29,12 +32,28 @@ WORDCRAFT_LOCK = asyncio.Semaphore(1)
 
 
 def available() -> bool:
-    path = os.environ.get("WEIGUO_WORDCRAFT_CLI", "/usr/local/bin/wordcraft-cli")
-    return (os.environ.get("WEIGUO_WORDCRAFT_ENABLED") == "true"
-            and os.environ.get("WEIGUO_WORDCRAFT_EGRESS_ISOLATED") == "true"
-            and pathlib.Path(path).is_absolute()
-            and pathlib.Path(path).is_file()
-            and os.access(path, os.X_OK))
+    """Permit execution only for the SHA-256-pinned operator-approved binary.
+
+    SHA matching does not replace a true OS-level sandbox or an end-to-end smoke test.
+    """
+    if (os.environ.get("WEIGUO_WORDCRAFT_ENABLED") != "true"
+            or os.environ.get("WEIGUO_WORDCRAFT_EGRESS_ISOLATED") != "true"):
+        return False
+    binary = pathlib.Path(os.environ.get("WEIGUO_WORDCRAFT_CLI", "/usr/local/bin/wordcraft-cli"))
+    expected = os.environ.get("WEIGUO_WORDCRAFT_SHA256", "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        return False
+    try:
+        if (not binary.is_absolute() or binary.is_symlink()
+                or not binary.is_file() or not os.access(binary, os.X_OK)):
+            return False
+        if not 0 < binary.stat().st_size <= 256 * 1024 * 1024:
+            return False
+        with binary.open("rb") as source:
+            digest = hashlib.file_digest(source, "sha256").hexdigest()
+        return hmac.compare_digest(digest, expected)
+    except OSError:
+        return False
 
 
 async def convert_markdown(title: str, body: str, fmt: str) -> bytes:

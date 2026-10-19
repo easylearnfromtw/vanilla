@@ -105,4 +105,5 @@ OPERATOR_ROUTES = frozenset(("/v1/tools", "/v1/plan", "/v1/execute", "/v1/tasks"
 
 def private_operator_route(path: str) -> bool:
     """Do not publish operator capabilities on a family-only Railway origin."""
-    return path in OPERATOR_ROUTES or path.startswith("/v1/tasks/")
+    return (path in OPERATOR_ROUTES or path.startswith("/v1/tasks/")
+            or path.startswith("/v1/operator/"))

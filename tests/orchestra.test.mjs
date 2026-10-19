@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ORCHESTRA_TOOLS,orchestraPlan,creamOrchestraBrief} from '../src/orchestra/core.ts';
 import {creamLineSvg} from '../src/orchestra/cream-chart.ts';
+import {validateOrchestraCapabilities,wordcraftConfigured} from '../src/orchestra/capability-contract.ts';
 
 test('seven native tool adapters registered with unique ids and authoritative upstream URLs',()=>{
  assert.equal(ORCHESTRA_TOOLS.length,7);
@@ -49,4 +50,23 @@ test('CREAM line chart generates safe, portable SVG without external assets',()=
 test('Orchestra supports genuine local SVG only with CREAM data',()=>{
  assert.equal(orchestraPlan({format:'svg',tool:'vectorcraft',creamChart:true}).backend,'cream-local');
  assert.equal(orchestraPlan({format:'svg',tool:'vectorcraft',creamChart:true}).steps.at(-1).engine,'cream');
+});
+
+test('authenticated capability data never grants unimplemented native engines',()=>{
+ const unavailable=['wordcraft','deckcraft','vectorcraft','photocraft','pdfcraft','effectcraft','designcraft']
+  .map(id=>({id,status:'unavailable',operations:[],outputFormats:[],runtimeVerified:false}));
+ const payload={schemaVersion:1,execution:'family-gateway',engines:unavailable};
+ assert.equal(wordcraftConfigured(validateOrchestraCapabilities(payload)),false);
+ const valid={...payload,engines:[
+  {...unavailable[0],status:'configured',operations:['convert-markdown'],outputFormats:['docx','pdf']},
+  ...unavailable.slice(1)]};
+ assert.equal(wordcraftConfigured(validateOrchestraCapabilities(valid)),true);
+ assert.throws(()=>validateOrchestraCapabilities({...payload,engines:[...unavailable.slice(0,6),
+  {...unavailable[6],id:'eval'}]}),/未授權/);
+ assert.throws(()=>validateOrchestraCapabilities({...payload,engines:unavailable.map(e=>e.id==='deckcraft'?
+  {...e,status:'configured',operations:['run-code'],outputFormats:['pptx']}:e)}),/未實作/);
+ assert.throws(()=>validateOrchestraCapabilities({...valid,engines:valid.engines.map(e=>e.id==='wordcraft'?
+  {...e,runtimeVerified:true}:e)}),/未支援/);
+ assert.throws(()=>validateOrchestraCapabilities({...payload,engines:unavailable.map(e=>e.id==='pdfcraft'?
+  {...e,operations:['delete-files']}:e)}),/不得宣告/);
 });

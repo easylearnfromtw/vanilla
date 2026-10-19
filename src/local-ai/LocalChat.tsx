@@ -537,7 +537,7 @@ async function send(value=draft){
    return;
   }
   case "open":{
-   const events:Record<string,string>={cream:"vanilla-open-cream",projects:"vanilla-open-projects",sheets:"vanilla-open-sheets",files:"vanilla-open-files",builder:"vanilla-open-builder",library:"vanilla-open-library",settings:"vanilla-open-settings"};
+   const events:Record<string,string>={detroit:"vanilla-open-detroit",cream:"vanilla-open-cream",projects:"vanilla-open-projects",sheets:"vanilla-open-sheets",files:"vanilla-open-files",builder:"vanilla-open-builder",library:"vanilla-open-library",settings:"vanilla-open-settings"};
    window.dispatchEvent(route.section==="builder"?new CustomEvent(events.builder,{detail:{}}):new Event(events[route.section]));
    setDraft("");return;
   }

@@ -57,6 +57,8 @@ jobs:
       - run: npm run test:model-tuning
       - run: npm run test:archive
       - run: npm run test:providers
+      - name: Athena private scanner unit tests (no AV daemon)
+        run: python3 -m unittest discover -s services/detroit-scanner -p 'test_*.py'
       - name: Validate NOODLES trainer (no GPU)
         run: |
           python3 -m py_compile training/noodles_train.py

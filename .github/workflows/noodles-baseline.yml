@@ -1,0 +1,34 @@
+name: NOODLES Daily Baseline
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: noodles-baseline
+  cancel-in-progress: false
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Run objective non-LLM regression checks
+        run: |
+          npm run test:noodles
+          npm run test:autocode
+          npm run test:cream
+          npm run test:assistant
+          npm run test:security
+          npm run build
+      - name: Summarize known baseline
+        if: always()
+        run: |
+          echo "Vanilla main: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Scheduled objective checks only: this job does not ask a paid model, modify code, or automatically deploy changes." >> "$GITHUB_STEP_SUMMARY"
+          echo "Model-generated changes still require the CODE Studio, an authenticated GitHub Worker, CI, and your approval to merge." >> "$GITHUB_STEP_SUMMARY"

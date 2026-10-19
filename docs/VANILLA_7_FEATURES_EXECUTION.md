@@ -30,3 +30,9 @@
 ## 後續可選
 - 有使用者自己的 HTTPS 搜尋後端，才可擴大至 Google/Brave 等完整即時搜尋內容，不應在公開 Pages 暴露搜尋服務 API key。
 - 圖片旋轉、裁切與跨裝置同步，以及更完整的 CREAM 報告，是下一階段；本 PR 不虛稱完成。
+
+## 擴充全網搜尋（需要自行設定）
+
+正式版設定頁的「偏好網站與搜尋權重」現在可以輸入可替換的 HTTPS 搜尋後端。由使用者控制的後端提供 `GET /search?q=<URL-encoded query>`，回傳 `{ "results": [{ "title": "...", "url": "https://...", "snippet": "..." }] }`。Vanilla 以不帶憑證的 CORS 請求查詢，並過濾危險網址與疑似提示詞注入。Google/Brave API 金鑰應配置於該服務端，切勿存放公開的 Vanilla 原始碼或聊天文字。
+
+Google 的 Custom Search JSON API 自 2025 年起已不對新用戶提供，且現有用戶需在 2027-01-01 前轉移（Google 2026-02 官方文件），因此不依賴這個逐步退場的 API。未設定私有搜尋後端時，系統可查公開 Wikipedia/Crossref，並顯示 Google 等外部搜尋連結；不能假裝直接拿到 Google 搜尋結果。

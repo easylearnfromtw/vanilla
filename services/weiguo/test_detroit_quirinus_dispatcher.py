@@ -75,7 +75,7 @@ class DispatchTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict(os.environ, {"DETROIT_QUIRINUS_DISPATCH_ENABLED": "true"}), \
              patch.object(dispatch.quirinus, "validate_source", return_value=Path("/scan-src")), \
              patch.object(dispatch, "_fingerprint", return_value="a" * 64), \
-             patch.object(dispatch.time, "monotonic", side_effect=[100, 400]):
+             patch.object(dispatch, "_APPROVAL_TTL", -1):
             import json
             token = json.loads((await dispatch.prepare_review()).body)["approvalToken"]
             with self.assertRaises(HTTPException) as e:

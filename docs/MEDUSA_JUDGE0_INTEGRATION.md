@@ -62,3 +62,57 @@ npm run test:detroit-factory
 ```
 
 Check the Judge0 project license and applicable obligations before commercial distribution or modified redistribution.
+
+
+## Detroit Studio 手動執行（家庭管理者，需管理端另行核准）
+
+Vanilla 現在提供 `Detroit Studio → Medusa` 操作介面，經現有 Google OIDC
+家庭身分登入後，可透過後端呼叫獨立 Judge0 執行 Python、取得真實
+stdout/stderr/status。**這個功能不會自動執行 AI 生成的任何程式。**
+
+- `GET /v1/family/medusa/status`：檢查授權與 Judge0 API/language 是否可連線；
+  連線成功 **不代表** 已完成隔離與實際執行驗收。
+- `POST /v1/family/medusa/run`：以 `{ "source_code":"print(42)", "stdin":"", "approved":true }`
+  執行一次；必須由使用者在 Medusa UI 逐次核准。
+- 使用既有 Google 簽章家庭 Session；**僅 role=owner 且 Google sub 在伺服器白名單**可以呼叫。
+  viewer、member 與未登入者均不得執行。
+- 仍有每個 owner 每分鐘 3 次的應用程式層配額（每個服務程序）；
+  多節點部署需補上共享限速與外部閘道配額。
+- 私人模式阻擋前端發送；伺服器端不儲存 source/stdin 於工作佇列。
+  它們會穿過 HTTPS 與內部 Judge0 API，所以不要提交密碼、個資或金鑰。
+
+即使部署的衞國後端已經有這些路由，`MEDUSA_FAMILY_ENABLED` 預設仍是 false，
+並且 **Judge0 本身不包含在本專案中**。
+
+只有當實體 Judge0 執行節點通過端到端測試之後，才在伺服器 **私密環境變數**
+追加以下欄位（不可寫在 GitHub Pages 或 Vite 變數）：
+
+```dotenv
+MEDUSA_ENABLED=true
+MEDUSA_SANDBOX_EGRESS_BLOCKED=true
+MEDUSA_JUDGE0_URL=http://judge0:2358
+MEDUSA_PYTHON_LANGUAGE_ID=<GET /languages verified numeric id>
+MEDUSA_FAMILY_ENABLED=true
+MEDUSA_FAMILY_OWNER_SUBS=<verified Google OIDC sub>
+```
+
+前四項與既有管理員專用路由共用，後兩項只授予單一已核准的家庭 owner。
+**不要用 email、暱稱或帳號下拉選擇器取代 Google sub。**
+
+### Railway 的實際部署限制
+
+Judge0 官方 Docker Compose 的 server 與 worker 都設有 `privileged: true`，
+而目前 Vanilla 的 Railway `weiguo-browser` 是受限容器：
+**不得直接在該容器裝 Judge0 或宣稱可以安全執行不可信程式。**
+需要能使用 Judge0 的 isolate/cgroup 的獨立受控 Linux VPS / VM；
+應將 Judge0 API 限制在私有網路，透過經驗證的私人通道讓 WeiGuo
+只連到固定 `http://judge0:2358` 內部位址，禁止公開 API port 與 host Docker socket。
+
+本版只完成 Vanilla 前後端接線與測試；完成後的分階段驗收需包括：
+1. 執行 `print(42)` 得到 `42`，以及 Python 例外能回傳 stderr；
+2. 迴圈 CPU 超時、記憶體超額、fork/process 限額確實由 **主機** 阻擋；
+3. 沙盒內網路、內部 IP、metadata endpoint、DNS、宿主機檔案等不可存取；
+4. 還原隔離環境和獨立使用者權限；確認不會暴露家庭服務、API 金鑰或其他容器；
+5. 通過上述項目並驗證目標 Judge0 版本後，才可開啟 family flags。
+
+尚未通過這些測試前，UI 必須顯示「尚未由管理端開啟」，不能出現成功執行的假結果。

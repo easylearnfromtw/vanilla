@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {Wrench,ChevronDown,ExternalLink,FileSpreadsheet,Database,FolderOpen,Code,Search} from "lucide-react";
+import {Wrench,ChevronDown,ExternalLink,FileSpreadsheet,Database,FolderOpen,Code,Search,Info} from "lucide-react";
 import {PROJECTS} from "./intent-router";
 import {searchLinks} from "../search/source-preferences";
 import {driveSession} from "../workspace/cloud-drive";
@@ -11,6 +11,7 @@ export default function AssistantTools({onPrompt}:{onPrompt:(query:string)=>void
   {expanded&&<div className="assistant-tool-content">
    <p>所有工具以對話為入口。只有你要求時才開啟其他介面或操作專案資料。</p>
    <div className="assistant-tool-shortcuts">
+    <button type="button" onClick={()=>onPrompt("你能做什麼？")}><Info size={15}/>功能實況</button>
     <button type="button" onClick={()=>onPrompt("幫我建立家庭收支表格")}><FileSpreadsheet size={15}/>表格</button>
     <button type="button" onClick={()=>onPrompt("查詢健人最近的訓練數據")}><Database size={15}/>健人數據</button>
     <button type="button" onClick={()=>onPrompt("開啟雲端檔案")}><FolderOpen size={15}/>檔案</button>

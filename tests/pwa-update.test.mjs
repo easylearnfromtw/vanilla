@@ -26,3 +26,9 @@ test("PWA notice includes manual diagnostics and never deletes private local dat
  assert.match(view,/cache:"no-store"/);
  assert.doesNotMatch(view,/\.unregister\(|caches\.delete\(|indexedDB\.deleteDatabase\(|localStorage\.clear\(/);
 });
+test("release diagnostics are accessible from system settings without opening chat tools",()=>{
+ const settings=source("src/settings/SettingsPage.tsx");
+ assert.match(settings,/import PWAUpdateNotice/);
+ assert.match(settings,/<div className="settings-pwa-update"><PWAUpdateNotice\/>/);
+ assert.match(settings,/id="system"/);
+});

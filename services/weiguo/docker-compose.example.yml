@@ -16,10 +16,6 @@ services:
       WEIGUO_FAMILY_ACL_JSON: "${WEIGUO_FAMILY_ACL_JSON:?Required}"
       # Explicit HTTPS origin for the PWA, without /vanilla path.
       WEIGUO_CORS_ORIGINS: "https://easylearnfromtw.github.io"
-      WEIGUO_SESSION_SECRET: "${WEIGUO_SESSION_SECRET:?Required}"
-      WEIGUO_GOOGLE_CLIENT_ID: "${WEIGUO_GOOGLE_CLIENT_ID:?Required}"
-      WEIGUO_FAMILY_ACL_JSON: "${WEIGUO_FAMILY_ACL_JSON:?Required}"
-      WEIGUO_CORS_ORIGINS: "${WEIGUO_CORS_ORIGINS:-https://easylearnfromtw.github.io}"
       WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
       WEIGUO_ALLOW_JAVASCRIPT: "false"
       WEIGUO_ALLOW_MUTATIONS: "false"

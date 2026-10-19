@@ -24,6 +24,9 @@ jobs:
           npm run test:resource-integration
           npm run test:cream
           npm run test:detroit
+          npm run test:detroit-studio
+          npm run test:retina
+          npm run test:detroit-notifications
           npm run test:cream-longitudinal
           npm run test:cream-google
           npm run test:noodles

@@ -20,6 +20,7 @@ export default function MessageArtifacts({turn,onOpenTable,onOpenSheet,onOpenCre
  }
  if(turn.sheet)items.push({id:"sheet",label:"工作簿",node:<SheetPreview sheet={turn.sheet} onEdit={()=>onOpenSheet(turn.sheet!)}/>});
  if(turn.cream)items.push({id:"cream",label:"CREAM 互動分析",node:<CreamMessage result={turn.cream} onOpenSheets={onOpenCream?()=>onOpenCream(turn.cream!):undefined}/>});
+ if(turn.content?.trim().length>40)items.push({id:"retina",label:"Retina 匯出",node:<div className="swipe-artifact-table"><p>將這則回答交給 Retina 在本機生成 PDF、Word 或簡報，不自動傳送到雲端。</p><button type="button" className="artifact-action" onClick={()=>window.dispatchEvent(new CustomEvent("vanilla-open-detroit",{detail:{body:turn.content.slice(0,160000)}}))}>在 Retina 建立文件 ↗</button></div>});
  for(const [index,source] of (turn.webSources||[]).entries()){
   const href=safeExternalURL(source.url);
   if(!href)continue;

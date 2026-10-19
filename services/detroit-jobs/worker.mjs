@@ -1,3 +1,4 @@
+import {dispatchNotifications} from "./notifications.mjs";
 /** Detroit Persistent Jobs — opt-in Cloudflare Worker + D1 scheduler.
  * No JavaScript execution, no arbitrary scraping, no AI model or API secrets in job payloads.
  * v0 supports allowlisted public-page change checks only; server must be deployed separately.
@@ -34,12 +35,14 @@ async function pageCheck(job,env,now){
   const bytes=new TextEncoder().encode(body);
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))).map(x=>x.toString(16).padStart(2,"0")).join("");
   const changed=Boolean(job.last_digest)&&job.last_digest!==digest;
-  await env.DETROIT_DB.batch([
+  const writes=[
    env.DETROIT_DB.prepare("UPDATE jobs SET last_digest=?,last_error=NULL,checked_at=?,next_run=?,updated_at=? WHERE id=? AND enabled=1")
     .bind(digest,now,now+job.interval_minutes*60000,now,job.id),
    env.DETROIT_DB.prepare("INSERT INTO job_runs(job_id,owner_id,checked_at,status,changed,digest,detail) VALUES(?,?,?,?,?,?,?)")
     .bind(job.id,job.owner_id,now,"ok",changed?1:0,digest,changed?"內容摘要已變更":"無變更")
-  ]);
+  ];
+  if(changed)writes.push(env.DETROIT_DB.prepare("INSERT OR IGNORE INTO notification_outbox(job_id,owner_id,target_url,digest,created_at,next_attempt,attempts,status) VALUES(?,?,?,?,?,?,0,?)").bind(job.id,job.owner_id,job.target_url,digest,now,now,"pending"));
+  await env.DETROIT_DB.batch(writes);
  }finally{clearTimeout(timeout);}
 }
 async function tick(env){
@@ -55,9 +58,15 @@ async function tick(env){
    ]);
   }
  }
+ await dispatchNotifications(env);
 }
 export default {
  async fetch(request,env){
+  const publicPath=new URL(request.url).pathname;
+  if(request.method==="GET"&&publicPath==="/public-health"){
+   const origin=env.DETROIT_PUBLIC_ORIGIN||"https://easylearnfromtw.github.io";
+   return new Response(JSON.stringify({status:"reachable",service:"detroit-jobs",scheduling:"requires-operator-verification"}),{headers:{...JSON_HEADERS,"access-control-allow-origin":origin}});
+  }
   if(!requireAdmin(request,env))return json({error:"unauthorized"},401);
   if(!env.DETROIT_DB)return json({error:"D1 not configured"},503);
   const url=new URL(request.url);
@@ -82,6 +91,11 @@ export default {
    let ownerId;try{ownerId=owner(url.searchParams.get("owner"));}catch{return json({error:"invalid owner"},400);}
    const rows=await env.DETROIT_DB.prepare("SELECT job_id,checked_at,status,changed,detail FROM job_runs WHERE owner_id=? ORDER BY checked_at DESC LIMIT 100").bind(ownerId).all();
    return json({runs:rows.results||[]});
+  }
+  if(request.method==="GET"&&url.pathname==="/v1/notifications"){
+   let ownerId;try{ownerId=owner(url.searchParams.get("owner"));}catch{return json({error:"invalid owner"},400);}
+   const rows=await env.DETROIT_DB.prepare("SELECT id,job_id,created_at,attempts,status,delivered_at,last_error FROM notification_outbox WHERE owner_id=? ORDER BY created_at DESC LIMIT 100").bind(ownerId).all();
+   return json({notifications:rows.results||[]});
   }
   if(request.method==="DELETE"&&url.pathname.startsWith("/v1/jobs/")){
    let ownerId;try{ownerId=owner(url.searchParams.get("owner"));}catch{return json({error:"invalid owner"},400);}

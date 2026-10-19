@@ -14,15 +14,15 @@ export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
  {id:"scouts",label:"Scouts",group:"資料與產出",status:"adapter",description:"使用現有搜尋及網址閱讀工具；來源不可擴權"},
  {id:"cream",label:"CREAM",group:"資料與產出",status:"active",description:"現有確定性統計、繪圖與長期指標驗證"},
  {id:"atriensis",label:"Atriensis",group:"資料與產出",status:"adapter",description:"沿用檔案與 Google Drive 工具，隔離所有權及權限"},
- {id:"bard",label:"Bard",group:"資料與產出",status:"planned",description:"圖片與多媒體生成適配層，須另外配置可用服務"},
- {id:"retina",label:"Retina",group:"資料與產出",status:"adapter",description:"透過既有匯出模組產出文件；高階簡報仍待實作"},
+ {id:"bard",label:"Bard",group:"資料與產出",status:"adapter",description:"需 Gemini 圖片 API 授權和明確付費同意的雲端生圖工具"},
+ {id:"retina",label:"Retina",group:"資料與產出",status:"active",description:"瀏覽器本機真正產生 PDF、可編輯 DOCX 和 PPTX"},
  {id:"er-ya",label:"爾雅",group:"資料與產出",status:"adapter",description:"依 Merlin 原始需求檢查結論、用語與依據"},
  {id:"venus",label:"Venus",group:"資料與產出",status:"adapter",description:"依任務需要選擇精簡文字、圖表、表格或報告呈現"},
- {id:"persistent-jobs",label:"Persistent Jobs",group:"品質與持續任務",status:"planned",description:"需部署真正持續在線的授權後端；Safari 離線不會執行"},
+ {id:"persistent-jobs",label:"Persistent Jobs",group:"品質與持續任務",status:"adapter",description:"可部署 Cloudflare 後端與通知佇列；未部署無法在背景執行"},
  {id:"chronos",label:"Chronos",group:"品質與持續任務",status:"planned",description:"週期排程、重試與到期策略"},
  {id:"janus",label:"Janus",group:"品質與持續任務",status:"adapter",description:"追溯原始來源與可信度，限制網頁/模型虛構"},
  {id:"mnemosyne",label:"Mnemosyne",group:"品質與持續任務",status:"adapter",description:"沿用家庭記憶與 CREAM 歷史，各人帳號權限隔離"},
- {id:"hermes",label:"Hermes",group:"品質與持續任務",status:"planned",description:"依權限送達通知；後端可用前不得聲稱持續監控"}
+ {id:"hermes",label:"Hermes",group:"品質與持續任務",status:"adapter",description:"已提供簽章 Webhook 與重試佇列，仍需配置通知接收服務"}
 ] as const;
 export type DetroitDepth="quick"|"standard"|"deep";
 export type DetroitStage={engine:DetroitEngine;label:string;state:"waiting"|"running"|"done"|"skipped"|"error";detail:string};

@@ -1,6 +1,7 @@
 /** Athena is a fast first-pass policy scanner, NOT antivirus or a safe sandbox.
  * Nothing returned from a scanner permits code execution or overrides admin consent.
  */
+import {scanAttachmentIsolated} from "./athena-quarantine";
 export type AthenaVerdict={allow:boolean;level:"ok"|"caution"|"block";findings:string[]};
 const EXECUTABLE=/\.(?:exe|dll|scr|bat|cmd|ps1|apk|ipa|dmg|pkg|msi|com|vbs|jar)$/i;
 const MACRO=/\.(?:docm|xlsm|pptm)$/i;
@@ -25,6 +26,10 @@ export async function athenaScanFile(file:Pick<File,"name"|"size"|"type"|"slice"
  const isCode=/\.(?:js|mjs|cjs|ts|tsx|py|sh|html|sql|yml|yaml)$/i.test(file.name);
  if(isCode){const snippet=new TextDecoder().decode(head);const source=athenaScanText(snippet);issues.push(...source.findings);}
  if(file.size===0)issues.push("空白檔案，無法分析內容");
+ const quarantined=await scanAttachmentIsolated({name:file.name,size:file.size,type:file.type,arrayBuffer:()=>file.slice(0,file.size).arrayBuffer()});
+ const blocked=quarantined.filter(x=>x.level==="block");
+ if(blocked.length)return {allow:false,level:"block",findings:[...issues,...blocked.map(x=>x.reason)]};
+ issues.push(...quarantined.map(x=>x.reason));
  return {allow:true,level:issues.length?"caution":"ok",findings:issues};
 }
 export type GuardedAction="read"|"summarize"|"analyze"|"send-cloud"|"write-github"|"delete-drive"|"change-admin"|"execute-code";

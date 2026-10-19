@@ -34,7 +34,32 @@ def validated_config() -> tuple[Path, Path]:
             or not cli.is_absolute() or not cli.is_file() or cli.is_symlink()
             or not os.access(cli, os.X_OK)):
         raise HTTPException(503, "Quirinus 專用掃描目錄或受信任執行檔未配置")
+    _validate_source_tree(root)
     return root, cli
+
+
+def _validate_source_tree(root: Path) -> None:
+    """Reject symlink escapes and unreasonably large source trees before running a scanner."""
+    excluded = {".git", "node_modules", "dist", "build", ".venv", "__pycache__"}
+    files = 0
+    total_bytes = 0
+    for directory, dirs, names in os.walk(root, followlinks=False):
+        for name in dirs + names:
+            if (Path(directory) / name).is_symlink():
+                raise HTTPException(422, "Quirinus 原始碼目錄包含符號連結，已拒絕掃描")
+        dirs[:] = [name for name in dirs if name not in excluded and not name.startswith(".")]
+        for name in names:
+            file = Path(directory) / name
+            if not file.is_file():
+                continue
+            try:
+                size = file.stat().st_size
+            except OSError as exc:
+                raise HTTPException(422, "Quirinus 無法驗證原始碼檔案大小") from exc
+            files += 1
+            total_bytes += size
+            if files > 3000 or total_bytes > 128 * 1024 * 1024:
+                raise HTTPException(413, "Quirinus 掃描範圍超過預先設定的限制")
 
 
 def _clipped(value: object, limit: int) -> str:

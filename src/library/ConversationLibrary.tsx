@@ -21,13 +21,14 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
  const refresh=useCallback(async()=>{
   setBusy(true);
   try{
-   const list=await listChatAttachments(owner);
-   setDevice(list);
-   if(session){try{setCloud(await listMemories());}catch(e){setCloud([]);setNotice("Google Drive 清單載入失敗："+String(e));}}
+   // Read the *current* session: event handlers may survive an OAuth account switch.
+   const current=driveSession(),activeOwner=attachmentOwner(signedChatAccount());
+   setDevice(await listChatAttachments(activeOwner));
+   if(current){try{setCloud(await listMemories());}catch(e){setNotice("Google Drive 清單載入失敗："+String(e));}}
    else setCloud([]);
   }catch(e){setNotice("無法載入附件庫："+String(e));}
   finally{setBusy(false);}
- },[owner,session?.email]);
+ },[]);
  useEffect(()=>{void refresh();const handler=()=>void refresh();
   window.addEventListener("vanilla-library-changed",handler);
   window.addEventListener("vanilla-memory-changed",handler);
@@ -81,14 +82,39 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
   const target=active.kind==="device"?
    {id:active.entry.id,name:active.entry.name,source:"device" as const}:
    {id:active.entry.id,name:active.entry.title,source:"drive-memory" as const};
-  setBusy(true);
-  setNotice("正在刪除「"+target.name+"」，並查驗實際存放位置...");
+  setBusy(true);setNotice("正在刪除「"+target.name+"」，並查驗實際存放位置...");
   try{
-   await deleteOwnedCopy(target);
+   const result=await deleteOwnedCopy(target);
    setSelected("");setPreview("");setTextContent("");setOriginalText("");
    await refresh();
-   setNotice("已確認刪除「"+target.name+"」的 "+(active.kind==="device"?"本機附件":"雲端記憶與可管理的原始附件")+"。");
-  }catch(e){setNotice("刪除未完成，資料可能仍存在："+String(e));}
+   const other=await exactOwnedCopies(active.kind==="drive"?(active.entry.fileName||active.entry.title):target.name);
+   setNotice(result.detail+(other.length?"；另外仍有 "+other.length+" 份同名副本保存在其他位置，可使用「刪除所有同名副本」處理。":""));
+  }catch(e){
+   await refresh(); // Remote deletion may have succeeded before metadata cleanup failed.
+   setNotice("刪除未完成，資料可能仍存在："+String(e));
+  }finally{setBusy(false);}
+ }
+ async function removeAllCopies(){
+  if(!active||busy)return;
+  const filename=active.kind==="device"?active.entry.name:(active.entry.fileName||active.entry.title);
+  setBusy(true);
+  try{
+   const copies=await exactOwnedCopies(filename);
+   if(!copies.length){await refresh();setNotice("找不到可管理的同名副本。");return;}
+   if(!window.confirm("將刪除「"+filename+"」的 "+copies.length+" 份副本（本機資料直接移除，Google Drive 檔案移至垃圾桶、記憶索引移除）。不同來源可能有同名但不同內容的檔案，確認全部處理嗎？"))return;
+   const results:string[]=[],warnings:string[]=[],failed:string[]=[];
+   for(const copy of copies){
+    try{
+     const outcome=await deleteOwnedCopy(copy);
+     (outcome.status==="verified"?results:warnings).push(outcome.detail);
+    }catch(error){failed.push(copy.source+"："+(error instanceof Error?error.message:String(error)));}
+   }
+   setSelected("");setPreview("");setTextContent("");setOriginalText("");
+   await refresh();
+   setNotice("已確認處理 "+results.length+" 份；"+(results.join("；")||"沒有可驗證的原始刪除")+
+    (warnings.length?"。僅移除索引、原始檔未驗證："+warnings.join("；"):"")+
+    (failed.length?"。失敗："+failed.join("；"):""));
+  }catch(error){await refresh();setNotice("無法完成批次刪除："+String(error));}
   finally{setBusy(false);}
  }
 
@@ -114,7 +140,8 @@ export default function ConversationLibrary({onFiles}:{onFiles:()=>void}){
     <button type="button" disabled={busy} onClick={()=>void save()}><Save size={15}/>儲存修改</button>
     {active.kind==="device"&&<label className="library-replace">替換檔案<input type="file" hidden onChange={e=>{void replaceFile(e.target.files?.[0]);e.target.value="";}}/></label>}
     {active.kind==="drive"&&<button type="button" onClick={onFiles}>雲端檔案管理</button>}
-    <button type="button" className="delete" disabled={busy} onClick={()=>void remove()}><Trash2 size={15}/>刪除</button>
+    <button type="button" className="delete" disabled={busy} onClick={()=>void remove()}><Trash2 size={15}/>刪除所選副本</button>
+    <button type="button" className="delete" disabled={busy} onClick={()=>void removeAllCopies()}><Trash2 size={15}/>刪除所有同名副本</button>
    </div>
    {active.kind==="device"&&<small>已保存在此瀏覽器的 IndexedDB；刪除網站資料可能一併刪除。私密模式附件不會進入資料庫。</small>}
    </>}

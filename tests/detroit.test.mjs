@@ -9,6 +9,7 @@ const req=(token)=>new Request("https://worker.example/health",{headers:{authori
 test("registry groups independent roles without multiple loaded AI models",()=>{
  assert.ok(DETROIT_ENGINES.length>=19);
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="luna")?.status,"active");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="luca")?.status,"adapter");
  assert.equal(new Set(DETROIT_ENGINES.map(x=>x.id)).size,DETROIT_ENGINES.length);
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="persistent-jobs").status,"adapter");
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="janus").status,"active");

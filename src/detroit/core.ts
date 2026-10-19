@@ -2,7 +2,7 @@
  * Names are role descriptions, not separately loaded neural networks.
  * Plans and audit trails contain decisions and observed outcomes, NEVER private chain-of-thought.
  */
-export type DetroitEngine="merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"veritas"|"mnemosyne"|"hermes";
+export type DetroitEngine="merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"luca"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"veritas"|"mnemosyne"|"hermes";
 export type DetroitStatus="active"|"adapter"|"planned";
 export type DetroitEngineInfo={id:DetroitEngine;label:string;group:"入口與治理"|"執行與運算"|"資料與產出"|"品質與持續任務";status:DetroitStatus;description:string};
 export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
@@ -13,6 +13,7 @@ export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
  {id:"dionysus",label:"Dionysus",group:"執行與運算",status:"active",description:"限制手機本地推論併發；避免多模型同時搶資源"},
  {id:"scouts",label:"Scouts",group:"資料與產出",status:"adapter",description:"使用現有搜尋及網址閱讀工具；來源不可擴權"},
  {id:"cream",label:"CREAM",group:"資料與產出",status:"active",description:"現有確定性統計、繪圖與長期指標驗證"},
+ {id:"luca",label:"LUCA",group:"品質與持續任務",status:"adapter",description:"選用的後端 Logfire SDK 監控、低敏事件、延遲與失敗率；預設停用"},
  {id:"atriensis",label:"Atriensis",group:"資料與產出",status:"adapter",description:"沿用檔案與 Google Drive 工具，隔離所有權及權限"},
  {id:"bard",label:"Bard",group:"資料與產出",status:"adapter",description:"需 Gemini 圖片 API 授權和明確付費同意的雲端生圖工具"},
  {id:"retina",label:"Retina",group:"資料與產出",status:"active",description:"瀏覽器本機真正產生 PDF、可編輯 DOCX 和 PPTX"},

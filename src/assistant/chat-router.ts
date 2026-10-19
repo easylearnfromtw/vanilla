@@ -21,6 +21,7 @@ export const BUILD_REQUEST=/^(?:新增功能|製作功能|建立功能|功能需
 const CONVERSATIONAL_BUILD=/^(?:(?:我想|我要|幫我|幫Vanilla|請|讓Vanilla).{0,25})?(?:新增|建立|製作|做一個|設計一個).{2,150}(?:功能|模組|小工具|工具)$/i;
 const END="[！!。.?？\\s]*$";
 const OPEN:Array<{section:OpenSection;re:RegExp}>=[
+ {section:"weiguo",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:衞國|衛國|Weiguo)(?:\\s*系統)?"+END,"i")},
  {section:"cream",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:CREAM|長期分析|數據中心)"+END,"i")},
  {section:"projects",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:PROJECT\\s*HUB|專案庫|所有專案)"+END,"i")},
  {section:"sheets",re:new RegExp("^(?:開啟|打開|前往)\\s*(?:Vanilla\\s*)?(?:表格|Sheets)(?:編輯器)?"+END,"i")},
@@ -28,7 +29,7 @@ const OPEN:Array<{section:OpenSection;re:RegExp}>=[
  {section:"builder",re:new RegExp("^(?:開啟|打開|前往)\\s*(?:Vanilla\\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?"+END,"i")},
  {section:"library",re:new RegExp("^(?:開啟|打開|前往|查看)\\s*(?:對話圖片與資料|附件庫|我的附件)"+END,"i")}
 ];
-export type OpenSection="cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
+export type OpenSection="weiguo"|"cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
 
 export type ChatRoute=
  |{kind:"capability"}
@@ -89,6 +90,7 @@ export function routeTail(question:string):ChatRoute{
 /* ---------- slash commands ---------- */
 export type SlashCommand={cmd:string;label:string;hint:string;example:string;tone:"blue"|"red"|"yellow"|"ink"};
 export const SLASH_COMMANDS:SlashCommand[]=[
+ {cmd:"/衞國",label:"衞國瀏覽器工具",hint:"管理 Playwright 與自訂工具",example:"/衞國",tone:"blue"},
  {cmd:"/搜尋",label:"網路搜尋",hint:"查資料、讀前幾篇並附來源",example:"/搜尋 2026 健保部分負擔",tone:"blue"},
  {cmd:"/讀",label:"讀取檔案或網址",hint:"已保存的檔案名稱，或貼上網址",example:"/讀 報告.pdf",tone:"blue"},
  {cmd:"/記住",label:"存進雲端記憶",hint:"需要 Google 登入",example:"/記住 週三晚上游泳課",tone:"yellow"},
@@ -113,6 +115,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
  if(!m)return null;
  const [,cmd,rest]=m,arg=rest.trim();
  switch(cmd){
+  case "衞國":case "衛國":return {text:"開啟 衞國系統"};
   case "搜尋":case "search":return arg?{text:"搜尋："+arg}:null;
   case "讀":case "讀取":case "read":
    if(!arg)return null;

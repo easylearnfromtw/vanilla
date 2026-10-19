@@ -12,7 +12,8 @@
     "test:assistant": "node --experimental-strip-types --test tests/assistant.test.mjs",
     "test:security": "node --experimental-strip-types --test tests/security-language.test.mjs",
     "test:local-chat": "node --experimental-strip-types --test tests/local-chat.test.mjs",
-    "test:webllm-guard": "node --experimental-strip-types --test tests/webllm-request-guard.test.mjs"
+    "test:webllm-guard": "node --experimental-strip-types --test tests/webllm-request-guard.test.mjs",
+    "test:capabilities": "node --experimental-strip-types --test tests/capability-report.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

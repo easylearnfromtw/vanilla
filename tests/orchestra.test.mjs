@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ORCHESTRA_TOOLS,orchestraPlan,creamOrchestraBrief} from '../src/orchestra/core.ts';
 import {creamLineSvg} from '../src/orchestra/cream-chart.ts';
-import {validateOrchestraCapabilities,wordcraftConfigured} from '../src/orchestra/capability-contract.ts';
+import {validateOrchestraCapabilities,wordcraftConfigured,pdfcraftConfigured} from '../src/orchestra/capability-contract.ts';
 
 test('seven native tool adapters registered with unique ids and authoritative upstream URLs',()=>{
  assert.equal(ORCHESTRA_TOOLS.length,7);
@@ -69,4 +69,19 @@ test('authenticated capability data never grants unimplemented native engines',(
   {...e,runtimeVerified:true}:e)}),/未支援/);
  assert.throws(()=>validateOrchestraCapabilities({...payload,engines:unavailable.map(e=>e.id==='pdfcraft'?
   {...e,operations:['delete-files']}:e)}),/不得宣告/);
+});
+
+test('PdfCraft combines only through reviewed fixed capability contract',()=>{
+ const disabled=['wordcraft','deckcraft','vectorcraft','photocraft','pdfcraft','effectcraft','designcraft']
+  .map(id=>({id,status:'unavailable',operations:[],outputFormats:[],runtimeVerified:false}));
+ const record={schemaVersion:1,execution:'family-gateway',engines:disabled};
+ assert.equal(pdfcraftConfigured(validateOrchestraCapabilities(record)),false);
+ const enabled={...record,engines:disabled.map(e=>e.id==='pdfcraft'?
+  {...e,status:'configured',operations:['combine-pdf'],outputFormats:['pdf']}:e)};
+ assert.equal(pdfcraftConfigured(validateOrchestraCapabilities(enabled)),true);
+ assert.equal(wordcraftConfigured(validateOrchestraCapabilities(enabled)),false);
+ assert.throws(()=>validateOrchestraCapabilities({...record,engines:disabled.map(e=>e.id==='pdfcraft'?
+  {...e,status:'configured',operations:['execute'],outputFormats:['pdf']}:e)}),/不符/);
+ assert.throws(()=>validateOrchestraCapabilities({...record,engines:disabled.map(e=>e.id==='pdfcraft'?
+  {...e,status:'configured',operations:['combine-pdf'],outputFormats:['docx']}:e)}),/不符/);
 });

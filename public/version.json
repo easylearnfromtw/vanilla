@@ -1,1 +1,1 @@
-{"build":"2026.10.19.23-detroit-alpha","description":"Detroit Phase I: observable orchestration, deep analysis controls, model inference queue, Athena security, opt-in background worker"}
+{"build":"2026.10.19.24-detroit-toolchain","description":"Detroit Studio: Bard Gemini images, Retina PDF/DOCX/PPTX, Athena isolation/optional ClamAV, persistent monitoring webhook outbox"}

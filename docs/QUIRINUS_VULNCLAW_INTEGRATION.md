@@ -23,7 +23,7 @@ The adapter launches exactly:
 /opt/quirinus/bin/vulnclaw code scan /workspace/vanilla --layer L1,L2 --format json --no-progress
 ```
 
-- Fixed local source root: `/workspace/vanilla`; no user-controlled path, remote URL, shell or command flags.
+- Preflight rejects symlink-containing trees, more than 3,000 files and more than 128 MiB of source content; a real filesystem sandbox remains mandatory.\n- Fixed local source root: `/workspace/vanilla`; no user-controlled path, remote URL, shell or command flags.
 - Fixed binary: `/opt/quirinus/bin/vulnclaw`; do not substitute arbitrary user executables.
 - L3/LLM, `run`, `solve`, `persistent`, `recon`, `scan` (network), `exploit`, interactive shell, browser, payload generation and remote network targets are **out of scope**.
 - Bounded scan: serialized requests per service process, 35 s subprocess timeout, 512 KiB report cap, 100 returned findings (with total and truncation flag). Exit 1 indicates Critical/High scanner findings and is parsed as a completed scan, **not a clean bill of health**. Other exit codes fail closed.

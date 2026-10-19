@@ -28,6 +28,15 @@ test("衞國: backend accepts only an HTTPS origin and keeps family token in mem
  assert.doesNotMatch(api, /Bearer "\+session\.token/);
 });
 
+test("衞國: has a known HTTPS fallback for iPhone health checks without storing tokens", () => {
+ const api=content("../src/weiguo/api.ts");
+ const panel=content("../src/weiguo/WeiGuo.tsx");
+ assert.match(api, /WEIGUO_FALLBACK_ORIGIN="https:\/\/weiguo-browser-production\.up\.railway\.app"/);
+ assert.match(api, /getWeiGuoHealth/);
+ assert.match(panel, /檢測後端連線/);
+ assert.match(panel, /Moli 已啟用/);
+});
+
 test("衞國: GitHub Pages receives only a public URL, never server secrets", () => {
  const pages=content("../.github/workflows/pages.yml");
  const compose=content("../services/weiguo/docker-compose.example.yml");

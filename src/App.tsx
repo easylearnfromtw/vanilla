@@ -21,12 +21,11 @@ const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
-const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
 const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 const items:NavItem[]=[
  {id:"chat",label:"AI 對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
@@ -39,9 +38,8 @@ const tools:NavItem[]=[
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"orchestra",label:"Orchestra Studio",icon:Puzzle,description:"Craft 七引擎調度、CREAM 跨格式輸出與作品製作",tone:"yellow"},
- {id:"luna",label:"LUNA 視覺設計",icon:Images,description:"Detroit 原生海報畫布、圖層、模板與本機匯出",tone:"yellow"},
  {id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存",tone:"red"},
- {id:"email",label:"Email Studio",icon:Mail,description:"郵件模板設計、HTML 與 Unlayer 編輯器",tone:"yellow"},
+ {id:"email",label:"Janus 郵件設計",icon:Mail,description:"Detroit · Janus 郵件模板、HTML 與 Unlayer 編輯器",tone:"yellow"},
  {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
  {id:"builder",label:"Self-Build Studio",icon:WandSparkles,description:"用自然語言新增與改進 Vanilla 工具",tone:"ink"}
 ];
@@ -94,7 +92,6 @@ useEffect(()=>{
  const handlers:Array<[string,(e:Event)=>void]>=[
   ["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
   ["vanilla-open-weiguo",go("weiguo")],
-  ["vanilla-open-luna",go("luna")],
   ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
    setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
@@ -169,7 +166,6 @@ section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
 section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed}/></div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart}/></div>:
-section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:
 <div className="content-page"><div className="eyebrow">VANILLA / SETTINGS</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p><SettingsPage/></div>}

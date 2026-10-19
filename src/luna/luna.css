@@ -1,0 +1,65 @@
+/* LUNA isolated visual workspace; never loads fonts, scripts or images from an upstream design server. */
+.luna-root{width:100%;max-width:1480px;margin:0 auto;padding:22px 20px 100px;color:#232428;font-family:inherit}
+.luna-root *{box-sizing:border-box}
+.luna-root button,.luna-root input,.luna-root select,.luna-root textarea{font:inherit}
+.luna-root button{cursor:pointer}
+.luna-root button:disabled{opacity:.45;cursor:not-allowed}
+.luna-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:20px}
+.luna-heading small{font-weight:750;letter-spacing:.17em;color:#a4473b;font-size:11px}
+.luna-heading h1{font-weight:850;letter-spacing:-.065em;font-size:clamp(32px,5vw,51px);margin:5px 0}
+.luna-heading h1 em{font-style:normal;color:#ba4a3c}
+.luna-heading p{font-size:13px;color:#777}
+.luna-head-actions,.luna-exports{display:flex;flex-wrap:wrap;gap:8px}
+.luna-root button{border:1px solid #dedfdf;border-radius:9px;background:#fff;color:#29292c;padding:9px 11px}
+.luna-head-actions button,.luna-exports button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:700}
+.luna-root button.luna-primary{background:#24272c;border-color:#24272c;color:#fff}
+.luna-exports button.danger{color:#ae493e}
+.luna-docbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;border:1px solid #ebe9e6;background:white;border-radius:14px;padding:13px;margin-bottom:15px}
+.luna-docbar label{display:flex;gap:7px;align-items:center;color:#67676c;font-size:12px;font-weight:650}
+.luna-docbar input,.luna-docbar select{border:1px solid #ddd;border-radius:8px;background:#fff;color:#222;padding:8px;min-width:0;max-width:230px;font-size:13px}
+.luna-docbar span{display:flex;gap:6px;align-items:center;color:#56745e;font-size:11px;margin-left:auto}
+.luna-layout{display:grid;grid-template-columns:minmax(184px,225px) minmax(280px,1fr) minmax(184px,230px);gap:12px;align-items:start}
+.luna-left,.luna-right{display:grid;gap:12px;min-width:0}
+.luna-panel{border:1px solid #e9e9e8;border-radius:14px;background:white;padding:14px;min-width:0}
+.luna-panel h2{font-size:14px;margin:0 0 14px;display:flex;align-items:center;gap:7px}
+.luna-panel h2 small{font-size:11px;color:#888;margin-left:auto}
+.luna-panel label{display:grid;gap:5px;font-weight:600;font-size:12px;color:#606168;margin-bottom:9px}
+.luna-panel textarea,.luna-panel input:not([type=color]):not([type=range]),.luna-panel select{width:100%;min-height:38px;border:1px solid #dddddf;border-radius:8px;background:white;color:#242528;padding:8px;margin-top:5px;font-size:13px}
+.luna-panel textarea{resize:vertical;line-height:1.5}
+.luna-panel input[type=color]{width:100%;height:38px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:3px}
+.luna-panel input[type=range]{width:100%}
+.luna-panel small{display:block;color:#83868a;font-size:11px;line-height:1.5;margin-top:9px}
+.luna-panel button.luna-primary{width:100%;font-weight:700;font-size:12px}
+.luna-templates{display:grid;gap:8px}
+.luna-templates button{display:flex;align-items:center;gap:10px;text-align:left;font-size:12px}
+.luna-swatch{width:27px;height:27px;border-radius:5px;border:1px solid #ddd;flex-shrink:0}
+.luna-swatch.editorial{background:linear-gradient(90deg,#eb4037 25%,#f0eee7 25%)}
+.luna-swatch.minimal{background:linear-gradient(90deg,#eee9df 75%,#232323 75%)}
+.luna-swatch.event{background:linear-gradient(140deg,#1c2445 70%,#f5d344 70%)}
+.luna-insert{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.luna-insert button{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;min-width:0;font-size:11px;padding:12px 1px;background:#f5f5f5}
+.luna-workspace{padding:15px;background:#f4f4f2;border:1px solid #e6e5e2;border-radius:14px;min-width:0}
+.luna-canvas-box{width:min(100%,450px);margin:auto}
+.luna-canvas{width:100%;position:relative;overflow:hidden;box-shadow:0 10px 32px #0002;user-select:none;-webkit-user-select:none}
+.luna-layer{position:absolute;box-sizing:border-box;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.16;touch-action:none;cursor:grab;outline:none}
+.luna-layer.active{outline:2px solid #3385db;outline-offset:1px}
+.luna-layer:focus-visible{outline:3px solid #3385db;outline-offset:1px}
+.luna-layer:active{cursor:grabbing}
+.luna-canvas-note{text-align:center;font-size:11px;color:#737477;margin:12px 0}
+.luna-exports{justify-content:center}
+.luna-layers{display:grid;gap:5px;max-height:260px;overflow:auto}
+.luna-layers button{font-size:12px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid transparent;background:transparent}
+.luna-layers button.active{background:#edf2fc;border:1px solid #bfd5fa}
+.luna-properties{display:grid;gap:8px}
+.luna-dimensions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.luna-layer-actions{display:flex;gap:5px}
+.luna-layer-actions button{flex:1;display:grid;place-items:center;padding:9px 4px}
+.luna-hint,.luna-status,.luna-footer{font-size:12px;color:#74777b;line-height:1.6}
+.luna-palette{display:flex;flex-wrap:wrap;gap:5px}
+.luna-palette button{width:27px;height:27px;border-radius:7px;padding:0;border:1px solid #0002}
+.luna-status{min-height:24px;margin:14px 0}
+.luna-footer{border-top:1px solid #e4e4e2;padding-top:13px;font-size:11px}
+@media(max-width:1150px){.luna-layout{grid-template-columns:minmax(160px,210px) minmax(270px,1fr)}.luna-right{grid-column:1/-1;grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.luna-root{padding:15px 11px 110px}.luna-layout{display:flex;flex-direction:column}.luna-workspace{order:1;width:100%}.luna-left{order:2;width:100%;grid-template-columns:1fr 1fr}.luna-left .luna-panel:first-child{grid-column:1/-1}.luna-right{order:3;width:100%;grid-template-columns:1fr 1fr}.luna-heading{align-items:flex-start}.luna-head-actions{width:100%}.luna-head-actions button{flex:1}.luna-root input,.luna-root select,.luna-root textarea{font-size:16px!important}.luna-docbar{gap:9px}.luna-docbar span{width:100%}}
+@media(max-width:430px){.luna-left,.luna-right{grid-template-columns:1fr}.luna-left .luna-panel:first-child{grid-column:auto}.luna-docbar input{max-width:180px}}
+@media(prefers-reduced-motion:reduce){.luna-root *{transition:none!important;scroll-behavior:auto!important}}

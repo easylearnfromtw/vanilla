@@ -95,6 +95,8 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
     <h2><FileText size={18}/> 建立製作工作</h2>
     <label>作品標題<input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)}/></label>
     <label>內容／CREAM 結果<textarea rows={10} maxLength={50000} value={body} onChange={e=>setBody(e.target.value)} placeholder={"# 摘要\n輸入正式報告、簡報、版面或設計工作的內容…"} /></label>
+    <button type="button" disabled={busy||!body.trim()||body.trim().length>8000} onClick={()=>window.dispatchEvent(new CustomEvent("vanilla-open-erya",{detail:{body}}))}>爾雅 Erya · 送至聊天潤稿</button>
+    <small>原文先放入聊天草稿，由你確認後傳送；不會在此自動呼叫雲端 API。一次最多 8,000 字。</small>
     <label>輸出格式<select value={format} onChange={e=>setFormat(e.target.value as OrchestraFormat)}>
      {meta.formats.map(f=><option value={f} key={f}>{f.toUpperCase()}</option>)}
     </select></label>

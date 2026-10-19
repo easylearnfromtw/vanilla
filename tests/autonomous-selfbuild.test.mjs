@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import worker,{safeSourcePath,validatePatch,extractCIErrors} from "../services/self-build-github-worker/index.mjs";
 import {parseCodePatch,safeCodePath,validateBridgeURL} from "../src/builder/autocode-client.ts";
 import {noodlesIterationPlans} from "../src/noodles/iteration-plan.ts";
+import {summarizeCodeDiff} from "../src/builder/code-diff.ts";
 
 const origin="https://easylearnfromtw.github.io";
 const credentials={ALLOWED_ORIGIN:origin,BUILDER_ACCESS_TOKEN:"test-worker-token",GITHUB_TOKEN:"test-github-token"};
@@ -133,4 +134,17 @@ test("Worker obtains redacted error evidence from real GitHub check job logs if 
   assert.ok(seen.find(x=>x.path==="/evidence.txt"&&x.auth===""),"External logs must never receive GitHub PAT");
   assert.ok(seen.find(x=>x.path.endsWith("/logs")&&x.auth==="Bearer test-github-token"));
  }finally{globalThis.fetch=originalFetch;}
+});
+
+test("review diff shows the actual changed region and source line numbers",()=>{
+ const same=summarizeCodeDiff("a\nb\nc","a\nb\nc");
+ assert.equal(same.unchanged,true);
+ assert.equal(same.removed,0);
+ assert.equal(same.added,0);
+ const changed=summarizeCodeDiff("export const a=1;\nexport const b=2;\n","export const a=1;\nexport const b=3;\nexport const c=4;\n");
+ assert.equal(changed.unchanged,false);
+ assert.equal(changed.startLine,1);
+ assert.ok(changed.before.includes("export const b=2;"));
+ assert.ok(changed.after.includes("export const b=3;"));
+ assert.ok(changed.after.includes("export const c=4;"));
 });

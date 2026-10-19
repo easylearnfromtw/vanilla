@@ -1,10 +1,10 @@
 import {useCallback,useEffect,useState} from "react";
 import {FolderOpen,Trash2,RefreshCw,Save,FileText,Cloud,HardDrive} from "lucide-react";
-import {attachmentOwner,changeChatAttachment,getChatAttachment,listChatAttachments,removeChatAttachment,type SavedAttachment} from "./attachment-vault";
+import {attachmentOwner,changeChatAttachment,getChatAttachment,listChatAttachments,type SavedAttachment} from "./attachment-vault";
 import {signedChatAccount} from "../vault/chat-sync";
 import {exactOwnedCopies,deleteOwnedCopy} from "../local-ai/saved-file-resolver";
 import {driveSession} from "../workspace/cloud-drive";
-import {forgetMemoryWithAttachment,listMemories,previewMemoryAttachment,updateMemoryDetails,type MemoryRecord} from "../memory/drive-memory";
+import {listMemories,previewMemoryAttachment,updateMemoryDetails,type MemoryRecord} from "../memory/drive-memory";
 import {deleteOwnedCopy} from "../local-ai/saved-file-resolver";
 import "./library.css";
 type Item={kind:"device";entry:SavedAttachment}|{kind:"drive";entry:MemoryRecord};

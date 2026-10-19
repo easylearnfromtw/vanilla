@@ -1,22 +1,15 @@
 import type {ReactNode} from "react";
-import {MessageCircle,Search,WandSparkles,FolderOpen,ChevronRight,Download} from "lucide-react";
-import type {ArchiveSummary} from "../library/conversation-archive";
+import {MessageCircle,Search,WandSparkles,FolderOpen,Download} from "lucide-react";
 
 const BASE=import.meta.env.BASE_URL;
 export type HomeStatus={canReply:boolean;webgpu:boolean;loading:boolean;progress:number;privateMode:boolean;cachedLocal:boolean|null;localLabel:string;localSizeMB:number};
-function ago(ms:number):string{
- const m=Math.max(1,Math.round((Date.now()-ms)/60000));
- if(m<60)return m+" 分鐘前";
- const h=Math.round(m/60);if(h<24)return h+" 小時前";
- const d=Math.round(h/24);return d<30?d+" 天前":new Date(ms).toLocaleDateString("zh-TW");
-}
 /** Empty-chat home, modelled on the Vanilla key-visual phone screen:
- * mark → wordmark → input → four tools → recent. Nothing else. */
+ * mark → wordmark → input → four tools. Recent conversations live in the sidebar only. */
 export default function ChatHome(props:{
- composer:ReactNode;status:HomeStatus;recent:ArchiveSummary[];busy:boolean;
+ composer:ReactNode;status:HomeStatus;busy:boolean;
  onFocusComposer:()=>void;onPrefill:(text:string)=>void;
  onOpenSection:(section:"library"|"settings"|"cream")=>void;
- onReopen:(id:string)=>void;onLoadLocal:()=>void;
+ onLoadLocal:()=>void;
 }){
  const {status}=props;
  const tiles=[
@@ -46,14 +39,5 @@ export default function ChatHome(props:{
    </button>)}
   </div>
 
-  {props.recent.length>0&&<section className="vh-recent vh-reveal" aria-label="最近的對話">
-   <div className="vh-section-label">RECENT</div>
-   <ul>{props.recent.slice(0,4).map(item=><li key={item.id}>
-    <button type="button" onClick={()=>props.onReopen(item.id)}>
-     <span className="vh-recent-text"><strong>{item.title}</strong><small>{item.turnCount} 則 · {ago(item.updatedAt)}</small></span>
-     <ChevronRight size={16} className="vh-recent-chevron"/>
-    </button>
-   </li>)}</ul>
-  </section>}
  </div>;
 }

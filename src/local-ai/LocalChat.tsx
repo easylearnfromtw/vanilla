@@ -50,8 +50,7 @@ import {ArrowUp,Square,Sparkles,Copy,Check,ThumbsUp,ThumbsDown,ChevronDown,LockK
 import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
 import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
-import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversations,reopenConversation} from "./chat-session";
-import type {ArchiveSummary} from "../library/conversation-archive";
+import {CHAT_MODE_KEY,startNewConversation} from "./chat-session";
 import {merlinParse,stageUpdate,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
@@ -101,7 +100,6 @@ const [assetBusy,setAssetBusy]=useState(false);
 const [searchResults,setSearchResults]=useState<Array<{label:string;url:string;snippet?:string;provider?:string}>>([]);
 const [sheetOpen,setSheetOpen]=useState(false);
 const [contextPrefs,setContextPrefs]=useState<ContextPrefs>(readContextPrefs);
-const [recent,setRecent]=useState<ArchiveSummary[]>([]);
 const [slashIndex,setSlashIndex]=useState(0);
 const fileRef=useRef<HTMLInputElement>(null);
 const inputRef=useRef<HTMLTextAreaElement>(null);
@@ -264,8 +262,6 @@ useEffect(()=>{
  }catch{setStorageError(true);}
 },[history,privateMode,generating]);
 useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:generating?"auto":"smooth",block:"end"});},[history,generating]);
-const refreshRecent=()=>{void recentConversations(privateMode?"private":"normal").then(setRecent);};
-useEffect(()=>{refreshRecent();window.addEventListener(CHAT_ARCHIVE_EVENT,refreshRecent);return()=>window.removeEventListener(CHAT_ARCHIVE_EVENT,refreshRecent);},[privateMode]);
 function switchPrivacy(){
   if(busy||comparison)return;
   const next=!privateMode;
@@ -281,11 +277,6 @@ async function newConversation(){
  if(result.error){setLastRoute("無法封存目前對話，為避免遺失已停止："+result.error);return;}
  setHistory([]);setComparison(null);setSearchResults([]);setCreamDataset(null);
  setLastRoute(result.archived?"已開始新對話；上一段收在「最近」。":"");
-}
-async function reopen(id:string){
- if(busy)return;
- try{await reopenConversation(id,privateMode?"private":"normal");setHistory(restoreHistory(chatStorageKey(privateMode)));setLastRoute("已打開過去的對話，可以接著聊。");}
- catch(e){setLastRoute(String(e instanceof Error?e.message:e));}
 }
 async function initialize(){
  setLoadingModel(true);setModelError(false);setModelProgress(0);
@@ -1032,10 +1023,10 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
 {noticeShown&&(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice route-line" role="status"><span>{lastRoute||fileStatus||(modelError?status:"")}</span></p>}
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起</button></div>}
 <div className="chat-messages" aria-live="polite">
-{empty?<ChatHome composer={composer} status={{canReply,webgpu:capabilities.webgpu,loading:loadingModel,progress:modelProgress,privateMode,cachedLocal:modelCached,localLabel:localEntry.label,localSizeMB:localEntry.vramMB}} recent={recent} busy={busy}
+{empty?<ChatHome composer={composer} status={{canReply,webgpu:capabilities.webgpu,loading:loadingModel,progress:modelProgress,privateMode,cachedLocal:modelCached,localLabel:localEntry.label,localSizeMB:localEntry.vramMB}} busy={busy}
   onFocusComposer={()=>inputRef.current?.focus()} onPrefill={prefill}
   onOpenSection={section=>{if(onNavigate)onNavigate(section);else window.dispatchEvent(new Event(section==="library"?"vanilla-open-library":section==="cream"?"vanilla-open-cream":"vanilla-open-settings"));}}
-  onReopen={id=>void reopen(id)} onLoadLocal={()=>void initialize()}/>:
+  onLoadLocal={()=>void initialize()}/>:
 <div className="message-list">{history.map((turn,index)=>{
  const ToolIcon=turn.tool?TOOL_ICON[turn.tool.id]||Sparkles:null;
  const streamingThis=generating&&index===history.length-1&&turn.role==="assistant";

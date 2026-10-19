@@ -1,6 +1,5 @@
-import {useState,useEffect,useRef,lazy,Suspense} from "react";
+import {useState,useEffect,lazy,Suspense} from "react";
 import LocalChat from "./local-ai/LocalChat";
-import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
 import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync";
@@ -34,19 +33,13 @@ const tools:NavItem[]=[
  {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
  {id:"builder",label:"Self-Build Studio",icon:WandSparkles,description:"用自然語言新增與改進 Vanilla 工具",tone:"ink"}
 ];
-const tabs=[
- {id:"chat",label:"對話",icon:MessageCircle},{id:"cream",label:"CREAM",icon:BarChart3},
- {id:"projects",label:"專案",icon:Code2},{id:"library",label:"資料",icon:Images},{id:"settings",label:"設定",icon:Settings2}
-];
 function Loading(){return <div className="vh-loading" role="status"><span className="vh-loading-bar"/>載入中…</div>;}
 
 export default function App(){
 const [section,setSection]=useState<Section>("chat");
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
-const [compactTabs,setCompactTabs]=useState(false);
 const [recent,setRecent]=useState<ArchiveSummary[]>([]);
-const mainRef=useRef<HTMLElement|null>(null);
 useEffect(()=>{const onRemote=()=>setChatKey(x=>x+1);window.addEventListener("vanilla-chat-remote-loaded",onRemote);return()=>window.removeEventListener("vanilla-chat-remote-loaded",onRemote);},[]);
 useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");if(!raw)return;const session=JSON.parse(raw) as {token?:string;expiresAt?:number};if(session.token&&session.expiresAt&&session.expiresAt>Date.now()+60000){void loadProviderConfigs(session.token).catch(()=>{});}}catch{}},[]);
 const [signedIn,setSignedIn]=useState(()=>driveSession());
@@ -84,19 +77,6 @@ useEffect(()=>{
  for(const [name,fn] of handlers)window.addEventListener(name,fn);
  return()=>{for(const [name,fn] of handlers)window.removeEventListener(name,fn);};
 },[]);
-// Tab bar shrinks while reading downward and returns when scrolling up (iOS behaviour).
-useEffect(()=>{
- const main=mainRef.current;if(!main)return;
- const last=new WeakMap<EventTarget,number>();
- const onScroll=(event:Event)=>{
-  const el=event.target as HTMLElement;if(!el||typeof el.scrollTop!=="number")return;
-  const prev=last.get(el)??el.scrollTop;const delta=el.scrollTop-prev;last.set(el,el.scrollTop);
-  if(Math.abs(delta)<6)return;
-  setCompactTabs(delta>0&&el.scrollTop>40);
- };
- main.addEventListener("scroll",onScroll,true);
- return()=>main.removeEventListener("scroll",onScroll,true);
-},[]);
 const all=[...items,...tools];
 const activeFeature=features.find(x=>x.id===activeFeatureId);
 const selected=all.find(x=>x.id===section)||{id:"feature" as const,label:activeFeature?.name||"自建工具",icon:Puzzle,description:activeFeature?.description||"Vanilla 自建模組",tone:"ink" as const};
@@ -121,17 +101,15 @@ return <div className="shell">
  <button className="sidebar-collapse" aria-label="收合選單" onClick={()=>setMenuOpen(false)}><X size={19}/></button>
 </div>
 <button className="new-chat" onClick={()=>void newChat()}><Plus size={18}/> 新對話</button>
-<div className="nav-caption">WORKSPACE · 工作空間</div>
-<nav aria-label="主要導覽">{items.map(navButton)}</nav>
-<div className="nav-caption">TOOLS · 工具</div>
-<nav aria-label="工具">{tools.map(navButton)}{features.slice(0,6).map(f=><button key={f.id} className={section==="feature"&&activeFeatureId===f.id?"nav active":"nav"} onClick={()=>openFeature(f.id)}><span className="nav-icon tone-ink"><Puzzle size={16}/></span><span>{f.name}</span></button>)}</nav>
+<div className="nav-caption">FILES · 檔案</div>
+<nav aria-label="檔案管理">{navButton(tools.find(x=>x.id==="files")!)}{navButton(items.find(x=>x.id==="library")!)}</nav>
 {recent.length>0&&<><div className="nav-caption">RECENT · 最近對話</div>
 <div className="recent-list">{recent.slice(0,8).map(r=><button key={r.id} type="button" className="recent-item" onClick={()=>void openRecent(r.id)} title={r.title}><Clock3 size={14}/><span>{r.title}</span></button>)}</div></>}
 <div className="sidebar-footer"><ShieldCheck size={14}/><span>家庭專用 · 本地優先</span></div>
 </aside>
-<main ref={el=>{mainRef.current=el;}} className={"main "+(section==="chat"?"main-chat":"has-tabbar")}>
+<main className={"main "+(section==="chat"?"main-chat":"")}>
 <header className="topbar">
-<div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?<span className="topbar-wordmark">VANILLA AI</span>:selected.label}</div></div>
+<div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?<span className="topbar-wordmark">VANILLA AI</span>:<button type="button" className="topbar-home-link" title="回到對話" onClick={()=>navigate("chat")}>‹ 對話 · {selected.label}</button>}</div></div>
 <div className="topbar-trailing">
  {section==="chat"&&<button type="button" className="topbar-icon" aria-label="新對話" title="新對話" onClick={()=>void newChat()}><SquarePen size={19}/></button>}
  <div className="topbar-account">{signedIn?<button type="button" className="account-avatar" title={"登入帳號："+signedIn.email} aria-label={"帳號 "+signedIn.email} onClick={()=>navigate("settings")}>{initial}</button>:<button type="button" disabled={loginBusy} onClick={()=>void connectAccount()} className="google-login">{loginBusy?"連線中…":"Google 登入"}</button>}{loginNotice&&<span className="sr-only" role="status">{loginNotice}</span>}</div>
@@ -148,6 +126,5 @@ section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFea
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:
 <div className="content-page"><div className="eyebrow">VANILLA / SETTINGS</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p><SettingsPage/></div>}
 </Suspense>}
-{section!=="chat"&&<TabBar items={tabs} active={section} onSelect={id=>navigate(id as Section)} compact={compactTabs}/>}
 </main></div>;
 }

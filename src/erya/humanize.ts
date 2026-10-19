@@ -10,7 +10,7 @@ export type HumanizeAudit={ok:boolean;missing:string[];notes:string[]};
 const MAX_SOURCE=8000;
 const START="【待潤稿原文】";
 const END="【原文結束】";
-const INTENT=/^(?:(?:請幫我|麻煩幫我|幫我|請|麻煩|我想要|我要)\s*)?(?:(?:把|將|讓)\s*)?(?:(?:以下|這段|這篇|這封|下方|下列|這份)\s*)?(?:(?:文字|文章|內容|文案|信件|訊息|稿件|郵件)\s*)?(?:潤稿|自然化|改寫得(?:更)?自然|改寫成(?:更)?自然|改得(?:更)?自然|寫得(?:更)?自然|寫得像真人|口語化|去除\s*AI\s*腔|減少\s*AI\s*味|humanize\b|polish\b)/i;
+const INTENT=/^(?:(?:請幫我|麻煩幫我|幫我|請|麻煩|我想要|我要)\s*)?(?:(?:把|將|讓)\s*)?(?:(?:以下|這段|這篇|這封|下方|下列|這份)\s*)?(?:(?:文字|文章|內容|文案|信件|信|訊息|稿件|郵件)\s*)?(?:潤稿|自然化|改寫得(?:更)?自然|改寫成(?:更)?自然|改得(?:更)?自然|寫得(?:更)?自然|寫得像真人|口語化|去除\s*AI\s*腔|減少\s*AI\s*味|humanize\b|polish\b)/i;
 
 export function isHumanizeRequest(text:string):boolean{
  return INTENT.test(text.trimStart());

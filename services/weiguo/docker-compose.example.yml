@@ -26,6 +26,11 @@ services:
       # Optional: enable only after installing a reviewed gridcraft-cli binary
       # into the trusted backend PATH. No binary is bundled in this image.
       WEIGUO_GRIDCRAFT_ENABLED: "false"
+      # Medusa is operator-only and disabled until independently sandboxed.
+      MEDUSA_ENABLED: "false"
+      MEDUSA_SANDBOX_EGRESS_BLOCKED: "false"
+      # MEDUSA_JUDGE0_URL: "http://judge0:2358"
+      # MEDUSA_PYTHON_LANGUAGE_ID: "109" # Verify from Judge0 /languages first
       # Set true for any publicly routed family-only Railway instance.
       WEIGUO_PUBLIC_FAMILY_ONLY: "false"
       # Only set these for a trusted internal Ollama instance, never public URLs:

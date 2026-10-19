@@ -99,3 +99,10 @@ def validate_tools_manifest(tools: Any) -> list[dict[str, Any]]:
             raise PolicyError("不支援的工具能力")
         out.append({"id":tool_id,"name":str(item.get("name",""))[:64],"capabilities":caps,"enabled":False})
     return out
+
+
+OPERATOR_ROUTES = frozenset(("/v1/tools", "/v1/plan", "/v1/execute", "/v1/tasks", "/openapi.json"))
+
+def private_operator_route(path: str) -> bool:
+    """Do not publish operator capabilities on a family-only Railway origin."""
+    return path in OPERATOR_ROUTES or path.startswith("/v1/tasks/")

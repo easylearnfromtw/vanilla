@@ -76,3 +76,4 @@ export default function QuirinusTool(){
   </div>}
   <p>管理員必須先在衞國後端設定專屬 GitHub Actions 權限及家庭擁有者白名單。此介面不會要求你貼上 GitHub Token。</p>
  </section>;
+}

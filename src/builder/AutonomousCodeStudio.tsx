@@ -6,6 +6,7 @@ import {generateLocalReply,getLoadedLocalModel} from "../local-ai/engine";
 import {recordNoodles} from "../noodles/storage";
 import {readNoodles} from "../noodles/storage";
 import {noodlesIterationPlans} from "../noodles/iteration-plan";
+import {summarizeCodeDiff} from "./code-diff";
 import {
  configureCodeBridge,disconnectCodeBridge,getCodeBridgeURL,getCodeBridgeToken,checkCodeBridge,
  readCodeSource,parseCodePatch,createCodePR,reviseCodePR,getCodePRStatus,safeCodePath,
@@ -168,13 +169,26 @@ export default function AutonomousCodeStudio({initialIdea}:{initialIdea:string})
    <label>要讓 Vanilla 自主改善什麼？<textarea value={idea} onChange={e=>setIdea(e.target.value)} rows={4} maxLength={1800} placeholder="例如：改善 NOODLES 的模型評估演算法，但保留原有 export 與隱私界線"/></label>
    <label>實際生成程式碼的模型<select value={provider} onChange={e=>setProvider(e.target.value as AIProvider)}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="ollama">Ollama</option><option value="local">裝置端 WebLLM（小模型可能無法輸出完整程式）</option></select></label>
    <div className="autocode-actions"><button type="button" disabled={busy||!source||!idea.trim()} onClick={()=>void draft()}>生成真實程式修改</button></div>
-   {preview&&<div className="autocode-diff"><strong>{preview.title}</strong><small>將修改：{preview.files[0].path}</small><details><summary>審查修改後整份原始碼（不自動執行）</summary><pre>{preview.files[0].content}</pre></details>
+   {preview&&<div className="autocode-diff"><strong>{preview.title}</strong><small>將修改：{preview.files[0].path}</small>
+    <div className="autocode-review-metrics">{(()=>{
+     const diff=summarizeCodeDiff(source?.content??null,preview.files[0].content);
+     return <><span>新增／變更區域：{diff.added} 行</span><span>取代／刪除區域：{diff.removed} 行</span><span>起始行：{diff.startLine}</span></>;
+    })()}</div>
+    <details open><summary>查看實際修改區段（舊版／新版並排）</summary>
+     <div className="autocode-review-columns"><div><strong>原始碼（修改前）</strong><pre>{summarizeCodeDiff(source?.content??null,preview.files[0].content).before}</pre></div>
+      <div><strong>產生內容（修改後）</strong><pre>{summarizeCodeDiff(source?.content??null,preview.files[0].content).after}</pre></div></div>
+     <small>此處為最小共同前後段的摘要，不是 Git 的逐行 LCS Diff。完整檔案仍需在 GitHub PR 審核。</small>
+    </details>
+    <details><summary>審查修改後整份原始碼（不自動執行）</summary><pre>{preview.files[0].content}</pre></details>
     <label className="autocode-checkbox"><input type="checkbox" checked={autoFix} onChange={e=>setAutoFix(e.target.checked)}/>CI 失敗且有明確錯誤訊息時，授權最多自動修正 2 次（可能產生模型 API 費用）</label>
     <button type="button" disabled={busy} onClick={()=>void submit()}><GitPullRequest size={15}/>審核後建立 GitHub Draft PR</button>
    </div>}
    {submitted&&<div className="autocode-pr"><strong>Draft PR #{submitted.number}</strong><a href={submitted.url} target="_blank" rel="noopener noreferrer">前往 GitHub 審核與合併 ↗</a><small>CI 狀態：{latest?.status==="passed"?"已通過":latest?.status==="failed"?"未通過":"等待驗證"} · 自動修正 {fixCount}/2</small>
     <button type="button" disabled={running.current} onClick={()=>void review()}><RefreshCw size={13}/>重新查詢 CI</button>
     {latest?.checks.map(x=><small key={x.name}>{x.name}：{x.conclusion||x.status}</small>)}
+    {Boolean(latest?.annotations.length)&&<details open><summary>CI 實際失敗診斷（僅限編譯／測試錯誤）</summary>
+     <ul className="autocode-error-list">{latest?.annotations.map((e,i)=><li key={i}>{e.path}{e.startLine?":"+e.startLine:""} — {e.message}</li>)}</ul>
+    </details>}
    </div>}
    <div className={"autocode-status "+(stage==="passed"?"passed":stage==="failed"?"failed":"")} role="status">
     {stage==="passed"?<CheckCircle2 size={16}/>:stage==="failed"?<AlertTriangle size={16}/>:<RefreshCw size={15}/>}

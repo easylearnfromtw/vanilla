@@ -17,6 +17,16 @@ NOODLES 已由本機帳戶範圍模型回饋資料辨識重複（≥2 次）的�
 
 另外新 `.github/workflows/noodles-baseline.yml` 每天會自動執行客觀回歸測試及編譯。此排程不會自行花錢叫 API、不會自動編寫程式、PR、合併或部署；它是**自主品質驗證**，不是無條件自主改寫。
 
+## CI 錯誤實證補強（v0.2）
+
+- GitHub CI 若回報 **failure**，Self-Build 先使用 GitHub Check Run Annotations；若回傳空集合，會從該檢查的 `details_url` 找到真實 Job ID，再向 GitHub 官方 `/actions/jobs/{job_id}/logs` 取得限時日誌 URL。
+- 下載日誌時**手動處理 HTTP 302**：GitHub PAT 僅傳給 `api.github.com`，符合 HTTPS 白名單的雲端日誌連結**不帶任何 GitHub Authorization header**；最多讀取 2 MB。
+- 從回應中只抽取最多十條 TypeScript 編譯、JS runtime 或 TAP 測試失敗證據，遮蔽常見 API Key／Bearer 字串與 URL；原始日誌不會直接送給模型。
+- CI 診斷視為不可信文字資料，不能直接改變使用者需求、程式權限或 GitHub 分支保護。
+- 前端顯示原碼與修改候選的對照，使用者審核後才會建立 Draft PR。自動修正仍限最多兩輪，只在 CI 提供實證且使用者已同意時執行。
+- Worker GitHub fine-grained PAT 需具備 **Actions: Read** 才能使用 `/actions/jobs/{job_id}/logs`；無此權限只會略過日誌錯誤擷取，不應假稱自動修正已完成。
+- 請在 GitHub PR 的 `Files changed` 介面檢視完整 Diff；CODE 工作台僅提供單檔變更區段摘要。
+
 ## 安裝 Cloudflare Worker（部署程式碼已納入 Repository）
 必要：可登入 Cloudflare Workers 的帳號、持有 Vanilla Repository 權限的 GitHub fine-grained PAT、你自訂的長隨機 Worker 存取權杖。**GitHub Pages 是純靜態網站，不能安全代管這兩項 secrets；所以沒有設定這些時，CODE 工作台只是已發布的 UI，不能真的寫入 GitHub。**
 

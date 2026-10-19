@@ -58,6 +58,22 @@ export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIde
 export async function startWeiGuoTask(start_url:string,steps:Array<{action:"extract"|"navigate"|"scroll";url?:string;pixels?:number}>):Promise<WeiGuoTask>{
  return request<WeiGuoTask>("/v1/family/tasks",{start_url,steps},true);
 }
+export type GridCraftCell={cell:string;input:string};
+/** Explicitly authorized export of the current Vanilla Sheets tab only. */
+export async function exportWeiGuoGridCraft(cells:GridCraftCell[]):Promise<Blob>{
+ if(!cells.length||cells.length>500)throw Error("GridCraft 一次僅支援 1–500 個非空儲存格");
+ const result=await request<{filename:string;xlsxBase64:string;cellCount:number;scope:string}>(
+  "/v1/family/gridcraft/xlsx",{cells},true);
+ if(result.scope!=="active-sheet-only"||!result.xlsxBase64||result.xlsxBase64.length>5_000_000)
+  throw Error("GridCraft 後端回傳了不合法的試算表");
+ const raw=atob(result.xlsxBase64);
+ if(raw.length<4||raw.charCodeAt(0)!==0x50||raw.charCodeAt(1)!==0x4b)
+  throw Error("GridCraft 匯出不是有效的 XLSX 容器");
+ const array=new Uint8Array(new ArrayBuffer(raw.length));
+ for(let i=0;i<raw.length;i++)array[i]=raw.charCodeAt(i);
+ return new Blob([array.buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+
 export async function getWeiGuoTask(id:string):Promise<WeiGuoTask>{
  if(!/^[a-f0-9-]{36}$/i.test(id))throw Error("任務識別碼不正確");
  return request<WeiGuoTask>("/v1/family/tasks/"+encodeURIComponent(id),undefined,true);

@@ -20,7 +20,7 @@ async function paint(ctx:CanvasRenderingContext2D,doc:LunaDoc,l:LunaLayer){
  ctx.save();ctx.globalAlpha=l.opacity;
  if(l.kind==="shape"){ctx.fillStyle=l.fill;pathRounded(ctx,x,y,w,h,(l.radius||0)*Math.min(w,h)/100);ctx.fill();}
  if(l.kind==="image"){
-  ctx.fillStyle=l.fill;ctx.fillRect(x,y,w,h);
+  if(!l.image){ctx.fillStyle=l.fill;ctx.fillRect(x,y,w,h);}
   if(l.image){const img=await imageFromData(l.image),scale=Math.max(w/img.width,h/img.height),iw=img.width*scale,ih=img.height*scale;
    pathRounded(ctx,x,y,w,h,(l.radius||0)*Math.min(w,h)/100);ctx.clip();ctx.drawImage(img,x+(w-iw)/2,y+(h-ih)/2,iw,ih);}
  }

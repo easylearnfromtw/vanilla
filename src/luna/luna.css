@@ -63,3 +63,13 @@
 @media(max-width:760px){.luna-root{padding:15px 11px 110px}.luna-layout{display:flex;flex-direction:column}.luna-workspace{order:1;width:100%}.luna-left{order:2;width:100%;grid-template-columns:1fr 1fr}.luna-left .luna-panel:first-child{grid-column:1/-1}.luna-right{order:3;width:100%;grid-template-columns:1fr 1fr}.luna-heading{align-items:flex-start}.luna-head-actions{width:100%}.luna-head-actions button{flex:1}.luna-root input,.luna-root select,.luna-root textarea{font-size:16px!important}.luna-docbar{gap:9px}.luna-docbar span{width:100%}}
 @media(max-width:430px){.luna-left,.luna-right{grid-template-columns:1fr}.luna-left .luna-panel:first-child{grid-column:auto}.luna-docbar input{max-width:180px}}
 @media(prefers-reduced-motion:reduce){.luna-root *{transition:none!important;scroll-behavior:auto!important}}
+
+/* LUNA advanced controls: opt-in cloud layout and local model processing */
+.luna-advanced{border-color:#e0dcd5}
+.luna-advanced .luna-confirm{display:flex;align-items:flex-start;gap:8px;line-height:1.55;font-size:11px;font-weight:500;margin:10px 0;color:#555}
+.luna-advanced .luna-confirm input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin:1px 0}
+.luna-advanced .luna-advanced-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.luna-advanced .luna-advanced-actions button{font-size:12px;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;padding:11px 5px}
+.luna-advanced textarea{font-size:14px;line-height:1.6;resize:vertical}
+.luna-advanced p.luna-hint{margin:0 0 7px;overflow-wrap:anywhere}
+@media(max-width:760px){.luna-advanced{min-width:0}}

@@ -29,10 +29,10 @@ class DockerImportCoverage(unittest.TestCase):
         self.assertIn("ceres_gateway.py", required)
         for image in ("Dockerfile", "Dockerfile.pdfcraft"):
             with self.subTest(image=image):
-                lines = (ROOT / image).read_text(encoding="utf-8").replace("\\\n", " ").splitlines()
+                lines = (ROOT / image).read_text(encoding="utf-8").splitlines()
                 copied = set()
                 for line in lines:
-                    match = re.match(r"^COPY\\s+(?!--from=)(.+)\\s+\\./?$", line.strip())
+                    match = re.match(r"^COPY\s+(?!--from=)(.+)\s+\./?$", line.strip())
                     if match:
                         copied.update(part for part in match.group(1).split() if part.endswith(".py"))
                 self.assertFalse(required - copied,

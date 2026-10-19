@@ -130,3 +130,159 @@ async def export_xlsx(request: SheetExport, _user: FamilyIdentity = Depends(fami
         "cellCount": len(commands),
         "scope": "active-sheet-only",
     }
+
+# CREAM native report: opt-in GridCraft XLSX with a real chart and preview formulas.
+# This is not a replacement for CREAM's deterministic, local-only statistics.
+from math import isfinite
+from typing import Literal
+
+
+class CreamReportMetric(BaseModel):
+    key: str = Field(min_length=1, max_length=120)
+    n: int = Field(ge=1, le=3000)
+    missing: int = Field(ge=0, le=3000)
+    sum: float
+    mean: float
+    median: float
+    min: float
+    max: float
+    sampleStdDev: float | None = None
+
+
+class CreamReportPoint(BaseModel):
+    row: int = Field(ge=2, le=3001)
+    label: str = Field(max_length=120)
+    value: float
+    x: float | None = None
+
+
+class CreamReportRequest(BaseModel):
+    source: str = Field(min_length=1, max_length=120)
+    rowCount: int = Field(ge=1, le=3000)
+    metrics: list[CreamReportMetric] = Field(min_length=1, max_length=12)
+    focusKey: str = Field(min_length=1, max_length=120)
+    points: list[CreamReportPoint] = Field(min_length=1, max_length=48)
+    chartKind: Literal["bar", "line", "scatter", "pie", "numberline"]
+
+
+def _safe_spreadsheet_label(text: str) -> str:
+    """Prevent arbitrary source labels being interpreted as GridCraft formulas."""
+    normalized = "".join(char if ord(char) >= 32 else " " for char in text).strip()
+    return ("'" + normalized) if normalized.startswith(("=", "+", "-", "@")) else normalized
+
+
+def _column_letter(number: int) -> str:
+    return chr(65 + number)
+
+
+def build_cream_report(request: CreamReportRequest) -> tuple[list[dict], str | None]:
+    """Build a fixed, reviewable command manifest; caller never controls commands."""
+    for metric in request.metrics:
+        numbers = (metric.sum, metric.mean, metric.median, metric.min, metric.max)
+        if (metric.n + metric.missing != request.rowCount
+            or any(not isfinite(v) for v in numbers)
+            or (metric.sampleStdDev is not None and
+                (not isfinite(metric.sampleStdDev) or metric.sampleStdDev < 0))):
+            raise HTTPException(422, "CREAM 描述統計含無效數值或不一致的樣本數")
+    if request.focusKey not in {m.key for m in request.metrics}:
+        raise HTTPException(422, "圖表欄位不屬於這份 CREAM 分析")
+    if len(request.points) > next(m.n for m in request.metrics if m.key == request.focusKey):
+        raise HTTPException(422, "圖表點數不得超過有效樣本數")
+    if len({p.row for p in request.points}) != len(request.points):
+        raise HTTPException(422, "圖表來源列號不可重複")
+    if any(not isfinite(p.value) or (p.x is not None and not isfinite(p.x)) for p in request.points):
+        raise HTTPException(422, "圖表包含無效數值")
+    if any(p.row > request.rowCount + 1 for p in request.points):
+        # Original CSV may have blank skipped rows; allow known raw rows only up to
+        # the CREAM import limit while preserving source numbering.
+        raise HTTPException(422, "圖表來源列號超出工作簿範圍")
+    chart_kind = {
+        "bar": "column", "line": "line", "scatter": "scatter", "pie": "pie",
+    }.get(request.chartKind)
+    if chart_kind == "pie" and (any(p.value < 0 for p in request.points)
+                                  or sum(p.value for p in request.points) <= 0):
+        chart_kind = None
+    if chart_kind == "scatter" and any(p.x is None for p in request.points):
+        chart_kind = None
+    # Assemble the summary from already-calculated CREAM results; never suggest
+    # that the backend independently audited the full original input.
+    values: list[list] = [
+        ["CREAM ANALYTICS | GRIDCRAFT"],
+        ["資料來源", _safe_spreadsheet_label(request.source)],
+        ["原始資料筆數", request.rowCount],
+        ["統計範圍", "完整 CREAM 資料；圖表僅用最多 48 個可追溯資料點"],
+        [],
+        ["數值欄位", "有效 n", "缺失", "總和", "平均", "中位數", "最小", "最大", "樣本標準差"],
+    ]
+    for metric in request.metrics:
+        values.append([
+            _safe_spreadsheet_label(metric.key), metric.n, metric.missing, metric.sum,
+            metric.mean, metric.median, metric.min, metric.max,
+            metric.sampleStdDev if metric.sampleStdDev is not None else None,
+        ])
+    values.append([])
+    values.append(["以下為圖表資料預覽，非完整資料集"])
+    plot_header = len(values) + 1
+    scatter = chart_kind == "scatter"
+    values.append([
+        "X 值" if scatter else "分類 / 標籤",
+        _safe_spreadsheet_label(request.focusKey),
+        "來源列號",
+    ])
+    plot_points = request.points
+    if chart_kind == "pie":
+        # CREAM pie combines repeated labels; preserve that exact convention.
+        grouped: dict[str, tuple[float, list[str]]] = {}
+        for p in plot_points:
+            key = p.label or f"第 {p.row} 列"
+            total, refs = grouped.get(key, (0.0, []))
+            grouped[key] = (total + p.value, refs + [str(p.row)])
+        for label, (amount, refs) in grouped.items():
+            values.append([_safe_spreadsheet_label(label), amount, ", ".join(refs)])
+    else:
+        for p in plot_points:
+            values.append([
+                p.x if scatter else _safe_spreadsheet_label(p.label or f"第 {p.row} 列"),
+                p.value, p.row,
+            ])
+    data_first = plot_header + 1
+    data_last = len(values)
+    values += [
+        [],
+        ["圖表預覽合計（GridCraft 公式）", f"=SUM(B{data_first}:B{data_last})"],
+        ["圖表預覽平均（GridCraft 公式）", f"=AVERAGE(B{data_first}:B{data_last})"],
+    ]
+    commands = [
+        {"command": "range.setValues", "params": {"range": "A1", "values": values}},
+        {"command": "home.bold", "params": {"range": "A1:I1", "on": True}},
+        {"command": "home.bold", "params": {"range": "A6:I6", "on": True}},
+        {"command": "home.bold", "params": {"range": f"A{plot_header}:C{plot_header}", "on": True}},
+    ]
+    if chart_kind is not None:
+        commands.append({
+            "command": "insert.chart",
+            "params": {
+                "range": f"A{plot_header}:B{data_last}",
+                "type": chart_kind,
+                "title": _safe_spreadsheet_label(request.focusKey)[:60],
+                "at": f"E{plot_header}",
+            },
+        })
+    return commands, chart_kind
+
+
+@router.post("/v1/family/gridcraft/cream-report")
+async def export_cream_report(request: CreamReportRequest, _user: FamilyIdentity = Depends(family_reader)):
+    if os.environ.get("WEIGUO_GRIDCRAFT_ENABLED", "false").lower() != "true":
+        raise HTTPException(503, "後端 GridCraft 尚未啟用；CREAM 本機圖表仍可正常使用")
+    commands, chart_kind = build_cream_report(request)
+    async with _LOCK:
+        workbook = await asyncio.to_thread(_render, commands)
+    return {
+        "filename": "CREAM_GridCraft.xlsx",
+        "xlsxBase64": base64.b64encode(workbook).decode("ascii"),
+        "pointsExported": len(request.points),
+        "chartType": chart_kind,
+        "statisticsSource": "cream-local",
+        "scope": "summary-and-chart-preview",
+    }

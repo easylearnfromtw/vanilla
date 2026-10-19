@@ -1,5 +1,6 @@
 import LocalChat from "./local-ai/LocalChat";
 import ConversationLibrary from "./library/ConversationLibrary";
+import ReleaseReadinessPanel from "./release/ReleaseReadinessPanel";
 import BuildStudio from "./builder/BuildStudio";
 import FeatureRuntime from "./builder/FeatureRuntime";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
@@ -96,7 +97,7 @@ section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:
 <div className="content-page"><div className="eyebrow">VANILLA / WORKSPACE</div><h1>{selected.label}</h1><p className="content-description">{selected.description}</p>
-{section==="settings"?<section className="panel"><h2>帳號與進階設定</h2><p>每個家庭成員使用自己的 Google 帳號及私有 Drive 空間；共用資料應另行授權，不會自動混合。首次授權後，同一個工作階段的聊天、檔案和記憶共用登入狀態。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ToneSettings/><ChatSyncSettings/><SourceSettings/><ModelConnections/><DriveConnection/></section>:
+{section==="settings"?<section className="panel"><h2>帳號與進階設定</h2><p>每個家庭成員使用自己的 Google 帳號及私有 Drive 空間；共用資料應另行授權，不會自動混合。首次授權後，同一個工作階段的聊天、檔案和記憶共用登入狀態。</p><div className="font-settings"><h3>字型自動切換</h3><p>自動模式依文字語系使用系統字型備援；也可以手動指定字型，設定會保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div><ReleaseReadinessPanel/><ToneSettings/><ChatSyncSettings/><SourceSettings/><ModelConnections/><DriveConnection/></section>:
 section==="line"?<section className="panel"><h2>LINE Intelligence</h2><p>LINE 為選用的輔助匯入工具，不是 Vanilla 的主要對話介面。</p><label className="upload">選擇 LINE .txt 紀錄<input type="file" accept=".txt,text/plain" onChange={e=>setFilename(e.target.files?.[0]?.name||"")}/></label>{filename&&<p className="file-note">已選取：{filename}（尚未上傳）</p>}</section>:
 <section className="panel placeholder-panel"><div className="section-icon"><selected.icon size={26}/></div><h2>{selected.label}</h2><p>{selected.description}</p><div className="placeholder">此功能正在開發中，尚未連接真實資料。</div></section>}
 </div>}

@@ -3,6 +3,8 @@ import {getOllamaConfig,isOllamaConfigured,generateOllamaReply} from "./ollama";
 import {generateCloudReply,type ImageInput} from "../vault/providers";
 import {generateLocalReply,type ChatTurn} from "../local-ai/engine";
 import {getHealthAdjustment,recordModelRun} from "./model-health";
+import {noodlesModelAdjustment} from "../noodles/core";
+import {readNoodles,recordNoodles} from "../noodles/storage";
 
 export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
@@ -89,7 +91,7 @@ function baseScore(candidate:ModelCandidate,task:TaskKind):number{
  if(candidate.source==="gemini")return (task==="vision"?95:task==="code"?81:task==="analysis"?87:task==="writing"?87:task==="casual"?65:85)-(candidate.model.includes("lite")?11:0);
  return task==="code"?84:task==="analysis"?79:task==="writing"?80:task==="casual"?62:76;
 }
-export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first"):ModelCandidate[]{
+export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true):ModelCandidate[]{
  const allVotes=votes().filter(v=>v.task===task);
  const feedback=ratings().filter(r=>r.task===task);
  const score=(candidate:ModelCandidate)=>{
@@ -103,28 +105,32 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
-  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore;
+  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore+(useNoodles?noodlesModelAdjustment(readNoodles(),task,candidate.id):0);
  };
  return [...candidates].sort((a,b)=>score(b)-score(a));
 }
-export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first"):ModelCandidate[]{
- const ordered=rankedCandidates(candidates,task,priority);
+export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKind,priority:"local-first"|"quality"="local-first",useNoodles=true):ModelCandidate[]{
+ const ordered=rankedCandidates(candidates,task,priority,useNoodles);
  if(ordered.length<2)return ordered;
  const first=ordered[0];
  const different=ordered.find(x=>x.source!==first.source);
  return [first,different||ordered[1]];
 }
-export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onLocalText?:(text:string)=>void):Promise<string>{
+export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onLocalText?:(text:string)=>void,optimization?:{task:TaskKind;privateMode:boolean}):Promise<string>{
  const start=Date.now();
  try{
   let result:string;
   if(candidate.source==="local")result=await generateLocalReply(history,onLocalText||(()=>{}));
   else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model);
   else result=await generateCloudReply(candidate.source,history,image,candidate.model);
-  recordModelRun(candidate.id,true,Date.now()-start);
+  const duration=Date.now()-start;
+  recordModelRun(candidate.id,true,duration);
+  if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:true,durationMs:duration},optimization.privateMode);
   return result;
  }catch(error){
-  recordModelRun(candidate.id,false,Date.now()-start);
+  const duration=Date.now()-start;
+  recordModelRun(candidate.id,false,duration);
+  if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:false,durationMs:duration},optimization.privateMode);
   throw error;
  }
 }

@@ -24,6 +24,7 @@ jobs:
           npm run test:resource-integration
           npm run test:cream
           npm run test:cream-google
+          npm run test:noodles
           npm run test:web-workflows
           npm run test:capabilities
           npm run test:security

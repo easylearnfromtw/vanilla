@@ -1,5 +1,10 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
+import CreamMessage from "../cream/CreamMessage";
+import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,creamChartFollowup,type CreamDataset,type CreamResult} from "../cream/core";
+import {planConversationSave,composeSavedContent} from "../assistant/conversation-save";
+import {readPublicPage,linkReadingIntent} from "../search/web-reader";
+import {uploadWorkspaceFile} from "../workspace/cloud-drive";
 import SheetPreview from "./SheetPreview";
 import {makeSheetPreview} from "./sheet-preview-model";
 import {toRows} from "../workspace/sheets-model";
@@ -39,6 +44,7 @@ const [draft,setDraft]=useState("");
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
 const [fileContext,setFileContext]=useState("");
+const [creamDataset,setCreamDataset]=useState<CreamDataset|null>(null);
 const [fileName,setFileName]=useState("");
 const [fileStatus,setFileStatus]=useState("");
 const [assetBusy,setAssetBusy]=useState(false);
@@ -71,6 +77,22 @@ async function attachFile(file?:File){
    setFileStatus("已儲存到你的 Google Drive："+record.title+(suspiciousAttachment?"。注意：附件包含疑似 Prompt Injection，已隔離文字索引，原始檔案仍在 Drive。":""));
   }else{
    setFileStatus((privateMode?"私密模式：附件未上傳，僅在本次對話使用":"附件已嘗試保存在此裝置；尚未登入 Google Drive，不會跨裝置同步。可從左側「對話圖片與資料」查看")+(suspiciousAttachment?"。附件文字含疑似 Prompt Injection，已隔離。":""));
+  }
+  // Analyze tabular attachments AFTER durable-save attempts, so CSV/XLSX
+  // stays in the library rather than disappearing from the conversation.
+  if(/\.(?:csv|xlsx)$/i.test(file.name)&&file.size<=2000000){
+   try{
+    let dataset:CreamDataset;
+    if(/\.xlsx$/i.test(file.name)){
+     const {readSheet}=await import("read-excel-file/browser");
+     dataset=fromCreamRows(await readSheet(file),file.name);
+    }else dataset=parseCreamCSV(await file.text(),file.name);
+    setCreamDataset(dataset);
+    const result=analyzeCream(dataset),time=Date.now();
+    setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析附件「"+file.name+"」",id:crypto.randomUUID(),createdAt:time},
+      {role:"assistant",content:summarizeCream(result),cream:result,id:crypto.randomUUID(),createdAt:time+1}]);
+    setLastRoute("CREAM 已在裝置端計算並於對話中產生互動圖表");
+   }catch(err){setFileStatus("附件已處理，但 CREAM 無法分析："+String(err));}
   }
  }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
  finally{setAssetBusy(false);}
@@ -451,6 +473,12 @@ function openCreatedSheet(sheet:import("./sheet-preview-model").SheetPreviewData
  if(privateMode&&!window.confirm("將這份私密對話表格複製到一般 Sheets 工作區嗎？"))return;
  window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows:sheet.rows}}));
 }
+function openCreamInSheets(result:CreamResult){
+ if(!creamDataset||creamDataset.importedAt!==result.importedAt||creamDataset.source!==result.source){setLastRoute("原始資料已不在此分頁，請重新匯入 CSV／XLSX。");return;}
+ if(creamDataset.rows.length>199){setLastRoute("Vanilla Sheets 上限 200 列（含標題），已阻止截斷原始資料。");return;}
+ if(privateMode&&!window.confirm("要將私密分析資料複製到一般 Sheets 工作區嗎？"))return;
+ window.dispatchEvent(new CustomEvent("vanilla-open-sheet",{detail:{rows:[creamDataset.columns,...creamDataset.rows]}}));
+}
 function openTableInSheets(content:string){
  const rows=parseTable(content);if(!rows){setLastRoute("目前回答沒有可轉換的 Markdown 表格");return;}
  if(privateMode&&!window.confirm("這份表格來自私密對話。要將其複製到一般本機表格工作區嗎？不會自動上傳 Google Drive。"))return;
@@ -485,7 +513,7 @@ return <section className="chat">
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small style={{display:"block",fontSize:11,marginTop:3}}>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">
 {history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["你能做什麼？","幫我整理今天的想法","解釋一個複雜概念"].map(x=><button key={x} disabled={busy||Boolean(comparison)} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
-<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{(turn.role==="assistant"?stripRenderedTable(turn.content):turn.content)||(!turn.content?"正在生成回答…":"")}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.sheet&&<SheetPreview sheet={turn.sheet} onEdit={()=>openCreatedSheet(turn.sheet!)}/>}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
+<div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{(turn.role==="assistant"?stripRenderedTable(turn.content):turn.content)||(!turn.content?"正在生成回答…":"")}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.sheet&&<SheetPreview sheet={turn.sheet} onEdit={()=>openCreatedSheet(turn.sheet!)}/ >}{turn.role==="assistant"&&turn.cream&&<CreamMessage result={turn.cream} onOpenSheets={creamDataset?.importedAt===turn.cream.importedAt?()=>openCreamInSheets(turn.cream!):undefined}/ >}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>
  </span>}{turn.role==="assistant"&&turn.content&&!privateMode&&<select className="tone-feedback-select" defaultValue="" aria-label="回饋這則回答的語氣" onChange={e=>{if(e.target.value)reportTone(e.target.value as ToneFeedback);e.currentTarget.value="";}}>

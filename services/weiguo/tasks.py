@@ -10,6 +10,7 @@ import os
 import sqlite3
 import time
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 VALID_STATUSES = frozenset(("queued", "running", "completed", "failed"))
@@ -40,9 +41,19 @@ def connect() -> sqlite3.Connection:
     return db
 
 
+
+@contextmanager
+def session():
+    db = connect()
+    try:
+        with db:
+            yield db
+    finally:
+        db.close()
+
 def initialize() -> None:
     """Mark orphaned in-memory runs failed and expire old results."""
-    with connect() as db:
+    with session() as db:
         db.execute(
             "UPDATE tasks SET state='failed',error='Service restarted before completion',updated_at=? "
             "WHERE state IN ('queued','running')",
@@ -54,7 +65,7 @@ def initialize() -> None:
 def start(url: str, steps: list[dict]) -> dict:
     task_id = str(uuid.uuid4())
     now = int(time.time())
-    with connect() as db:
+    with session() as db:
         db.execute(
             "INSERT INTO tasks (id,state,url,steps,created_at,updated_at) VALUES (?,?,?,?,?,?)",
             (task_id, "queued", url, json.dumps(steps, ensure_ascii=False), now, now),
@@ -67,7 +78,7 @@ def update(task_id: str, status: str, result: dict | None = None, error: str | N
         raise ValueError("Invalid task status")
     # Truncate stored public data and never persist raw exception tracebacks.
     payload = json.dumps(result, ensure_ascii=False)[:24000] if result is not None else None
-    with connect() as db:
+    with session() as db:
         db.execute(
             "UPDATE tasks SET state=?,result=?,error=?,updated_at=? WHERE id=?",
             (status, payload, error[:180] if error else None, int(time.time()), task_id),
@@ -75,7 +86,7 @@ def update(task_id: str, status: str, result: dict | None = None, error: str | N
 
 
 def fetch(task_id: str) -> dict | None:
-    with connect() as db:
+    with session() as db:
         row = db.execute(
             "SELECT id,state,result,error,created_at,updated_at FROM tasks WHERE id=?",
             (task_id,),

@@ -11,7 +11,7 @@ export const DETROIT_FACTORY_TOOLS:readonly DetroitFactoryTool[]=[
   description:"獨立 Judge0 Python 沙盒；家庭管理者須經後端白名單及逐次同意，預設停用，需隔離部署驗證"},
  {id:"quirinus",label:"Quirinus",engine:"Athena / JENSEN HUANG / CREAM",provider:"VulnClaw",
   status:"adapter",enabledByDefault:false,
-  description:"可選資安檢測工具；目前僅隔離後端管理員可啟用 L1/L2 本地程式碼掃描，不開放滲透測試"},
+  description:"可選資安檢測工具；隔離管理員以 Athena 短效核准後呼叫 L1/L2 掃描，CREAM 驗證結果並產生 JENSEN 修復待辦；預設關閉"},
  {id:"gridcraft",label:"GridCraft",engine:"CREAM",provider:"GridCraft CLI",
   status:"adapter",enabledByDefault:false,
   description:"可選的表格與 XLSX 匯出引擎；需另外安裝受信任的後端 CLI"},

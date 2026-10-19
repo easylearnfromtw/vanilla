@@ -43,6 +43,7 @@ import {chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
 import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
 import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,saveAnswerRating,type ModelCandidate} from "../ai/model-orchestrator";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
+import {classifyTaiwanTopic,isTaideModel,taiwanEvidenceGuidance,isTaiwanTaideEnabled} from "../ai/taiwan-routing";
 import {learnToneFromMessage,toneFeedback,applyExplicitToneRequest,type ToneFeedback} from "../ai/tone-adaptation";
 import {exportText,parseTable} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
@@ -602,6 +603,7 @@ async function send(value=draft){
    setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
   }
  const task=classifyTask(question,Boolean(image));
+ const taiwanTopic=image?null:classifyTaiwanTopic(question);
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  let activeModel=selectedLocalModel,localReady=ready;
  const upgradeId=LOCAL_MODELS.find(m=>m.id.includes("1.5B")&&isLocalModelSupported(m.id))?.id;
@@ -630,13 +632,13 @@ async function send(value=draft){
  }
 
  const preference="quality" as const;
- const ranked=rankedCandidates(candidates,task,preference,!privateMode);
+ const ranked=rankedCandidates(candidates,task,preference,!privateMode,localOnly?"":question);
  const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
   setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或開啟允許計費 API。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在裝置端面板載入模型，或到設定連接 Ollama／Gemini");
   return;
  }
- const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode):[primary];
+ const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -688,7 +690,7 @@ async function send(value=draft){
  if(memoryRequested)try{recalled=await knowledgeContext(question);}catch{}
  const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";
  const teacherExtra=!privateMode?teacherStyleHint(readTeacherState(),task):"";
- const modelNext:ChatTurn[]=[...history,{role:"user",content:question+extra+tableInstruction+noodlesExtra+teacherExtra+(recalled?"\n\n使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled:"")}];
+ const modelNext:ChatTurn[]=[...history,{role:"user",content:question+extra+tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+(recalled?"\n\n使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled:"")}];
  setDraft("");setBusy(true);
  if(chosen.length===2){
   const initial:ComparisonSession={question,task,options:chosen.map(candidate=>({candidate,status:"running" as const,text:""}))};
@@ -717,7 +719,7 @@ async function send(value=draft){
   return;
  }
  setHistory([...next,{role:"assistant",content:"",source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);
- setLastRoute("正在使用："+primary.label);
+ setLastRoute(taiwanTopic&&isTaiwanTaideEnabled()&&!localOnly?(primary.source==="ollama"&&isTaideModel(primary.model)?"台灣主題優先選用 TAIDE · ":"台灣主題：TAIDE 尚未可用，改用其他模型 · ")+primary.label:"正在使用："+primary.label);
  try{
   const result=await generateCandidate(primary,modelNext,image||undefined,text=>{
    setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,webSources,id:assistantId,createdAt:assistantTime}]);

@@ -3,11 +3,12 @@ import {Download,FileText,ShieldCheck,Layers3,ArrowRight,ExternalLink} from "luc
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from "../detroit/retina";
 import {currentChatMode} from "../local-ai/chat-session";
 import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from "../weiguo/api";
+import {downloadCreamSvg,type OrchestraChart} from "./cream-chart";
 import {ORCHESTRA_TOOLS,orchestraPlan,orchestraTool,type OrchestraFormat,type OrchestraToolId} from "./core";
 import "./orchestra.css";
 
-export default function OrchestraStudio({initialBody,source="manual",compact=false}:{
- initialBody?:string|null;source?:"manual"|"cream";compact?:boolean
+export default function OrchestraStudio({initialBody,source="manual",compact=false,chart}:{
+ initialBody?:string|null;source?:"manual"|"cream";compact?:boolean;chart?:OrchestraChart|null
 }={}){
  const [tool,setTool]=useState<OrchestraToolId>("wordcraft");
  const [format,setFormat]=useState<OrchestraFormat>("docx");
@@ -19,8 +20,9 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  const privateMode=currentChatMode()==="private";
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,50000));setStatus("已接收 "+(source==="cream"?"CREAM 統計結果":"前一個工作區的文字")+"，尚未傳送到任何後端。");}},[initialBody,source]);
  const meta=orchestraTool(tool);
- const plan=useMemo(()=>orchestraPlan({tool,format,privateMode,cream:source==="cream"}),[tool,format,privateMode,source]);
- const local=["pdf","docx","pptx"].includes(format);
+ const plan=useMemo(()=>orchestraPlan({tool,format,privateMode,cream:source==="cream",creamChart:!!chart&&chart.points.length>=2}),[tool,format,privateMode,source,chart]);
+ const creamSvg=format==="svg"&&tool==="vectorcraft"&&!!chart&&chart.points.length>=2;
+ const local=["pdf","docx","pptx"].includes(format)||creamSvg;
  function selectTool(id:OrchestraToolId){
   const entry=orchestraTool(id);setTool(id);setFormat(entry.formats[0]);setStatus("");setConsent(false);
  }
@@ -28,6 +30,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
   if(busy)return;
   if(!local){setStatus("此格式尚無 Retina 本機匯出器，需等 Craft 引擎部署。");return;}
   if(!title.trim()||!body.trim()){setStatus("請填入標題及文件內容。");return;}
+  if(creamSvg&&chart){try{downloadCreamSvg(chart);setStatus("已以 CREAM 本機數據繪製 SVG，未執行 VectorCraft、未上傳。");}catch(e){setStatus("CREAM SVG 匯出失敗："+String(e));}return;}
   setBusy(true);setStatus("Retina 正在本機產製文件（不是 Craft 原生引擎）…");
   try{
    const result=await createRetinaDocument({title,body,format:format as RetinaFormat});
@@ -65,7 +68,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
      {meta.formats.map(f=><option value={f} key={f}>{f.toUpperCase()}</option>)}
     </select></label>
     {local?<button type="button" className="orchestra-export" disabled={busy||!body.trim()} onClick={()=>void makeLocal()}>
-      <Download size={16}/> 使用 Retina 本機匯出 {format.toUpperCase()}
+      <Download size={16}/> {creamSvg?"使用 CREAM 匯出 SVG 數線圖":"使用 Retina 本機匯出 "+format.toUpperCase()}
     </button>:<p className="orchestra-pending">目前沒有可執行的 {format.toUpperCase()} 匯出器，已保留 {meta.name} 整合位置。</p>}
     {tool==="wordcraft"&&<div className="orchestra-remote"><strong>WordCraft 原生後端（選用）</strong>
       <p>需安裝並隔離 WordCraft CLI、完成衞國家庭登入。此操作會將本次文字傳送到你設定的衞國後端。未安裝時會明確回報不可用。</p>

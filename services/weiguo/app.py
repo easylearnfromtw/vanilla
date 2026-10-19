@@ -37,6 +37,25 @@ async def lifespan(app: FastAPI):
     init_tasks()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
+    # A healthy HTTP server is not enough: verify actual Chromium launches as
+    # the unprivileged browser user, with isolated offline DOM rendering.
+    # No external URL is contacted during this startup self-test.
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True, timeout=20000)
+        try:
+            context = await browser.new_context(
+                accept_downloads=False, service_workers="block",
+                java_script_enabled=False,
+            )
+            page = await context.new_page()
+            await page.set_content("<!doctype html><html><head><title>WeiGuo ready</title></head><body>ready</body></html>")
+            if await page.title() != "WeiGuo ready":
+                raise RuntimeError("Chromium DOM self-test failed")
+            await context.close()
+        finally:
+            await browser.close()
+    app.state.browser_ready = True
+    print("WeiGuo startup: Chromium launch and isolated DOM self-test passed")
     yield
 
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.
@@ -53,6 +72,7 @@ async def operator(authorization: str | None = Header(default=None)):
 @app.get("/health")
 async def health():
     return {"service":"weiguo","configured":len(os.environ.get("WEIGUO_ADMIN_TOKEN",""))>=32 and bool(allow_hosts()),
+      "browserReady":bool(getattr(app.state,"browser_ready",False)),
       "actions":"https allowlist only","ollama":bool(os.environ.get("WEIGUO_OLLAMA_URL"))}
 
 @app.post("/v1/tools")

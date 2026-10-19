@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.05-luna-advanced";
+export const VANILLA_BUILD="2026.10.20.06-luca-observability";

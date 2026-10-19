@@ -1,5 +1,6 @@
 /** Public-PWA WeiGuo client. No admin keys, Drive tokens or durable session storage. */
 import {driveSession} from "../workspace/cloud-drive";
+import {currentChatMode} from "../local-ai/chat-session";
 import {validateOrchestraCapabilities,type OrchestraCapabilities} from "../orchestra/capability-contract";
 
 export type WeiGuoIdentity={member:string;role:"owner"|"member"|"viewer";email:string};
@@ -132,3 +133,30 @@ export async function exportCreamGridCraftReport(payload:import("../cream/gridcr
  return {file:new Blob([bytes.buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),chartType:report.chartType,pointsExported:report.pointsExported};
 }
 
+
+
+/** Detroit Factory: Judge0 results are returned only after a real backend execution. */
+export type MedusaStatus={enabled:boolean;connected:boolean;language?:string;note:string};
+export type MedusaOutput={
+ engine:"medusa";backend:"judge0";language:string;finished:boolean;accepted:boolean;
+ status_id:number;status:string;stdout:string;stderr:string;compile_output:string;
+ exit_code:number|null;time:string;memory:number|null;
+};
+export async function getMedusaStatus():Promise<MedusaStatus>{
+ const person=weiGuoIdentity();
+ if(!person||person.role!=="owner")throw Error("Medusa 需要家庭管理者身分");
+ if(currentChatMode()==="private")throw Error("私人模式不連線 Medusa 執行環境");
+ return request<MedusaStatus>("/v1/family/medusa/status",undefined,true);
+}
+export async function runMedusa(source_code:string,stdin:string,approved:boolean):Promise<MedusaOutput>{
+ const person=weiGuoIdentity();
+ if(!person||person.role!=="owner")throw Error("Medusa 僅允許已核准的家庭管理者");
+ if(currentChatMode()==="private")throw Error("私人模式禁止傳送程式碼到 Medusa");
+ if(!approved)throw Error("本次 Medusa 程式執行必須先同意傳送程式碼");
+ const encoder=new TextEncoder();
+ if(!source_code.trim()||source_code.includes("\\0")||stdin.includes("\\0")||
+    source_code.length>16000||encoder.encode(source_code).length>16000||
+    stdin.length>2048||encoder.encode(stdin).length>2048)
+  throw Error("Medusa 程式碼或標準輸入超過限制");
+ return request<MedusaOutput>("/v1/family/medusa/run",{source_code,stdin,approved:true},true);
+}

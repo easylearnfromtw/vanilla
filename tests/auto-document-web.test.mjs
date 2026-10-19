@@ -32,7 +32,10 @@ test("real file readers and deterministic CREAM execute in chat without loaded m
  assert.match(chat,/analyzeCream\(dataset\)/);
  assert.match(chat,/listChatAttachments\(/);
  assert.match(chat,/inspectOwnRepository\(/);
- assert.match(chat,/implicitResearchQuery\(question\)/);
+ // Routing (including implicit research detection) lives in the tested chat router.
+ const router=code("src/assistant/chat-router.ts");
+ assert.match(router,/implicitResearchQuery\(q\)/);
+ assert.match(chat,/routeMessage\(question,/);
  assert.match(chat,/formatIndexedPages\(webIndex\)/);
 });
 test("personal learning is default for local model only; never automatically archive cloud model outputs",()=>{

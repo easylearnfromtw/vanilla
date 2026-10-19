@@ -1,5 +1,8 @@
-/* App-shell cache only. WebLLM handles its own model artifacts. */
-const CACHE_NAME="vanilla-shell-v6";
+/* App-shell cache only. WebLLM handles its own model artifacts.
+ * The cache is named after the build (sw.js?v=<build>), so each deploy starts a fresh cache
+ * and old hashed chunks are deleted instead of piling up on the iPhone. */
+const BUILD=new URL(self.location.href).searchParams.get("v")||"dev";
+const CACHE_NAME="vanilla-shell-"+BUILD;
 const ROOT=self.registration.scope;
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.add(ROOT)).then(()=>self.skipWaiting()));
@@ -22,7 +25,7 @@ self.addEventListener("fetch",event=>{
   }).catch(async()=>await caches.match(request)||await caches.match(ROOT)||Response.error()));
   return;
  }
- if(!/\.(?:js|css|png|jpg|jpeg|svg|ico|webmanifest|woff2?)(?:\?|$)/i.test(url.pathname+url.search))return;
+ if(!/\.(?:js|css|png|jpg|jpeg|webp|svg|ico|webmanifest|woff2?)(?:\?|$)/i.test(url.pathname+url.search))return;
  // Network-first for compiled scripts/styles, offline cache fallback. Versioned
  // build chunks must never be permanently trapped behind an older PWA shell.
  const critical=/\.(?:js|css)(?:\?|$)/i.test(url.pathname+url.search);

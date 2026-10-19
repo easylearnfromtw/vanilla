@@ -17,18 +17,23 @@ function loadGIS():Promise<void>{
   }).catch(error=>{scriptPromise=undefined;throw error;});
   return scriptPromise!;
 }
+const CONSENT_KEY="vanilla.google.consented.v1";
+/** Show Google's full consent screen only the first time; later sign-ins reuse the grant
+ * (Google still shows the account chooser when needed). */
 export async function authorizeDrive():Promise<{token:string;expiresAt:number}>{
   await loadGIS();
+  let consented=false;try{consented=localStorage.getItem(CONSENT_KEY)==="yes";}catch{}
   return new Promise((resolve,reject)=>{
     const client=window.google!.accounts.oauth2.initTokenClient({
       client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE+" https://www.googleapis.com/auth/userinfo.email",
       callback:(response)=>{
         if(response.error||!response.access_token){reject(new Error(response.error_description||response.error||"Google 授權未完成"));return;}
+        try{localStorage.setItem(CONSENT_KEY,"yes");}catch{}
         resolve({token:response.access_token,expiresAt:Date.now()+(response.expires_in??3600)*1000});
       },
       error_callback:()=>reject(new Error("Google 登入視窗被關閉或授權失敗"))
     });
-    client.requestAccessToken({prompt:"consent"});
+    client.requestAccessToken({prompt:consented?"":"consent"});
   });
 }
-export function revokeDrive(token:string):void{window.google?.accounts.oauth2.revoke(token,()=>{});}
+export function revokeDrive(token:string):void{try{localStorage.removeItem(CONSENT_KEY);}catch{}window.google?.accounts.oauth2.revoke(token,()=>{});}

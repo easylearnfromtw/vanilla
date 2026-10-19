@@ -40,6 +40,10 @@ jobs:
       - run: npm run test:web-workflows
       - run: npm run test:capabilities
       - run: npm run test:security
+      - run: npm run test:chat-router
+      - run: npm run test:model-tuning
+      - run: npm run test:archive
+      - run: npm run test:providers
       - name: Validate NOODLES trainer (no GPU)
         run: |
           python3 -m py_compile training/noodles_train.py

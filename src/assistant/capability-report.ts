@@ -86,6 +86,6 @@ export function capabilityAnswer(topic:CapabilityTopic,s:CapabilitySnapshot):str
  const ordered:(keyof typeof items)[]=["models","sheets","drive","memory","search","media","builder","fitness","report","travel","family","research","phone"];
  return "我是 Vanilla。以下是這個版本實際具備的功能及此裝置狀態，不會把規劃或開發中的功能當成已完成。\n"+
   ordered.map(key=>{const x=items[key];return "\n• 【"+LABEL[x.status]+"】"+x.name+"："+x.detail;}).join("")+
-  "\n\n常用指令範例：\n「幫我做一份家庭收支表格」\n「搜尋：台灣醫師國考」\n「開啟雲端檔案」\n「記住：我偏好簡潔回答」（需授權 Drive）"+
+  "\n\n常用指令範例：\n「幫我做一份家庭收支表格」\n「搜尋：台灣醫師國考」\n「開啟雲端檔案」\n「記住：我偏好簡潔回答」（需授權 Drive）\n輸入「/」可以叫出全部工具指令（/搜尋、/讀、/表格、/分析、/私密…）；「/新對話」會把目前對話收進「最近」。"+
   "\n\n這份清單來自程式內的功能登錄與當下的模型／網路／登入狀態；連線是否真的成功，必須以實際操作結果為準。";
 }

@@ -573,8 +573,20 @@ async function send(value=draft):Promise<void>{
      note=stored.created?"已保存於 CREAM 長期歷史。":"已有相同來源資料，未重複匯入。";
     }catch(e){note="長期保存失敗："+String(e);}
     const result=analyzeCream(parsed,pasted.kind),now=Date.now();
+    // Diana -> CREAM -> Retina: deterministic local export after validated analysis.
+    let exported="";
+    let exportFailed=false;
+    const report=composeDianaCreamDocument(question,result);
+    if(report){
+     setBusy(true);
+     try{const output=await createRetinaDocument(report);downloadRetina(output);exported="\nDiana 已完成本機 "+report.format.toUpperCase()+" 匯出並觸發下載："+output.name+"（圖表未嵌入文件）。";}
+     catch(error){exportFailed=true;exported="\nDiana 已完成統計，但文件匯出失敗："+String(error);}
+     finally{setBusy(false);}
+    }else if(requestedDianaFormat(question)&&!result.metrics.length){
+     exported="\nDiana：沒有可以驗證的數值欄位，因此沒有匯出統計報告。";
+    }
     setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
-     {role:"assistant",content:summarizeCream(result)+"\n"+note,cream:result,tool:{...TOOL.cream,status:"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
+     {role:"assistant",content:summarizeCream(result)+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
     setDraft("");setLastRoute("CREAM 已在本機計算，不需使用雲端 AI。");
    }catch(error){toolReply(question.slice(0,220),"CREAM 分析失敗："+String(error),"cream");}
    return;

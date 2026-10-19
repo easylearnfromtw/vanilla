@@ -29,7 +29,8 @@ function discoverModels(){
  return [...baseModels,...extra];
 }
 export const LOCAL_MODELS=discoverModels();
-export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult};
+export type WebCitation={title:string;url:string;kind:"full"|"snippet"};
+export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult;webSources?:WebCitation[]};
 let engine:webllm.MLCEngine|null=null;
 let loadedModel:LocalModelId|null=null;
 let loading:Promise<void>|null=null;

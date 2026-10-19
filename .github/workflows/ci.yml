@@ -29,6 +29,7 @@ jobs:
           npm run test:detroit
           npm run test:api-registry
           npm run test:merlin
+          npm run test:erya
           npm run test:cream-weiguo
           npm run test:detroit-studio
           npm run test:luca

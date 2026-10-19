@@ -48,6 +48,7 @@
     "test:weiguo-auth-ui": "node --test tests/weiguo-auth-ui.test.mjs",
     "test:email": "node --experimental-strip-types --test tests/email-studio.test.mjs tests/janus.test.mjs",
     "test:api-registry": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/api-registry.test.mjs",
+    "test:erya": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/erya-humanize.test.mjs",
     "test:luna-advanced": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/luna-advanced.test.mjs",
     "test:luca": "node --experimental-strip-types --test tests/luca-ui.test.mjs"
   },

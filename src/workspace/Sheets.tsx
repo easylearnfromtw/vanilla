@@ -4,6 +4,7 @@ import {newWorkbook,parseWorkbook,activeSheet,getCell,cellDisplay,setCell,cellAd
 import {driveSession,connectWorkspaceDrive,createWorkspaceText,updateWorkspaceText,type WorkspaceFile} from "./cloud-drive";
 import {availableProviders,generateCloudReply} from "../vault/providers";
 import {isOllamaConfigured,generateOllamaReply} from "../ai/ollama";
+import {weiGuoApiBase,weiGuoIdentity,exportWeiGuoGridCraft} from "../weiguo/api";
 
 const STORAGE_KEY="vanilla.sheets.workbooks.v1";
 const CURRENT_KEY="vanilla.sheets.current.v1";
@@ -196,6 +197,19 @@ export default function Sheets(){
   downloadBlob(name+(format==="json"?".vanilla-sheet.json":".csv"),new Blob([body],{type:format==="json"?"application/json;charset=utf-8":"text/csv;charset=utf-8"}));
   setNotice("已匯出 "+format.toUpperCase());
  }
+ async function gridCraftExport(){
+  if(busy)return;
+  if(!weiGuoApiBase()){setNotice("GridCraft 需要先部署衞國 HTTPS 後端，並配置 VITE_WEIGUO_API_URL");return;}
+  if(!weiGuoIdentity()){setNotice("請先在「衞國」頁面使用 Google 登入，再匯出 GridCraft XLSX");return;}
+  const cells=Object.entries(tab.cells).filter(([,entry])=>entry.raw!=="").map(([address,entry])=>({cell:address,input:entry.raw}));
+  if(!cells.length){setNotice("目前工作表沒有可匯出的資料");return;}
+  if(cells.length>500){setNotice("GridCraft 第一版最多匯出 500 個非空儲存格，請縮小表格");return;}
+  if(!window.confirm("將目前工作表的 "+cells.length+" 個非空儲存格經 HTTPS 傳送至你設定的衞國後端，由 GridCraft 建立 XLSX？不包含其他工作表；不會自動儲存到雲端。"))return;
+  setBusy(true);setNotice("正在由衞國後端生成 GridCraft XLSX…");
+  try{const file=await exportWeiGuoGridCraft(cells);downloadBlob(safeName(book.name)+".xlsx",file);setNotice("已匯出目前工作表的 GridCraft XLSX");}
+  catch(e){setNotice("GridCraft 匯出失敗："+(e instanceof Error?e.message:String(e)));}
+  finally{setBusy(false);}
+ }
  async function cloudSave(copy=false){
   if(busy)return;
   setBusy(true);
@@ -246,6 +260,7 @@ export default function Sheets(){
     <button type="button" onClick={redoLast} disabled={redoCount===0} title="重做"><Redo2 size={16}/></button>
     <button type="button" onClick={()=>exportBook("csv")}><Download size={15}/>CSV</button>
     <button type="button" onClick={()=>exportBook("json")}><Download size={15}/>JSON</button>
+    <button type="button" disabled={busy} onClick={()=>void gridCraftExport()} title="需先在衞國登入及啟用 GridCraft 後端"><FileSpreadsheet size={15}/>GridCraft XLSX</button>
     <button type="button" onClick={()=>importRef.current?.click()}><FolderOpen size={15}/>匯入</button>
     <input ref={importRef} type="file" accept=".csv,.json,text/csv,application/json" hidden onChange={e=>{void openImport(e.target.files);}}/>
     <button type="button" className="workspace-primary" disabled={busy} onClick={()=>void cloudSave()}><CloudUpload size={15}/>儲存雲端</button>
@@ -278,6 +293,6 @@ export default function Sheets(){
   </section>
   <div className="workspace-notice"><AlertTriangle size={16}/><span>本機草稿會自動儲存，但不是端對端加密。按「儲存雲端」才會寫入 Google Drive。請勿把私人醫療資料或其他敏感內容上傳到一般雲端檔案區。支援 SUM、AVERAGE、IF、ROUND、COUNT、MAX、MIN；尚不等於完整 Excel。</span></div>
   <p role="status" className="workspace-status">{notice}</p>
-  <p className="workspace-footnote">每份工作簿最多 20 個工作表，每個工作表支援 A1:Z200。JSON 可保留公式與格式，CSV 匯出目前工作表的計算結果。支援復原／重做、跨格貼上；Google Drive 遇到版本衝突時不會直接覆寫。</p>
+  <p className="workspace-footnote">GridCraft XLSX 僅匯出目前工作表，需要衞國已授權且後端安裝並啟用引擎；目前不保留其他分頁及全部樣式。每份工作簿最多 20 個工作表，每個工作表支援 A1:Z200。JSON 可保留公式與格式，CSV 匯出目前工作表的計算結果。支援復原／重做、跨格貼上；Google Drive 遇到版本衝突時不會直接覆寫。</p>
  </div>;
 }

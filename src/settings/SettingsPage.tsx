@@ -1,5 +1,6 @@
 import {useEffect,useState} from "react";
 import ReleaseReadinessPanel from "../release/ReleaseReadinessPanel";
+import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import ToneSettings from "../ai/ToneSettings";
 import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
@@ -55,6 +56,6 @@ export default function SettingsPage(){
   <section className="panel settings-card" id="appearance"><h2>外觀</h2>
    <div className="font-settings"><h3>字型</h3><p>自動模式依文字語系使用系統字型（iPhone 為蘋方）；也可以手動指定，設定保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div>
   </section>
-  <section className="panel settings-card" id="system"><h2>系統狀態</h2><ReleaseReadinessPanel/></section>
+  <section className="panel settings-card" id="system"><h2>系統狀態</h2><p>可在此確認裝置目前載入的版本、GitHub Pages 發布版本，以及手動檢查與更新。不會清除對話或雲端資料。</p><div className="settings-pwa-update"><PWAUpdateNotice/></div><ReleaseReadinessPanel/></section>
  </div>;
 }

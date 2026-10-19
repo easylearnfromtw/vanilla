@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import {validateGoogleClientId,parseAccountSummaries,validateGA4Options,parseGA4Report,lookerStudioLink} from "../src/cream/ga4-format.ts";
 
 test("only complete Google OAuth Client IDs are accepted; never Client Secrets",()=>{
- const valid="816806126786-thisisanexample.apps.googleusercontent.com";
+ const valid="1234567890-exampleclient.apps.googleusercontent.com";
  assert.equal(validateGoogleClientId(valid),valid);
- for(const invalid of ["GOCSPX-example","816806126786-i40b4b5nkdiu8bta73|l63.apps.googleusercontent.com",
- "816806126786-3e/id07hoj8 fr05kov.apps.googleusercontent.com",
+ for(const invalid of ["GOCSPX-example","1234567890-invalid|id.apps.googleusercontent.com",
+ "1234567890-invalid/id with spaces.apps.googleusercontent.com",
  "https://accounts.google.com",""]){
   assert.throws(()=>validateGoogleClientId(invalid),/Client ID/,invalid);
  }

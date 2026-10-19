@@ -1,5 +1,6 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
+import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {inspectExternalText,wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
 import {planAppIntent,PROJECTS} from "../assistant/intent-router";
@@ -259,6 +260,21 @@ async function executeIntent(question:string):Promise<boolean>{
 async function send(value=draft){
  const question=value.trim()||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
  if(!question||busy||comparison||assetBusy)return;
+ const capabilityTopic=capabilityIntent(question);
+ if(capabilityTopic){
+  toolReply(question,capabilityAnswer(capabilityTopic,{
+   localReady:ready&&isLocalModelReady(selectedLocalModel),
+   localModel:ready&&isLocalModelReady(selectedLocalModel)?selectedLocalModel:null,
+   webgpu:capabilities.webgpu,
+   online,
+   privateMode,
+   driveSession:Boolean(driveSession()),
+   geminiConfigured:providers.includes("gemini"),
+   deepseekConfigured:providers.includes("deepseek"),
+   ollamaConfigured:ollamaConnected
+  }));
+  return;
+ }
  if(await executeIntent(question))return;
  if(/^(?:開啟|打開|前往)(?:Vanilla\s*)?(?:表格|Sheets)(?:編輯器)?[！!。.?？\s]*$/i.test(question)){
   window.dispatchEvent(new Event("vanilla-open-sheets"));setDraft("");return;
@@ -444,7 +460,7 @@ return <section className="chat">
 {(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice" role="status">{lastRoute||fileStatus||(modelError?status:"")}</p>}
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer">{item.label} ↗</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起搜尋連結</button></div>}
 <div className="chat-messages" aria-live="polite">
-{history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["幫我整理今天的想法","解釋一個複雜概念","一起規劃旅行"].map(x=><button key={x} disabled={busy||Boolean(comparison)} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
+{history.length===0?<div className="welcome"><div className="welcome-symbol"><Sparkles size={29}/></div><h2>今天想聊些什麼？</h2><p>Vanilla，專屬於你的私人 AI 工作空間。</p><div className="prompt-suggestions">{["你能做什麼？","幫我整理今天的想法","解釋一個複雜概念"].map(x=><button key={x} disabled={busy||Boolean(comparison)} onClick={()=>void send(x)}>{x}<ArrowUp size={14}/></button>)}</div></div>:
 <div className="message-list">{history.map((turn,index)=><div className={"message-row "+(turn.role==="user"?"from-user":"from-ai")} key={index}>{turn.role==="assistant"&&<span className="assistant-avatar"><Sparkles size={15}/></span>}<div className="message-content">{turn.role==="assistant"&&turn.source&&<div className="message-source">{turn.source==="local"?"本地 AI · 僅裝置端":turn.source==="ollama"?"Ollama · 指定端點":turn.source==="gemini"?"Gemini API · 雲端":"DeepSeek API · 雲端"}{turn.model&&<span className="model-id-suffix"> · {turn.model}</span>}</div>}<div className="message-text">{turn.content||"正在生成回答…"}</div>{turn.role==="assistant"&&renderTable(turn.content)}{turn.role==="assistant"&&turn.content&&<button type="button" className="message-copy" title="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={14}/>:<Copy size={14}/>}</button>}{turn.role==="assistant"&&turn.content&&<span className="smart-export"><button type="button" onClick={()=>exportText(turn.content,"md")}>MD</button><button type="button" onClick={()=>exportText(turn.content,"html")}>HTML</button><button type="button" onClick={()=>{try{exportText(turn.content,"csv");}catch(e){setLastRoute(String(e));}}}>CSV</button><button type="button" onClick={()=>window.print()}>PDF 列印</button>{parseTable(turn.content)&&<button type="button" onClick={()=>openTableInSheets(turn.content)}>在 Sheets 編輯</button>}</span>}{turn.role==="assistant"&&turn.content&&turn.source&&turn.model&&!turn.content.startsWith("生成失敗：")&&<span className="message-rating" aria-label="評價這則回答">
  <button type="button" aria-label="喜歡這個回答" title="喜歡這個回答" disabled={Boolean(turn.rating)} className={turn.rating==="up"?"selected":""} onClick={()=>rateAnswer(index,true)}><ThumbsUp size={14}/></button>
  <button type="button" aria-label="這個回答需要改善" title="這個回答需要改善" disabled={Boolean(turn.rating)} className={turn.rating==="down"?"selected":""} onClick={()=>rateAnswer(index,false)}><ThumbsDown size={14}/></button>

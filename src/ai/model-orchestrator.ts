@@ -3,6 +3,8 @@ import {getOllamaConfig,isOllamaConfigured,generateOllamaReply} from "./ollama";
 import {generateCloudReply,type ImageInput} from "../vault/providers";
 import {generateLocalReply,type ChatTurn} from "../local-ai/engine";
 import {getHealthAdjustment,recordModelRun} from "./model-health";
+import {noodlesModelAdjustment} from "../noodles/core";
+import {readNoodles,recordNoodles} from "../noodles/storage";
 
 export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
@@ -103,7 +105,7 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
-  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore;
+  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore+noodlesModelAdjustment(readNoodles(),task,candidate.id);
  };
  return [...candidates].sort((a,b)=>score(b)-score(a));
 }
@@ -114,17 +116,21 @@ export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKin
  const different=ordered.find(x=>x.source!==first.source);
  return [first,different||ordered[1]];
 }
-export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onLocalText?:(text:string)=>void):Promise<string>{
+export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onLocalText?:(text:string)=>void,optimization?:{task:TaskKind;privateMode:boolean}):Promise<string>{
  const start=Date.now();
  try{
   let result:string;
   if(candidate.source==="local")result=await generateLocalReply(history,onLocalText||(()=>{}));
   else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model);
   else result=await generateCloudReply(candidate.source,history,image,candidate.model);
-  recordModelRun(candidate.id,true,Date.now()-start);
+  const duration=Date.now()-start;
+  recordModelRun(candidate.id,true,duration);
+  if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:true,durationMs:duration},optimization.privateMode);
   return result;
  }catch(error){
-  recordModelRun(candidate.id,false,Date.now()-start);
+  const duration=Date.now()-start;
+  recordModelRun(candidate.id,false,duration);
+  if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:false,durationMs:duration},optimization.privateMode);
   throw error;
  }
 }

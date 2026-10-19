@@ -790,17 +790,17 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    try{localStorage.setItem(key,"yes");}catch{}
   }
  }
- if(!privateMode)learnToneFromMessage(question,false);
+ if(!privateMode&&!humanize)learnToneFromMessage(question,false);
  const displayQuestion=question+(fileName?"（附件："+(imageName||fileName)+"）":"");
  const next:ChatTurn[]=[...history,{role:"user",content:displayQuestion,id:crypto.randomUUID(),createdAt:Date.now()}];
  const assistantId=crypto.randomUUID(),assistantTime=Date.now()+1;
  const tableExpected=/(?:表格|比較表|試算表|工作簿)/.test(question);
  const effectiveFileContext=inlineFileContext||fileContext;
  let projectExtra="",creamExtra="";
- if(!privateMode&&contextPrefs.project&&/(?:專案|程式碼|原始碼|CITYMUS|citymusic|musiccity|musictown|稜角|Signwell|Github|GitHub|Builder)/i.test(question)){
+ if(!privateMode&&!humanize&&contextPrefs.project&&/(?:專案|程式碼|原始碼|CITYMUS|citymusic|musiccity|musictown|稜角|Signwell|Github|GitHub|Builder)/i.test(question)){
   try{projectExtra=await projectContext(attachmentOwner(signedChatAccount()),question);}catch{}
  }
- if(!privateMode&&contextPrefs.cream&&/(?:CREAM|長期|趨勢|歷史數據|數據追蹤|資料分析|成長|變化幅度|量測|體重|血壓|心率)/i.test(question)){
+ if(!privateMode&&!humanize&&contextPrefs.cream&&/(?:CREAM|長期|趨勢|歷史數據|數據追蹤|資料分析|成長|變化幅度|量測|體重|血壓|心率)/i.test(question)){
   try{
    const report=await longitudinalReport(attachmentOwner(signedChatAccount()));
    creamExtra="CREAM 已保存的歷史觀察（真實持久記錄；不等同預測）：\n"+
@@ -813,7 +813,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   }catch{}
  }
  const tableInstruction=tableExpected?"\n\n如需表格，請只輸出一份 Markdown 表格交由 Vanilla 轉成實際表格元件，不要再用文字重複表格；資料不得捏造。":"";
- const memoryRequested=!privateMode&&contextPrefs.memory&&driveSession()&&/(?:我的|我們|家裡|家人|家庭|家族|小孩|孩子|爸|媽|之前|以前|上次|記得|記憶|健康|運動|旅行|旅遊|紀錄|計畫|偏好|預算)/.test(question);
+ const memoryRequested=!privateMode&&!humanize&&contextPrefs.memory&&driveSession()&&/(?:我的|我們|家裡|家人|家庭|家族|小孩|孩子|爸|媽|之前|以前|上次|記得|記憶|健康|運動|旅行|旅遊|紀錄|計畫|偏好|預算)/.test(question);
  let recalled="";
  if(memoryRequested)try{recalled=await knowledgeContext(question);}catch{}
  const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";

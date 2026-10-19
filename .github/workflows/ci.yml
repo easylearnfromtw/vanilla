@@ -37,6 +37,7 @@ jobs:
           npm run test:builder
           npm run test:autocode
           npm run test:file-lifecycle
+          npm run test:drive-orphan
           npm run test:taide
       - name: Validate NOODLES GPU trainer syntax and sample JSONL (no GPU)
         run: |

@@ -499,7 +499,7 @@ async function send(value=draft):Promise<void>{
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.
    const previousCream=[...history].reverse().find(x=>x.cream)?.cream;
-   if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)){
+   if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
     const report=composeDianaCreamDocument(route.request,previousCream);
     if(report){
      setBusy(true);

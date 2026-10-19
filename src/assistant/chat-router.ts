@@ -6,6 +6,7 @@
  */
 import {capabilityIntent} from "./capability-report";
 import {parseDianaInvocation,type DianaTarget} from "../detroit/diana";
+import {proposeProactiveDiana} from "../detroit/diana-auto";
 import {makeHumanizeRequest,isHumanizeRequest} from "../erya/humanize";
 import {extractTextMeasurements} from "../cream/longitudinal";
 import {creamInstruction,creamChartFollowup,type CreamChartKind} from "../cream/core";
@@ -80,6 +81,9 @@ export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  if(url)return ctx.privateMode?{kind:"private-blocked",what:"讀取網頁"}:{kind:"web-read",url};
  const explicit=SEARCH_REQUEST.exec(q)?.[1]?.trim()||(app?.kind==="search"?app.query:"");
  if(explicit)return ctx.privateMode?{kind:"private-blocked",what:"網路搜尋"}:{kind:"web-search",query:explicit,explicit:true};
+ // Diana proactively selects real editors or local deterministic tools for clear action requests.
+ // Existing file, memory, search and CREAM routes above retain precedence and consent.
+ if(proposeProactiveDiana(q,{privateMode:ctx.privateMode,hasCreamResult:ctx.hasCreamResult}))return {kind:"diana",request:q,forcedTool:null};
  const implicit=!ctx.privateMode?implicitResearchQuery(q):null;
  if(implicit)return {kind:"web-search",query:implicit,explicit:false};
  return {kind:"continue"};

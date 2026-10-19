@@ -1,6 +1,6 @@
 # PdfCraft — native PDF combine in Orchestra
 
-**Source status:** an opt-in PdfCraft CLI adapter and authenticated Orchestra UI are implemented. **The external Rust binary is not installed by this change**, and no native rendering is claimed until a real isolated deployment completes golden-file tests.
+**Status:** a native Linux release `v0.9.0` has passed real golden-PDF tests on GitHub Actions. The optional image `services/weiguo/Dockerfile.pdfcraft` provisions exactly that upstream CLI with both published archive SHA-256 and observed executable SHA-256 pinned. The standard Docker image remains disabled by default. Real Railway activation requires its kernel to permit rootless Bubblewrap namespaces; an unsupported sandbox must fail closed.
 
 Source: https://github.com/storytold/pdfcraft (README documents `pdfcraft-cli combine report.pdf appendix.pdf --out combined.pdf`). The project advertises MIT OR Apache-2.0; verify LICENSE/NOTICE/asset obligations and pin a specific source commit or signed release before shipping.
 
@@ -12,6 +12,18 @@ Source: https://github.com/storytold/pdfcraft (README documents `pdfcraft-cli co
 - The worker discards inherited secret-bearing environment variables and CLI logs, enforces a global one-job semaphore and 45-second timeout, and returns PDF bytes without persisting bodies in the task DB.
 - Backend output is capped at 12 MiB and must begin with `%PDF-` and contain an EOF marker near its end. This is container validation, **not** a semantic PDF parser or an AV scan.
 - The backend limits each verified family account to 3 PDF combine operations per minute.
+
+## Pinned release + Bubblewrap deployment
+
+- Archive: `pdfcraft-cli-0.9.0-linux-x86_64.tar.gz`, SHA-256 `cdba2bec4d502d016dd78101a402d07845b708c49d77bc85e0ab640aca65372b`.
+- Extracted executable: `/usr/local/bin/pdfcraft-cli`, SHA-256 `073c9c4eb4193cbbf52211d5ad8102969b0731b3294e44c47ab289ac84d2640f`.
+- Independent CI workflow: `.github/workflows/orchestra-native-pdfcraft.yml`, real merger regression: `services/weiguo/native_pdfcraft_smoke.py`. The test produces three pages from two PDFs and verifies extracted text, order and structure via `pypdf`.
+- Deploy optional `services/weiguo/Dockerfile.pdfcraft` **instead of** replacing the default Dockerfile. This image installs `bubblewrap` and the pinned CLI and retains its MIT / Apache 2.0 LICENSE + NOTICE.
+- The native process is forcibly launched by `pdfcraft_native.py` through an unprivileged `bwrap` sandbox that requests isolated network, mount, PID, IPC and user namespaces, mounts only read-only system libraries plus the current temporary document directory, strips inherited secrets and limits CPU/file descriptors/output.
+- The app probes the real kernel at startup; look for `Orchestra PdfCraft kernel sandbox: supported` in the service logs. If the probe fails, **do not enable PdfCraft**. A Docker image or CI test alone is not proof that Railway permits user namespaces.
+- **Do not set** `WEIGUO_PDFCRAFT_ENABLED=true` or `WEIGUO_PDFCRAFT_EGRESS_ISOLATED=true` until that production probe succeeds. Set `WEIGUO_PDFCRAFT_SANDBOX=bubblewrap`, `WEIGUO_PDFCRAFT_CLI=/usr/local/bin/pdfcraft-cli` and the binary SHA-256 as pinned above; no user-supplied paths/MCP commands.
+- No fallback directly to the unconfined CLI. Production must report unavailable if Bubblewrap cannot create the network namespace.
+- For sustained/high-volume use, move this worker into a separate low-privilege container with no shared credentials/volumes and a host firewall denying egress. Native input parsers should never share the browser's ambient privileges.
 
 ## Required deployment gates
 

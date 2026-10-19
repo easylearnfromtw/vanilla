@@ -1,5 +1,7 @@
 import {useState,useRef,useEffect} from "react";
 import AssistantTools from "../assistant/AssistantTools";
+import CreamMessage from "../cream/CreamMessage";
+import {fromCreamRows,parseCreamCSV,analyzeCream,summarizeCream,creamInstruction,creamChartFollowup,type CreamDataset,type CreamResult} from "../cream/core";
 import {inspectExternalText,wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
 import {planAppIntent,PROJECTS} from "../assistant/intent-router";
 import {proposeSheetAction,commitSheetAction} from "../assistant/sheet-actions";
@@ -30,6 +32,7 @@ const [draft,setDraft]=useState("");
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
 const [fileContext,setFileContext]=useState("");
+const [creamDataset,setCreamDataset]=useState<CreamDataset|null>(null);
 const [fileName,setFileName]=useState("");
 const [fileStatus,setFileStatus]=useState("");
 const [assetBusy,setAssetBusy]=useState(false);
@@ -39,6 +42,29 @@ async function attachFile(file?:File){
  if(!file)return;
  try{assertPublicWorkspaceName(file.name,"處理");}catch(e){setFileStatus(e instanceof Error?e.message:String(e));return;}
  setFileName(file.name);setFileStatus("");setFileContext("");
+ if(/\.(csv|xlsx)$/i.test(file.name)){
+  if(file.size>2*1024*1024){setFileStatus("CREAM 手機端檔案上限 2 MB；未匯入或傳送資料。");return;}
+  setAssetBusy(true);
+  try{
+   let dataset:CreamDataset;
+   if(/\.xlsx$/i.test(file.name)){
+    const {readSheet}=await import("read-excel-file/browser");
+    const rows=await readSheet(file);
+    dataset=fromCreamRows(rows,file.name);
+   }else{
+    const raw=await file.text();
+    if(inspectExternalText(raw,"document").blocked)throw Error("資料中含疑似提示詞注入，已停止匯入。");
+    dataset=parseCreamCSV(raw,file.name);
+   }
+   setCreamDataset(dataset);
+   const result=analyzeCream(dataset),now=Date.now();
+   setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析本機附件「"+file.name+"」",id:crypto.randomUUID(),createdAt:now},
+    {role:"assistant",content:summarizeCream(result),id:crypto.randomUUID(),createdAt:now+1,cream:result}]);
+   setFileName("");setFileContext("");setFileStatus("");setLastRoute("CREAM 已在本機分析，未將數據傳送至模型或 Google Drive。");
+  }catch(e){setFileStatus("CREAM 匯入失敗："+(e instanceof Error?e.message:String(e)));}
+  finally{setAssetBusy(false);}
+  return;
+ }
  if(file.size>15*1024*1024){setFileStatus("檔案超過 15 MB，目前無法直接存進 Vanilla；影片需要日後分段上傳。");return;}
  setAssetBusy(true);
  let suspiciousAttachment=false;

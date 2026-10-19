@@ -3,6 +3,10 @@
  * Expected GET /search?q=<query> => {results:[{title,url,snippet}]}.
  */
 const KEY="vanilla.search.bridge.url.v1";
+const TOKEN="vanilla.search.bridge.session-token.v1";
+export function getWebReaderToken():string{try{return sessionStorage.getItem(TOKEN)||"";}catch{return "";}}
+export function setWebReaderToken(value:string):void{try{if(value.trim())sessionStorage.setItem(TOKEN,value.trim());else sessionStorage.removeItem(TOKEN);}catch{}}
+export function webReaderHeaders():HeadersInit{const token=getWebReaderToken();return token?{Authorization:"Bearer "+token}:{};}
 export function validateSearchBridge(url:string):string{
  if(!url.trim())return "";
  const u=new URL(url.trim());
@@ -26,7 +30,7 @@ export async function fetchSearchBridge(query:string):Promise<BridgeSearchHit[]>
  const url=base+(base.includes("?")?"&":"?")+"q="+encodeURIComponent(query.slice(0,180));
  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),9000);
  try{
-  const res=await fetch(url,{mode:"cors",credentials:"omit",headers:{"Accept":"application/json"},redirect:"error",signal:ctrl.signal});
+  const res=await fetch(url,{mode:"cors",credentials:"omit",headers:{"Accept":"application/json",...webReaderHeaders()},redirect:"error",signal:ctrl.signal});
   if(!res.ok)throw Error("搜尋後端 HTTP "+res.status);
   const raw=await res.json() as {results?:unknown};
   if(!Array.isArray(raw.results))throw Error("搜尋後端格式錯誤，應回傳 results 陣列");

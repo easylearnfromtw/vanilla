@@ -21,12 +21,14 @@ from moli_engine import maybe_moli_extract
 from gridcraft_adapter import router as gridcraft_router
 from medusa_adapter import router as medusa_router
 from medusa_family import router as medusa_family_router
+from ceres_gateway import telegram_router as ceres_telegram_router, operator_router as ceres_operator_router
 from quirinus_adapter import router as quirinus_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
 from pdfcraft_native import probe_sandbox
-from pdfcraft_engine import combine_pdfs, PdfCraftUnavailable, PdfCraftFailed
+from pdfcraft_engine import PdfCraftUnavailable, PdfCraftFailed
+from pdfcraft_remote import combine_pdfs, remote_requested, remote_ready
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -109,6 +111,10 @@ app.include_router(medusa_router, dependencies=[Depends(operator)])
 app.include_router(medusa_family_router)
 app.include_router(quirinus_router, dependencies=[Depends(operator)])
 app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
+# Ceres public ingress has independent webhook authentication; operator inbox uses the
+# server-only administrator dependency and is hidden on public-family-only deployments.
+app.include_router(ceres_telegram_router)
+app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 
 @app.get("/v1/health")
 @app.get("/health")
@@ -178,7 +184,20 @@ async def family_me(user: FamilyIdentity = Depends(family_user)):
 @app.get("/v1/family/orchestra/capabilities")
 async def family_orchestra_capabilities(user: FamilyIdentity = Depends(family_reader)):
     """Read-only engine capability discovery for verified family members."""
-    return JSONResponse(content=orchestra_capabilities(),
+    declared = orchestra_capabilities()
+    if remote_requested():
+        # A configured URL is not enough. Check the signed remote worker /ready
+        # before advertising combine-pdf; never accidentally enable local CLI.
+        online = await remote_ready()
+        for engine in declared["engines"]:
+            if engine["id"] == "pdfcraft":
+                engine.update({
+                    "status": "configured" if online else "unavailable",
+                    "operations": ["combine-pdf"] if online else [],
+                    "outputFormats": ["pdf"] if online else [],
+                    "runtimeVerified": False,
+                })
+    return JSONResponse(content=declared,
                         headers={"Cache-Control": "private, no-store",
                                  "X-Content-Type-Options": "nosniff"})
 

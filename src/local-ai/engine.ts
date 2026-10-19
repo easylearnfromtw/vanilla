@@ -125,7 +125,7 @@ export async function loadLocalModel(onProgress:(message:string,progress:number)
    const old=engine;
    engine=null;
    loadedModel=null;
-   await old.unload();
+   try{await old.unload();}catch(error){if(!isDisposedWebLLMFailure(error))throw error;}
   }
   const next=await createEngine(model,onProgress);
   engine=next;

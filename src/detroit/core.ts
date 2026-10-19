@@ -2,6 +2,8 @@
  * Names are role descriptions, not separately loaded neural networks.
  * Plans and audit trails contain decisions and observed outcomes, NEVER private chain-of-thought.
  */
+import {isHumanizeRequest} from "../erya/humanize";
+
 export type DetroitEngine="merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"veritas"|"mnemosyne"|"hermes";
 export type DetroitStatus="active"|"adapter"|"planned";
 export type DetroitEngineInfo={id:DetroitEngine;label:string;group:"入口與治理"|"執行與運算"|"資料與產出"|"品質與持續任務";status:DetroitStatus;description:string};
@@ -19,7 +21,7 @@ export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
  {id:"orchestra",label:"Orchestra",group:"資料與產出",status:"adapter",description:"七個 Craft 工具的能力路由、CREAM 作品交接與本機 Retina／SVG 回退；原生執行須獨立部署"},
  {id:"luna",label:"LUNA",group:"資料與產出",status:"active",description:"原生離線海報設計工具：可編輯圖層、模板、圖片與 PNG/JSON 匯出；沒有後端管理員或上游登入"},
  {id:"janus",label:"Janus · 郵件設計",group:"資料與產出",status:"active",description:"Detroit 本機 Unlayer Elements 產製 HTML／設計 JSON，選用人工同意後的 Unlayer 雲端拖曳編輯；不自動寄信"},
- {id:"er-ya",label:"爾雅",group:"資料與產出",status:"adapter",description:"依 Merlin 原始需求檢查結論、用語與依據"},
+ {id:"er-ya",label:"爾雅",group:"資料與產出",status:"active",description:"文字自然化、台灣繁體中文風格指引與確定性原文資訊保護；使用既有模型改寫"},
  {id:"venus",label:"Venus",group:"資料與產出",status:"adapter",description:"依任務需要選擇精簡文字、圖表、表格或報告呈現"},
  {id:"persistent-jobs",label:"Persistent Jobs",group:"品質與持續任務",status:"adapter",description:"可部署 Cloudflare 後端與通知佇列；未部署無法在背景執行"},
  {id:"chronos",label:"Chronos",group:"品質與持續任務",status:"planned",description:"週期排程、重試與到期策略"},
@@ -32,22 +34,23 @@ export type DetroitStage={engine:DetroitEngine;label:string;state:"waiting"|"run
 export type DetroitPlan={depth:DetroitDepth;intent:"chat"|"analysis"|"research"|"document"|"email"|"code"|"visual"|"file";requiresModel:boolean;requiresNetwork:boolean;needsEvidence:boolean;needsArtifact:boolean;stages:DetroitStage[];reason:string};
 export function merlinParse(text:string,opts:{image?:boolean;file?:boolean;privateMode?:boolean;deepRequested?:boolean}={}):DetroitPlan{
  const q=text.trim().slice(0,16000);
+ const humanize=isHumanizeRequest(q);
  const email=/(?:電子郵件|電子報|郵件模板|郵件設計|郵件編輯|活動邀請函|電子邀請函|行銷信|EDM|newsletter|(?:e-?mail)\s*(?:template|design|builder))/i.test(q);
  const document=/(?:PDF|DOCX|PPTX|簡報|報告書|企劃書|論文|製作報告|生成文件)/i.test(q);
  const code=/(?:程式碼|GitHub|修復\s*bug|debug|TypeScript|Python|程式架構|修改.*專案)/i.test(q);
  const research=/(?:研究|文獻|查證|引文|來源|最新|現況|比較.*資料|市場分析|法律條文)/i.test(q);
  const analysis=/(?:分析|統計|趨勢|比較|評估|估計|數據|算出|模型)/i.test(q);
  const visual=/(?:圖表|圖片|視覺|插畫|設計圖|畫一張)/i.test(q);
- const intent:DetroitPlan["intent"]=email?"email":document?"document":code?"code":research?"research":analysis?"analysis":visual?"visual":opts.file?"file":"chat";
+ const intent:DetroitPlan["intent"]=humanize?"chat":email?"email":document?"document":code?"code":research?"research":analysis?"analysis":visual?"visual":opts.file?"file":"chat";
  const complex=/(?:全面|詳細|深入|完整|逐步|嚴謹|多角度|比較|交叉驗證|系統設計|完整程式)/i.test(q)||q.length>280;
- const depth:DetroitDepth=opts.deepRequested||/深度思考|認真想|多想一點|仔細推敲/i.test(q)?"deep":complex||intent==="research"||intent==="code"||intent==="document"||intent==="email"||intent==="analysis"?"standard":"quick";
- const needsEvidence=research||/(?:依據|來源|引用|佐證)/.test(q);
+ const depth:DetroitDepth=opts.deepRequested||/深度思考|認真想|多想一點|仔細推敲/i.test(q)?"deep":complex||intent==="research"||intent==="code"||intent==="document"||intent==="email"||intent==="analysis"||humanize?"standard":"quick";
+ const needsEvidence=!humanize&&(research||/(?:依據|來源|引用|佐證)/.test(q));
  const requiresNetwork=needsEvidence&&!opts.privateMode;
- const needsArtifact=document||email;
+ const needsArtifact=!humanize&&(document||email);
  const engines:DetroitEngine[]=["merlin","athena","zeus"];
  if(depth!=="quick"){
   if(requiresNetwork)engines.push("scouts");
-  if(analysis||intent==="analysis")engines.push("cream");
+  if(!humanize&&(analysis||intent==="analysis"))engines.push("cream");
   engines.push("dionysus","er-ya");
   if(intent==="email")engines.push("janus");
   else if(needsArtifact)engines.push("orchestra","retina");

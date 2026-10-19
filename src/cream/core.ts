@@ -2,7 +2,7 @@
  * Never execute spreadsheet formulas, arbitrary JavaScript, or model-generated code.
  */
 export type CreamChartKind="bar"|"line"|"scatter";
-export type CreamDataset={source:string;columns:string[];rows:string[][];importedAt:string};
+export type CreamDataset={source:string;columns:string[];rows:string[][];rowNumbers:number[];importedAt:string};
 export type CreamPoint={row:number;label:string;value:number};
 export type CreamMetric={
  key:string;column:number;n:number;missing:number;sum:number;mean:number;median:number;
@@ -29,9 +29,10 @@ export function fromCreamRows(rows:readonly (readonly unknown[])[],source:string
  const headers=rows[0].map((v:unknown,i:number)=>safeText(v)||"欄位 "+(i+1));
  const used=new Set<string>();
  for(const header of headers){if(used.has(header))throw Error("CREAM：欄位名稱必須唯一，請先重新命名重複欄位："+header);used.add(header);}
- const records=rows.slice(1).filter((row:readonly unknown[])=>row.some((cell:unknown)=>safeText(cell)!=="")).map((row)=>Array.from({length:width},(_,i)=>safeText(row[i])));
+ const nonempty=rows.slice(1).map((row,i)=>({values:row,sourceRow:i+2})).filter(x=>x.values.some((cell:unknown)=>safeText(cell)!==""));
+ const records=nonempty.map(x=>Array.from({length:width},(_,i)=>safeText(x.values[i])));
  if(!records.length)throw Error("CREAM：沒有可分析的資料列。");
- return {source:source.trim().slice(0,120)||"未命名資料",columns:headers,rows:records,importedAt:new Date().toISOString()};
+ return {source:source.trim().slice(0,120)||"未命名資料",columns:headers,rows:records,rowNumbers:nonempty.map(x=>x.sourceRow),importedAt:new Date().toISOString()};
 }
 export function parseCreamCSV(text:string,source="貼上 CSV"):CreamDataset{
  if(text.length>MAX_BYTES)throw Error("CREAM：CSV 文字超過 2 MB，上傳大資料請使用後端分析。");
@@ -65,7 +66,7 @@ export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind="bar"):Cre
  const warnings:string[]=[];
  const metrics:CreamMetric[]=[];
  for(let col=0;col<dataset.columns.length;col++){
-  const entries=dataset.rows.map((r,i)=>({row:i+2,raw:r[col]||""})).filter(x=>x.raw.trim()!=="");
+  const entries=dataset.rows.map((r,i)=>({row:dataset.rowNumbers[i]??i+2,index:i,label:col!==0?r[0]||"":"",raw:r[col]||""})).filter(x=>x.raw.trim()!=="");
   const parsed=entries.map(x=>({...x,value:toNumber(x.raw)}));
   if(!parsed.length)continue;
   if(parsed.some(x=>x.value===null)){
@@ -79,7 +80,7 @@ export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind="bar"):Cre
   const min=ordered[0],max=ordered[n-1];
   const sampleStdDev=n<2?null:Math.sqrt(values.reduce((a,b)=>a+(b-mean)**2,0)/(n-1));
   const points:CreamPoint[]=parsed.slice(0,MAX_POINTS).map(x=>({
-   row:x.row,label:dataset.columns.length>1&&col!==0?dataset.rows[x.row-2]?.[0]||"第 "+(x.row-1)+" 筆":"第 "+(x.row-1)+" 筆",
+   row:x.row,label:x.label||"第 "+(x.index+1)+" 筆",
    value:x.value as number
   }));
   metrics.push({key:dataset.columns[col],column:col,n,missing:dataset.rows.length-n,sum,mean,median,min,max,sampleStdDev,points});

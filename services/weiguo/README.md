@@ -44,6 +44,25 @@ The PWA holds only this task-scoped session **in JavaScript memory** (not localS
 
 This is limited server-authorized access, **not** delegation of the management key or high-risk browser operations. Browser tasks are read-only, cannot click or fill, and are restricted to exact HTTPS host allowlists. Server administrators must prevent private-network egress. CORS alone is not authentication; origin restrictions and the Google session are both required.
 
+## Google family identity gateway (new)
+
+`POST /v1/auth/google` accepts a Google GIS **ID token** in `{"credential":"..."}`, verifies Google signature, issuer, expiry and the configured **audience**. It does not accept a Google Drive OAuth access token or trust any email, role or member name claimed by the browser. Identity is keyed by immutable Google `sub`. On a successful approved match, it returns a 15-minute HMAC-signed family session.
+
+`GET /v1/auth/me` validates the family token; `POST /v1/family/tasks` queues strictly read-only steps and caps each Google sub at six submissions/minute. `GET /v1/family/tasks/{id}` only reveals results submitted by that exact `sub`. Roles `owner` and `member` can submit/read **their own** tasks; `viewer` can only query its own identity. Removing a `sub` from the ACL revokes access on the next request, including already-issued tokens. Old task results expire after seven days.
+
+**Server-only setup (do not commit actual IDs, secrets or private ACL):**
+
+- `WEIGUO_GOOGLE_CLIENT_ID`: existing Vanilla Google OAuth Web Client ID (public, matches `GOOGLE_CLIENT_ID` from `src/vault/google-auth.ts`)
+- `WEIGUO_SESSION_SECRET`: independent random, server-only secret (at least 32 characters; distinct from `WEIGUO_ADMIN_TOKEN`)
+- `WEIGUO_FAMILY_ACL_JSON`: JSON map of **verified** Google numeric `sub` values to `{"member":"family display name","role":"owner|member|viewer"}`; for example `{"123456789012345678901":{"member":"Demo","role":"member"}}` is illustrative only and does not authorize real Google accounts.
+- `WEIGUO_CORS_ORIGINS`: exact `https://easylearnfromtw.github.io` (no path, wildcard, trailing slash or scheme downgrade)
+- `WEIGUO_ALLOWED_HOSTS`: explicit public HTTPS domain names allowed for extraction.
+- `WEIGUO_ADMIN_TOKEN`: independent operator-only token; the PWA must never receive it.
+
+To identify an approved member's stable Google `sub`, use a **private server-side verified** ID-token inspection during enrollment. Do **not** rely on a user-provided email or ID, and do not log or store Google credentials. The app does not expose Google `sub` in its UI. Maintain the family ACL only in private deployment environment variables. Rotate secrets after compromise and restart workers.
+
+**Security boundary:** CORS is not authorization; the signed family token and current ACL are checked on every family request. The admin routes still exist for backwards compatibility and must stay restricted by network policy, not merely by a hidden UI link. Rate-limit the login endpoint upstream as well, and enforce outbound private-network blocking; SSRF defenses inside Playwright are not a complete egress firewall.
+
 ## Supported API
 
 - POST /v1/auth/google: verify Google GIS OIDC credential and exchange it for a 15-minute family-only session.

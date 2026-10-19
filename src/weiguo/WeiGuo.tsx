@@ -20,11 +20,13 @@ export default function WeiGuo(){
  const [busy,setBusy]=useState(false);
  const [taskNotice,setTaskNotice]=useState("");
  useEffect(()=>{
-  const update=()=>{setSigned(Boolean(driveSession()));setIdentity(weiGuoIdentity());};
+  const update=()=>{setSigned(Boolean(driveSession()));setIdentity(weiGuoIdentity());setTask(null);};
+  const expire=()=>{if(identity&&!weiGuoIdentity()){setIdentity(null);setTaskNotice("衞國授權已到期，請重新使用 Google 登入");}};
+  const interval=window.setInterval(expire,15000);
   window.addEventListener("vanilla-drive-connected",update);
   window.addEventListener("vanilla-drive-disconnected",update);
-  return()=>{window.removeEventListener("vanilla-drive-connected",update);window.removeEventListener("vanilla-drive-disconnected",update);};
- },[]);
+  return()=>{window.clearInterval(interval);window.removeEventListener("vanilla-drive-connected",update);window.removeEventListener("vanilla-drive-disconnected",update);};
+ },[identity]);
  useEffect(()=>{
   if(!signed||identity||!weiGuoApiBase()||!googleButton.current)return;
   let live=true;
@@ -40,11 +42,11 @@ export default function WeiGuo(){
  async function submitTask(){
   setBusy(true);setTaskNotice("");
   try{const created=await startWeiGuoTask(taskUrl.trim(),[{action:"extract"}]);setTask(created);setTaskNotice("任務已交由後端執行；關閉手機也不會取消已送出的工作。");}
-  catch(e){setTaskNotice(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
+  catch(e){setIdentity(weiGuoIdentity());setTaskNotice(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
  }
  async function refreshTask(){
   if(!task)return;
-  try{setTask(await getWeiGuoTask(task.id));}catch(e){setTaskNotice(e instanceof Error?e.message:String(e));}
+  try{setTask(await getWeiGuoTask(task.id));}catch(e){setIdentity(weiGuoIdentity());setTaskNotice(e instanceof Error?e.message:String(e));}
  }
 
  const [manifest,setManifest]=useState(DEFAULT);

@@ -61,14 +61,14 @@ export function capabilityItems(s:CapabilitySnapshot):Record<Exclude<CapabilityT
    "已具備在授權 Google Drive 中儲存、搜尋、回憶及確認後刪除記憶索引的流程；不是模型權重訓練，也不保證完整讀取所有網站或影片。":
    "個人長期記憶需要一般模式、有效的 Google Drive 授權及網路；私密對話不自動同步至 Drive。",example:"記住：我偏好繁體中文回答"},
   search:{name:"網站搜尋入口",status:s.online?"limited":"setup",detail:s.online?
-   "可產生一般搜尋與偏好來源的搜尋連結；不代表已自動開啟網頁、完成即時爬取或驗證引用。":
+   "能實際搜尋 Wikipedia／Crossref 公開索引，並嘗試讀取來源網頁正文交給已啟用的模型依據來源統整。完整跨網域搜尋與受 CORS 限制的網頁，需要設定並部署安全的 HTTPS 搜尋／擷取後端；不能宣稱已查遍所有網站。":
    "目前離線，無法取得最新網站內容；已儲存的連結設定仍可保留。",example:"搜尋：台灣醫師國考"},
   media:{name:"附件與圖片",status:"limited",detail:s.privateMode?
    "可在當次私密對話處理部分文字附件；圖片理解需要相容且已授權的視覺模型，單靠本地文字模型無法識圖，私密模式不傳雲端。PDF、PPTX 和影片不具備完整解析。":
    "可附加圖片及部分文字檔；圖片辨識要有可用的 Gemini 視覺模型且明確同意傳送。PDF／DOCX／PPTX／影片目前不具備完整內容解析，不能只靠上傳就宣稱已讀取。",example:"＋ 附件"},
   builder:{name:"Self-Build／API 規劃",status:"limited",detail:"可把新增功能或第三方 API 串接需求轉為可審查的規劃與草稿；不是自己修改 GitHub 原始碼、部署網站或連上未授權服務。",example:"新增功能：建立讀書進度小工具"},
   fitness:{name:"健人資料橋接",status:"limited",detail:"在同一瀏覽器有健人資料且獲得確認時，可讀取已儲存的跑步／重訓摘要，並經確認新增符合格式的跑步紀錄；不等於已同步所有裝置或取得別人的健康資料。",example:"查詢健人的跑步數據"},
-  research:{name:"CREAM／進階數據分析",status:"planned",detail:"CREAM 對話內統計圖表、跨文獻研究統整與可追溯報告仍屬開發分支，目前正式版本尚未安裝。一般文字模型可能討論分析方法，但不能聲稱 CREAM 已執行。"},
+  research:{name:"CREAM／進階數據分析",status:"limited",detail:"CREAM P0 已正式整合於聊天：貼上 CSV 或上傳 CSV／XLSX 即可在裝置端計算描述統計，產生可互動長條圖、折線圖和散佈圖並匯出 CSV。完整 14 模組中的跨文獻研究、推論統計、PDF 專業報告及全面證據驗證仍待開發，不能聲稱已具備。",example:"CREAM：月份,數值\\n一月,10\\n二月,20"},
   phone:{name:"Mobilerun／手機操作",status:"planned",detail:"Mobilerun 裝置操作仍是待整合功能；iPhone PWA 沒有跨 App 系統控制權，不能直接點擊其他 App、操控設定或自動發送訊息。"},
   travel:{name:"家庭旅行與即時導遊",status:"limited",detail:"可利用已啟用的文字模型提供規劃建議，以及建立旅行表格；尚無完整即時航班／訂房／導遊代理與自動預訂能力。"},
   family:{name:"家庭身分與權限",status:"limited",detail:"目前以不同 Google 帳戶／個人儲存區隔離為主要基礎，完整家庭身分辨識、跨帳戶分享授權及伺服器端 RBAC 尚未完成；不會自動讀取其他人的私有資料。"},

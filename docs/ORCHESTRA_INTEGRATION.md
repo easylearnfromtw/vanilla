@@ -1,6 +1,6 @@
 # Orchestra — Detroit + Craft Suite + CREAM
 
-> **Staged implementation**. The capability registry, Orchestra workspace, Detroit tab, and CREAM handoff are implemented in the source branch. The seven Rust executables are not bundled or deployed. Current functional outputs are local Retina DOCX/PDF/PPTX and an optional server-side WordCraft converter **only if** an operator separately installs and isolates its CLI.
+> **Staged implementation**. The capability registry, Orchestra workspace, Detroit tab, and CREAM handoff are implemented in Vanilla. The seven Rust executables are not bundled or deployed. Current functional outputs are local Retina DOCX/PDF/PPTX and an optional server-side WordCraft converter **only if** an operator separately installs and isolates its CLI.
 
 ## Why a separate skill
 

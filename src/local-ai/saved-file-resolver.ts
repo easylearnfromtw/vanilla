@@ -3,7 +3,7 @@
  */
 import {attachmentOwner,listChatAttachments,getChatAttachment,removeChatAttachment,type SavedAttachment} from "../library/attachment-vault";
 import {signedChatAccount} from "../vault/chat-sync";
-import {driveSession,listWorkspaceFiles,getWorkspaceBlob,trashWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
+import {driveSession,listWorkspaceFiles,getWorkspaceBlob,trashWorkspaceFile,getWorkspaceMetadata,type WorkspaceFile} from "../workspace/cloud-drive";
 import {listMemories,previewMemoryAttachment,forgetMemoryWithAttachment,type MemoryRecord} from "../memory/drive-memory";
 import {matchNamedFile} from "./file-intent";
 export type SavedFileSource="device"|"drive-memory"|"drive-workspace";
@@ -57,26 +57,36 @@ export async function exactOwnedCopies(name:string):Promise<SavedFileCandidate[]
  }
  return out;
 }
-export async function deleteOwnedCopy(item:SavedFileCandidate):Promise<void>{
+export type OwnedCopyDeletion={
+ status:"verified"|"index-only";
+ detail:string;
+};
+export async function deleteOwnedCopy(item:SavedFileCandidate):Promise<OwnedCopyDeletion>{
  if(item.source==="device"){
-  await removeChatAttachment(item.id,currentOwner());
-  try{await getChatAttachment(item.id,currentOwner());}catch{return;}
-  throw Error("IndexedDB 仍保有刪除的附件："+item.name);
- }
- if(!driveSession())throw Error("雲端登入已過期，不能假裝成功刪除");
- if(item.source==="drive-memory"){
-  await forgetMemoryWithAttachment(item.id,true);
-  // Uncached records may take a moment; verify via fresh metadata lists.
-  const existing=await listMemories();
-  if(existing.some(x=>x.id===item.id))throw Error("記憶索引仍存在，請重新整理再確認");
-  return;
+  const owner=currentOwner();
+  await removeChatAttachment(item.id,owner);
+  if((await listChatAttachments(owner)).some(x=>x.id===item.id))throw Error("IndexedDB 仍保有刪除的附件："+item.name);
+  return {status:"verified",detail:"已確認刪除本裝置 IndexedDB 附件："+item.name};
  }
  const session=driveSession();
- if(!session)throw Error("Google Drive 權杖已過期");
- const all=await listWorkspaceFiles(session.token);
- const original=all.find(x=>x.id===item.id);
- if(!original)throw Error("Google Drive 已找不到此檔案，可能已刪除或搬移");
+ if(!session)throw Error("雲端登入已過期，不能假裝成功刪除");
+ if(item.source==="drive-memory"){
+  const result=await forgetMemoryWithAttachment(item.id,true);
+  const existing=await listMemories();
+  if(existing.some(x=>x.id===item.id))throw Error("記憶索引仍存在，請重新整理再確認");
+  if(result.original==="missing-or-inaccessible")
+   return {status:"index-only",detail:"已移除 Vanilla 雲端記憶索引："+item.name+"。原始附件無法透過 Drive 檔案 ID 存取，可能仍存在其他位置或帳號，不能確認刪除；請在 Google Drive 檢查。"};
+  if(result.original==="untrusted-reference")
+   return {status:"index-only",detail:"已移除 Vanilla 雲端記憶索引："+item.name+"。所指向的原始檔並非經驗證由 Vanilla 建立，為避免誤刪其他 Drive 檔案而未操作，可能仍存在。"};
+  return {status:"verified",detail:result.original==="already-trashed"?
+   "原始附件已位於 Google Drive 垃圾桶；已確認移除 Vanilla 雲端記憶索引："+item.name:
+   result.original==="no-attachment"?"已確認移除無原始附件的雲端記憶索引："+item.name:
+   "已確認原始附件移至 Google Drive 垃圾桶，並移除雲端記憶索引："+item.name};
+ }
+ // This candidate was enumerated from the authorized workspace; use immutable ID so
+ // moving it between listing and deletion does not silently hide failed operations.
+ const original=await getWorkspaceMetadata(session.token,item.id);
  await trashWorkspaceFile(session.token,original);
- const remaining=await listWorkspaceFiles(session.token);
- if(remaining.some(x=>x.id===item.id))throw Error("Drive 尚未確認移至垃圾桶；請查看 Google Drive");
+ if((await listWorkspaceFiles(session.token)).some(x=>x.id===item.id))throw Error("Drive 工作區仍顯示檔案；請重新整理並確認");
+ return {status:"verified",detail:"已確認檔案移至 Google Drive 垃圾桶："+item.name};
 }

@@ -35,7 +35,7 @@ test("No connection and no local model are not misrepresented as ready",()=>{
  assert.equal(items.drive.status,"setup");
  assert.equal(items.memory.status,"setup");
  assert.equal(items.phone.status,"planned");
- assert.equal(items.research.status,"planned");
+ assert.equal(items.research.status,"limited");
  assert.equal(items.sheets.status,"available");
  const text=capabilityAnswer("overview",disconnected);
  assert.match(text,/目前沒有已載入的可用本地模型/);
@@ -51,6 +51,7 @@ test("Connected state is labeled but never claimed to be tested remotely",()=>{
  assert.match(capabilityAnswer("drive",connected),/實際能否成功/);
  assert.match(capabilityAnswer("models",connected),/Qwen2.5/);
  assert.match(capabilityAnswer("phone",connected),/沒有跨 App 系統控制權/);
+ assert.match(capabilityAnswer("research",connected),/CREAM P0/);
 });
 test("Private mode never offers Google Drive memory as available",()=>{
  const items=capabilityItems({...connected,privateMode:true});
@@ -63,7 +64,7 @@ test("Named capabilities clearly state limits, examples and pending development"
  assert.match(report,/Vanilla Sheets/);
  assert.match(report,/CREAM/);
  assert.match(report,/Mobilerun/);
- assert.match(report,/自動爬取|即時爬取/);
+ assert.match(report,/跨網域搜尋|網頁正文/);
  assert.match(report,/功能登錄/);
  assert.match(capabilityAnswer("builder",connected),/不是自己修改 GitHub/);
 });

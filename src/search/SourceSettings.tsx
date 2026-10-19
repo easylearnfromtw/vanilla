@@ -1,12 +1,13 @@
 import {useState} from "react";
 import {Search,Plus,Trash2,ExternalLink,BookOpen} from "lucide-react";
 import {getSources,setSources,addSource,searchLinks,type PreferredSource} from "./source-preferences";
-import {getSearchBridge,setSearchBridge} from "./search-bridge";
+import {getSearchBridge,setSearchBridge,getWebReaderToken,setWebReaderToken} from "./search-bridge";
 export default function SourceSettings(){
  const [sources,setList]=useState<PreferredSource[]>(getSources);
  const [domain,setDomain]=useState(""),[label,setLabel]=useState("");
  const [query,setQuery]=useState(""),[status,setStatus]=useState("");
  const [bridge,setBridge]=useState(getSearchBridge);
+ const [readerToken,setReaderToken]=useState("");
  function update(list:PreferredSource[]){
   try{setSources(list);setList(getSources());setStatus("已更新網站偏好（本裝置設定）");}catch(e){setStatus(e instanceof Error?e.message:String(e));}
  }
@@ -26,9 +27,12 @@ export default function SourceSettings(){
    <strong>進階：自訂全網搜尋後端（選用）</strong>
    <p>Wikipedia 與 Crossref 可直接在 Safari 查詢。若要整合 Google、Brave 或自有搜尋服務的正式搜尋結果，請在你自己的安全後端設定該服務，並填入提供 <code>GET /search?q=...</code>、回傳標題／網址／摘要 JSON 的 HTTPS API。不要將搜尋服務金鑰放在這裡。</p>
    <input aria-label="HTTPS 搜尋後端網址" type="url" value={bridge} placeholder="https://your-search.example/search" onChange={e=>setBridge(e.target.value)} />
+   <label>後端存取權杖（僅本次分頁保存）
+    <input type="password" autoComplete="off" placeholder={getWebReaderToken()?"已設定（留白不更動）":"與 Worker 的 WEB_READER_TOKEN 一致"} value={readerToken} onChange={e=>setReaderToken(e.target.value)}/>
+   </label>
    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-    <button type="button" onClick={()=>{try{setSearchBridge(bridge);setStatus(bridge.trim()?"已儲存搜尋後端，下一次搜尋會嘗試連線；尚未驗證 API。":"已停用額外搜尋後端");}catch(e){setStatus(String(e));}}}>儲存搜尋設定</button>
-    <button type="button" onClick={()=>{setBridge("");setSearchBridge("");setStatus("已移除自訂搜尋後端");}}>停用</button>
+    <button type="button" onClick={()=>{try{setSearchBridge(bridge);if(readerToken.trim()){setWebReaderToken(readerToken);setReaderToken("");}setStatus(bridge.trim()?"已儲存搜尋後端，下一次搜尋會嘗試連線；尚未驗證 API。":"已停用額外搜尋後端");}catch(e){setStatus(String(e));}}}>儲存搜尋設定</button>
+    <button type="button" onClick={()=>{setBridge("");setSearchBridge("");setWebReaderToken("");setReaderToken("");setStatus("已移除自訂搜尋後端與權杖");}}>停用</button>
    </div>
   </div>
   <p role="status" className="source-status">{status}</p>

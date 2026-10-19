@@ -22,6 +22,8 @@ jobs:
           npm run test:webllm-guard
           npm run test:assistant
           npm run test:resource-integration
+          npm run test:cream
+          npm run test:web-workflows
           npm run test:capabilities
           npm run test:security
           npm run test:workspace

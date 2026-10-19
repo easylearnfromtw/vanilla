@@ -58,6 +58,8 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
+import {composeDianaCreamDocument,requestedDianaFormat} from "../detroit/diana-auto";
+import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 
 const BASE=import.meta.env.BASE_URL;
 const MODE_KEY=CHAT_MODE_KEY;

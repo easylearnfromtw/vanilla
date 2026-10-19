@@ -6,6 +6,7 @@ export type DetroitFactoryTool={
  status:"adapter"|"planned";enabledByDefault:boolean;description:string;
 };
 export const DETROIT_FACTORY_TOOLS:readonly DetroitFactoryTool[]=[
+ {id:"ceres",label:"Ceres",engine:"Diana / Zeus / Athena",provider:"Vanilla native",status:"adapter",enabledByDefault:false,description:"自研跨平台訊息驗證 Relay 與插件定義，不自動安裝、執行或傳送訊息"},
  {id:"medusa",label:"Medusa",engine:"JENSEN HUANG / CREAM",provider:"Judge0",
   status:"adapter",enabledByDefault:false,
   description:"獨立 Judge0 Python 沙盒；家庭管理者須經後端白名單及逐次同意，預設停用，需隔離部署驗證"},

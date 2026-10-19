@@ -75,7 +75,7 @@ export function auditHumanizedText(source:string,candidate:string):HumanizeAudit
   string,RegExp
  ][]=[
   ["占位符",/\{\{[^{}\r\n]{1,80}\}\}/g],
-  ["網址",/https?:\/\/[^\s<>\]）)]+/g],
+  ["網址",/https?:\/\/[^\s<>\]）)，。、；：！？,;]+/g],
   ["DOI",/\b10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+/g],
   ["引用",/\[(?:\d+(?:[-,]\d+)*|[A-Za-z][A-Za-z0-9_-]{2,})\]/g],
   ["數字",/\d+(?:[.,]\d+)*(?:%|％)?/g],

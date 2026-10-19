@@ -1,7 +1,7 @@
 /** Deployed capability inventory. Never conflate included UI with real backend readiness. */
 export type LaunchStatus="ready"|"setup"|"limited"|"planned";
 export type LaunchInput={
- online:boolean;localModelLoaded:boolean;webGPU:boolean;indexedDB:boolean;
+ online:boolean;localModelLoaded:boolean;webGPU:boolean;indexedDB:boolean;cloudProvidersConfigured:boolean;
  driveAuthorized:boolean;analyticsClientConfigured:boolean;analyticsAuthorized:boolean;
  ollamaConfigured:boolean;webSearchConfigured:boolean;webSearchTokenConfigured:boolean;
  noodlesEnabled:boolean;
@@ -14,7 +14,7 @@ export function launchReadiness(input:LaunchInput):LaunchRow[]{
  return [
   {id:"chat",name:"聊天介面／左右滑動／雙模型比較",status:"ready",description:"React 對話介面與資料卡已納入正式部署。模型實際回答仍需有已載入或已連線的模型。"},
   {id:"local",name:"裝置端 WebLLM",status:input.localModelLoaded?"ready":"setup",description:input.localModelLoaded?"本次分頁已載入本機模型。":input.webGPU?"此裝置支援 WebGPU；仍須下載及載入模型。":"此瀏覽器沒有可用 WebGPU，不能在此執行 WebLLM。"},
-  {id:"models",name:"外部 Gemini／DeepSeek 模型",status:"setup",description:"外部模型需各自設定金鑰及同意傳送資料。單靠網頁部署不能確認 API 連線、模型額度或費用。",action:"系統設定 → 模型連線"},
+  {id:"models",name:"外部 Gemini／DeepSeek 模型",status:input.cloudProvidersConfigured?"limited":"setup",description:input.cloudProvidersConfigured?"已設定外部模型，但單靠設定無法確認實際 API 連線或模型額度；必須由使用者同意一次真實推論測試。":"需各自設定金鑰及同意傳送資料。單靠網站部署不能確認 API 連線、模型額度或費用。",action:"系統設定 → 模型連線"},
   {id:"ollama",name:"Ollama 自架／雲端模型",status:input.ollamaConfigured?"limited":"setup",description:input.ollamaConfigured?"已設定端點與模型，但需要連線測試才能確認服務可用。":"需 HTTPS 端點、有效模型 ID，必要時提供存取權杖。",action:"系統設定 → Ollama"},
   {id:"sheets",name:"Vanilla Sheets 與對話內表格",status:"ready",description:"工作簿、CSV 與本機公式功能已部署。這不是完整 Excel 功能。"},
   {id:"cream",name:"CREAM P0 描述統計與互動圖表",status:"ready",description:"CSV／XLSX 匯入、描述統計與對話圖表已部署；進階研究、推論統計與原構想 14 模組並未全部完成。"},

@@ -70,6 +70,8 @@ export async function readPublicPage(input:string):Promise<ReadPage>{
 }
 export function linkReadingIntent(text:string):string|null{
  const q=text.trim();
+ // Pasting a single HTTPS link is itself a read-and-summarize request.
+ if(/^https:\/\/\S{4,2000}$/.test(q))return q;
  const m=/^(?:(?:請|幫我|麻煩你)?\s*)?(?:閱讀|讀取|打開|開啟|摘要|總結|統整|整理|分析|研究|幫我看|看一下|幫我讀|讀一下)\s*(?:這個|這篇|以下|該)?\s*(?:網站|網頁|連結|網址|文章|內容)?\s*[：:\s]*((?:https:\/\/)[^\s]+)(?:\s*(?:並|然後)?(?:統整|摘要|重點整理|分析|解釋|講重點|告訴我重點).*)?$/i.exec(q);
  return m?m[1].replace(/[，。！!）)]+$/,""):null;
 }

@@ -2,15 +2,7 @@ import {useEffect,useRef,useState,type ReactNode} from "react";
 import {ChevronLeft,ChevronRight} from "lucide-react";
 
 export type SwipeItem={id:string;label:string;node:ReactNode};
-export function visibleSwipeIndex(scrollLeft:number,offsets:readonly number[]):number{
- if(!offsets.length)return 0;
- let closest=0,delta=Infinity;
- for(let i=0;i<offsets.length;i++){
-  const d=Math.abs(offsets[i]-scrollLeft);
-  if(d<delta){closest=i;delta=d;}
- }
- return closest;
-}
+import {visibleSwipeIndex} from "./swipe-utils";
 export default function SwipeDeck({items,label}:{items:SwipeItem[];label:string}){
  const ref=useRef<HTMLDivElement>(null);
  const [index,setIndex]=useState(0);
@@ -21,7 +13,7 @@ export default function SwipeDeck({items,label}:{items:SwipeItem[];label:string}
   update();query.addEventListener("change",update);
   return()=>query.removeEventListener("change",update);
  },[]);
- useEffect(()=>{setIndex(0);ref.current?.scrollTo({left:0,behavior:"instant"});},[items.map(x=>x.id).join("|")]);
+ useEffect(()=>{setIndex(0);ref.current?.scrollTo({left:0,behavior:"auto"});},[items.map(x=>x.id).join("|")]);
  if(!items.length)return null;
  if(items.length===1)return <div className="swipe-single">{items[0].node}</div>;
  const maxStart=Math.max(0,items.length-(mobile?1:2));

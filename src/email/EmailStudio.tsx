@@ -5,6 +5,7 @@ import {currentChatMode} from "../local-ai/chat-session";
 import {janusPermission} from "../detroit/janus";
 import {buildEmailTemplate,type EmailTemplateFields,type EmailTemplateKind} from "./email-templates";
 import {VENUS_EMAIL_THEMES,recommendedVenusTheme,venusAuditEmail,type VenusEmailThemeId} from "../venus/email-design";
+import {auditRenderedEmail,applyInboxPreheader} from "./email-quality";
 import {isEmailDesign,MAX_DESIGN_BYTES,parseEmailSnapshot,scopedEmailStorageKey,type EmailSnapshot} from "./email-policy";
 import "./email-studio.css";
 
@@ -44,8 +45,11 @@ export default function EmailStudio(){
    accountRef.current=current;
    setAccount(current);
    setSnapshot(null);
+   setFields({...initialFields});
+   setKind("invitation");
+   setVenusTheme("warm");
    setEditorOpen(false);
-   setNotice("Google 帳號已切換；先前帳號的郵件內容已從目前畫面清除。");
+   setNotice("Google 帳號已切換；先前帳號的郵件內容與編輯欄位已清除。");
   }
   window.addEventListener("vanilla-drive-connected",resetOnAccountChange);
   window.addEventListener("vanilla-drive-disconnected",resetOnAccountChange);
@@ -63,7 +67,7 @@ export default function EmailStudio(){
    const verdict=janusPermission("render-local",{privateMode:currentChatMode()==="private",approved:false});
    if(!verdict.allow)throw new Error(verdict.reason);
    const result=buildEmailTemplate(kind,fields,venusTheme);
-   setSnapshot({design:result.design,html:result.html,title:fields.title.trim()||"email",updatedAt:new Date().toISOString()});
+   setSnapshot({design:result.design,html:result.html,title:fields.title.trim()||"email",updatedAt:new Date().toISOString(),source:{kind,theme:venusTheme,fields:{...fields}}});
    setEditorOpen(false);
    setNotice("模板已產生。可以離線預覽與下載；雲端編輯器不會自動連線。");
   }catch(error){setNotice("生成失敗："+String(error instanceof Error?error.message:error));}
@@ -85,8 +89,10 @@ export default function EmailStudio(){
    if(current!==account){setAccount(current);setNotice("帳號已變更，請再按一次讀取");return;}
    const saved=localStorage.getItem(scopedEmailStorageKey(account));
    if(!saved)throw new Error("此帳號尚無本機郵件存檔");
-   setSnapshot(parseEmailSnapshot(saved));setEditorOpen(false);
-   setNotice("已讀取本機郵件存檔。");
+   const loaded=parseEmailSnapshot(saved);
+   setSnapshot(loaded);setEditorOpen(false);
+   if(loaded.source){setKind(loaded.source.kind);setVenusTheme(loaded.source.theme);setFields({...loaded.source.fields});}
+   setNotice(loaded.source?"已讀取郵件存檔，並還原版型與編輯欄位。":"已讀取舊版郵件存檔；原始編輯欄位不在舊格式中。");
   }catch(error){setNotice("讀取失敗："+String(error instanceof Error?error.message:error));}
  }
  async function importJson(event:ChangeEvent<HTMLInputElement>){
@@ -107,6 +113,9 @@ export default function EmailStudio(){
  const currentAccount=initialAccount();
  const venusFindings=venusAuditEmail(fields);
  const critical=venusFindings.filter(x=>x.level==="caution").length;
+ const htmlAudit=auditRenderedEmail(snapshot?.html||"");
+ const sourceChanged=Boolean(snapshot?.source&&!snapshot.externallyEdited&&JSON.stringify(snapshot.source)!==JSON.stringify({kind,theme:venusTheme,fields}));
+ const htmlAlerts=htmlAudit.findings.filter(f=>f.level==="caution").length;
  return <div className="email-studio">
   <div className="email-hero">
    <div className="email-eyebrow"><Mail size={15}/> VANILLA / DETROIT / JANUS</div>
@@ -136,7 +145,7 @@ export default function EmailStudio(){
     <label>郵件主標題
      <input maxLength={160} value={fields.title} onChange={e=>updateField("title",e.target.value)}/>
     </label>
-    <label>預覽摘要（會顯示於郵件頂部）
+    <label>收件匣預覽摘要（視郵件服務支援，不顯示在信件正文）
      <input maxLength={150} value={fields.preheader||""} onChange={e=>updateField("preheader",e.target.value)} placeholder="一句話提示讀者此封郵件重點"/>
     </label>
     <label>內文
@@ -166,6 +175,14 @@ export default function EmailStudio(){
       <iframe title="郵件預覽（已停用 JavaScript）" sandbox="" referrerPolicy="no-referrer" srcDoc={snapshot.html}/>:
       <div className="email-preview-empty">{snapshot?"此設計只有 JSON，請透過編輯器匯出 HTML。":"選擇模板並輸入內容，產生後將在此顯示信件。"}</div>}
     </div>
+    <section className="email-venus-audit" aria-label="Venus 郵件成品檢查">
+     <div className="email-venus-heading"><strong>VENUS · HTML 成品檢查</strong><span>{htmlAudit.status==="unavailable"?"尚無 HTML":htmlAlerts?htmlAlerts+" 項需注意":htmlAudit.findings.length+" 項建議"}</span></div>
+     {sourceChanged&&<p className="email-output-stale">編輯欄位已變更，目前預覽／下載仍是上次產生的版本。請重新按「產生郵件」。</p>}
+     {snapshot?.externallyEdited&&<p>內容已在 Unlayer 編輯器修改，以下依最新同步 HTML 重新檢查；表單欄位可能不一致。</p>}
+     {htmlAudit.status==="unavailable"?<p>{snapshot?"只有設計 JSON，開啟選用的編輯器並同步後才會取得 HTML。":"產生或讀取 HTML 後，Venus 才能檢查成品。"}</p>:
+      htmlAudit.findings.length?<ul>{htmlAudit.findings.map(f=><li key={f.code} className={"venus-"+f.level}>{f.message}</li>)}</ul>:
+      <p>未發現本檢查器能識別的 HTML 結構、連結或圖片問題；仍不等於郵件客戶端相容性驗證。</p>}
+    </section>
     <div className="email-actions">
      <button type="button" disabled={!snapshot?.html} onClick={()=>snapshot&&download(fileStem+".html",snapshot.html,"text/html;charset=utf-8")}><Download size={15}/> HTML</button>
      <button type="button" disabled={!snapshot} onClick={()=>snapshot&&download(fileStem+".json",JSON.stringify(snapshot.design,null,2),"application/json")}><FileJson size={15}/> 設計 JSON</button>
@@ -183,13 +200,13 @@ export default function EmailStudio(){
     <button className="email-primary" disabled={!snapshot} type="button" onClick={()=>{const verdict=janusPermission("hosted-editor",{privateMode:currentChatMode()==="private",approved:true});if(!verdict.allow){setNotice(verdict.reason);return;}setEditorOpen(true);}}>同意載入並開啟 Unlayer 編輯器</button>:
     <Suspense fallback={<p role="status">正在準備編輯器…</p>}>
      {snapshot?<EmailVisualEditor design={snapshot.design} onClose={()=>setEditorOpen(false)} onExport={(design,html)=>{
-      setSnapshot(prev=>prev?{...prev,design,html,updatedAt:new Date().toISOString()}:null);
+      setSnapshot(prev=>prev?{...prev,design,html:applyInboxPreheader(html,prev.source?.fields.preheader||""),updatedAt:new Date().toISOString(),externallyEdited:true}:null);
       setNotice("已同步最新編輯結果，請自行下載或按「儲存本機」。");
      }}/>:null}
     </Suspense>}
   </section>
   <p className="email-footer-note" role="status">{notice}</p>
-  <p className="email-footer-note">Venus 檢查的是目前表單輸入，不會自動審核匯入 JSON 或第三方編輯後的 HTML；裝置預覽僅模擬頁面寬度，不代表 Gmail／Outlook 實際渲染。</p>
+  <p className="email-footer-note">Venus 分別檢查目前表單及最新保存的 HTML；匯入 JSON 必須先取得 HTML 才能完成成品檢查。收件匣摘要只在部分郵件客戶端生效，裝置預覽仍不等於 Gmail／Outlook 實際渲染。</p>
   <p className="email-footer-note">Detroit / Janus · 本機存檔依目前 Google 登入帳號隔離；未登入時，使用共用裝置儲存空間。{currentAccount!==account?" 偵測到帳號變更，請重新確認儲存／讀取。":""}目前不會自動寄送郵件、同步 Drive 或呼叫 AI。</p>
  </div>;
 }

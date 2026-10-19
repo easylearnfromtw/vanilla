@@ -1,6 +1,7 @@
 import {Email,Row,Column,ColumnLayouts,Heading,Paragraph,Button,renderToHtml,renderToJson} from "@unlayer/react-elements";
 import {escapeEmailHtml,safeEmailLink,MAX_TEMPLATE_TEXT} from "./email-policy";
 import {venusEmailTheme,recommendedVenusTheme,type VenusEmailThemeId} from "../venus/email-design";
+import {applyInboxPreheader} from "./email-quality";
 
 export type EmailTemplateKind="invitation"|"newsletter"|"announcement";
 export type EmailTemplateFields={brand:string;title:string;message:string;buttonText:string;buttonUrl:string;preheader?:string};
@@ -20,7 +21,7 @@ export function buildEmailTemplate(kind:EmailTemplateKind,fields:EmailTemplateFi
  const message=escapeEmailHtml(fields.message.slice(0,MAX_TEMPLATE_TEXT)).replace(/\r?\n/g,"<br />");
  const buttonText=fields.buttonText.trim().slice(0,80)||"了解更多";
  const link=safeEmailLink(fields.buttonUrl);
- const preview=escapeEmailHtml((fields.preheader||fields.message).trim().slice(0,110));
+ const preheader=(fields.preheader||"").trim();
  const tree=(
   <Email backgroundColor={theme.page} contentWidth="600px">
    <Row layout={ColumnLayouts.OneColumn} backgroundColor={theme.page} padding="24px">
@@ -31,7 +32,6 @@ export function buildEmailTemplate(kind:EmailTemplateKind,fields:EmailTemplateFi
    <Row layout={ColumnLayouts.OneColumn} backgroundColor={theme.surface} padding={theme.padding}>
     <Column>
      <Paragraph html={palette.eyebrow} color={theme.accent} fontSize="12px"/>
-     {preview?<Paragraph html={preview} color={theme.muted} fontSize="13px"/>:null}
      <Heading fontSize={theme.titleSize} color={theme.heading}>{title}</Heading>
      <Paragraph html={message||"請在 Vanilla 編輯信件內容。"} color={theme.body} fontSize="16px"/>
      {link?<Button href={link} backgroundColor={theme.accent} color={theme.buttonText}>{buttonText}</Button>:null}
@@ -46,5 +46,5 @@ export function buildEmailTemplate(kind:EmailTemplateKind,fields:EmailTemplateFi
  );
  const design:unknown=renderToJson(tree);
  if(!design||typeof design!=="object"||Array.isArray(design))throw new Error("無法生成編輯器格式");
- return {design:design as Record<string,unknown>,html:renderToHtml(tree)};
+ return {design:design as Record<string,unknown>,html:applyInboxPreheader(renderToHtml(tree),preheader)};
 }

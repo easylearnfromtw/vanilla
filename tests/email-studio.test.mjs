@@ -33,3 +33,13 @@ test("remote editor is opt-in and sends are not automatic",()=>{
  assert.match(studio,/vanilla-drive-disconnected/);
  assert.match(studio,/setSnapshot\(null\)/);
 });
+
+test("backward compatible snapshots, source integrity and editor flags",()=>{
+ const legacy=parseEmailSnapshot('{"design":{"body":{"rows":[]}},"html":"<p>ok</p>","title":"legacy"}');
+ assert.equal(legacy.source,undefined);
+ const source={kind:"newsletter",theme:"editorial",fields:{brand:"Brand",title:"Hello",message:"Body",buttonText:"Read",buttonUrl:"https://example.com",preheader:"Summary"}};
+ const next=parseEmailSnapshot(JSON.stringify({design:{body:{rows:[]}},html:"<p>ok</p>",title:"next",source,externallyEdited:true}));
+ assert.deepEqual(next.source,source);
+ assert.equal(next.externallyEdited,true);
+ assert.throws(()=>parseEmailSnapshot(JSON.stringify({design:{body:{rows:[]}},html:"",title:"bad",source:{...source,theme:"invalid"}})),/來源草稿/);
+});

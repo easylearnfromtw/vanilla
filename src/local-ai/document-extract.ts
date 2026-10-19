@@ -88,7 +88,7 @@ export async function extractBrowserDocument(file:File):Promise<ExtractedDocumen
   }
  }else if(/\.pdf$/i.test(lower)){
   kind="pdf";
-  const pdfjs=await import("pdfjs-dist/build/pdf.mjs");
+  const pdfjs=await import("pdfjs-dist");
   const worker=(await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc=worker;
   const pdf=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()),useSystemFonts:true}).promise;

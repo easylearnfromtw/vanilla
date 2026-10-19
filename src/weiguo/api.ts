@@ -125,7 +125,3 @@ export async function exportCreamGridCraftReport(payload:import("../cream/gridcr
  return {file:new Blob([bytes.buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),chartType:report.chartType,pointsExported:report.pointsExported};
 }
 
-export async function getWeiGuoTask(id:string):Promise<WeiGuoTask>{
- if(!/^[a-f0-9-]{36}$/i.test(id))throw Error("任務識別碼不正確");
- return request<WeiGuoTask>("/v1/family/tasks/"+encodeURIComponent(id),undefined,true);
-}

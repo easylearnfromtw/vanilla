@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from playwright.async_api import async_playwright
 from moli_engine import maybe_moli_extract
 from gridcraft_adapter import router as gridcraft_router
+from medusa_adapter import router as medusa_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
@@ -78,6 +79,9 @@ async def operator(authorization: str | None = Header(default=None)):
     supplied=authorization.removeprefix("Bearer ") if authorization and authorization.startswith("Bearer ") else ""
     if not hmac.compare_digest(supplied,expected):raise HTTPException(401,"未授權")
     return True
+
+# Medusa is operator-only, not reachable from PWA/family identity sessions.
+app.include_router(medusa_router, dependencies=[Depends(operator)])
 
 @app.get("/v1/health")
 @app.get("/health")

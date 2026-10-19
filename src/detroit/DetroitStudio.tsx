@@ -6,6 +6,7 @@ import {createRetinaDocument,downloadRetina,type RetinaFormat} from './retina';
 import {currentChatMode} from '../local-ai/chat-session';
 import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api';
 import {DETROIT_ENGINES} from './core';
+import {DETROIT_FACTORY_TOOLS} from './factory';
 import './studio.css';
 type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra';
 export default function DetroitStudio({initialBody}:{initialBody?:string|null}={}){
@@ -85,5 +86,6 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
   {tab==='jobs'&&<section className="detroit-studio-form"><h2>Persistent Jobs · 背景工作</h2><p>排程服務需部署 Cloudflare Worker 與 D1，並配置私密的通知 Webhook。手機 Safari 關閉後，只有已部署的後端能執行排程。</p><label>已部署 Worker 網址<input inputMode="url" value={workerEndpoint} onChange={e=>setWorkerEndpoint(e.target.value)} placeholder="https://your-worker.your-domain.workers.dev"/></label><button type="button" onClick={()=>void checkWorker()}>檢查後端連線</button><p role="status">{health}</p><p><strong>重要：</strong>後端管理 Token 只能放在伺服器端，不可填進 Vanilla PWA 或公開 GitHub。背景任務與通知須經管理端授權建立。</p></section>}
   {status&&<p className="detroit-tool-status" role="status">{status}</p>}
   <details className="detroit-engine-catalog"><summary>查看 Detroit 各模組開發狀態</summary><div>{DETROIT_ENGINES.map(e=><article key={e.id}><strong>{e.label}</strong><span>{e.status}</span><p>{e.description}</p></article>)}</div></details>
+  <details className="detroit-engine-catalog"><summary>Detroit Factory · 工具目錄</summary><div>{DETROIT_FACTORY_TOOLS.map(t=><article key={t.id}><strong>{t.label}</strong><span>{t.status} · {t.enabledByDefault?"啟用":"預設關閉"}</span><p>{t.description}</p><small>協作：{t.engine} · 技術：{t.provider}</small></article>)}</div></details>
  </div>;
 }

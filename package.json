@@ -39,6 +39,7 @@
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs",
     "test:detroit-studio": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-studio.test.mjs",
+    "test:detroit-factory": "node --experimental-strip-types --test tests/detroit-factory.test.mjs",
     "test:detroit-notifications": "node --test tests/detroit-notifications.test.mjs",
     "test:cream-weiguo": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/cream-weiguo-ui.test.mjs",
     "test:cream-extra": "node --experimental-strip-types --test tests/cream-extended.test.mjs",

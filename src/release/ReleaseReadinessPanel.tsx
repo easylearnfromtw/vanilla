@@ -8,12 +8,13 @@ import {getOllamaConfig,isOllamaConfigured,testOllama} from "../ai/ollama";
 import {getGoogleClientId,getAnalyticsConnection} from "../cream/google-sources";
 import {getSearchBridge,getWebReaderToken,fetchSearchBridge} from "../search/search-bridge";
 import {readNoodles} from "../noodles/storage";
+import {getCodeBridgeURL,getCodeBridgeToken,checkCodeBridge} from "../builder/autocode-client";
 import {availableProviders} from "../vault/providers";
 import "./release.css";
 
-type ProbeKey="pages"|"drive"|"ollama"|"web";
+type ProbeKey="pages"|"drive"|"ollama"|"web"|"builder";
 type ProbeState={status:"success"|"error";message:string;checkedAt:string};
-const names:Record<ProbeKey,string>={pages:"正式網站版本",drive:"Google Drive 唯讀存取",ollama:"Ollama 模型清單",web:"全網搜尋後端"};
+const names:Record<ProbeKey,string>={pages:"正式網站版本",drive:"Google Drive 唯讀存取",ollama:"Ollama 模型清單",web:"全網搜尋後端",builder:"Self-Build GitHub Worker"};
 function snapshot():LaunchInput{
  const online=typeof navigator!=="undefined"?navigator.onLine:false;
  return {
@@ -22,7 +23,7 @@ function snapshot():LaunchInput{
   analyticsClientConfigured:Boolean(getGoogleClientId("analytics")),
   analyticsAuthorized:getAnalyticsConnection(),ollamaConfigured:isOllamaConfigured(),
   webSearchConfigured:Boolean(getSearchBridge()),webSearchTokenConfigured:Boolean(getWebReaderToken()),
-  noodlesEnabled:readNoodles().enabled
+  noodlesEnabled:readNoodles().enabled,selfBuildBridgeConfigured:Boolean(getCodeBridgeURL()&&getCodeBridgeToken())
  };
 }
 function timeStamp(){return new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"});}
@@ -39,6 +40,11 @@ async function probe(key:ProbeKey):Promise<string>{
    if(body.build!==VANILLA_BUILD)throw Error("此裝置載入 "+VANILLA_BUILD+"；網站已發布 "+body.build+"。請更新 PWA。");
    return "網站回傳 Build "+body.build+"，與目前載入版本一致。";
   }finally{clearTimeout(timer);}
+ }
+ if(key==="builder"){
+  const response=await checkCodeBridge();
+  if(response.status!=="ready"||response.repo!=="easylearnfromtw/vanilla"||response.mode!=="draft-pr-only")throw Error("安全後端版本或權限模式不符合預期");
+  return "GitHub Draft PR 安全後端驗證成功；要確認寫入仍需在 Self-Build CODE 建立並檢查真實 PR。";
  }
  if(key==="drive"){
   const session=driveSession();
@@ -90,7 +96,7 @@ export default function ReleaseReadinessPanel(){
    <h4>實際連線驗證</h4>
    <p className="release-small">以下檢查只在你點擊時執行。Drive 僅讀取檔案清單；Ollama 讀模型清單；搜尋後端測試會送出公開的「Vanilla AI」搜尋詞，可能計入 API 額度。</p>
    <div className="release-probes">
-    {(["pages","drive","ollama","web"] as ProbeKey[]).map(key=><div key={key} className="release-probe">
+    {(["pages","drive","ollama","web","builder"] as ProbeKey[]).map(key=><div key={key} className="release-probe">
       <div><strong>{names[key]}</strong>
        {checks[key]?<p className={checks[key]?.status==="success"?"passed":"failed"}>{checks[key]?.message} · {checks[key]?.checkedAt}</p>:<small>尚未在此裝置測試</small>}
       </div><button type="button" onClick={()=>void check(key)} disabled={Boolean(pending)}><RefreshCw size={13}/>{pending===key?"測試中…":"測試"}</button>

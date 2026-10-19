@@ -468,10 +468,10 @@ async function send(value=draft){
       (outcome.status==="verified"?ok:unverified).push(outcome.detail);
      }catch(e){fail.push(item.source+" / "+item.name+"："+String(e));}
     }
-    toolReply(question,"刪除操作結果：\\n"+
-     (ok.length?"已驗證處理 "+ok.length+" 份：\\n"+ok.join("\\n")+"\\n":"")+
-     (unverified.length?"僅移除 Vanilla 索引（原始檔無法確認是否存在）：\\n"+unverified.join("\\n")+"\\n":"")+
-     (fail.length?"未完成 "+fail.length+" 份，資料可能仍存在：\\n"+fail.join("\\n"):
+    toolReply(question,"刪除操作結果：\n"+
+     (ok.length?"已驗證處理 "+ok.length+" 份：\n"+ok.join("\n")+"\n":"")+
+     (unverified.length?"僅移除 Vanilla 索引（原始檔無法確認是否存在）：\n"+unverified.join("\n")+"\n":"")+
+     (fail.length?"未完成 "+fail.length+" 份，資料可能仍存在：\n"+fail.join("\n"):
       (!ok.length&&!unverified.length?"沒有確認完成的操作。":"")));
     return;
    }

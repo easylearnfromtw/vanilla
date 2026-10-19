@@ -17,7 +17,7 @@ test("Diana proactively selects actual tools without a prefix",()=>{
   const choice=proposeProactiveDiana(q,normal);
   assert.ok(choice,q);
   assert.equal(choice.tool,tool,q);
-  assert.equal(routeMessage(q,normal).kind,"diana",q);
+  assert.equal(routeMessage(q,normal).kind,tool==="er-ya"?"continue":"diana",q); // Erya already has a guarded built-in model route.
  }
 });
 

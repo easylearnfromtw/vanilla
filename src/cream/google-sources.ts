@@ -1,26 +1,18 @@
 /** Google Analytics 4 is a read-only data source for CREAM, never its calculation engine.
  * OAuth Client Secret must NEVER be stored in this browser code or GitHub Pages.
  */
-import {fromCreamRows,type CreamDataset} from "./core";
+import {parseAccountSummaries,parseGA4Report,validateGA4Options,validateGoogleClientId} from "./ga4-format";
+import type {GA4Property,GA4ReportOptions,GA4Report} from "./ga4-format";
+export {lookerStudioLink,validateGoogleClientId,parseGA4Report,parseAccountSummaries,validateGA4Options} from "./ga4-format";
+export type {GA4Property,GA4ReportOptions,GA4Report,GA4Metric,GA4Dimension} from "./ga4-format";
 import {GOOGLE_CLIENT_ID} from "../vault/google-auth";
 
 const CLIENT_KEY="vanilla.cream.google.analytics.client-id.v1";
 const STUDIO_CLIENT_KEY="vanilla.cream.google.studio.client-id.v1";
 const SCOPE="https://www.googleapis.com/auth/analytics.readonly";
-const CLIENT=/^\d{8,21}-[a-z0-9-]+\.apps\.googleusercontent\.com$/i;
 export type GoogleApp="analytics"|"studio";
-export type GA4Property={id:string;name:string;accountId:string;accountName:string};
-export type GA4Metric="activeUsers"|"sessions"|"eventCount"|"totalUsers"|"screenPageViews";
-export type GA4Dimension="date"|"sessionDefaultChannelGroup"|"country"|"eventName";
-export type GA4ReportOptions={propertyId:string;dimension:GA4Dimension;metric:GA4Metric;days:7|28|90};
-export type GA4Report={dataset:CreamDataset;propertyId:string;query:GA4ReportOptions;rowCount:number;sourceUrl:string};
 let access:{token:string;expires:number;clientId:string}|null=null;
 let gisLoader:Promise<void>|undefined;
-export function validateGoogleClientId(input:string):string{
- const id=input.trim();
- if(!CLIENT.test(id))throw Error("請填入完整的 Google OAuth Client ID（…apps.googleusercontent.com），不要填寫 GOCSPX- 開頭的 Client Secret。");
- return id;
-}
 export function getGoogleClientId(app:GoogleApp):string{
  try{return localStorage.getItem(app==="analytics"?CLIENT_KEY:STUDIO_CLIENT_KEY)||"";}catch{return "";}
 }
@@ -77,20 +69,6 @@ async function googleJSON(url:string,method:"GET"|"POST"="GET",body?:unknown):Pr
   return response.json() as Promise<unknown>;
  }finally{clearTimeout(timeout);}
 }
-export function parseAccountSummaries(raw:unknown):GA4Property[]{
- const data=raw as {accountSummaries?:Array<{account?:unknown;displayName?:unknown;propertySummaries?:Array<{property?:unknown;displayName?:unknown}>}>};
- const properties:GA4Property[]=[];
- for(const account of (Array.isArray(data?.accountSummaries)?data.accountSummaries:[])){
-  const accountId=String(account.account||"").replace(/^accounts\//,"");
-  if(!/^\d+$/.test(accountId))continue;
-  for(const p of Array.isArray(account.propertySummaries)?account.propertySummaries:[]){
-   const id=String(p.property||"").replace(/^properties\//,"");
-   if(!/^\d+$/.test(id))continue;
-   properties.push({id,name:String(p.displayName||"GA4 "+id).slice(0,130),accountId,accountName:String(account.displayName||"").slice(0,120)});
-  }
- }
- return properties;
-}
 export async function listAnalyticsProperties():Promise<GA4Property[]>{
  const results:GA4Property[]=[];let next="";
  for(let i=0;i<5;i++){
@@ -102,47 +80,10 @@ export async function listAnalyticsProperties():Promise<GA4Property[]>{
  }
  return results;
 }
-export function validateGA4Options(options:GA4ReportOptions):GA4ReportOptions{
- if(!/^\d{1,20}$/.test(options.propertyId)||!["date","sessionDefaultChannelGroup","country","eventName"].includes(options.dimension)||
- !["activeUsers","sessions","eventCount","totalUsers","screenPageViews"].includes(options.metric)||
- ![7,28,90].includes(options.days))throw Error("不支援的 GA4 Property ID、維度、指標或日期範圍");
- return options;
-}
-export function parseGA4Report(raw:unknown,options:GA4ReportOptions):GA4Report{
- validateGA4Options(options);
- const data=raw as {rows?:Array<{dimensionValues?:Array<{value?:unknown}>;metricValues?:Array<{value?:unknown}>}>;rowCount?:number};
- const rows:unknown[][]=[[options.dimension,options.metric]];
- const input=Array.isArray(data?.rows)?data.rows:[];
- for(const item of input.slice(0,2999)){
-  let label=String(item.dimensionValues?.[0]?.value??"").trim().slice(0,120);
-  const metric=String(item.metricValues?.[0]?.value??"").trim();
-  if(options.dimension==="date"&&/^\d{8}$/.test(label))label=label.slice(0,4)+"-"+label.slice(4,6)+"-"+label.slice(6);
-  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(metric))continue;
-  rows.push([label,metric]);
- }
- if(rows.length<2)throw Error("這個 GA4 資源沒有可供 CREAM 分析的數值資料；請換日期或指標");
- const propertyId=options.propertyId;
- return {dataset:fromCreamRows(rows,"GA4 Property "+propertyId+" · "+options.metric+" / "+options.days+" 日"),
-  propertyId,query:{...options},rowCount:Number(data.rowCount)||rows.length-1,
-  sourceUrl:"https://analytics.google.com/analytics/web/#/p"+propertyId};
-}
 export async function fetchAnalyticsReport(options:GA4ReportOptions):Promise<GA4Report>{
  validateGA4Options(options);
  const body={dateRanges:[{startDate:(options.days-1)+"daysAgo",endDate:"today"}],
   dimensions:[{name:options.dimension}],metrics:[{name:options.metric}],limit:"2999"};
  const raw=await googleJSON("https://analyticsdata.googleapis.com/v1beta/properties/"+options.propertyId+":runReport","POST",body);
  return parseGA4Report(raw,options);
-}
-/** Official Looker Studio Linking API: user owns and confirms the new report in Google UI.
- * No Looker Studio OAuth secret is needed to open this URL.
- */
-export function lookerStudioLink(property:GA4Property):string{
- if(!/^\d+$/.test(property.id)||!/^\d+$/.test(property.accountId))throw Error("GA4 帳戶與資源 ID 格式錯誤");
- const u=new URL("https://lookerstudio.google.com/reporting/create");
- u.searchParams.set("r.reportName","CREAM · GA4 · "+property.name.slice(0,50));
- u.searchParams.set("ds.ds0.connector","googleAnalytics");
- u.searchParams.set("ds.ds0.accountId",property.accountId);
- u.searchParams.set("ds.ds0.propertyId",property.id);
- u.searchParams.set("ds.ds0.refreshFields","true");
- return u.toString();
 }

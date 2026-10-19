@@ -15,7 +15,7 @@ test("direct natural-language reference to app.js routes to file reader not chat
  }
  assert.equal(filenameFromQuestion("幫我刪除 app.js")?.action,"delete");
  assert.equal(filenameFromQuestion("分析 app.js")?.action,"analyze");
- assert.equal(filenameFromQuestion("說明如何用 JS 的物件").valueOf?.(),undefined);
+ assert.equal(filenameFromQuestion("說明如何用 JS 的物件"),null);
 });
 test("exact matching wins, ambiguous partial filenames never deletes the wrong file",()=>{
  const names=[{id:"1",name:"app.js"},{id:"2",name:"app.test.js"},{id:"3",name:"other.js"}];

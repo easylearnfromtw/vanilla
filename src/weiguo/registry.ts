@@ -1,43 +1,32 @@
-/** 衞國 is an opt-in browser-automation tool registry, never a second LLM. 
- * Catalog entries are capability declarations, NOT executable browser or JavaScript code.
- * Permission decisions always belong to Zeus/Athena and a verified backend identity.
- */
-export type WeiGuoTool={id:string;name:string;description:string;engine:string;capabilities:string[];source:"builtin"|"custom";enabled:boolean};
-export const WEIGUO_BUILTINS:readonly WeiGuoTool[]=[
- {id:"playwright",name:"Playwright Browser",description:"開啟指定網頁、點擊、輸入、捲動與擷取文字；需後端與使用者核准",engine:"Scouts",capabilities:["navigate","click","fill","scroll","extract"],source:"builtin",enabled:false},
- {id:"browser-use",name:"Browser Use Adapter",description:"自然語言網頁操作的可選適配器；不代表目前已部署",engine:"Merlin / Zeus",capabilities:["plan","navigate","extract"],source:"builtin",enabled:false},
- {id:"web-reader",name:"Scouts Web Reader",description:"利用現有 Vanilla 網頁閱讀與搜尋作為唯讀取證工具",engine:"Scouts",capabilities:["extract","research"],source:"builtin",enabled:true},
- {id:"cream",name:"CREAM",description:"將確定性統計及可追溯圖表接入瀏覽工作流",engine:"CREAM",capabilities:["analyze","chart"],source:"builtin",enabled:true},
- {id:"atriensis",name:"Atriensis Files",description:"將受權讀取的附件與索引交由既有檔案管理",engine:"Atriensis",capabilities:["read-file"],source:"builtin",enabled:true},
- {id:"persistent-jobs",name:"Persistent Jobs",description:"網頁變更追蹤可交由已部署的後端定期執行",engine:"Chronos",capabilities:["schedule"],source:"builtin",enabled:false}
+/** 衞國 declarative tool connectors. Registration does not execute arbitrary code. */
+export type WeiGuoTool={id:string;label:string;kind:"scouts"|"cream"|"atriensis"|"web"|"custom";description:string;enabled:boolean;permissions:("read"|"analyze"|"export")[]};
+export const BUILTIN_TOOLS:readonly WeiGuoTool[]=[
+ {id:"scouts-browser",label:"Scouts Browser",kind:"scouts",description:"Playwright 開啟、導覽及擷取已授權的公開網頁",enabled:true,permissions:["read"]},
+ {id:"cream-data",label:"CREAM",kind:"cream",description:"確定性資料驗證、統計與圖表；交給既有本機引擎",enabled:true,permissions:["read","analyze"]},
+ {id:"atriensis-files",label:"Atriensis",kind:"atriensis",description:"讀取已授權檔案並保留所有權邊界",enabled:true,permissions:["read"]}
 ];
-export const WEIGUO_STORAGE="vanilla.weiguo.tools.v1";
-const RE=/^[a-z][a-z0-9-]{1,39}$/;
-const allowedCaps=new Set(["navigate","click","fill","scroll","extract","research","analyze","chart","read-file","schedule","plan"]);
-export function validateCustomTool(value:unknown):WeiGuoTool{
- if(!value||typeof value!=="object")throw Error("工具格式錯誤");
- const x=value as Record<string,unknown>;
- const id=String(x.id||"").trim().toLowerCase(),name=String(x.name||"").trim(),description=String(x.description||"").trim();
- if(!RE.test(id)||WEIGUO_BUILTINS.some(y=>y.id===id))throw Error("ID 只能使用英文小寫、數字與連字號，且不可覆蓋內建工具");
- if(!name||name.length>64||description.length>280)throw Error("工具名稱或說明不符合長度限制");
- if(!Array.isArray(x.capabilities)||x.capabilities.length>11||!x.capabilities.length||x.capabilities.some(v=>typeof v!=="string"||!allowedCaps.has(v)))throw Error("能力類別不正確");
- return {id,name,description,engine:"自訂工具",capabilities:[...new Set(x.capabilities as string[])],source:"custom",enabled:false};
+const PATTERN=/^[a-z][a-z0-9-]{2,40}$/;
+/** Config only: no JavaScript / remote URLs / privileged permissions can be installed here. */
+export function validateToolManifest(raw:unknown):WeiGuoTool{
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))throw Error("工具定義必須是 JSON 物件");
+ const data=raw as Record<string,unknown>;
+ const keys=Object.keys(data);
+ if(keys.some(k=>!["id","label","kind","description","enabled","permissions"].includes(k)))throw Error("不接受程式碼、API 金鑰、URL 或額外的執行參數");
+ if(typeof data.id!=="string"||!PATTERN.test(data.id))throw Error("工具 ID 應為 3–41 個小寫字母、數字或 -");
+ if(BUILTIN_TOOLS.some(t=>t.id===data.id))throw Error("內建工具 ID 不可覆蓋");
+ if(typeof data.label!=="string"||!data.label.trim()||data.label.length>60)throw Error("工具名稱不正確");
+ if(typeof data.description!=="string"||data.description.length>300)throw Error("工具說明過長");
+ if(data.kind!=="custom")throw Error("額外工具必須標示 kind=custom");
+ if(!Array.isArray(data.permissions)||data.permissions.length>3||data.permissions.some(p=>p!=="read"&&p!=="analyze"&&p!=="export"))throw Error("權限限於 read / analyze / export");
+ if(typeof data.enabled!=="boolean")throw Error("enabled 必須為布林值");
+ return {id:data.id,label:data.label.trim(),kind:"custom",description:data.description,enabled:data.enabled,permissions:[...new Set(data.permissions)] as WeiGuoTool["permissions"]};
 }
-export function loadWeiGuoTools():WeiGuoTool[]{
- try{const raw=JSON.parse(localStorage.getItem(WEIGUO_STORAGE)||"[]") as unknown;if(!Array.isArray(raw))return [];
-  return raw.slice(0,30).flatMap((v:unknown)=>{try{return [validateCustomTool(v)]}catch{return []}});}
- catch{return []}
+export function loadToolManifests(owner:string):WeiGuoTool[]{
+ try{const raw=JSON.parse(localStorage.getItem("vanilla.weiguo.tools.v1."+owner)||"[]") as unknown;
+  return Array.isArray(raw)?raw.flatMap(item=>{try{return [validateToolManifest(item)];}catch{return [];}}).slice(0,20):[];
+ }catch{return [];}
 }
-export function saveWeiGuoTools(tools:readonly WeiGuoTool[]):void{
- if(tools.length>30)throw Error("目前最多可註冊 30 個自訂工具");
- const validated=tools.map(validateCustomTool);
- if(new Set(validated.map(t=>t.id)).size!==validated.length)throw Error("工具 ID 不可重複");
- localStorage.setItem(WEIGUO_STORAGE,JSON.stringify(validated));
-}
-/** Browser authority is NOT granted by a UI tool or a page claiming to be administrator. */
-export function classifyWeiGuoOperation(kind:string,authenticated:boolean,approved:boolean):"read"|"needs-approval"|"deny"{
- if(!authenticated)return "deny";
- if(["navigate","extract","scroll"].includes(kind))return "read";
- if(["click","fill"].includes(kind))return approved?"read":"needs-approval";
- return "deny";
+export function saveToolManifests(owner:string,items:WeiGuoTool[]):void{
+ if(items.length>20)throw Error("最多可註冊 20 個宣告式工具");
+ localStorage.setItem("vanilla.weiguo.tools.v1."+owner,JSON.stringify(items.map(validateToolManifest)));
 }

@@ -70,6 +70,21 @@ class QuirinusTests(unittest.TestCase):
             self.assertNotIn("SECRET_NOT_ALLOWED_IN_RESPONSE", str(result))
             self.assertNotIn("secret error", str(result))
 
+    def test_symlinks_and_oversized_source_tree_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "source"
+            root.mkdir()
+            (root / "alias").symlink_to(Path(temp))
+            with self.assertRaises(HTTPException) as error:
+                quirinus._validate_source_tree(root)
+            self.assertEqual(error.exception.status_code, 422)
+            (root / "alias").unlink()
+            with (root / "large.txt").open("wb") as stream:
+                stream.truncate(128 * 1024 * 1024 + 1)
+            with self.assertRaises(HTTPException) as error:
+                quirinus._validate_source_tree(root)
+            self.assertEqual(error.exception.status_code, 413)
+
     def test_foreign_paths_redacted(self):
         output = quirinus.normalize_report({
             "findings": [{"severity": "Low", "target": "/etc/shadow",

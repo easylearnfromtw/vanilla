@@ -39,7 +39,7 @@ const tools:NavItem[]=[
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"orchestra",label:"Orchestra Studio",icon:Puzzle,description:"Craft 七引擎調度、CREAM 跨格式輸出與作品製作",tone:"yellow"},
- {id:"luna",label:"LUNA 海報設計",icon:Images,description:"本機圖層編輯、模板與 PNG 匯出",tone:"yellow"},
+ {id:"luna",label:"LUNA 視覺設計",icon:Images,description:"Detroit 原生海報畫布、圖層、模板與本機匯出",tone:"yellow"},
  {id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存",tone:"red"},
  {id:"email",label:"Janus 郵件設計",icon:Mail,description:"Detroit · Janus 郵件模板、HTML 與 Unlayer 編輯器",tone:"yellow"},
  {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
@@ -93,7 +93,8 @@ useEffect(()=>{
  };
  const handlers:Array<[string,(e:Event)=>void]>=[
   ["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
-  ["vanilla-open-weiguo",go("weiguo")],["vanilla-open-luna",go("luna")],
+  ["vanilla-open-weiguo",go("weiguo")],
+  ["vanilla-open-luna",go("luna")],
   ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
    setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],

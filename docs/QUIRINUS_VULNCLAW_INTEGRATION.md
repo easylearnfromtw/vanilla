@@ -60,6 +60,46 @@ python3 -m unittest discover -s services/weiguo -p 'test_*.py'
 
 Upstream MIT copyright and license obligations apply if distributing any portion of upstream software. This integration contains a thin original adapter only; it does not vendor upstream code.
 
+## Family-triggered GitHub Actions scanning (third-stage integration)
+
+The family workflow **does not execute VulnClaw on Railway**. It only sends a
+bounded request to the existing GitHub Actions offline workflow. The scanner
+executes in a separate GitHub-hosted Docker job with --network none.
+
+After an operator deploys this WeiGuo version, an authorized owner can type
+\`/Quirinus\` or \`@Quirinus\` in normal chat to open Detroit Studio's review
+panel. No scan is launched by merely sending that chat message. Each actual
+dispatch requires a fresh, expiring, one-time Athena approval plan and a
+separate affirmative checkbox/click.
+
+Owner gateway routes:
+- GET \`/v1/family/quirinus/status\`: verifies Google family session, returns
+  whether the broker is configured, but never returns credentials.
+- POST \`/v1/family/quirinus/prepare\`: server-allowlisted owner only; issues a
+  120-second one-time approval token.
+- POST \`/v1/family/quirinus/execute\`: consumes token and dispatches **only**
+  \`quirinus-offline-scan.yml\` on \`easylearnfromtw/vanilla@main\`, max two
+  per owner per hour (also impose upstream edge rate limits).
+- GET \`/v1/family/quirinus/runs/{request_id}\`: owner-scoped, validates GitHub
+  run identity and supplies only workflow status and its GitHub link.
+
+**Necessary server-only operator configuration (never put in GitHub Pages):**
+- \`QUIRINUS_FAMILY_DISPATCH_ENABLED=true\`
+- \`QUIRINUS_FAMILY_OWNER_SUBS=<verified Google owner sub(s)>\`
+- \`QUIRINUS_GITHUB_ACTIONS_TOKEN=<new fine-grained GitHub token>\`
+  limited to exactly \`easylearnfromtw/vanilla\`, with **Actions: read/write**
+  and necessary metadata read; no repository contents write, no admin rights,
+  no extra repositories or organization scopes. Supply it in Railway private
+  service variables only. Never commit it or type it into the Vanilla chat.
+
+Default remains **disabled**. Without all three server-side settings, prepare
+and execute fail closed with 503. This broker never reconfigures the original
+operator-only VulnClaw scanning route; the latter still needs a *separate*
+egress-restricted host. This feature does not read scanner evidence or perform
+automatic code edits. Family PWA shows only GitHub execution status and a link
+to sanitized aggregate counts. Approvals and tracking exist in RAM only
+(single backend worker), so restart loses the pending token and run lookup.
+
 ## Detroit-approved Quirinus workflow (second-stage integration)
 
 **Status: implemented in code, disabled by default; not a deployed/connected scanner.**

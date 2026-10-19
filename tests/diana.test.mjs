@@ -69,7 +69,10 @@ test("Diana creates data-first sequence rather than exporting unvalidated figure
 test("Diana exposes offline and incomplete-tool constraints",()=>{
  assert.equal(chooseDianaTool("最新醫學文獻",{...normal,online:false}).kind,"report");
  assert.match(chooseDianaTool("",normal,"scouts").message||"",/請輸入/);
- assert.equal(chooseDianaTool("安全掃描",normal,"quirinus").kind,"report");
+ assert.equal(chooseDianaTool("安全掃描",normal,"quirinus").kind,"open");
+ assert.equal(chooseDianaTool("安全掃描",normal,"quirinus").tab,"quirinus");
+ assert.equal(chooseDianaTool("安全掃描",privateMode,"quirinus").kind,"report");
+ assert.equal(expandSlashCommand("/Quirinus")?.text,"@Quirinus");
  assert.equal(chooseDianaTool("執行排程",normal,"chronos").kind,"report");
 });
 test("Diana Erya delegates through an existing guarded writing request",()=>{

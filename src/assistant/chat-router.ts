@@ -98,6 +98,7 @@ export function routeTail(question:string):ChatRoute{
 /* ---------- slash commands ---------- */
 export type SlashCommand={cmd:string;label:string;hint:string;example:string;tone:"blue"|"red"|"yellow"|"ink"};
 export const SLASH_COMMANDS:SlashCommand[]=[
+ {cmd:"/Quirinus",label:"Quirinus · 資安掃描",hint:"先檢查家庭管理者權限，逐次核准後才提交 GitHub Actions",example:"/Quirinus",tone:"blue"},
  {cmd:"/Diana",label:"Diana · Detroit 工具導航",hint:"選擇並叫出最適合的實際工具",example:"/Diana 幫我分析年度數據",tone:"blue"},
  {cmd:"/潤稿",label:"爾雅 Erya 自然化",hint:"以現有模型潤稿，保留數據與引用",example:"/潤稿 這段文字...",tone:"yellow"},
  {cmd:"/Janus",label:"Janus · Detroit 郵件工具",hint:"本機產製 HTML／JSON、選用拖曳編輯",example:"/Janus",tone:"yellow"},
@@ -127,6 +128,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
  if(!m)return null;
  const [,cmd,rest]=m,arg=rest.trim();
  switch(cmd){
+  case "Quirinus":case "quirinus":return {text:"@Quirinus"+(arg?" "+arg:"")};
   case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
   case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:null;

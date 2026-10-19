@@ -7,7 +7,7 @@ services:
     environment:
       WEIGUO_ALLOWED_HOSTS: "example.org,www.example.org"
       # Use ONLY private server-side environment variables.
-      WEIGUO_ADMIN_TOKEN: "\${WEIGUO_ADMIN_TOKEN:?Required}"
+      WEIGUO_ADMIN_TOKEN: "${WEIGUO_ADMIN_TOKEN:?Required}"
       WEIGUO_TASK_DB: "/data/weiguo-tasks.sqlite3"
       WEIGUO_ALLOW_JAVASCRIPT: "false"
       WEIGUO_ALLOW_MUTATIONS: "false"

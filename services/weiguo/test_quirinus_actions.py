@@ -3,6 +3,7 @@ import importlib.util
 import sys
 import types
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 # Stub the private scan dependencies; only aggregate rendering is under test.
@@ -12,13 +13,16 @@ async def _never_run():
 fake_qa.quirinus_scan = _never_run
 fake_dispatch = types.ModuleType("detroit_quirinus_dispatcher")
 fake_dispatch.build_review_handoff = lambda scan: None
-sys.modules.setdefault("quirinus_adapter", fake_qa)
-sys.modules.setdefault("detroit_quirinus_dispatcher", fake_dispatch)
+
 
 module_path = Path(__file__).resolve().parents[2] / "deployment" / "quirinus" / "actions_entrypoint.py"
 spec = importlib.util.spec_from_file_location("quirinus_actions_entrypoint_test", module_path)
 module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+with patch.dict(sys.modules, {
+    "quirinus_adapter": fake_qa,
+    "detroit_quirinus_dispatcher": fake_dispatch,
+}):
+    spec.loader.exec_module(module)
 
 
 class PublicReportTests(unittest.TestCase):

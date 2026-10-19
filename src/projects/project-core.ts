@@ -5,7 +5,7 @@ export type ProjectFileIndex={path:string;language:string;size:number;excerpt:st
 export type ProjectCorpus={id:string;owner:string;repo:string;updatedAt:string;files:ProjectFileIndex[];source:"github"|"upload";warnings:string[]};
 export type ProjectMatch={repo:string;path:string;url:string;excerpt:string;score:number};
 export type APIDefinition={name:string;origin:string;paths:{path:string;method:"GET";description:string}[];source:string};
-const BLOCK=/(?:^|\/)(?:\.env|\.github|node_modules|vendor|dist|build|secrets?|private|credentials?|tokens?|keys?)(?:\.|\/|$)|\.(?:pem|key|p12|pfx|db|sqlite)$/i;
+const BLOCK=/(?:^|\/)(?:\.env|\.github|node_modules|vendor|dist|build|secrets?|private|credentials?|tokens?|keys?)(?:\.|\/|$)|(?:^|\/)[^/]*(?:api[-_]?secret|client[-_]?secret|access[-_]?token|private[-_]?key)[^/]*|\.(?:pem|key|p12|pfx|db|sqlite)$/i;
 const FILE_EXT=/\.(?:ts|tsx|js|jsx|mjs|py|html|css|json|md|txt|yaml|yml|sql|vue|svelte)$/i;
 const SECRET_PATTERNS=[
  /\b(?:github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9_]{10,}|sk-[A-Za-z0-9_-]{16,}|GOCSPX-[A-Za-z0-9_-]{10,})\b/g,

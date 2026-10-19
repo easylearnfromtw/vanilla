@@ -33,6 +33,8 @@
     "test:model-tuning": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/model-tuning.test.mjs",
     "test:archive": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/conversation-archive.test.mjs",
     "test:providers": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/provider-streaming.test.mjs",
+    "test:orchestra": "node --experimental-strip-types --test tests/orchestra.test.mjs",
+    "test:retina": "node --experimental-strip-types --test tests/retina-exports.test.mjs",
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs",
     "test:detroit-studio": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-studio.test.mjs",

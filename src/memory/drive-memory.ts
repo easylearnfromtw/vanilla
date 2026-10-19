@@ -1,5 +1,5 @@
 import {inspectExternalText,wrapExternalText} from "../security/trust-boundary";
-import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,uploadWorkspaceFile,trashWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
+import {driveSession,listWorkspaceFiles,createWorkspaceText,getWorkspaceText,getWorkspaceBlob,updateWorkspaceText,uploadWorkspaceFile,trashWorkspaceFile,type WorkspaceFile} from "../workspace/cloud-drive";
 
 export type MemoryKind="note"|"image"|"video"|"file"|"website"|"chat";
 export type MemoryRecord={
@@ -162,4 +162,36 @@ export async function forgetMemory(query:string):Promise<MemoryRecord>{
  cached=null;
  window.dispatchEvent(new Event("vanilla-memory-changed"));
  return chosen;
+}
+
+/** Metadata changes are intentionally separate from source file modification. */
+export async function updateMemoryDetails(id:string,patch:{title?:string;description?:string}):Promise<MemoryRecord>{
+ const {token}=session(),items=await allRecords();
+ const previous=items.find(x=>x.id===id);
+ if(!previous)throw Error("找不到這個 Google 帳號的紀錄");
+ const title=patch.title!==undefined?safeTitle(patch.title):previous.title;
+ const description=patch.description!==undefined?patch.description.trim().slice(0,SUMMARY_MAX):previous.description;
+ const inspection=inspectExternalText(description,"document");
+ if(inspection.blocked)throw Error("修改文字包含疑似 Prompt Injection，已拒絕保存");
+ const list=await listWorkspaceFiles(token),file=list.find(x=>x.name===PREFIX+id+".json");
+ if(!file)throw Error("找不到記憶索引，未修改");
+ const next:MemoryRecord={...previous,title,description,updatedAt:new Date().toISOString()};
+ await updateWorkspaceText(token,file,JSON.stringify(next));
+ cached=null;window.dispatchEvent(new Event("vanilla-memory-changed"));
+ return next;
+}
+export async function previewMemoryAttachment(id:string):Promise<Blob>{
+ const {token}=session(),items=await allRecords();
+ const record=items.find(x=>x.id===id);
+ if(!record?.fileId)throw Error("這筆記憶沒有實體附件");
+ return getWorkspaceBlob(token,record.fileId);
+}
+export async function forgetMemoryWithAttachment(id:string,deleteFile:boolean):Promise<MemoryRecord>{
+ const {token}=session(),records=await allRecords(),item=records.find(x=>x.id===id);
+ if(!item)throw Error("找不到這筆雲端記憶");
+ if(deleteFile&&item.fileId){
+  const files=await listWorkspaceFiles(token),source=files.find(x=>x.id===item.fileId);
+  if(source)await trashWorkspaceFile(token,source);
+ }
+ return forgetMemory(id);
 }

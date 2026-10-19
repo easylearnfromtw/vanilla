@@ -56,7 +56,7 @@ const [section,setSection]=useState<Section>("chat");
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
-const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna">("retina");
+const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca">("retina");
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
 const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream">("manual");
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
@@ -99,7 +99,7 @@ useEffect(()=>{
   ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
    setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
-  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
+  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-email",go("email")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
  ];

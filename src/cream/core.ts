@@ -3,7 +3,8 @@
  */
 export type CreamChartKind="bar"|"line"|"scatter";
 export type CreamDataset={source:string;columns:string[];rows:string[][];rowNumbers:number[];importedAt:string};
-export type CreamPoint={row:number;label:string;value:number};
+export type CreamPoint={row:number;label:string;value:number;x?:number};
+export type CreamScatterAxis={xColumn:number;yColumn:number;xKey:string;n:number;pearsonR:number|null};
 export type CreamMetric={
  key:string;column:number;n:number;missing:number;sum:number;mean:number;median:number;
  min:number;max:number;sampleStdDev:number|null;points:CreamPoint[];
@@ -11,6 +12,7 @@ export type CreamMetric={
 export type CreamResult={
  version:1;source:string;importedAt:string;rowCount:number;columns:string[];
  previewRows:string[][];metrics:CreamMetric[];chartKind:CreamChartKind;warnings:string[];
+ autoChartKind?:CreamChartKind;chartReason?:string;insights?:string[];scatterAxis?:CreamScatterAxis;
 };
 const MAX_BYTES=2_000_000,MAX_ROWS=3000,MAX_COLS=12,PREVIEW_ROWS=12,MAX_POINTS=48;
 const numeric=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
@@ -62,7 +64,8 @@ function toNumber(value:string):number|null{
  if(!numeric.test(s)||(/^0\d/.test(s)&&!/^0\./.test(s))||/^-0\d/.test(s))return null;
  const n=Number(s);return Number.isFinite(n)?n:null;
 }
-export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind="bar"):CreamResult{
+function compact(n:number){return Number.isFinite(n)?Number(n.toFixed(3)).toLocaleString("zh-TW"):"無法計算";}
+export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind|"auto"="auto"):CreamResult{
  const warnings:string[]=[];
  const metrics:CreamMetric[]=[];
  for(let col=0;col<dataset.columns.length;col++){
@@ -87,19 +90,58 @@ export function analyzeCream(dataset:CreamDataset,kind:CreamChartKind="bar"):Cre
   if(n>MAX_POINTS)warnings.push("圖表「"+dataset.columns[col]+"」僅顯示前 "+MAX_POINTS+" 筆有效數據，統計仍以全部 "+n+" 筆計算。");
  }
  if(!metrics.length)warnings.push("沒有可以計算描述統計的純數值欄位；請提供至少一欄有效數值。");
+ const labelHeader=dataset.columns[0]||"";
+ const firstLabels=dataset.rows.map(r=>r[0]?.trim()||"").filter(Boolean);
+ const timeHeader=/(?:日期|時間|月份|月分|週次|季度|年度|date|time|week|month|quarter|year)/i.test(labelHeader);
+ const timeLabels=firstLabels.length>=2&&firstLabels.every(label=>/^(?:\d{4}[-/]\d{1,2}(?:[-/]\d{1,2})?|\d{4}年\d{1,2}月(?:\d{1,2}日)?|\d{1,2}月|[一二三四五六七八九十]{1,3}月)$/.test(label));
+ const candidate=metrics.filter(m=>!/(?:^id$|[_\s-]id$|編號|代碼|識別碼|序號)/i.test(m.key));
+ const xMetric=candidate[0],yMetric=candidate.find(m=>m.column!==xMetric?.column);
+ let scatterAxis:CreamScatterAxis|undefined;
+ if(xMetric&&yMetric&&!timeHeader&&!timeLabels){
+  const xByRow=new Map(xMetric.points.map(p=>[p.row,p.value]));
+  const paired=yMetric.points.filter(p=>xByRow.has(p.row)).map(p=>({x:xByRow.get(p.row)!,y:p.value}));
+  const uniqueX=new Set(paired.map(p=>p.x));
+  if(paired.length>=3&&uniqueX.size>=3){
+   const n=paired.length,mx=paired.reduce((a,p)=>a+p.x,0)/n,my=paired.reduce((a,p)=>a+p.y,0)/n;
+   const sxx=paired.reduce((a,p)=>a+(p.x-mx)**2,0),syy=paired.reduce((a,p)=>a+(p.y-my)**2,0),sxy=paired.reduce((a,p)=>a+(p.x-mx)*(p.y-my),0);
+   scatterAxis={xColumn:xMetric.column,yColumn:yMetric.column,xKey:xMetric.key,n,pearsonR:sxx>0&&syy>0?Math.max(-1,Math.min(1,sxy/Math.sqrt(sxx*syy))):null};
+   for(const p of yMetric.points){const x=xByRow.get(p.row);if(x!==undefined)p.x=x;}
+  }
+ }
+ const autoChartKind:CreamChartKind=(timeHeader||timeLabels)?"line":scatterAxis?"scatter":"bar";
+ const chartKind: CreamChartKind=kind==="auto"?autoChartKind:kind;
+ const chartReason=autoChartKind==="line"?"辨識到時間類欄位，使用折線圖呈現記錄順序的變化。":autoChartKind==="scatter"?"辨識到兩個數值欄位，以有效配對的原始資料繪製 X/Y 散佈圖。":"使用長條圖比較各筆資料，不將資料順序誤當作時間。";
+ const focus=chartKind==="scatter"&&scatterAxis?yMetric:metrics[0];
+ const insights:string[]=[];
+ if(focus){
+  insights.push(`「${focus.key}」有 ${focus.n} 筆有效資料，平均 ${compact(focus.mean)}，中位數 ${compact(focus.median)}，範圍 ${compact(focus.min)}～${compact(focus.max)}。`);
+  if(focus.missing)insights.push(`缺少 ${focus.missing} 筆（佔 ${compact(focus.missing/dataset.rows.length*100)}%），缺失值未插補。`);
+  if(chartKind==="line"&&focus.n>1){
+   const first=focus.points[0]?.value,last=focus.points[focus.points.length-1]?.value;
+   if(first!==undefined&&last!==undefined)insights.push(`圖上首末觀測差 ${last>=first?"+":""}${compact(last-first)}；依原始列序排列，不代表成長可持續。`);
+  }
+  if(chartKind==="scatter"&&scatterAxis&&scatterAxis.pearsonR!==null)insights.push(`「${scatterAxis.xKey}」與「${focus.key}」前 ${scatterAxis.n} 組可見配對值的 Pearson r = ${compact(scatterAxis.pearsonR)}；僅為相關描述，不能推論因果。`);
+ }
  return {version:1,source:dataset.source,importedAt:dataset.importedAt,rowCount:dataset.rows.length,
-  columns:[...dataset.columns],previewRows:dataset.rows.slice(0,PREVIEW_ROWS).map(x=>[...x]),metrics,chartKind:kind,warnings};
+  columns:[...dataset.columns],previewRows:dataset.rows.slice(0,PREVIEW_ROWS).map(x=>[...x]),metrics,chartKind,warnings,
+  autoChartKind,chartReason,insights,scatterAxis};
 }
 export function summarizeCream(result:CreamResult):string{
  const head="CREAM 已分析「"+result.source+"」："+result.rowCount+" 筆資料，"+result.columns.length+" 欄。";
- return result.metrics.length?head+" 已完成 "+result.metrics.length+" 個數值欄位的描述統計，圖表、樣本數、缺失值與資料來源如下。":head+" 目前無純數值欄位可繪圖；請檢查資料格式。";
+ return result.metrics.length?head+" 已完成 "+result.metrics.length+" 個數值欄位的描述統計，自動建議"+({line:"折線圖",bar:"長條圖",scatter:"散佈圖"}[result.autoChartKind||result.chartKind])+"；"+(result.insights?.join(" ")||"")+" 圖表與來源如下。":head+" 目前無純數值欄位可繪圖；請檢查資料格式。";
 }
-export function creamInstruction(text:string):{kind:CreamChartKind;csv:string}|null{
- const m=/^(?:CREAM|分析資料|繪製圖表)\s*[：:]\s*([\s\S]+)$/i.exec(text.trim());
- if(!m)return null;
- const raw=m[1].trim();
- if(!raw.includes("\n")&&!raw.includes("\t"))return null;
- const kind:CreamChartKind=/折線|line/i.test(text.slice(0,50))?"line":/散佈|scatter/i.test(text.slice(0,50))?"scatter":"bar";
+export function creamInstruction(text:string):{kind:CreamChartKind|"auto";csv:string}|null{
+ const source=text.trim(),explicit=/^(?:CREAM|分析資料|繪製圖表)\s*[：:]\s*([\s\S]+)$/i.exec(source);
+ let raw=explicit?.[1].trim()||"";
+ // Recognize ordinary chat instructions only when actual table rows follow.
+ if(!explicit&&/(?:分析|圖表|統計|視覺化|整理|趨勢)/.test(source.slice(0,100))){
+  const lines=source.split(/\r?\n/);
+  const start=lines.findIndex((line,i)=>i<4&&/[,\t]/.test(line)&&!/^\s*[-*#]/.test(line));
+  if(start>=0&&lines.length-start>=3)raw=lines.slice(start).join("\n").trim();
+ }
+ if(!raw||!raw.includes("\n")&&!raw.includes("\t"))return null;
+ const instruction=source.slice(0,Math.max(60,source.indexOf(raw)));
+ const kind:CreamChartKind|"auto"=/折線|line/i.test(instruction)?"line":/散佈|scatter/i.test(instruction)?"scatter":/長條|柱狀|bar/i.test(instruction)?"bar":"auto";
  return {kind,csv:raw};
 }
 export function creamChartFollowup(text:string):CreamChartKind|null{

@@ -53,7 +53,7 @@ test("charts show only a clearly reported preview, statistics use full sample",(
 });
 test("only explicit tabular requests route to CREAM; follow-up chart changes are deterministic",()=>{
  const cmd=creamInstruction("CREAM：月份,銷售\n一月,10\n二月,15");
- assert.ok(cmd);assert.equal(cmd.kind,"bar");
+ assert.ok(cmd);assert.equal(cmd.kind,"auto");
  assert.equal(creamInstruction("CREAM 幫我統整醫學論文"),null);
  assert.equal(creamChartFollowup("把圖改成折線圖"),"line");
  assert.equal(creamChartFollowup("切換成散佈圖"),"scatter");
@@ -71,4 +71,39 @@ test("trace keeps original line numbers even when blank input rows are skipped",
  const result=analyzeCream(ds,"line");
  assert.deepEqual(result.metrics[0].points.map(p=>p.row),[2,4]);
  assert.deepEqual(result.metrics[0].points.map(p=>p.label),["甲","乙"]);
+});
+
+test("auto chart selection uses time labels and produces sourced deterministic insights",()=>{
+ const ds=parseCreamCSV("月份,銷售\n一月,10\n二月,15\n三月,22");
+ const result=analyzeCream(ds);
+ assert.equal(result.chartKind,"line");
+ assert.equal(result.autoChartKind,"line");
+ assert.match(result.chartReason,/時間/);
+ assert.ok(result.insights.some(x=>x.includes("首末觀測差")));
+ assert.equal(analyzeCream(ds,"bar").chartKind,"bar");
+});
+test("XY scatter actually pairs numerical columns by source row",()=>{
+ const ds=parseCreamCSV("年齡,收縮壓\n18,110\n20,120\n22,130\n24,");
+ const result=analyzeCream(ds);
+ assert.equal(result.chartKind,"scatter");
+ assert.equal(result.scatterAxis?.xKey,"年齡");
+ assert.equal(result.scatterAxis?.n,3);
+ assert.ok(Math.abs(result.scatterAxis.pearsonR-1)<1e-10);
+ const y=result.metrics.find(m=>m.key==="收縮壓");
+ assert.deepEqual(y.points.map(p=>p.x),[18,20,22]);
+ assert.ok(result.insights.some(x=>x.includes("不能推論因果")));
+});
+test("ID columns not used as scatter X, category data gets bar",()=>{
+ const id=analyzeCream(parseCreamCSV("識別碼,成績\n001,20\n002,30\n003,40"));
+ assert.equal(id.chartKind,"bar");
+ const categories=analyzeCream(parseCreamCSV("組別,分數\nA,8\nB,12\nC,9"));
+ assert.equal(categories.chartKind,"bar");
+});
+test("ordinary chat containing explicit tabular data auto-routes without capturing unrelated prose",()=>{
+ const q="幫我分析以下資料\n月份,營業額\n一月,20\n二月,22";
+ const parsed=creamInstruction(q);
+ assert.ok(parsed);
+ assert.equal(parsed.kind,"auto");
+ assert.equal(analyzeCream(parseCreamCSV(parsed.csv)).chartKind,"line");
+ assert.equal(creamInstruction("請幫我分析報告的結果，沒有表格"),null);
 });

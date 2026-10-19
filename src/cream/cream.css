@@ -13,3 +13,7 @@
 .cream-table-scroll{max-height:250px;overflow:auto;background:#fff;border:1px solid #ebe6e0;border-radius:9px}.cream-table-scroll table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:11px}.cream-table-scroll th,.cream-table-scroll td{padding:9px 10px;border-bottom:1px solid #ede9e6;text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis}.cream-table-scroll th{position:sticky;top:0;background:#f6f4f1}.cream-table-scroll caption{text-align:left;padding:8px;color:#716d68}
 .cream-trace{font-size:10px;color:#88817b;line-height:1.65;border-top:1px solid #e8e3df;padding-top:11px;margin-top:5px;overflow-wrap:anywhere}
 @media(max-width:560px){.cream-inline{padding:12px;border-radius:12px}.cream-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}.cream-kpi div:nth-child(2){border-right:0}.cream-kpi div:nth-child(-n+2){border-bottom:1px solid #ece9e5}.cream-kpi strong{font-size:18px}.cream-sourcetag{font-size:9px}.cream-choices{gap:7px}.cream-choices label{width:100%;justify-content:space-between}.cream-choices select{max-width:66%;width:66%}}
+
+.cream-chart-reason{color:#6b615a;background:#f1eeea;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.65;margin:2px 0 6px}
+.cream-insights{border-top:1px solid #e7e1db;border-bottom:1px solid #e7e1db;padding:14px 0 12px;margin:4px 0 14px}
+.cream-insights strong{font-size:13px;letter-spacing:.02em}.cream-insights p{font-size:12px;line-height:1.75;margin:7px 0;color:#554e49}.cream-insights small{font-size:10px;color:#8b8078}

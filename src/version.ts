@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.19.19-drive-orphan-delete";
+export const VANILLA_BUILD="2026.10.19.20-cream-intelligence";

@@ -1,0 +1,1 @@
+# Install only in isolated, user-controlled GPU environment, not GitHub Pages\n# Adjust versions after GPU compatibility checks; do not commit Hugging Face tokens.\ntorch>=2.4\ndatasets>=3.0\ntransformers>=4.48\npeft>=0.14\ntrl>=0.15\naccelerate>=1.0\nsafetensors>=0.4\n

@@ -1,6 +1,7 @@
 import {useEffect,useState,lazy,Suspense} from 'react';
 import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette,Database,Mail} from 'lucide-react';
 import OrchestraStudio from '../orchestra/OrchestraStudio';
+import MedusaTool from './MedusaTool';
 import ApiRegistryPanel from './ApiRegistryPanel';
 import {bardGenerate,bardSave,type BardImage} from './bard';
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from './retina';
@@ -9,7 +10,7 @@ import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api
 import {DETROIT_ENGINES} from './core';
 import './studio.css';
 const JanusStudio=lazy(()=>import('../email/EmailStudio'));
-type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna'|'registry'|'janus';
+type Tab='retina'|'bard'|'athena'|'jobs'|'orchestra'|'luna'|'registry'|'janus'|'medusa';
 export default function DetroitStudio({initialBody}:{initialBody?:string|null}={}){
  const [tab,setTab]=useState<Tab>('retina');
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,160000));setTab('retina');}},[initialBody]);
@@ -63,7 +64,7 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
  return <div className="detroit-studio">
   <header><p className="detroit-eyebrow">VANILLA / DETROIT</p><h1>DETROIT <em>STUDIO</em></h1><p>同一套 AI，專門工具協作。生成有依據的成品，並清楚標示雲端服務是否啟用。</p></header>
   <div className="detroit-studio-tabs" role="tablist" aria-label="Detroit 工作室工具">
-   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3],['luna','LUNA 設計',Palette],['registry','API Registry',Database],['janus','Janus 郵件',Mail]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
+   {([['retina','Retina 文件',FileText],['bard','Bard 圖像',Image],['athena','Athena 安全',ShieldCheck],['jobs','背景任務',Clock3],['orchestra','Orchestra',Layers3],['luna','LUNA 設計',Palette],['registry','API Registry',Database],['janus','Janus 郵件',Mail],['medusa','Medusa',Layers3]] as const).map(([key,label,Icon])=><button key={key} type="button" role="tab" aria-selected={tab===key} className={tab===key?'is-active':''} onClick={()=>{setTab(key);setStatus('');}}><Icon size={16}/>{label}</button>)}
   </div>
   {tab==='retina'&&<section className="detroit-studio-form"><h2>Retina · 正式文件產製</h2><p>輸入標題與內容，支援 Markdown 標題、段落和清單；在手機本機真正產生可下載的文件，不需要模型重複生成。</p>
    <label>文件名稱<input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)}/></label>
@@ -77,6 +78,7 @@ export default function DetroitStudio({initialBody}:{initialBody?:string|null}={
    </div>
   </section>}
   {tab==='orchestra'&&<OrchestraStudio compact/>}
+  {tab==='medusa'&&<MedusaTool/>}
   {tab==='janus'&&<Suspense fallback={<p role="status">Janus 郵件工作室載入中…</p>}><JanusStudio/></Suspense>}
   {tab==='registry'&&<ApiRegistryPanel/>}
   {tab==='luna'&&<section className="detroit-studio-form"><h2>LUNA · 海報與視覺設計</h2><p>可拖曳的本機海報畫布、文字與圖片圖層、活動／品牌模板，以及 PNG 與 JSON 匯出。完全獨立於迅排的管理後台，不使用其預設帳號或 API。</p><button className="detroit-primary" type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-luna'))}><Palette size={17}/>開啟 LUNA 設計畫布</button></section>}

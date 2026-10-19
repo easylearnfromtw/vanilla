@@ -8,7 +8,7 @@ export type DetroitFactoryTool={
 export const DETROIT_FACTORY_TOOLS:readonly DetroitFactoryTool[]=[
  {id:"medusa",label:"Medusa",engine:"JENSEN HUANG / CREAM",provider:"Judge0",
   status:"adapter",enabledByDefault:false,
-  description:"獨立 Judge0 沙盒執行 Python；僅可信後端管理員操作，預設停用，需部署與隔離驗證"},
+  description:"獨立 Judge0 Python 沙盒；家庭管理者須經後端白名單及逐次同意，預設停用，需隔離部署驗證"},
  {id:"quirinus",label:"Quirinus",engine:"Athena / JENSEN HUANG / CREAM",provider:"VulnClaw",
   status:"adapter",enabledByDefault:false,
   description:"可選資安檢測工具；目前僅隔離後端管理員可啟用 L1/L2 本地程式碼掃描，不開放滲透測試"},

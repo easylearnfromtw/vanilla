@@ -20,3 +20,8 @@
 .detroit-api-review ul{line-height:1.75;padding-left:22px}
 .detroit-api-registry .detroit-api-footnote{font-size:12px}
 @media(max-width:560px){.detroit-api-filters{grid-template-columns:1fr}.detroit-api-registry button.detroit-primary{width:100%}}
+
+.detroit-medusa-result{display:grid;gap:11px;border-top:1px solid #d4cec7;padding-top:15px;min-width:0}
+.detroit-medusa-result>div{min-width:0}
+.detroit-medusa-result strong{display:block;font-size:13px}
+.detroit-medusa-result pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:420px;margin:4px 0 0;padding:14px;border-radius:12px;background:#252525;color:#f9f6f0;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}

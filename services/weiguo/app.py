@@ -20,6 +20,7 @@ from playwright.async_api import async_playwright
 from moli_engine import maybe_moli_extract
 from gridcraft_adapter import router as gridcraft_router
 from medusa_adapter import router as medusa_router
+from medusa_family import router as medusa_family_router
 from quirinus_adapter import router as quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
@@ -99,6 +100,7 @@ async def operator(authorization: str | None = Header(default=None)):
 
 # Medusa is operator-only, not reachable from PWA/family identity sessions.
 app.include_router(medusa_router, dependencies=[Depends(operator)])
+app.include_router(medusa_family_router)
 app.include_router(quirinus_router, dependencies=[Depends(operator)])
 
 @app.get("/v1/health")

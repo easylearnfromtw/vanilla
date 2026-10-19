@@ -537,7 +537,7 @@ async function send(value=draft){
    return;
   }
   case "open":{
-   const events:Record<string,string>={cream:"vanilla-open-cream",projects:"vanilla-open-projects",sheets:"vanilla-open-sheets",files:"vanilla-open-files",builder:"vanilla-open-builder",library:"vanilla-open-library",settings:"vanilla-open-settings"};
+   const events:Record<string,string>={weiguo:"vanilla-open-weiguo",cream:"vanilla-open-cream",projects:"vanilla-open-projects",sheets:"vanilla-open-sheets",files:"vanilla-open-files",builder:"vanilla-open-builder",library:"vanilla-open-library",settings:"vanilla-open-settings"};
    window.dispatchEvent(route.section==="builder"?new CustomEvent(events.builder,{detail:{}}):new Event(events[route.section]));
    setDraft("");return;
   }
@@ -1028,7 +1028,6 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  </details>
  <div className="control-sheet-foot"><PWAUpdateNotice/></div>
 </div></>}
-<DetroitStages plan={detroitPlan}/>
 {noticeShown&&(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice route-line" role="status"><span>{lastRoute||fileStatus||(modelError?status:"")}</span></p>}
 {searchResults.length>0&&<div className="assistant-search-links">{searchResults.map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><strong>{item.provider?item.provider+" · ":""}{item.label} ↗</strong>{item.snippet&&<small>{item.snippet}</small>}</a>)}<button type="button" onClick={()=>setSearchResults([])}>收起</button></div>}
 <div className="chat-messages" aria-live="polite">
@@ -1043,7 +1042,8 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  {turn.role==="assistant"&&turn.tool&&ToolIcon&&<div className={"tool-badge tool-"+turn.tool.id+" status-"+turn.tool.status}><ToolIcon size={12}/><span>{turn.tool.label}</span>{turn.tool.detail&&<small>{turn.tool.detail}</small>}</div>}
  {turn.role==="assistant"&&turn.source&&<div className="message-source"><span className={"source-dot source-"+turn.source}/>{sourceLabel(turn)}{turn.model&&<span className="model-id-suffix" title={turn.model}> · {prettyModel(turn.model)}</span>}{turn.durationMs?<span className="model-id-suffix"> · {(turn.durationMs/1000).toFixed(1)}s</span>:null}</div>}
  <div className="message-text">{turn.role==="assistant"?(turn.content?<ChatMarkdown source={stripRenderedTable(turn.content)}/>:<span className="typing-dots" aria-label="正在生成"><i/><i/><i/></span>):turn.content}</div>
- {turn.role==="assistant"&&(turn.contexts?.length||turn.notice)?<div className="message-context">{turn.contexts?.length?<span>參考：{turn.contexts.join("、")}</span>:null}{turn.notice&&<span className="context-notice">{turn.notice}</span>}</div>:null}
+ {turn.role==="assistant"&&index===latestAssistant&&<DetroitStages plan={detroitPlan}/>}
+  {turn.role==="assistant"&&(turn.contexts?.length||turn.notice)?<div className="message-context">{turn.contexts?.length?<span>參考：{turn.contexts.join("、")}</span>:null}{turn.notice&&<span className="context-notice">{turn.notice}</span>}</div>:null}
  {turn.role==="assistant"&&<MessageArtifacts turn={turn} onOpenTable={openTableInSheets} onOpenSheet={openCreatedSheet} onOpenCream={creamDataset?.importedAt===turn.cream?.importedAt?openCreamInSheets:undefined}/>}
  {turn.role==="assistant"&&turn.content&&!streamingThis&&<div className="message-actions">
   <button type="button" className="message-copy" title="複製回答" aria-label="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={15}/>:<Copy size={15}/>}</button>

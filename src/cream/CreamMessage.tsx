@@ -1,3 +1,4 @@
+import ExtendedPlot from "./ExtendedPlot";
 import {useMemo,useState} from "react";
 import type {CreamResult,CreamChartKind,CreamMetric,CreamPoint,CreamScatterAxis} from "./core";
 import "./cream.css";
@@ -65,9 +66,9 @@ export default function CreamMessage({result,onOpenSheets}:{result:CreamResult;o
   {result.chartReason&&<p className="cream-chart-reason">自動圖表建議：{result.chartReason} 如有需要，可手動切換。</p>}
   <div className="cream-choices">
    <label>統計欄位 <select aria-label="選擇資料欄位" value={metric.key} onChange={e=>setMetricName(e.target.value)}>{result.metrics.map(x=><option key={x.column} value={x.key}>{x.key}（n={x.n}）</option>)}</select></label>
-   <label>圖表類型 <select aria-label="切換圖表類型" value={kind} onChange={e=>setKind(e.target.value as CreamChartKind)}><option value="bar">長條圖</option><option value="line">折線圖</option><option value="scatter">散佈圖</option></select></label>
+   <label>圖表類型 <select aria-label="切換圖表類型" value={kind} onChange={e=>setKind(e.target.value as CreamChartKind)}><option value="bar">長條圖</option><option value="line">折線圖</option><option value="scatter">散佈圖</option><option value="pie">圓餅圖</option><option value="numberline">數線圖</option></select></label>
   </div>
-  <Plot key={metric.key+"_"+kind} metric={metric} kind={kind} axis={result.scatterAxis}/>
+  {kind==="pie"||kind==="numberline"?<ExtendedPlot key={metric.key+"_"+kind} metric={metric} kind={kind}/>:<Plot key={metric.key+"_"+kind} metric={metric} kind={kind} axis={result.scatterAxis}/>}
   {result.insights?.length&&<div className="cream-insights"><strong>數據解讀</strong>{result.insights.map((insight,i)=><p key={i}>{insight}</p>)}<small>以可追溯資料進行描述，不代表因果、預測或醫療結論。</small></div>}
   <details className="cream-details"><summary>完整描述統計與方法</summary><dl><dt>總和</dt><dd>{fmt(metric.sum)}</dd><dt>最小／最大</dt><dd>{fmt(metric.min)}／{fmt(metric.max)}</dd><dt>樣本標準差（n−1）</dt><dd>{fmt(metric.sampleStdDev)}</dd><dt>有效數／缺失數</dt><dd>{metric.n}／{metric.missing}</dd></dl><p>對純數值欄進行描述統計；空白不參與計算。混合型資料不強制轉換。沒有執行推論統計、因果判定或預測。</p></details>
   </>}

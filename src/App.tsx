@@ -7,7 +7,7 @@ import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync
 import {loadProviderConfigs} from "./vault/provider-sync";
 import {startNewConversation,recentConversations,reopenConversation,currentChatMode,CHAT_ARCHIVE_EVENT} from "./local-ai/chat-session";
 import type {ArchiveSummary} from "./library/conversation-archive";
-import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Puzzle,ShieldCheck,Clock3,SquarePen} from "lucide-react";
+import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen} from "lucide-react";
 
 // Heavy sections load on demand so the chat opens fast on iPhone.
 const CreamLongitudinal=lazy(()=>import("./cream/CreamLongitudinal"));
@@ -19,9 +19,10 @@ const BuildStudio=lazy(()=>import("./builder/BuildStudio"));
 const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
+const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 const items:NavItem[]=[
  {id:"chat",label:"AI 對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
@@ -31,6 +32,7 @@ const items:NavItem[]=[
  {id:"settings",label:"系統設定",icon:Settings2,description:"模型、隱私、雲端與外觀",tone:"ink"}
 ];
 const tools:NavItem[]=[
+ {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存",tone:"red"},
  {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
@@ -81,6 +83,7 @@ useEffect(()=>{
  };
  const handlers:Array<[string,(e:Event)=>void]>=[
   ["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
+  ["vanilla-open-weiguo",go("weiguo")],
   ["vanilla-open-detroit",(event:Event)=>{const body=(event as CustomEvent<{body?:string}>).detail?.body;setRetinaSeed(typeof body==="string"?body.slice(0,160000):null);setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
@@ -148,6 +151,7 @@ section==="projects"?<div className="workspace-page"><ProjectHub/></div>:
 section==="library"?<div className="workspace-page"><ConversationLibrary onFiles={()=>navigate("files")}/></div>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
+section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
 section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:

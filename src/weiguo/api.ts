@@ -62,3 +62,33 @@ export async function getWeiGuoTask(id:string):Promise<WeiGuoTask>{
  if(!/^[a-f0-9-]{36}$/i.test(id))throw Error("任務識別碼不正確");
  return request<WeiGuoTask>("/v1/family/tasks/"+encodeURIComponent(id),undefined,true);
 }
+
+/** Optional document conversion. Sends only the explicitly approved text to the family backend. */
+export async function convertWeiGuoWordCraft(title:string,body:string,format:"docx"|"pdf"):Promise<{bytes:Uint8Array;filename:string;mime:string}>{
+ const identity=weiGuoIdentity();
+ if(!identity||identity.role==="viewer")throw Error("請先在衞國系統以具備文件權限的家庭帳號登入");
+ const base=weiGuoApiBase();
+ if(!base||!auth)throw Error("尚未連線至衞國的安全後端");
+ if(!title.trim()||title.length>120||!body.trim()||body.length>50000)throw Error("文件標題或內容超過 WordCraft 限制");
+ const mime=format==="pdf"?"application/pdf":"application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+ let response:Response;
+ try{
+  response=await fetch(base+"/v1/family/wordcraft/convert",{
+   method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+auth.token},
+   body:JSON.stringify({title,body,format}),cache:"no-store",credentials:"omit",
+   referrerPolicy:"no-referrer",mode:"cors"
+  });
+ }catch{throw Error("WordCraft 後端目前無法連線");}
+ if(response.status===401||response.status===403){clearWeiGuoSession();throw Error("衞國文件授權已失效，請重新登入");}
+ if(!response.ok){
+  const data=await response.json().catch(()=>({})) as {detail?:string};
+  throw Error(typeof data.detail==="string"?data.detail:"WordCraft 輸出失敗："+response.status);
+ }
+ const declared=Number(response.headers.get("Content-Length")||"0");
+ if(declared>8*1024*1024)throw Error("WordCraft 檔案過大");
+ const bytes=new Uint8Array(await response.arrayBuffer());
+ if(bytes.length===0||bytes.length>8*1024*1024)throw Error("WordCraft 檔案大小不正確");
+ if(format==="pdf"&&!new TextDecoder().decode(bytes.slice(0,5)).startsWith("%PDF-"))throw Error("WordCraft PDF 格式檢查失敗");
+ if(format==="docx"&&(bytes[0]!==80||bytes[1]!==75))throw Error("WordCraft DOCX 格式檢查失敗");
+ return {bytes,filename:title.replace(/[\\/:*?"<>|\x00-\x1f]/g,"_").trim().slice(0,70)+"."+format,mime};
+}

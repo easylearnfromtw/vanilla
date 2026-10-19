@@ -11,14 +11,16 @@
     "test:builder": "node --experimental-strip-types --test tests/builder.test.mjs",
     "test:assistant": "node --experimental-strip-types --test tests/assistant.test.mjs",
     "test:security": "node --experimental-strip-types --test tests/security-language.test.mjs",
-    "test:local-chat": "node --experimental-strip-types --test tests/local-chat.test.mjs"
+    "test:local-chat": "node --experimental-strip-types --test tests/local-chat.test.mjs",
+    "test:cream": "node --experimental-strip-types --test tests/cream.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
     "@mlc-ai/web-llm": "^0.2.80",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "opencc-js": "^1.0.5"
+    "opencc-js": "^1.0.5",
+    "read-excel-file": "^9.3.12"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

@@ -35,10 +35,10 @@ export default function NoodlesPanel({privateMode}:{privateMode:boolean}){
    <p>NOODLES 在每次已授權的模型呼叫後學習可觀測的執行表現，並使用你對回答的明確評價微調後續模型排序與回答策略。適用 WebLLM、Ollama、Gemini、DeepSeek；**不會**更改第三方模型的權重。</p>
    <small>記錄範圍：{noodlesScopeLabel()} · {privateMode?"目前私密模式不記錄，也不使用個人優化資料。":"只記錄模型、任務類別、成功失敗、耗時、評價類型，不儲存訊息原文。"} </small>
    <div className="noodles-metrics">
-    <span><strong>{overview.totalRuns}</strong>已觀察執行</span>
+    <span><strong>{overview.totalTurns}</strong>已觀察對話</span>
+    <span><strong>{overview.totalRuns}</strong>模型呼叫</span>
     <span><strong>{overview.humanRatings}</strong>主動評價</span>
-    <span><strong>{overview.failedRuns}</strong>執行失敗</span>
-    <span><strong>{overview.feedbackIssues}</strong>改善標記</span>
+    <span><strong>{overview.failedRuns}</strong>呼叫失敗</span>
    </div>
    <div className="noodles-actions">
     <label><input type="checkbox" checked={state.enabled} disabled={privateMode} onChange={e=>setNoodlesEnabled(e.target.checked)}/>啟用 NOODLES 本機自適應</label>

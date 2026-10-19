@@ -38,6 +38,8 @@ jobs:
       - run: npm run test:assistant
       - run: npm run test:resource-integration
       - run: npm run test:cream
+      - run: npm run test:cream-extra
+      - run: npm run test:weiguo
       - run: npm run test:detroit
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio

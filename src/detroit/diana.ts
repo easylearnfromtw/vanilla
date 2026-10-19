@@ -4,6 +4,7 @@
 import {DETROIT_ENGINES} from "./core";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {makeHumanizeRequest} from "../erya/humanize";
+import {creamInstruction} from "../cream/core";
 export type DianaTarget="ceres"|"diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"jensen-huang"|"zeus"|"athena"|"medusa"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
 export type DianaDecision={kind:"delegate"|"open"|"report";tool:DianaTarget;label:string;reason:string;alternatives:string[];command?:string;event?:string;tab?:string;message?:string;nextSteps?:DianaTarget[]};
 const NAMES:Record<string,DianaTarget>={
@@ -105,6 +106,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(tool==="jensen-huang")return choose({kind:"open",event:"vanilla-open-builder"});
  if(tool==="atriensis"&&!/(?:讀取|查看|分析|摘要|檢查|整理|刪除|移除)/.test(task))return choose({kind:"open",event:"vanilla-open-files"});
  if(tool==="cream"){
+  if(creamInstruction(task))return choose({kind:"delegate",command:task});
   if(/^(?:日期|date)\s*,/im.test(task)&&task.includes("\n"))return choose({kind:"delegate",command:"CREAM：\n"+task});
   if(!ctx.hasCreamResult&&!/\d{4}[-/]\d{1,2}[-/]\d{1,2}.{0,60}\d/.test(task))return choose({kind:"open",event:"vanilla-open-cream"});
  }

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.11-venus-janus-v2",
-  "description": "Venus x Janus v2: final HTML audit, hidden inbox preheader, source-aware draft restore and account isolation"
+  "build": "2026.10.20.13-webllm-disposed-fix",
+  "description": "Diana 3.0 + Venus Janus v2 retained; fix iPhone WebLLM disposed objects with stable 0.2.82 and serialized engine reloads"
 }

@@ -50,7 +50,7 @@ class CreamGridCraftTests(unittest.TestCase):
         commands, _ = build_cream_report(payload)
         values = commands[0]["params"]["values"]
         self.assertTrue(values[1][1].startswith("'=WEBSERVICE"))
-        self.assertTrue(any(row[0] == "'=HYPERLINK(A1)" for row in values))
+        self.assertTrue(any(row and row[0] == "'=HYPERLINK(A1)" for row in values))
 
     def test_negative_pie_rejected_as_native_chart_not_falsely_recast(self):
         data = report(rowCount=2, metrics=[CreamReportMetric(
@@ -74,8 +74,8 @@ class CreamGridCraftTests(unittest.TestCase):
         commands, chart = build_cream_report(data)
         self.assertEqual(chart, "pie")
         rows = commands[0]["params"]["values"]
-        self.assertTrue(any(row[0]=="A" and row[1]==40 for row in rows))
-        self.assertTrue(any(row[0]=="B" and row[1]==20 for row in rows))
+        self.assertTrue(any(len(row)>=2 and row[0]=="A" and row[1]==40 for row in rows))
+        self.assertTrue(any(len(row)>=2 and row[0]=="B" and row[1]==20 for row in rows))
 
     def test_empty_metric_fake_focus_and_count_mismatch_are_rejected(self):
         for patch in [

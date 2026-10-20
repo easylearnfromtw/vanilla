@@ -37,6 +37,13 @@ def family_enabled(identity: FamilyIdentity) -> bool:
         return False
     if os.environ.get("MEDUSA_FAMILY_ENABLED") != "true":
         return False
+    # Existing signed-in owner role comes from the server-side Google sub ACL.
+    # Only the bounded AST interpreter may bypass an additional per-sub list,
+    # and only with a separate, explicit server-side operator opt-in.
+    if (os.environ.get("MEDUSA_ENGINE") == "lite"
+            and os.environ.get("MEDUSA_LITE_OWNER_ROLE_ONLY") == "true"):
+        from medusa_lite import enabled as lite_enabled
+        return lite_enabled()
     allowed = [x.strip() for x in os.environ.get("MEDUSA_FAMILY_OWNER_SUBS", "").split(",") if x.strip()]
     return bool(allowed) and len(allowed) <= 30 and all(_SUB.fullmatch(x) for x in allowed) and identity.sub in allowed
 
@@ -64,6 +71,9 @@ async def family_medusa_status(user: FamilyIdentity = Depends(family_user)):
     """Does not assert the remote executor works without a successful code run."""
     if not family_enabled(user):
         return {"enabled": False, "connected": False, "note": "Medusa 尚未由管理端開啟"}
+    if os.environ.get("MEDUSA_ENGINE", "judge0") == "lite":
+        from medusa_lite import lite_status
+        return lite_status()
     if os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
         from medusa_cloudrun_adapter import cloudrun_status
         return await cloudrun_status()
@@ -94,7 +104,10 @@ async def family_medusa_run(request: FamilyMedusaRunRequest,
     if "\x00" in request.source_code or "\x00" in request.stdin:
         raise HTTPException(400, "程式內容不可包含 NUL 字元")
     # Verify actual upstream configuration BEFORE consuming quota.
-    if os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
+    if os.environ.get("MEDUSA_ENGINE", "judge0") == "lite":
+        from medusa_lite import require_enabled
+        require_enabled()
+    elif os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
         from medusa_cloudrun_adapter import validated_cloud_config
         validated_cloud_config()
     else:

@@ -72,6 +72,9 @@ def parse_result(data: object) -> dict:
 
 async def execute_medusa(request: MedusaRunRequest) -> dict:
     engine = os.environ.get("MEDUSA_ENGINE", "judge0")
+    if engine == "lite":
+        from medusa_lite import execute_lite
+        return await execute_lite(request)
     if engine == "cloudrun":
         from medusa_cloudrun_adapter import execute_cloudrun
         return await execute_cloudrun(request)

@@ -15,6 +15,7 @@ import {webllmRequestOptions} from "../ai/generation-config";
 import {localInferenceQueue} from "../detroit/zeus";
 import {isPinnedWebLLMModelSupported,isDisposedWebLLMFailure} from "./webllm-compat";
 import {isIOSWebLLMDevice,mayFallbackToMainThread} from "./mobile-safety";
+import {firstDownloadProgress,noteDownloadProgress,downloadHasStalled,downloadNeedsNotice,isDownloadStallError,stalledDownloadError} from "./model-download-watchdog";
 import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../ai/prompts";
 import {classifyTask,type TaskKind} from "../ai/task-kind";
 import {fitHistory,estimateTokens} from "../ai/context-budget";
@@ -72,6 +73,14 @@ export async function refreshSupportedModels():Promise<string[]>{
 export async function isLocalModelCached(model:LocalModelId):Promise<boolean>{
  try{if(!isLocalModelSupported(model))return false;const mod=await webllm();return typeof mod.hasModelInCache==="function"?await mod.hasModelInCache(model):false;}catch{return false;}
 }
+/** Clear only this model's parameter shards/tokenizer, not conversations or other models. */
+export async function clearLocalModelCache(model:LocalModelId):Promise<void>{
+ if(loading||loadingModel)throw new Error("模型仍在下載中，請等下載結束後再清除快取。");
+ if(engine&&loadedModel===model)throw new Error("這個模型正在使用中。請重新開啟 Vanilla 後、載入模型前清除快取。");
+ if(!isLocalModelSupported(model))throw new Error("目前無法清除此模型的快取：模型不受此版本支援。");
+ const mod=await webllm();
+ await mod.deleteModelInCache(model);
+}
 const SELECTED_KEY="vanilla.local.model";
 export function preferredLocalModel():LocalModelId{
  try{const saved=localStorage.getItem(SELECTED_KEY);if(saved&&LOCAL_CATALOG.some(x=>x.id===saved)&&isPinnedWebLLMModelSupported(saved))return saved;}catch{}
@@ -114,18 +123,38 @@ async function createEngine(model:LocalModelId,onProgress:(message:string,progre
   let worker:Worker|null=null;
   try{
    worker=new Worker(new URL("./webllm.worker.ts",import.meta.url),{type:"module"});
-   let lastSignal=Date.now();
-   const progress=(report:{text:string;progress:number})=>{lastSignal=Date.now();onProgress(report.text,report.progress);};
+   let pulse=firstDownloadProgress(Date.now());
+   let noticeShown=false;
+   const progress=(report:{text:string;progress:number})=>{
+    pulse=noteDownloadProgress(pulse,report.progress,Date.now());
+    if(report.progress>0)noticeShown=false;
+    onProgress(report.text,report.progress);
+   };
    const created=mod.CreateWebWorkerMLCEngine(worker,model,{initProgressCallback:progress});
-   // Do not mistake a slow model download for a broken worker after only 30 seconds.
-   const watchdog=new Promise<never>((_,reject)=>{const t=setInterval(()=>{if(Date.now()-lastSignal>90000){clearInterval(t);reject(new Error("worker-stalled"));}},2000);void created.finally(()=>clearInterval(t)).catch(()=>{});});
-   const ready=await Promise.race([created,watchdog]);
+   let timer:ReturnType<typeof setInterval>|undefined;
+   // Repeated "Start to fetch params" callbacks at 0% must not keep an idle load alive.
+   // Slow connections are fine as long as numeric weight progress continues advancing.
+   const watchdog=new Promise<never>((_,reject)=>{
+    timer=setInterval(()=>{
+     const now=Date.now();
+     if(downloadHasStalled(pulse,now)){reject(stalledDownloadError());return;}
+     if(!noticeShown&&downloadNeedsNotice(pulse,now)){
+      noticeShown=true;
+      onProgress("下載來源仍未回報新增進度；正在等待模型權重，若持續停滯會結束並提供修復選項。",pulse.highest);
+     }
+    },2000);
+   });
+   let ready:Engine;
+   try{ready=await Promise.race([created,watchdog]);}
+   finally{if(timer!==undefined)clearInterval(timer);}
    usingWorker=true;
    return ready;
   }catch(error){
    worker?.terminate();
-   try{localStorage.setItem(WORKER_KEY,"broken");}catch{}
+   // A remote weight-download stall is not a broken worker. Let users retry normally.
+   if(!isDownloadStallError(error)){try{localStorage.setItem(WORKER_KEY,"broken");}catch{}}
    usingWorker=false;
+   if(isDownloadStallError(error))throw error;
    console.warn("WebLLM worker unavailable",error);
    if(!mayFallbackToMainThread(iosDevice,mode)){
     throw new Error("iPhone 背景模型載入失敗，已停止以保護網頁。請檢查網路與儲存空間，重新開啟「背景執行緒推論」再試；也可以在一般模式連接雲端模型。詳細原因："+(error instanceof Error?error.message:String(error)));

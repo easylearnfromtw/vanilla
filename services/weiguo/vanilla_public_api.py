@@ -269,12 +269,13 @@ async def chat(body:Completion,authorization: str|None=Header(default=None)):
     reservation=prompt_bytes+content["max_tokens"]
     if reservation>key["daily_limit"] or reservation>key["monthly_limit"]:
         raise HTTPException(429,"此請求的 Token 保留額度超過金鑰上限")
+    # Refuse misconfigured runtimes before debiting the consumer token budget.
+    url,secret=_origin()
     job=_reserve(key,actual,reservation)
     began=time.monotonic()
     status="failed"
     usage=None
     try:
-        url,secret=_origin()
         async with httpx.AsyncClient(timeout=45,follow_redirects=False,trust_env=False) as client:
             response=await client.post(url+"/chat/completions",json=content,
                     headers={"Authorization":"Bearer "+secret})

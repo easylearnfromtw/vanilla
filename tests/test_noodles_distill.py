@@ -11,9 +11,18 @@ import noodles_distill as distill
 from noodles_train import read_samples
 
 
+TOPICS = (
+    "地震防災預警", "海洋潮汐週期", "程式版本控制", "國際貿易成本",
+    "資料庫交易隔離", "機器學習驗證", "雨水回收設計", "交通號誌控制",
+    "廢棄物分類", "經濟通貨膨脹", "農作物輪作制度", "影像品質評估",
+    "網路資安測試", "室內光照管理", "氣象觀測方法", "人口統計抽樣",
+    "能源效率檢測", "航空安全管理", "材料耐久測試", "物流路徑選擇"
+)
+
+
 def row(n, **changes):
     result = {
-        "question": f"請判斷測試項目第 {n} 號中的完整分析條件",
+        "question": f"請分析{TOPICS[n % len(TOPICS)]}的限制與可行驗證方法",
         "context": f"測試素材：第 {n} 號為人工撰寫之合成案例，沒有個人資料。",
         "task": "analysis",
         "draft_answer": "這是本機合成的教師初稿，只供人類複核。",

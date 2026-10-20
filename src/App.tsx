@@ -61,7 +61,7 @@ const [section,setSection]=useState<Section>("chat");
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
-const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca"|"notion">("retina");
+const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"|"nodes">("retina");
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
 const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream"|"ai">("manual");
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
@@ -121,7 +121,7 @@ useEffect(()=>{
     setChatKey(k=>k+1);setSection("chat");setMenuOpen(false);
    }catch{window.alert("無法將 Orchestra 任務交接回 AI 對話");}
   }],
-  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
+  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"|"nodes"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-email",go("email")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
  ];

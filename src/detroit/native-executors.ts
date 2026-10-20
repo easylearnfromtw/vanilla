@@ -26,6 +26,7 @@ type BardInput={prompt:string;download:boolean};
 type MedusaInput={source_code:string;stdin?:string};
 type QuirinusInput={approval_token:string};
 type CeresInput={operation:"status"|"events"};
+type LucaInput={operation:"summary"};
 export type NativeRetinaResult={filename:string;format:RetinaFormat;sections:number};
 export type NativeJanusResult={filename:string;format:"html";bytes:number};
 export type NativeLunaResult={filename:string;format:"png";layers:number;savedEditable:boolean};
@@ -108,7 +109,11 @@ export function registerDetroitNativeExecutors():void{
   const data=assertObject(raw);
   return executeQuirinusFamilyScan(limited(data.approval_token,128),true);
  });
- detroitBus.register("luca",async()=>getWeiGuoLucaSummary());
+ detroitBus.register("luca",async(raw)=>{
+  const data=assertObject(raw);
+  if(data.operation!=="summary")throw Error("LUCA 僅提供已授權的監控摘要");
+  return getWeiGuoLucaSummary();
+ });
  detroitBus.register("ceres",async(raw)=>{
   const data=assertObject(raw),input:CeresInput={operation:data.operation==="events"?"events":"status"};
   return input.operation==="events"?getWeiGuoCeresEvents():getWeiGuoCeresStatus();
@@ -141,7 +146,7 @@ export function registerDetroitNativeExecutors():void{
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
 export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria"|"bard"|"medusa"|"quirinus"|"luca"|"ceres",
- input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|BardInput|MedusaInput|QuirinusInput|CeresInput,
+ input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|BardInput|MedusaInput|QuirinusInput|CeresInput|LucaInput,
  context:{privateMode:boolean;approved?:boolean;signal?:AbortSignal}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);

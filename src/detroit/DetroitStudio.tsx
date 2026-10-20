@@ -1,5 +1,5 @@
 import {useEffect,useState,lazy,Suspense} from 'react';
-import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette,Database,Mail,Activity,MessageSquare,CalendarDays,Network} from 'lucide-react';
+import {Image,FileText,ShieldCheck,Clock3,Download,Layers3,Palette,Database,Mail,Activity,CalendarDays,Network} from 'lucide-react';
 import OrchestraStudio from '../orchestra/OrchestraStudio';
 import LucaPanel from '../luca/LucaPanel';
 import MedusaTool from './MedusaTool';

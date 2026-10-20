@@ -7,6 +7,7 @@ import {teacherStyleHint} from "../noodles/teacher-core";
 import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
+import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
 import {venusPresentationGuidance} from "../venus/presentation";
 import MessageArtifacts from "./MessageArtifacts";
@@ -31,6 +32,7 @@ import {searchLiveWeb,searchWebSummary} from "../search/live-search";
 import {googleGroundingAvailable,searchGroundedGoogle} from "../search/google-grounding";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
+import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels} from "../detroit/veritas-gate";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
@@ -356,7 +358,8 @@ function chooseAnswer(id:string){
  if(!comparison||busy)return;
  const chosen=comparison.options.find(x=>x.candidate.id===id&&x.status==="done");
  if(!chosen)return;
- saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
+ if(!privateMode)saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
+ recordLucaFeedback("chosen",comparison.task,chosen.candidate.source,privateMode);
  recordNoodles({kind:"rating",at:Date.now(),task:comparison.task,model:chosen.candidate.id,liked:true},privateMode);
  // Only a human-selected win can become a teacher preference example.
  // Original prompts/answers are never persisted without separate opt-in.
@@ -898,6 +901,27 @@ async function send(value=draft):Promise<void>{
    return;
   }
  }
+ // Veritas checks provenance before factual answers reach any language model.
+ const factPlan=classifyFactRequest(question);
+ if(!image&&!inlineFileContext&&!fileContext&&factPlan.needsLiveSources){
+  const evidence=evaluateFactEvidence(question,webIndex);
+  if(evidence.status==="missing"){
+   const reason=privateMode?"私密模式不會連網。":!contextPrefs.web?"自動查證已關閉。":
+    "本次 Scouts 沒有取得足夠的可核對資料。";
+   toolReply(question,"Veritas 事實查證：這題需要外部證據，目前無法確認正確答案。"+
+    reason+"我不會用小型本地模型猜測日期、價格、政策或考試資訊。"+
+    (webIndex.length?"\n\n以下僅供自行核對，並非已確認的答案：\n"+formatIndexedPages(webIndex):""),
+    {...TOOL.search,status:"partial",detail:evidence.reason},{webSources});
+   return;
+  }
+  const label=evidence.status==="official"?
+   "Veritas 已找到符合考試、年度及日期的官方來源摘錄；不由小模型改寫：" :
+   "Veritas 取得公開資料索引，但尚未確認個別數字、日期及時效；以下不是已驗證的結論：";
+  toolReply(question,label+"\n\n"+formatIndexedPages(evidence.pages),
+   {...TOOL.search,status:evidence.status==="official"?"ok":"partial",detail:evidence.reason},
+   {webSources:evidence.pages.map(page=>({title:page.title,url:page.url,kind:page.kind}))});
+  return;
+ }
  if(!canReply){
   if(image){const reason=retinaUnavailableMessage({privateMode,localOnly:privateMode,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);return;}
   if(!privateMode&&/(?:專案|CITYMUS|citymusic|musictown|musiccity|稜角|Signwell|Github|GitHub|我的程式碼)/i.test(question)){
@@ -956,11 +980,13 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const discovered=listCandidates({localReady,localModel:loadedLocal,image:Boolean(image),online,privateMode:localOnly});
  const automatic=true;
  let candidates=automatic&&!allowMetered?discovered.filter(x=>x.source==="local"||(x.source==="ollama"&&x.location==="自架主機")):discovered;
+ // Diana / Veritas: 0.5B-class models handle casual / creative work, not knowledge authority.
+ candidates=qualifiedFactModels(candidates,classifyFactRequest(question));
  if(automatic&&!allowMetered&&!privateMode&&!localOnly&&online&&providers.length&&task!=="casual"&&sessionStorage.getItem("vanilla.cloud.route.ask")!=="declined"){
-  const qualityNeeded=Boolean(image)||task==="analysis"||task==="code"||task==="writing"||!candidates.length;
+  const qualityNeeded=Boolean(image)||task==="analysis"||task==="code"||task==="writing"||classifyFactRequest(question).restrictTinyModel||!candidates.length;
   if(qualityNeeded){
    const accepted=window.confirm("這題適合用能力較高的雲端 AI。要開啟智慧雲端路由，讓 Vanilla 自動使用已連接的 Gemini／DeepSeek 嗎？API 可能有免費額度或計費限制；第一次傳給每個供應商前仍會再確認。");
-   if(accepted){changeMetered(true);candidates=discovered;}
+   if(accepted){changeMetered(true);candidates=qualifiedFactModels(discovered,classifyFactRequest(question));}
    else sessionStorage.setItem("vanilla.cloud.route.ask","declined");
   }
  }
@@ -969,6 +995,13 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
   if(image){const reason=retinaUnavailableMessage({privateMode,localOnly,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);markDetroit("retina","error",reason);setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
+  if(classifyFactRequest(question).restrictTinyModel){
+   toolReply(question,"Diana / Veritas：這題屬於知識或事實性問答，已阻止 0.5B 等極小本地模型編造答案。"+
+    "請載入至少 1.5B 的本地模型、連接已授權的較大型自架 Ollama，或經同意啟用較強雲端模型；私密模式不會自動外傳內容。",
+    {...TOOL.merlin,status:"partial",detail:"沒有符合知識問答品質門檻的模型"});
+   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
+   return;
+  }
   setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或在模型面板開啟「允許計費 API」。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在模型面板載入本地模型，或到設定連接 Ollama／Gemini");
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
@@ -1179,7 +1212,8 @@ function rateAnswer(index:number,liked:boolean){
  if(!answer||answer.role!=="assistant"||!answer.source||!answer.model||answer.rating||answer.content.startsWith("生成失敗："))return;
  const question=history.slice(0,index).reverse().find(x=>x.role==="user")?.content||"";
  const task=classifyTask(question);
- saveAnswerRating(task,answer.source+":"+answer.model,liked);
+ if(!privateMode)saveAnswerRating(task,answer.source+":"+answer.model,liked);
+ recordLucaFeedback(liked?"up":"down",task,answer.source,privateMode);
  recordNoodles({kind:"rating",at:Date.now(),task,model:answer.source+":"+answer.model,liked},privateMode);
  if(liked)recordTeacherSample({task,prompt:question,chosen:answer.content,
   provider:answer.source,model:answer.model,selectedBy:"thumbs-up"},privateMode);

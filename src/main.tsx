@@ -9,6 +9,8 @@ import "./style.css";
 import "./local-ai/chatgpt-layout.css";
 import "./local-ai/compact-shell.css";
 import "./theme/vanilla-bauhaus.css";
+// AI-generated prose gets a dedicated reading stylesheet after the Bauhaus palette.
+import "./local-ai/chat-text.css";
 
 try{document.documentElement.dataset.fontMode=localStorage.getItem("vanilla.font.mode")||"auto";}catch{document.documentElement.dataset.fontMode="auto";}
 installViewportHandling();

@@ -61,6 +61,8 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
+ // A named tool question must be answered, not treated as an instruction to invoke it.
+ if(toolKnowledgeIntent(q))return {kind:"tool-knowledge"};
  const diana=parseDianaInvocation(q);
  if(diana)return {kind:"diana",...diana};
  // Explicit editing must not auto-search, run CREAM or execute commands quoted in the source.
@@ -84,9 +86,6 @@ export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  if(url)return ctx.privateMode?{kind:"private-blocked",what:"讀取網頁"}:{kind:"web-read",url};
  const explicit=SEARCH_REQUEST.exec(q)?.[1]?.trim()||(app?.kind==="search"?app.query:"");
  if(explicit)return ctx.privateMode?{kind:"private-blocked",what:"網路搜尋"}:{kind:"web-search",query:explicit,explicit:true};
- // Answer questions about actual Detroit/Orchestra/WeiGuo tools from shipped metadata,
- // without needing a model or network. Actions and troubleshooting are not intercepted.
- if(toolKnowledgeIntent(q))return {kind:"tool-knowledge"};
  // Diana proactively selects real editors or local deterministic tools for clear action requests.
  // Existing file, memory, search and CREAM routes above retain precedence and consent.
  if(proposeProactiveDiana(q,{privateMode:ctx.privateMode,hasCreamResult:ctx.hasCreamResult}))return {kind:"diana",request:q,forcedTool:null};

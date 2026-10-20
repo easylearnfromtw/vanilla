@@ -64,6 +64,9 @@ async def family_medusa_status(user: FamilyIdentity = Depends(family_user)):
     """Does not assert the remote executor works without a successful code run."""
     if not family_enabled(user):
         return {"enabled": False, "connected": False, "note": "Medusa 尚未由管理端開啟"}
+    if os.environ.get("MEDUSA_ENGINE", "judge0") == "lite":
+        from medusa_lite import lite_status
+        return lite_status()
     if os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
         from medusa_cloudrun_adapter import cloudrun_status
         return await cloudrun_status()

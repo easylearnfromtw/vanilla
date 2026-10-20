@@ -44,6 +44,7 @@ jobs:
       - run: npm run test:ceres
       - run: npm run test:luca
       - run: npm run test:detroit
+      - run: npm run test:victoria
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio
       - run: npm run test:retina

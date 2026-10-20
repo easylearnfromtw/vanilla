@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.40-orchestra-ai-autocreate";
+export const VANILLA_BUILD="2026.10.20.41-venus4-responsive-ux";

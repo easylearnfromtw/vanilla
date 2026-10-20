@@ -2,7 +2,7 @@
  * Deterministic and bounded: no embeddings, hidden remote calls, or independent LLM.
  * Archived dialogue is lower-trust evidence, never instructions or action authorization.
  */
-import {indexedDbArchiveStore,type ArchiveStore,type ArchivedConversation,type ArchiveTurn} from "../library/conversation-archive";
+import {indexedDbArchiveStore,type ArchiveStore,type ArchivedConversation} from "../library/conversation-archive";
 
 export type VictoriaMatch={id:string;title:string;score:number;excerpt:string};
 export type VictoriaRecall={matches:VictoriaMatch[];context:string};

@@ -121,7 +121,8 @@ function compactDirective(options:CompileOptions,hasEvidence:boolean):string{
 /** For phones and small Ollama models. Does not increase the model's actual capability. */
 export function compileSmallModelInput(options:CompileOptions):SmallModelCompilation{
  const size=parseParamsB(options.model);
- if(size>=3.5||size===0&&/gemini|deepseek/i.test(options.model))
+ // Unknown model sizes are not presumed small; protect non-catalog Ollama models.
+ if(size===0||size>=3.5)
   return {contexts:[...options.contexts],guidance:"",notices:[],reduced:false};
  const hasEvidence=options.contexts.some(c=>Boolean(c.text.trim()));
  const guidance=compactDirective(options,hasEvidence);

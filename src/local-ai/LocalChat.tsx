@@ -985,7 +985,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     if(result.matches.length)markDetroit("victoria","done","從本機同帳號取得 "+result.matches.length+" 筆相關一般對話");
     else markDetroit("victoria","skipped","已查詢本人本機一般對話，沒有符合相關性門檻的節錄");
    }catch(error){
-    recordClientFault("tool","victoria",error);
+    recordClientFault("detroit","tool",error);
     markDetroit("victoria","error","本機對話擷取失敗，不影響回答");
    }
   }else markDetroit("victoria","skipped","未取得向外部模型提供過往對話的同意");

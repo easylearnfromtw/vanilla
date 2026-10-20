@@ -24,7 +24,7 @@ const BuildStudio=lazy(()=>import("./builder/BuildStudio"));
 const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
-const NodesPage=lazy(()=>import("./nodes/NodesPage"));
+const SlimeNetwork=lazy(()=>import("./slime/SlimePanel"));
 const CeresForegroundBridge=lazy(()=>import("./ceres/CeresForegroundBridge"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
@@ -43,7 +43,7 @@ const items:NavItem[]=[
 ];
 const tools:NavItem[]=[
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
- {id:"nodes",label:"運算節點",icon:Server,description:"下載 Windows Node、配對與 AI 智慧調度",tone:"blue"},
+ {id:"nodes",label:"Slime 算力網路",icon:Server,description:"我的電腦、朋友共享節點與 Windows 推論",tone:"blue"},
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"orchestra",label:"Orchestra Studio",icon:Puzzle,description:"Craft 七引擎調度、CREAM 跨格式輸出與作品製作",tone:"yellow"},
  {id:"luna",label:"LUNA 視覺設計",icon:Images,description:"Detroit 原生海報畫布、圖層、模板與本機匯出",tone:"yellow"},
@@ -193,7 +193,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
-section==="nodes"?<div className="workspace-page"><NodesPage/></div>:
+section==="nodes"?<div className="workspace-page"><SlimeNetwork/></div>:
 section==="detroit"?<div className="workspace-page">{detroitStartTab==="notion"?<NotionSchedulePanel/>:<DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/>}</div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart} handoff={orchestraAI}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:

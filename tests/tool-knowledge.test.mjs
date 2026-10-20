@@ -25,7 +25,10 @@ test("Specific tool questions use actual registry descriptions with conservative
   ["Janus 有什麼功能","janus"],
   ["WordCraft 可以做什麼","wordcraft"],
   ["Ceres 目前上線了嗎","ceres"],
-  ["衛國有哪些功能","weiguo"]
+  ["衛國有哪些功能","weiguo"],
+  ["NOODLES 是什麼","noodles"],
+  ["Vanilla Sheets 有什麼功能","vanilla-sheets"],
+  ["Self-Build 是做什麼的","self-build"]
  ]){
   assert.equal(routeMessage(q,ctx).kind,"tool-knowledge",q);
   const t=toolKnowledgeAnswer(q);
@@ -47,6 +50,9 @@ test("Actual actions, source text and troubleshooting remain on their real route
   assert.notEqual(routeMessage(q,ctx).kind,"tool-knowledge",q);
  }
  assert.equal(routeMessage("開啟 Janus",ctx).kind,"open");
+ assert.equal(routeMessage("Orchestra",ctx).kind,"open");
+ assert.notEqual(routeMessage("搜尋：Diana 的功能",ctx).kind,"tool-knowledge");
+ assert.notEqual(routeMessage("Google Sheets 有什麼功能",ctx).kind,"tool-knowledge");
  assert.ok(toolKnowledgeGuidance("Scouts 為什麼一直失敗").includes("Scouts"));
  assert.ok(toolKnowledgeGuidance("比較 Diana 和 Zeus").includes("Zeus"));
  assert.equal(referencedTools("醫療資料的真實性如何判斷").length,0);

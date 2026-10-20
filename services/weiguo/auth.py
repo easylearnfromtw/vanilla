@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 
 from fastapi import Header, HTTPException, Request
-from google.auth.transport.requests import Request
+from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2 import id_token
 from ceres_admin_policy import check_identity, role_for_sub, enforce
 
@@ -79,7 +79,7 @@ def google_login(credential: str) -> tuple[str, FamilyIdentity]:
         raise HTTPException(400, "Google 登入設定或憑證不正確")
     _signing_key()
     try:
-        claims = id_token.verify_oauth2_token(credential, Request(), audience=client)
+        claims = id_token.verify_oauth2_token(credential, GoogleAuthRequest(), audience=client)
     except (ValueError, Exception) as exc:
         # Intentionally never include the token, claims or verifier response.
         raise HTTPException(401, "Google 身分驗證失敗") from exc

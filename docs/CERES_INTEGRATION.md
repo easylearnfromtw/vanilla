@@ -154,3 +154,17 @@ that Telegram accepted the webhook. Check runtime logs for
 `Ceres Telegram: webhook registration verified`. If the configuration
 is invalid, the bot username is wrong, or Telegram is unreachable, the
 registration fails closed and the normal service remains available.
+
+## Phase 3 — Vanilla device-scoped AI reply drafting (opt-in; production PWA)
+
+Ceres can now use the **already-connected Vanilla model router inside the PWA** to draft a reply to one selected Telegram message. This does not need backend Ollama or a Railway LLM installation. The previous backend loopback-only `/draft` endpoint remains disabled unless an operator separately deploys Ollama; enabling browser drafting does not enable it.
+
+1. In Detroit Studio → Ceres, select an inbound message and pick an available model.
+2. Model options are limited to a **loaded** on-device model or user-configured Ollama, Gemini and DeepSeek connectors. No model is selected silently, and no model weights are downloaded by opening Ceres.
+3. The PWA shows whether the message stays on-device or will be sent to a self-hosted endpoint/cloud provider. Each request needs its own checked consent. A maximum of four client-side drafts per minute reduces unintentional API usage.
+4. Athena text inspection rejects common prompt-injection patterns before model routing. Merlin supplies a bounded text-only drafting task and Erya-style tone selection. **This is prompt design, not a call to separate Merlin/Erya model processes.** No tools, searches, family memory, attached files, or other chats are supplied to the chosen model.
+5. The generated text is **only put into the editable reply text box**. Choosing another message/model cancels pending inference and clears send approval. Editing text clears send approval. Sending still requires the separate checkbox and existing WeiGuo `/events/{id}/reply` endpoint with verified identity and one-time reservation.
+
+**Privacy:** Choosing Gemini, DeepSeek or cloud Ollama transmits the selected Telegram message to the corresponding provider only after explicit in-UI consent and may incur charges. Phone-local means inference on the current device; loading or maintaining that model is performed from the existing Vanilla model panel. Railway holds only the Telegram bot credential and existing linked inbox. No background drafting, unreviewed Telegram sending, or automatic Detroit task dispatch is introduced.
+
+**Deployment:** Update `src/version.ts` and `public/version.json` together to make iPhone PWA release verification reliable; the GitHub Pages workflow runs `npm run test:ceres`.

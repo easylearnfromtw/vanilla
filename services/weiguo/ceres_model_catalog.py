@@ -72,17 +72,19 @@ def _parse(provider: str, payload: Any) -> list[dict]:
 
 def _rank(model: dict, mode: str) -> tuple:
     name = model["id"].lower()
-    lite = any(w in name for w in ("lite", "nano", "mini", "flash", "instant"))
-    premium = any(w in name for w in ("pro", "reason", "thinking", "max"))
-    preview = any(w in name for w in ("preview", "exp", "experimental", "deprecated"))
+    # Match segments: the string "gemini" itself contains "mini".
+    flags=set(re.split(r"[-_.]", name))
+    lite = bool(flags & {"lite","nano","mini","flash","instant"})
+    premium = bool(flags & {"pro","reason","thinking","max"})
+    preview = bool(flags & {"preview","exp","experimental","deprecated"})
     match = re.search(r"(?:gemini-|gpt-|deepseek-v|^o)([0-9]+)(?:\.([0-9]+))?", name)
     version = ((int(match.group(1)), int(match.group(2) or 0)) if match else (0,0))
     if mode == "speed":
-        kind = 2 if any(w in name for w in ("lite", "nano", "flash")) else 1 if lite else 0
+        kind = 2 if flags & {"lite","nano","flash"} else 1 if lite else 0
     elif mode == "quality":
         kind = 2 if premium else 0 if lite else 1
     else:
-        kind = 2 if any(w in name for w in ("flash", "mini")) else 1 if lite else 0
+        kind = 2 if flags & {"flash","mini"} else 1 if lite else 0
     # A heuristic, NOT a factual provider-defined quality/price ranking.
     return (kind, not preview, version, name)
 

@@ -72,7 +72,7 @@ import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} 
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
 import type {VictoriaRecall} from "../detroit/victoria";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
-import {orchestraHandoff,canExecuteOrchestraHandoff} from "../orchestra/ai-handoff";
+import {orchestraHandoff,canExecuteOrchestraHandoff,planOrchestraAutoDraft,bindOrchestraDraft} from "../orchestra/ai-handoff";
 
 import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
 
@@ -689,8 +689,8 @@ async function send(value=draft):Promise<void>{
    }
    // An explicit artifact request is fulfilled in this chat by the actual native
    // executor after model drafting. Opening an editor is the no-model fallback only.
-   if(!route.forcedTool&&canReply&&planDianaNativeArtifact(route.request)&&
-      (pick.tool==="retina"||pick.tool==="janus")){
+   if(!route.forcedTool&&canReply&&((planDianaNativeArtifact(route.request)&&
+      (pick.tool==="retina"||pick.tool==="janus"||pick.tool==="orchestra"))||(pick.tool==="orchestra"&&planOrchestraAutoDraft(route.request)))){
     setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
     break;
    }
@@ -1021,6 +1021,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
+ const nativeOrchestra=!image&&!nativeArtifact?planOrchestraAutoDraft(question):null;
  const merlin=optimizeMerlinPrompt(question,detroit);
  const humanize=prepareHumanization(question);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
@@ -1089,7 +1090,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }
- const chosen:ModelCandidate[]=!nativeArtifact&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
+ const chosen:ModelCandidate[]=!nativeArtifact&&!nativeOrchestra&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -1162,7 +1163,8 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+(humanize?.guidance||"");
+ const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
@@ -1175,8 +1177,15 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const controller=new AbortController();abortRef.current=controller;
  // Tool output is derived from a completed model response, never from a claimed result.
  async function finishNativeArtifact(body:string):Promise<string>{
-  if(!nativeArtifact||!body.trim()||controller.signal.aborted)return "";
+  if((!nativeArtifact&&!nativeOrchestra)||!body.trim()||controller.signal.aborted)return "";
   try{
+   if(nativeOrchestra){
+    const ready=bindOrchestraDraft(nativeOrchestra,body);
+    const filename=await executeDetroitNative<string>("orchestra",ready,{privateMode,signal:controller.signal});
+    markDetroit("orchestra","done","AI 已完成內容，Orchestra 已真正產出本機 "+ready.format.toUpperCase()+" 作品");
+    return "\n\nDetroit / Orchestra 已完成 "+ready.format.toUpperCase()+" 本機匯出："+filename+"（瀏覽器製作器，非原生 Craft）。";
+   }
+   if(!nativeArtifact)return "";
    if(nativeArtifact.capability==="retina"){
     const result=await executeDetroitNative<NativeRetinaResult>("retina",{
      title:nativeArtifact.title,body,format:nativeArtifact.format,download:true
@@ -1191,7 +1200,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    return "\n\nDetroit / Janus 已產生 HTML 郵件檔案："+result.filename+"（沒有寄送郵件）。";
   }catch(error){
    const reason=error instanceof Error?error.message:String(error);
-   markDetroit(nativeArtifact.capability,"error","原生匯出失敗："+reason);
+   markDetroit(nativeOrchestra?"orchestra":nativeArtifact?.capability||"orchestra","error","本機匯出失敗："+reason);
    return "\n\nDetroit 原生匯出未完成："+reason+"。上方保留已生成的文字草稿。";
   }
  }

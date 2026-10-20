@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.38-qwen06-download-repair",
-  "description": "Qwen3 0.6B model download stall detection, selected-model cache repair and LUCA diagnostics"
+  "build": "2026.10.20.40-orchestra-ai-autocreate",
+  "description": "Orchestra zero-click SVG PNG GIF from a completed AI answer; retains Ceres server agent"
 }

@@ -95,3 +95,7 @@ Diana proactively sends explicit document, slide, vector and motion artifact int
 
 Private chats cannot send their brief to the ordinary workspace. Prior-answer local exports stay on the device. WordCraft/PdfCraft remote routes retain existing family authentication and explicit consent. Native upstream Rust executables and MP4 are not claimed deployed.
 
+
+## Autonomous local media creation
+
+In a normal AI conversation with a ready, authorized model, explicit requests for local SVG, PNG or GIF media are drafted and rendered in that same conversation. Diana routes the request to Orchestra, the model supplies completed Markdown content, and Zeus invokes the verified browser-local executor. No extra Studio button is needed. The result is a typographic vector/graphic or text animation, not AI-generated photography or native upstream Craft. If no usable model exists, Orchestra's prior brief-only Studio handoff is retained. Canva, photo retouching and cloud media remain under their own policies.

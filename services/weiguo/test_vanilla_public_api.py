@@ -17,7 +17,7 @@ from fastapi import HTTPException
 from vanilla_public_api import (
     _origin,_reserve,_finish,_key_from_header,_fetch_catalog,admin_router,
     _owner_projects,issue_key,new_project,revoke_key,owner_status,models,chat,
-    Completion,ProjectCreate,KeyCreate,KeyRevoke,Owner,_session
+    Completion,ProjectCreate,KeyCreate,KeyRevoke,Owner,_session,client_usage
 )
 from vanilla_api_console import PAGE,api_console
 
@@ -188,6 +188,17 @@ class OwnedModelAPITests(unittest.IsolatedAsyncioTestCase):
             await issue_key(KeyCreate(init_data="signedtelegramdata987654321",
                 project_id=self.project["id"],label="bad-model",models=["https://evil.example"],
                 daily_tokens=2000,monthly_tokens=3000,rpm=1))
+
+    async def test_client_self_service_kpi_has_only_own_key(self):
+        await chat(Completion(model="vanilla-default",messages=[{"role":"user","content":"Hello"}],
+                              max_tokens=64),authorization="Bearer "+self.token)
+        data=await client_usage(authorization="Bearer "+self.token)
+        self.assertEqual(data["project"],"Friend workspace")
+        self.assertEqual(data["todayChargedTokens"],16)
+        self.assertEqual(data["monthChargedTokens"],16)
+        self.assertEqual(data["requestsThisMonth"],1)
+        self.assertEqual(data["allowedModels"],["vanilla-default"])
+        self.assertNotIn("api_key",data)
 
     async def test_api_service_page_is_tabbable_and_no_store(self):
         response=await api_console()

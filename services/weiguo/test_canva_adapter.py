@@ -1,7 +1,6 @@
 """Canva adapter tests use no network, credentials, or Canva AI credits."""
 from __future__ import annotations
 
-import asyncio
 import os
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -87,11 +86,11 @@ class CanvaAdapterTests(unittest.IsolatedAsyncioTestCase):
                     kind="image", prompt="An abstract flower", approved_cloud_send=True), OWNER)
             self.assertEqual(err.exception.status_code, 429)
 
-    def test_failed_url_validation_and_unavailable_discovery(self):
+    async def test_failed_url_validation_and_unavailable_discovery(self):
         self.assertIsNone(canva._safe_url("javascript:alert(1)"))
         self.assertIsNone(canva._safe_url("https://user:pass@www.canva.com/design/"))
         with patch.dict(os.environ, {"WEIGUO_CANVA_ENABLED": "false"}):
-            discovered = asyncio.run(canva.status(OWNER))
+            discovered = await canva.status(OWNER)
             self.assertFalse(discovered["configured"])
             self.assertEqual(discovered["availableKinds"], [])
 

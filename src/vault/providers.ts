@@ -108,6 +108,13 @@ async function callDeepSeek(config:ProviderConfig,model:string,history:ChatTurn[
 export async function generateCloudReply(provider:Provider,history:ChatTurn[],image?:ImageInput,modelOverride?:string,options:CloudOptions={}):Promise<string>{
  if(image&&provider!=="gemini")throw new Error("圖片辨識目前僅支援 Gemini，請切換至 Gemini API");
  const config=configs.get(provider);if(!config)throw new Error("尚未連接 "+provider+" API");
+ if(config.key==="managed:weiguo"){
+  if(provider!=="gemini"||image)throw new Error("目前受控雲端代理只支援 Gemini 純文字");
+  const {generateWeiGuoGemini}=await import("../weiguo/api");
+  return toTaiwanese(cleanModelOutput(await generateWeiGuoGemini(history.map(t=>({
+   role:t.role,content:t.content
+  })))));
+ }
  const model=(modelOverride&&provider==="gemini"&&isGeminiLite(modelOverride)&&modelOverride===geminiLiteSibling(config.model))?modelOverride:config.model;
  const latest=history[history.length-1]?.content||"";
  const structured=options.purpose==="structured";

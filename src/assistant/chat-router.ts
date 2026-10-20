@@ -120,35 +120,43 @@ export const SLASH_COMMANDS:SlashCommand[]=[
  {cmd:"/新對話",label:"開新對話",hint:"目前對話收進「最近」",example:"/新對話",tone:"ink"},
  {cmd:"/功能",label:"Vanilla 能做什麼",hint:"即時功能狀態",example:"/功能",tone:"ink"}
 ];
-export type SlashResult={text:string;ui?:"attach"|"private"|"new-chat"};
+export type SlashResult={text:string;ui?:"attach"|"private"|"new-chat"|"prompt";hint?:string;prefill?:string};
 export function matchSlashCommands(input:string):SlashCommand[]{
- const t=input.trimStart();
- if(!t.startsWith("/")||/\s/.test(t))return t==="/"?SLASH_COMMANDS:[];
- return SLASH_COMMANDS.filter(c=>c.cmd.startsWith(t));
+ // iOS Chinese keyboards may insert a fullwidth slash or a fullwidth space.
+ const t=input.trimStart().replace(/^／/,"/");
+ if(t==="/")return SLASH_COMMANDS;
+ const m=/^\/([^\s：:]*)$/.exec(t);
+ if(!m)return [];
+ return SLASH_COMMANDS.filter(c=>c.cmd.startsWith("/"+m[1]));
 }
 /** Rewrites a slash command into the canonical phrase the router already understands. */
 export function expandSlashCommand(input:string):SlashResult|null{
- const m=/^\/(\S+)\s*([\s\S]*)$/.exec(input.trim());
+ const normalized=input.trim().replace(/^／/,"/");
+ // Accept "/搜尋 keyword", "/搜尋：keyword" and the corresponding fullwidth slash.
+ const m=/^\/\s*([^\s：:]+)\s*(?:[：:]\s*)?([\s\S]*)$/.exec(normalized);
  if(!m)return null;
  const [,cmd,rest]=m,arg=rest.trim();
+ const missing=(name:string,example:string):SlashResult=>({
+  text:"",ui:"prompt",hint:"請在 /"+name+" 後輸入內容，例如："+example,prefill:"/"+name+" "
+ });
  switch(cmd){
   case "Quirinus":case "quirinus":return {text:"@Quirinus"+(arg?" "+arg:"")};
   case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
-  case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:null;
+  case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:missing("潤稿","/潤稿 請修改這段文章");
   case "衞國":case "衛國":return {text:"開啟 衞國系統"};
-  case "搜尋":case "search":return arg?{text:"搜尋："+arg}:null;
+  case "搜尋":case "search":return arg.length>=2?{text:"搜尋："+arg}:missing("搜尋","/搜尋 2027 PGY 招募");
   case "讀":case "讀取":case "read":
-   if(!arg)return null;
+   if(!arg)return missing("讀","/讀 report.pdf");
    if(/^https:\/\//i.test(arg))return {text:"閱讀 "+arg};
    return {text:"讀取 `"+arg.replace(/`/g,"")+"`"};
-  case "記住":return arg?{text:"記住："+arg}:null;
-  case "回憶":return arg?{text:"回憶："+arg}:null;
-  case "忘記":return arg?{text:"忘記："+arg}:null;
+  case "記住":return arg?{text:"記住："+arg}:missing("記住","/記住 週三晚上游泳課");
+  case "回憶":return arg?{text:"回憶："+arg}:missing("回憶","/回憶 游泳課");
+  case "忘記":return arg?{text:"忘記："+arg}:missing("忘記","/忘記 舊備忘錄");
   case "表格":return {text:"幫我建立"+(arg||"新")+(/表$|清單$/.test(arg)?"":"表格")};
   case "分析":return arg?{text:(arg.includes("\n")?"CREAM：\n":"")+arg}:{text:"",ui:"attach"};
   case "建立":
-   if(!arg)return null;
+   if(!arg)return {text:"開啟 自建功能"};
    if(/表格|試算|清單|預算表|行程表/.test(arg))return {text:"幫我建立"+arg+(/表$|清單$|表格$/.test(arg)?"":"表格")};
    return {text:"新增功能："+arg};
   case "改程式":return {text:"Self-Build CODE"+(arg?"："+arg:"")};

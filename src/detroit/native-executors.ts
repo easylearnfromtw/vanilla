@@ -6,13 +6,17 @@ import {searchLiveWeb} from "../search/live-search";
 import {parseCreamCSV,analyzeCream} from "../cream/core";
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from "./retina";
 import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-templates";
+import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
+import {lunaPNG,saveLunaFile} from "../luna/export";
 
 type ScoutInput={query:string};
 type CreamInput={csv:string;source?:string};
 type RetinaInput={title:string;body:string;format:RetinaFormat;download:boolean};
 type JanusInput={kind:EmailTemplateKind;title:string;body:string;brand:string;download:boolean};
+type LunaInput={prompt:string;owner:string;download:boolean;save:boolean};
 export type NativeRetinaResult={filename:string;format:RetinaFormat;sections:number};
 export type NativeJanusResult={filename:string;format:"html";bytes:number};
+export type NativeLunaResult={filename:string;format:"png";layers:number;savedEditable:boolean};
 let registered=false;
 function assertObject(value:unknown):Record<string,unknown>{
  if(!value||typeof value!=="object"||Array.isArray(value))throw Error("Detroit 工具輸入不是物件");
@@ -62,10 +66,29 @@ export function registerDetroitNativeExecutors():void{
   const result:NativeJanusResult={filename:name,format:"html",bytes:new TextEncoder().encode(output.html).length};
   return result;
  });
+ detroitBus.register("luna",async(raw,ctx)=>{
+  const data=assertObject(raw),prompt=limited(data.prompt,300);
+  const input:LunaInput={prompt,owner:limited(data.owner,150),download:data.download===true,save:data.save===true};
+  const design=promptLuna(input.prompt);
+  const image=await lunaPNG(design);
+  const filename="LUNA-"+new Date().toISOString().slice(0,10)+".png";
+  if(input.download)saveLunaFile(filename,image);
+  let savedEditable=false;
+  if(input.save&&!ctx.privateMode){
+   const key=lunaStorageKey(input.owner);
+   const library=parseLunaLibrary(JSON.parse(localStorage.getItem(key)||"null") as unknown);
+   if(library.projects.length<LUNA_MAX_PROJECTS){
+    localStorage.setItem(key,JSON.stringify({projects:[...library.projects,design],activeId:design.id}));
+    savedEditable=true;
+   }
+  }
+  const result:NativeLunaResult={filename,format:"png",layers:design.layers.length,savedEditable};
+  return result;
+ });
  registered=true;
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
-export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus",input:ScoutInput|CreamInput|RetinaInput|JanusInput,
+export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput,
  context:{privateMode:boolean;signal?:AbortSignal}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);

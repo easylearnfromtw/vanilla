@@ -33,7 +33,7 @@ export default function NodeFabricPanel(){
   <div className="node-fabric-roadmap">
    <h3>安裝後如何使用？</h3>
    <p>下載後，在該檔所在的終端機執行 <code>python3 slime-friend.py probe</code>（Windows 可用 <code>py -3 slime-friend.py probe</code>）查看會分享的硬體資訊；若安裝的是「我的電腦」，將檔名改為 <code>slime-my-computer.py</code>。之後以你從管理員取得的 HTTPS 後端網址及一次性邀請碼執行 <code>join --url 網址 --invite 邀請碼 --consent</code>，最後執行 <code>run</code> 開始心跳。</p>
-   <p>目前 Slime 提供安全註冊與狀態回報，**沒有**真正的 30B 模型切分或遠端 GPU 派工。後續需要節點執行器及效能驗證。</p>
+   <p>目前 Slime 提供安全註冊與狀態回報，沒有真正的 30B 模型切分或遠端 GPU 派工。後續需要節點執行器及效能驗證。</p>
   </div>
  </section>;
 }

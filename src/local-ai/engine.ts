@@ -14,6 +14,7 @@ import {LOCAL_CATALOG,DEFAULT_LOCAL_MODEL,profileFor} from "../ai/model-profiles
 import {webllmRequestOptions} from "../ai/generation-config";
 import {localInferenceQueue} from "../detroit/zeus";
 import {isPinnedWebLLMModelSupported,isDisposedWebLLMFailure} from "./webllm-compat";
+import {isIOSWebLLMDevice,mayFallbackToMainThread} from "./mobile-safety";
 import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../ai/prompts";
 import {classifyTask,type TaskKind} from "../ai/task-kind";
 import {fitHistory,estimateTokens} from "../ai/context-budget";
@@ -77,7 +78,25 @@ export function preferredLocalModel():LocalModelId{
  return LOCAL_MODEL;
 }
 
-/* ---------- worker with automatic fallback ---------- */
+/* ---------- worker with bounded, iOS-safe fallback ---------- */
+function runningOnIOS():boolean{
+ return isIOSWebLLMDevice(navigator.userAgent,navigator.platform,navigator.maxTouchPoints);
+}
+/** An unloaded worker retains its WASM heap until terminated. Reclaim it before
+ * loading another model; never allow a stuck worker RPC to block recovery forever.
+ */
+async function releaseEngine(previous:Engine):Promise<void>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{
+  const bounded=new Promise<void>((_,reject)=>{timer=setTimeout(()=>reject(new Error("WebLLM unload timed out")),4000);});
+  await Promise.race([previous.unload(),bounded]);
+ }catch(error){console.warn("WebLLM cleanup incomplete; retiring engine",error);}
+ finally{
+  if(timer!==undefined)clearTimeout(timer);
+  (previous as {worker?:{terminate?:()=>void}}).worker?.terminate?.();
+ }
+}
+
 const WORKER_KEY="vanilla.local.worker.v1";
 export function localWorkerMode():"auto"|"off"|"broken"{
  try{const v=localStorage.getItem(WORKER_KEY);return v==="off"||v==="broken"?v:"auto";}catch{return "auto";}
@@ -85,28 +104,40 @@ export function localWorkerMode():"auto"|"off"|"broken"{
 export function setLocalWorkerMode(mode:"auto"|"off"):void{try{localStorage.setItem(WORKER_KEY,mode);}catch{}}
 async function createEngine(model:LocalModelId,onProgress:(message:string,progress:number)=>void):Promise<Engine>{
  const mod=await webllm();
- if(localWorkerMode()==="auto"&&typeof Worker!=="undefined"){
+ const iosDevice=runningOnIOS();
+ const mode=localWorkerMode();
+ // A failed worker must never silently initialize another copy on the iPhone main thread.
+ if(iosDevice&&mode==="broken"){
+  throw new Error("上次背景模型載入未成功，已停止自動切換主執行緒以避免 Safari 閃退。請在模型面板重新勾選「背景執行緒推論」後重試；僅在充分了解風險時才手動關閉它。");
+ }
+ if(mode==="auto"&&typeof Worker!=="undefined"){
   let worker:Worker|null=null;
   try{
    worker=new Worker(new URL("./webllm.worker.ts",import.meta.url),{type:"module"});
    let lastSignal=Date.now();
    const progress=(report:{text:string;progress:number})=>{lastSignal=Date.now();onProgress(report.text,report.progress);};
    const created=mod.CreateWebWorkerMLCEngine(worker,model,{initProgressCallback:progress});
-   // A worker that never reports progress (e.g. no WebGPU inside workers) is abandoned after 30 s.
-   const watchdog=new Promise<never>((_,reject)=>{const t=setInterval(()=>{if(Date.now()-lastSignal>30000){clearInterval(t);reject(new Error("worker-stalled"));}},2000);void created.finally(()=>clearInterval(t)).catch(()=>{});});
+   // Do not mistake a slow model download for a broken worker after only 30 seconds.
+   const watchdog=new Promise<never>((_,reject)=>{const t=setInterval(()=>{if(Date.now()-lastSignal>90000){clearInterval(t);reject(new Error("worker-stalled"));}},2000);void created.finally(()=>clearInterval(t)).catch(()=>{});});
    const ready=await Promise.race([created,watchdog]);
    usingWorker=true;
    return ready;
   }catch(error){
    worker?.terminate();
    try{localStorage.setItem(WORKER_KEY,"broken");}catch{}
-   console.warn("WebLLM worker unavailable, using main thread",error);
+   usingWorker=false;
+   console.warn("WebLLM worker unavailable",error);
+   if(!mayFallbackToMainThread(iosDevice,mode)){
+    throw new Error("iPhone 背景模型載入失敗，已停止以保護網頁。請檢查網路與儲存空間，重新開啟「背景執行緒推論」再試；也可以在一般模式連接雲端模型。詳細原因："+(error instanceof Error?error.message:String(error)));
+   }
   }
+ }
+ if(iosDevice&&!mayFallbackToMainThread(iosDevice,mode)){
+  throw new Error("此 iPhone 瀏覽器無法啟動 WebLLM 背景執行緒，為避免網頁崩潰已取消主執行緒自動備援。");
  }
  usingWorker=false;
  return mod.CreateMLCEngine(model,{initProgressCallback:report=>onProgress(report.text,report.progress)});
 }
-
 /** Model reload shares the same GPU queue as inference.
  * Avoid unloading an engine while a streaming reply still holds it.
  */
@@ -127,7 +158,8 @@ export async function loadLocalModel(onProgress:(message:string,progress:number)
    const old=engine;
    engine=null;
    loadedModel=null;
-   try{await old.unload();}catch(error){if(!isDisposedWebLLMFailure(error))throw error;}
+   usingWorker=false;
+   await releaseEngine(old);
   }
   const next=await createEngine(model,onProgress);
   engine=next;
@@ -205,7 +237,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   if(isDisposedWebLLMFailure(error)){
    // A disposed TVM object cannot be safely reused on the next turn.
    if(engine===currentEngine){engine=null;loadedModel=null;}
-   try{await currentEngine.unload();}catch{}
+   await releaseEngine(currentEngine);
    throw new Error("手機本地 WebLLM 的 GPU 物件已失效（Object has already been disposed）。請關閉 Vanilla 後重新開啟並重新載入本地模型；此問題與 GridCraft 後端無關。");
   }
   if(isSystemPromptOrderError(error)){

@@ -33,6 +33,7 @@ import {searchWebSummary,type LiveSearchReport} from "../search/live-search";
 import {googleGroundingAvailable,searchGroundedGoogle,googleGroundingCooldownSeconds,googleGroundingQuotaMessage} from "../search/google-grounding";
 import {getScoutsRegion,selectScoutsSources,hasRegionalSource,type GroundedSource} from "../search/scouts-region";
 import {getSearchBridge,fetchSearchBridge} from "../search/search-bridge";
+import {canSearchViaWeiGuo} from "../weiguo/api";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels} from "../detroit/veritas-gate";
@@ -538,6 +539,53 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    index.push({title:page.title,url:page.url,kind:"full",excerpt:page.text});
    context="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
   }else{
+   // First prefer independent Brave/Tavily sources from the verified family
+   // backend. These can power a local model without calling Gemini at all.
+   let independentReport:LiveSearchReport|null=null;
+   if(canSearchViaWeiGuo()){
+    setLastRoute("Scouts 正在查詢衞國獨立搜尋引擎（Brave / Tavily）…");
+    try{
+     independentReport=await executeDetroitNative<LiveSearchReport>("scouts",{query:target},{privateMode});
+     searchDiagnostics=independentReport.errors.join("；");
+     const independent=independentReport.results.filter(x=>x.provider==="Brave"||x.provider==="Tavily");
+     if(independent.length){
+      const region=getScoutsRegion();
+      const selected=selectScoutsSources(independent.map(x=>({title:x.title,url:x.url,snippet:x.snippet})),region);
+      setSearchResults([...selected.map(item=>{
+       const hit=independent.find(x=>x.url===item.url);
+       return {label:item.title,url:item.url,snippet:item.snippet,provider:(hit?.provider||"獨立搜尋")+(item.regionSpecific?" · "+region:"")};
+      }),...searchLinks(target)]);
+      const pages=await Promise.all(selected.map(async item=>{
+       const hit=independent.find(x=>x.url===item.url);
+       if(hit?.kind==="full"&&hit.excerpt&&hit.excerpt.length>=120)
+        return {title:item.title,url:item.url,kind:"full" as const,excerpt:hit.excerpt,provider:hit.provider,regionSpecific:item.regionSpecific};
+       try{
+        const page=await readPublicPage(item.url);
+        return {title:page.title,url:page.url,kind:"full" as const,excerpt:page.text,provider:hit?.provider||"獨立搜尋",regionSpecific:item.regionSpecific};
+       }catch{
+        return {title:item.title,url:item.url,kind:"snippet" as const,excerpt:item.snippet,provider:hit?.provider||"獨立搜尋",regionSpecific:item.regionSpecific};
+       }
+      }));
+      for(const page of pages){
+       sources.push({title:page.title,url:page.url,kind:page.kind});
+       index.push(page);
+       context+="\n["+sources.length+"] "+page.title+"\n來源："+page.url+
+        "\n搜尋服務："+page.provider+
+        (page.regionSpecific?"\n地區相關來源："+region:"")+
+        (page.kind==="full"?"\n擷取到正文內容：\n":"\n僅有搜尋摘要，沒有讀取全文：\n")+
+        wrapExternalText(page.excerpt.slice(0,7500),"web")+"\n";
+      }
+      context+="\n來源目標為三個獨立來源加一個"+region+"地區來源，實際取得 "+sources.length+" 個，未取得不得補造。請先根據這些來源完成校閱，再交由爾雅整理，勿將模型記憶當成新搜到的證據。";
+      setLastRoute("獨立搜尋已取得 "+sources.length+" 筆實際來源，交由模型與爾雅統整…");
+      return {context,sources,index};
+     }
+    }catch(error){
+     searchDiagnostics="衞國獨立搜尋："+String(error instanceof Error?error.message:error).slice(0,160);
+    }
+   }
+   // Google remains an optional fallback if the independent services are not
+   // configured/authorized or produce no evidence; never pretend a quota-
+   // blocked Google response is an actual search result.
    // Google-first route: official Gemini Google Search grounding with real
    // citation URLs. No Google SERP scraping and no invented source metadata.
    let googleResolved=false;
@@ -583,7 +631,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    if(!googleResolved){
    setLastRoute(searchDiagnostics.includes("429")||googleGroundingCooldownSeconds()?
     "Google 搜尋暫時受限，正在改用已授權的其他公開搜尋來源…":"正在查詢備援搜尋來源…");
-   const report=await executeDetroitNative<LiveSearchReport>("scouts",{query:target},{privateMode});
+   const report=independentReport||await executeDetroitNative<LiveSearchReport>("scouts",{query:target},{privateMode});
    searchDiagnostics=[searchDiagnostics||googleGroundingQuotaMessage(),...report.errors].filter(Boolean).join("；");
    // Reuse the existing authorized general-web bridge when available. Do not
    // launch a second paid Google call; one optional regional bridge lookup is

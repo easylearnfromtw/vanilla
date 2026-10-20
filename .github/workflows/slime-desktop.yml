@@ -1,6 +1,11 @@
 name: Slime desktop builds (opt-in)
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/slime/**"
+      - ".github/workflows/slime-desktop.yml"
   push:
     tags:
       - "slime-v*"

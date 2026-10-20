@@ -23,6 +23,7 @@ from ceres_agent_delivery import deliver
 from ceres_server_model import ModelUnavailable, generate_reply, model_settings
 from ceres_server_tools import ToolDenied, choose_tool
 from slime_telegram import handle_slime
+from ceres_admin_policy import enforce,role_for_sub,check_identity
 
 router = APIRouter(prefix="/v1/family/ceres/agent", tags=["ceres-server-agent"])
 _HISTORY_AGE = 24 * 3600
@@ -71,6 +72,14 @@ def verified_subject(chat: int) -> str | None:
     if (os.getenv("CERES_OWNER_ONLY", "").lower() == "true"
         or os.getenv("SLIME_ENABLED", "").lower() == "true") and role.get("role") != "owner":
         return None
+    if enforce():
+        account=role_for_sub(sub)
+        if not account:
+            return None
+        try:
+            check_identity(sub,account[0],scope="chat")
+        except HTTPException:
+            return None
     return sub
 
 

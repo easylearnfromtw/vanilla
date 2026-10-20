@@ -110,7 +110,8 @@ async def _fetch_catalog(force=False):
             return json.loads(row["models_json"]),row["primary_model"],row["refreshed_at"]
         raise HTTPException(503,"自有模型節點目前無法提供已驗證的模型清單") from None
     preferred=os.getenv("VANILLA_INFERENCE_DEFAULT_MODEL","")
-    primary=preferred if preferred in discovered else discovered[0]
+    previous=row["primary_model"] if row else ""
+    primary=(preferred if preferred in discovered else previous if previous in discovered else discovered[0])
     with _session() as db:
         _db_tables(db)
         db.execute("""INSERT INTO vanilla_api_catalog VALUES(1,?,?,?)
@@ -218,6 +219,34 @@ async def models(authorization: str|None=Header(default=None)):
             published.insert(0,_DEFAULT_ALIAS)
     return {"object":"list","data":[{"id":x,"object":"model","owned_by":"vanilla"} for x in published],
             "vanilla_catalog_refreshed_at":refreshed}
+
+
+
+@router.get("/v1/vanilla/usage")
+async def client_usage(authorization: str|None=Header(default=None)):
+    """Key-holder can inspect ONLY its own quotas, model scope and metering."""
+    key=_key_from_header(authorization)
+    now=int(time.time())
+    day_start=now-now%86400
+    month_start=calendar.timegm(time.strptime(time.strftime("%Y-%m-01",time.gmtime(now)),"%Y-%m-%d"))
+    with _session() as db:
+        _db_tables(db)
+        stats=db.execute("""SELECT COUNT(*) calls,
+           SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) today,
+           SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) month_total,
+           SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) successes,
+           SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failures
+           FROM vanilla_api_usage WHERE key_id=? AND created_at>=?""",
+           (day_start,month_start,key["id"],month_start)).fetchone()
+    return {"keyId":key["id"],"project":key["project_label"],
+            "allowedModels":json.loads(key["models_json"]),
+            "dailyLimit":key["daily_limit"],"monthlyLimit":key["monthly_limit"],
+            "todayChargedTokens":stats["today"] or 0,
+            "monthChargedTokens":stats["month_total"] or 0,
+            "requestsThisMonth":stats["calls"],"successes":stats["successes"] or 0,
+            "failures":stats["failures"] or 0,"rpm":key["rpm"],
+            "maxOutputTokens":key["max_output"],"expiresAt":key["expires_at"],
+            "note":"Token 為模型回報的實際值或保守預留量。只有本把金鑰的紀錄。"}
 
 
 @router.post("/v1/chat/completions")

@@ -57,7 +57,7 @@ def model_settings() -> ModelSettings | None:
             return None
     except ValueError:
         return None
-    allowed_path = ("", "/v1") if provider == "openai" else ("", "/api")
+    allowed_path = (("", "/v1", "/v1beta/openai") if hostname == "generativelanguage.googleapis.com" else ("", "/v1")) if provider == "openai" else ("", "/api")
     if url.path not in allowed_path:
         return None
     if base != "https://" + hostname.lower() + (url.path or ""):

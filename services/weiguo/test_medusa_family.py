@@ -135,5 +135,28 @@ class MedusaFamilyTests(unittest.TestCase):
 
 
 
+    def test_explicit_lite_optin_allows_existing_google_owner_role_only(self):
+        owner = self.token_for(_OWNER)
+        member = self.token_for(_MEMBER)
+        os.environ.update({
+            "MEDUSA_FAMILY_ENABLED": "true",
+            "MEDUSA_FAMILY_OWNER_SUBS": "",
+            "MEDUSA_ENGINE": "lite",
+            "MEDUSA_ENABLED": "true",
+            "MEDUSA_LITE_ENABLED": "true",
+            "MEDUSA_LITE_OWNER_ROLE_ONLY": "true",
+        })
+        payload = {"source_code":"print(6 * 7)","approved":True}
+        allowed = self.request("POST","/v1/family/medusa/run",headers=owner,json=payload)
+        self.assertEqual(allowed.status_code,200,allowed.text)
+        self.assertEqual(allowed.json()["stdout"],"42\n")
+        self.assertEqual(self.request("POST","/v1/family/medusa/run",headers=member,json=payload).status_code,403)
+        os.environ["MEDUSA_LITE_OWNER_ROLE_ONLY"] = "false"
+        self.assertEqual(self.request("POST","/v1/family/medusa/run",headers=owner,json=payload).status_code,403)
+        os.environ["MEDUSA_ENGINE"] = "judge0"
+        os.environ["MEDUSA_LITE_OWNER_ROLE_ONLY"] = "true"
+        self.assertEqual(self.request("POST","/v1/family/medusa/run",headers=owner,json=payload).status_code,403)
+
+
 if __name__ == "__main__":
     unittest.main()

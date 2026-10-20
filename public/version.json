@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.19-iphone-webllm-stability",
-  "description": "Merlin clarification remains enabled; prevent iPhone WebLLM model auto-load crashes, worker fallback and GPU memory retention"
+  "build": "2026.10.20.20-ceres-ai-drafts",
+  "description": "Ceres AI text reply drafts with selected Vanilla model, explicit consent, Athena checks and manual Telegram send only"
 }

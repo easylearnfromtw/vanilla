@@ -4,7 +4,7 @@
  */
 import {isHumanizeRequest} from "../erya/humanize";
 
-export type DetroitEngine="diana"|"victoria"|"merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"luca"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"canva"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"ceres"|"notion"|"veritas"|"mnemosyne"|"hermes";
+export type DetroitEngine="diana"|"victoria"|"merlin"|"athena"|"holy-roman-empire"|"zeus"|"scouts"|"cream"|"luca"|"dionysus"|"atriensis"|"bard"|"retina"|"orchestra"|"luna"|"canva"|"er-ya"|"venus"|"persistent-jobs"|"chronos"|"janus"|"ceres"|"notion"|"veritas"|"mnemosyne"|"hermes"|"node-fabric";
 export type DetroitStatus="active"|"adapter"|"planned";
 export type DetroitEngineInfo={id:DetroitEngine;label:string;group:"入口與治理"|"執行與運算"|"資料與產出"|"品質與持續任務";status:DetroitStatus;description:string};
 export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
@@ -15,6 +15,7 @@ export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
  {id:"holy-roman-empire",label:"Holy Roman Empire",group:"入口與治理",status:"adapter",description:"保護不可由對話覆寫的管理權限與安全政策"},
  {id:"zeus",label:"Zeus",group:"執行與運算",status:"active",description:"依成本、複雜度、隱私與工具可用性調度工作"},
  {id:"dionysus",label:"Dionysus",group:"執行與運算",status:"active",description:"限制手機本地推論併發；避免多模型同時搶資源"},
+ {id:"node-fabric",label:"Node Fabric · 分散式運算節點",group:"執行與運算",status:"adapter",description:"已提供 Owner/朋友的 Python 節點註冊、心跳及撤銷原型；尚未連上模型派工、Web 即時節點清單或跨機 30B 推論"},
  {id:"scouts",label:"Scouts",group:"資料與產出",status:"adapter",description:"使用現有搜尋及網址閱讀工具；來源不可擴權"},
  {id:"cream",label:"CREAM",group:"資料與產出",status:"active",description:"現有確定性統計、繪圖與長期指標驗證"},
  {id:"luca",label:"LUCA",group:"品質與持續任務",status:"adapter",description:"選用的後端 Logfire SDK 監控、低敏事件、延遲與失敗率；預設停用"},

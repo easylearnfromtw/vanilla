@@ -83,3 +83,21 @@ test("failure diagnostics are classified without printing raw SDK messages",()=>
  assert.equal(classifyVmFailure(new Error("Nested network sandbox not proven")),"network_namespace");
  assert.equal(classifyVmFailure(new Error("unexpected private blob")),"unknown");
 });
+
+test("template build failure is distinguished from a working plain VM and both are destroyed",async()=>{
+ const events=[];
+ const basic={async exec(cmd){assert.equal(cmd,"true");return{exitCode:0}},async destroy(){events.push("destroy")}};
+ const fake={
+  template(){return{withPackages(){return this},run(){return this}}},
+  async create(source){if(source?.run)throw Error("template build failed");events.push("plain");return basic}
+ };
+ await assert.rejects(startupPreflight(fake),/pdfcraft_preflight_create_template_build_vm_ok/);
+ assert.deepEqual(events,["plain","destroy"]);
+});
+test("plain VM failure is categorised and never enables native work",async()=>{
+ const fake={
+  template(){return{withPackages(){return this},run(){return this}}},
+  async create(source){if(source?.run)throw Error("template build failed");throw Error("401 Unauthorized details")}
+ };
+ await assert.rejects(startupPreflight(fake),/pdfcraft_preflight_create_template_build_vm_auth_denied/);
+});

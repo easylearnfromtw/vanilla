@@ -92,9 +92,12 @@ async function serve(req,res){
 const port=Number(process.env.PORT||8080);
 const server=createServer((req,res)=>{void serve(req,res).catch(()=>{if(!res.headersSent)json(res,500,{detail:"Server error"});else res.destroy()})});
 server.requestTimeout=60_000;server.headersTimeout=10_000;
+if(process.env.NODE_ENV!=="test"){
 server.listen(port,"0.0.0.0",()=>{console.log("PdfCraft VM runner online; readiness: "+(configured?"checking":"not configured"))});
 if(configured){
  startupPreflight(Sandbox)
   .then(()=>{admitted=true;console.log("PdfCraft VM sandbox preflight passed")})
   .catch(()=>{admitted=false;console.error("PdfCraft VM sandbox preflight failed; all jobs denied")});
+}
+
 }

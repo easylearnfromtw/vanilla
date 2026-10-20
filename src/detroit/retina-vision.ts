@@ -70,8 +70,8 @@ export function retinaUnavailableMessage(context:{
  privateMode:boolean;localOnly:boolean;online:boolean;geminiConfigured:boolean;cloudAllowed:boolean;
 }):string{
  if(context.privateMode||context.localOnly)return "Retina 目前沒有可用的裝置端視覺模型；私密／僅本地模式不會傳送圖片到雲端。請使用一般模式並明確授權 Gemini，或日後安裝真正支援圖片的本地模型。";
- if(!context.online)return "Retina 無法離線辨識圖片：目前沒有可用的裝置端視覺模型。請連線後再試，圖片尚未傳送。";
+ if(!context.online)return "Retina 無法離線辨識圖片：目前沒有可用的裝置端視覺模型。請連線後再試，圖片尚未傳送給辨識模型。";
  if(!context.geminiConfigured)return "Retina 已接收圖片，但尚未連接支援圖片的 Gemini API。請到模型與工具設定連接 Gemini；文字版 WebLLM／DeepSeek 無法讀取圖片。";
- if(!context.cloudAllowed)return "Retina 需要你在模型與工具中開啟雲端模型，並同意圖片傳送到 Gemini；在核准前圖片不會上傳。";
+ if(!context.cloudAllowed)return "Retina 需要你在模型與工具中開啟雲端模型，並同意圖片傳送到 Gemini；在核准前不會傳送到 Gemini 進行辨識。";
  return "Retina 目前找不到可用的圖片模型。請檢查 Gemini 設定、網路與模型額度。";
 }

@@ -57,7 +57,7 @@ function parseOne(raw:unknown):VenusBlock|null{
  case "quiz":{
   const question=text(raw.question,420),options=arr(raw.options,2,5);
   const correctIndex=raw.correctIndex;
-  if(!question||!options||!options.every(x=>typeof x==="string"&&text(x,200).length)||!Number.isInteger(correctIndex)||typeof correctIndex!=="number"||correctIndex<0||correctIndex>=options.length)return null;
+  if(!question||!options||!options.every(x=>typeof x==="string"&&text(x,200).length)||typeof correctIndex!=="number"||!Number.isInteger(correctIndex)||correctIndex<0||correctIndex>=options.length)return null;
   return {kind:"quiz",title,question,options:options.map(x=>text(x,200)),correctIndex,explanation:text(raw.explanation,700)};
  }
  case "chart":{
@@ -91,7 +91,7 @@ export function parseVenusMessage(source:string):{text:string;blocks:VenusBlock[
    if(!input.length||input.length>3||blocks.length+input.length>3)return full;
    const next=input.map(parseOne);
    if(next.some(x=>x===null))return full;
-   blocks.push(...next as VenusBlock[]);
+   blocks.push(...(next as VenusBlock[]));
    return prefix;
   }catch{return full;}
  });

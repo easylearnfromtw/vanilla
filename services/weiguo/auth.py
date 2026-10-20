@@ -15,10 +15,10 @@ import secrets
 import time
 from dataclasses import dataclass
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
-from ceres_admin_policy import check_identity, role_for_sub
+from ceres_admin_policy import check_identity, role_for_sub, enforce
 
 SESSION_SECONDS = 15 * 60
 _SUB = re.compile(r"^[0-9]{8,40}$")
@@ -41,6 +41,10 @@ def _member_for(sub: str) -> tuple[str, str] | None:
         raise HTTPException(503, "家庭權限設定格式錯誤")
     if not isinstance(acl, dict) or len(acl) > 30:
         raise HTTPException(503, "家庭權限設定格式錯誤")
+    # When Telegram Gmail policy is enforced its role overrides legacy env roles.
+    if enforce():
+        invited=role_for_sub(sub)
+        return (invited[0],invited[1]) if invited else None
     record = acl.get(sub)
     if record is None:
         # Telegram-owned verified Gmail invitations: immutable Google sub only.
@@ -130,14 +134,35 @@ def verify_family_token(raw: str) -> FamilyIdentity:
     return FamilyIdentity(claims["sub"], family[0], family[1], claims["email"])
 
 
-async def family_user(authorization: str | None = Header(default=None)) -> FamilyIdentity:
+def _scope_for(path: str) -> str | None:
+    if path.startswith("/v1/family/canva"): return "canva"
+    if path.startswith("/v1/family/ceres"): return "chat"
+    if path.startswith("/v1/family/scouts"): return "chat"
+    if path.startswith("/v1/family/notion"): return "automation"
+    if path.startswith("/v1/family/tasks"): return "automation"
+    if path.startswith("/v1/family/quirinus"): return "automation"
+    if path.startswith("/v1/family/medusa"): return "automation"
+    if path.startswith("/v1/family/orchestra"): return "studio"
+    if path.startswith("/v1/family/luca"): return "studio"
+    if path.startswith("/v1/family/wordcraft"): return "files"
+    return None
+
+
+async def family_user(authorization: str | None = Header(default=None),
+                      request: Request = None) -> FamilyIdentity:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "請使用 Google 帳號登入衞國")
-    return verify_family_token(authorization[7:])
+    identity=verify_family_token(authorization[7:])
+    if request is not None and enforce():
+        scope=_scope_for(request.url.path)
+        if scope:
+            check_identity(identity.sub,identity.email,scope=scope)
+    return identity
 
 
-async def family_reader(authorization: str | None = Header(default=None)) -> FamilyIdentity:
-    identity = await family_user(authorization)
+async def family_reader(authorization: str | None = Header(default=None),
+                        request: Request = None) -> FamilyIdentity:
+    identity = await family_user(authorization,request)
     if identity.role not in ("owner", "member"):
         raise HTTPException(403, "此家庭角色沒有瀏覽器任務權限")
     return identity

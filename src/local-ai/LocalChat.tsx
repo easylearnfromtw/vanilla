@@ -64,6 +64,7 @@ import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
 import {composeDianaCreamDocument,requestedDianaFormat} from "../detroit/diana-auto";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
+import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
 
 const BASE=import.meta.env.BASE_URL;
 const MODE_KEY=CHAT_MODE_KEY;
@@ -90,7 +91,7 @@ const TOOL={
  capability:{id:"capability",label:"功能實況"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
- github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"},diana:{id:"diana",label:"Diana 工具選擇"}
+ retina:{id:"retina",label:"Retina · 圖片辨識"},github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"},diana:{id:"diana",label:"Diana 工具選擇"}
 } as const;
 type ToolKey=keyof typeof TOOL;
 const TOOL_ICON:Record<string,typeof Search>={search:Search,web:Globe,cream:BarChart3,sheets:BarChart3,memory:Database,files:FolderOpen,save:FolderOpen,github:Code2,builder:Wrench,project:Code2,privacy:LockKeyhole};
@@ -131,14 +132,14 @@ async function attachFile(file?:File){
  const verdict=await athenaScanFile(file);
  if(!verdict.allow){setFileStatus("Athena 已阻擋檔案："+verdict.findings.join("；"));return;}
  if(verdict.findings.length)setFileStatus("Athena 安全提醒："+verdict.findings.join("；"));
- setFileName(file.name);setFileStatus(verdict.findings.length?"Athena："+verdict.findings.join("；"):"");setFileContext("");
+ setFileName(file.name);setFileStatus(verdict.findings.length?"Athena："+verdict.findings.join("；"):"");setFileContext("");setImage(null);setImageName("");
  if(file.size>15*1024*1024){setFileStatus("檔案超過 15 MB，目前無法直接存進 Vanilla；影片需要日後分段上傳。");return;}
  setAssetBusy(true);
  try{
-  if(file.type.startsWith("image/")){
-   if(file.size>8*1024*1024)throw Error("圖片辨識單張上限 8 MB");
-   const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(Error("圖片讀取失敗"));reader.readAsDataURL(file);});
-   setImage({mimeType:file.type,data});setImageName(file.name);
+  if(isRetinaImageFile(file)){
+   const input=await readRetinaVisionImage(file);
+   setImage(input);setImageName(file.name);
+   setFileStatus("Retina 已處理圖片格式，等待使用者送出辨識要求。");
    }else if(/\.(?:ts|tsx|js|jsx|py|html|css|mjs|vue|svelte|sql|yml|yaml)$/i.test(file.name)){
     const indexed=await importUploadedCode([file],attachmentOwner(signedChatAccount()));
     if(!privateMode)await putProjectCorpus(indexed);
@@ -542,7 +543,8 @@ async function send(value=draft):Promise<void>{
   }
  }
  recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
- const route=routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
+ // An attached image must reach the visual model, not be consumed by a text-only intent tool.
+ const route=image?({kind:"continue"} as const):routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
  let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
@@ -792,8 +794,8 @@ async function send(value=draft):Promise<void>{
   }
   default:break;
  }
- if(!webContext&&!inlineFileContext&&route.kind==="continue"&&await executeIntent(question))return;
- const tail=routeTail(question);
+ if(!image&&!webContext&&!inlineFileContext&&route.kind==="continue"&&await executeIntent(question))return;
+ const tail=image?({kind:"continue"} as const):routeTail(question);
  if(tail.kind==="code-builder"){
   if(privateMode&&!window.confirm("這份私密對話內容要轉移至一般 GitHub 程式工作台嗎？請確認不包含任何金鑰或私密資料。"))return;
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:tail.idea,mode:"code"}}));
@@ -803,7 +805,7 @@ async function send(value=draft):Promise<void>{
   if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
   window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:tail.idea}}));setDraft("");return;
  }
- const toneChange=applyExplicitToneRequest(question,privateMode);
+ const toneChange=image?null:applyExplicitToneRequest(question,privateMode);
  if(toneChange){
   setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:Date.now()},{role:"assistant",content:toneChange,tool:{...TOOL.tone,status:"ok"},id:crypto.randomUUID(),createdAt:Date.now()+1}]);
   setDraft("");setLastRoute("已在本裝置調整語氣設定，不需要使用 AI API");
@@ -825,6 +827,7 @@ async function send(value=draft):Promise<void>{
   }
  }
  if(!canReply){
+  if(image){const reason=retinaUnavailableMessage({privateMode,localOnly:privateMode,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);return;}
   if(!privateMode&&/(?:專案|CITYMUS|citymusic|musictown|musiccity|稜角|Signwell|Github|GitHub|我的程式碼)/i.test(question)){
    const found=await projectMatches(attachmentOwner(signedChatAccount()),question).catch(()=>[]);
    if(found.length){toolReply(question,"這些是真正讀取過的專案程式碼索引；目前沒有可用 AI 模型可進行語意推理：\n"+
@@ -844,6 +847,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
  if(detroit.depth!=="quick"){
   markDetroit("merlin","done",merlin.receipt);
+  if(image)markDetroit("retina","running","已接收圖片；等待已授權的多模態模型真正辨識");
   markDetroit("diana","done","已檢查既有工具路由與限制，不自動啟動未部署工具");
   markDetroit("athena","running","檢查輸入及外部來源");
   const scan=athenaScanText((found.webContext||"")+"\n"+(found.inlineFileContext||""));
@@ -879,7 +883,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const discovered=listCandidates({localReady,localModel:loadedLocal,image:Boolean(image),online,privateMode:localOnly});
  const automatic=true;
  let candidates=automatic&&!allowMetered?discovered.filter(x=>x.source==="local"||(x.source==="ollama"&&x.location==="自架主機")):discovered;
- if(automatic&&!allowMetered&&!privateMode&&online&&providers.length&&task!=="casual"&&sessionStorage.getItem("vanilla.cloud.route.ask")!=="declined"){
+ if(automatic&&!allowMetered&&!privateMode&&!localOnly&&online&&providers.length&&task!=="casual"&&sessionStorage.getItem("vanilla.cloud.route.ask")!=="declined"){
   const qualityNeeded=Boolean(image)||task==="analysis"||task==="code"||task==="writing"||!candidates.length;
   if(qualityNeeded){
    const accepted=window.confirm("這題適合用能力較高的雲端 AI。要開啟智慧雲端路由，讓 Vanilla 自動使用已連接的 Gemini／DeepSeek 嗎？API 可能有免費額度或計費限制；第一次傳給每個供應商前仍會再確認。");
@@ -891,6 +895,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const ranked=rankedCandidates(candidates,task,preference,!privateMode,localOnly?"":question);
  const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
+  if(image){const reason=retinaUnavailableMessage({privateMode,localOnly,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);markDetroit("retina","error",reason);setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
   setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或在模型面板開啟「允許計費 API」。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在模型面板載入本地模型，或到設定連接 Ollama／Gemini");
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
@@ -980,9 +985,11 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
      setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
     },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:finalizeHumanizedText(humanize,result||""),status:"done" as const}:x)}:prev);
+    if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型產生辨識回答");
    }catch(error){
     const msg=error instanceof Error?error.message:String(error);
     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,error:msg,status:"error" as const}:x)}:prev);
+    if(image)markDetroit("retina","error","圖片模型回應失敗："+msg);
    }
   };
   if(chosen[0].source===chosen[1].source){
@@ -997,7 +1004,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   return;
  }
  const primaryPrompt=compose(primary);
- const base:Partial<ChatTurn>={webSources,contexts:primaryPrompt.labels,notice:primaryPrompt.notice||undefined};
+ const base:Partial<ChatTurn>={webSources,contexts:image?["Retina · 圖片辨識",...primaryPrompt.labels]:primaryPrompt.labels,notice:primaryPrompt.notice||undefined};
  setHistory([...next,{role:"assistant",content:"",source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
  setLastRoute(taiwanTopic&&isTaiwanTaideEnabled()&&!localOnly?(primary.source==="ollama"&&isTaideModel(primary.model)?"台灣主題優先選用 TAIDE · ":"台灣主題：TAIDE 尚未可用，改用其他模型 · ")+primary.label:"正在使用："+primary.label);
  let partial="";
@@ -1007,6 +1014,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
   setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,result||""),source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
+  if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
   if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","回答已由現有 Markdown／圖表元件呈現");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
@@ -1017,9 +1025,10 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    setLastRoute("已停止生成");return;
   }
   recordClientFault("model","generation",error);
+  if(image){const detail=error instanceof Error?error.message:String(error);markDetroit("retina","error","圖片模型失敗："+detail);setFileStatus("Retina 辨識失敗："+detail);}
   // Fail over only to an on-device model, or another model on the already approved Ollama host.
   // Never silently introduce a new remote cloud provider or incur an additional paid API request.
-  const alternative=automatic?ranked.find(candidate=>candidate.id!==primary.id&&
+  const alternative=!image&&automatic?ranked.find(candidate=>candidate.id!==primary.id&&
    (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama"))):undefined;
   if(alternative){
    setLastRoute(primary.label+" 無法回答，正在改用 "+alternative.label);
@@ -1102,7 +1111,7 @@ let latestAssistant=-1;for(let i=history.length-1;i>=0;i--){if(history[i].role==
 const composer=<div className="composer-wrap">
 {slash.length>0&&<div className="slash-menu" role="listbox" aria-label="指令">{slash.map((c,i)=><button key={c.cmd} type="button" role="option" aria-selected={i===slashIndex} className={"tone-"+c.tone+(i===slashIndex?" is-active":"")} onMouseEnter={()=>setSlashIndex(i)} onClick={()=>{const instant=["/私密","/新對話","/功能","/分析"].includes(c.cmd);if(instant)void send(c.cmd);else prefill(c.cmd+" ");}}><strong>{c.cmd}</strong><span>{c.label}</span></button>)}</div>}
 {fileName&&<div className="image-attachment"><Paperclip size={13}/><span>{fileName} · {fileStatus||(assetBusy?"正在處理…":"已附加")}</span><button type="button" aria-label="移除附件" onClick={()=>{setImage(null);setImageName("");setFileName("");setFileContext("");setFileStatus("");}}><X size={14}/></button></div>}
-<input ref={fileRef} type="file" accept="image/*,video/*,.txt,.md,.csv,.json,.pdf,.html,.xml,.docx,.xlsx,.pptx" style={{display:"none"}} onChange={e=>{void attachFile(e.target.files?.[0]);e.target.value="";}}/>
+<input ref={fileRef} type="file" accept="image/*,.heic,.heif,video/*,.txt,.md,.csv,.json,.pdf,.html,.xml,.docx,.xlsx,.pptx" style={{display:"none"}} onChange={e=>{void attachFile(e.target.files?.[0]);e.target.value="";}}/>
 <form className="composer" onSubmit={event=>{event.preventDefault();void send();}}>
  <button type="button" className="composer-attach" onClick={()=>fileRef.current?.click()} disabled={busy||assetBusy} aria-label="加入附件" title="加入圖片、文件或短影片"><Plus size={20}/></button>
  <textarea ref={inputRef} aria-label="輸入訊息" rows={1} enterKeyHint="send" placeholder={privateMode?"私密對話（只用本機模型）":"今天想做什麼？"} value={draft} disabled={assetBusy||Boolean(comparison)}

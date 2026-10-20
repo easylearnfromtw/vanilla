@@ -98,3 +98,11 @@ test("Canva remains a cloud-consent-gated Orchestra handoff",()=>{
  assert.equal(routeMessage("請用 Canva 生成一份簡報",normal).kind,"diana");
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="canva")?.status,"adapter");
 });
+
+test("Diana delegates genuine visual presentation requests to Venus",()=>{
+ const ctx={privateMode:false,hasCreamResult:false,hasModel:true};
+ assert.equal(chooseDianaTool("用互動地圖呈現地點",ctx).tool,"venus");
+ assert.equal(chooseDianaTool("用互動地圖呈現地點",ctx).kind,"delegate");
+ assert.equal(chooseDianaTool("用互動地圖呈現地點",{...ctx,hasModel:false}).kind,"report");
+ assert.equal(chooseDianaTool("任何任務",ctx,"venus").kind,"report");
+});

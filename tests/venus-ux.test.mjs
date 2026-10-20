@@ -34,6 +34,9 @@ test("checklist and quiz allow session-only progress and replay without persiste
 test("gallery lightbox is keyboard-accessible, closable, and honors per-image consent even during navigation",()=>{
  assert.match(ui,/role="dialog" aria-modal="true"/);
  assert.match(ui,/event\.key==="Escape"/);
+ assert.match(ui,/event\.key==="Tab"/);
+ assert.match(ui,/openerRef\.current\?\.focus\(\)/);
+ assert.match(ui,/ref=\{dialogRef\}/);
  assert.match(ui,/event\.key==="ArrowRight"/);
  assert.match(ui,/event\.key==="ArrowLeft"/);
  assert.match(ui,/referrerPolicy="no-referrer"/);

@@ -8,12 +8,14 @@ import {createRetinaDocument,downloadRetina,type RetinaFormat} from "./retina";
 import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-templates";
 import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
 import {lunaPNG,saveLunaFile} from "../luna/export";
+import {recallVictoria,isVictoriaEnabled,type VictoriaRecall} from "./victoria";
 
 type ScoutInput={query:string};
 type CreamInput={csv:string;source?:string};
 type RetinaInput={title:string;body:string;format:RetinaFormat;download:boolean};
 type JanusInput={kind:EmailTemplateKind;title:string;body:string;brand:string;download:boolean};
 type LunaInput={prompt:string;owner:string;download:boolean;save:boolean};
+type VictoriaInput={query:string;owner:string};
 export type NativeRetinaResult={filename:string;format:RetinaFormat;sections:number};
 export type NativeJanusResult={filename:string;format:"html";bytes:number};
 export type NativeLunaResult={filename:string;format:"png";layers:number;savedEditable:boolean};
@@ -66,6 +68,11 @@ export function registerDetroitNativeExecutors():void{
   const result:NativeJanusResult={filename:name,format:"html",bytes:new TextEncoder().encode(output.html).length};
   return result;
  });
+ detroitBus.register("victoria",async(raw,ctx)=>{
+  const data=assertObject(raw);
+  const input:VictoriaInput={query:limited(data.query,16000),owner:limited(data.owner,150)};
+  return recallVictoria(input.query,{owner:input.owner,enabled:isVictoriaEnabled(input.owner),privateMode:ctx.privateMode});
+ });
  detroitBus.register("luna",async(raw,ctx)=>{
   const data=assertObject(raw),prompt=limited(data.prompt,300);
   const input:LunaInput={prompt,owner:limited(data.owner,150),download:data.download===true,save:data.save===true};
@@ -88,7 +95,7 @@ export function registerDetroitNativeExecutors():void{
  registered=true;
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
-export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput,
+export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput,
  context:{privateMode:boolean;signal?:AbortSignal}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);

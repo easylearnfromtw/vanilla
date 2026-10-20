@@ -42,14 +42,14 @@ export function merlinParse(text:string,opts:{image?:boolean;file?:boolean;priva
  const email=/(?:電子郵件|電子報|郵件模板|郵件設計|郵件編輯|活動邀請函|電子邀請函|行銷信|EDM|newsletter|(?:e-?mail)\s*(?:template|design|builder))/i.test(q);
  const document=/(?:PDF|DOCX|PPTX|簡報|報告書|企劃書|論文|製作報告|生成文件)/i.test(q);
  const code=/(?:程式碼|GitHub|修復\s*bug|debug|TypeScript|Python|程式架構|修改.*專案)/i.test(q);
- const research=/(?:研究|文獻|查證|引文|來源|最新|現況|比較.*資料|市場分析|法律條文)/i.test(q);
+ const research=/(?:研究|文獻|查證|引文|來源|最新|現況|比較.*資料|市場分析|法律條文|官方(?:網站|資料|公告)|法規|政策|指引|指南|新聞)/i.test(q);
  const analysis=/(?:分析|統計|趨勢|比較|評估|估計|數據|算出|模型)/i.test(q);
  const visual=/(?:圖表|圖片|視覺|插畫|設計圖|畫一張)/i.test(q);
  const intent:DetroitPlan["intent"]=humanize?"chat":email?"email":document?"document":code?"code":research?"research":analysis?"analysis":visual?"visual":opts.file?"file":"chat";
  const complex=/(?:全面|詳細|深入|完整|逐步|嚴謹|多角度|比較|交叉驗證|系統設計|完整程式)/i.test(q)||q.length>280;
  const depth:DetroitDepth=opts.deepRequested||/深度思考|認真想|多想一點|仔細推敲/i.test(q)?"deep":complex||intent==="research"||intent==="code"||intent==="document"||intent==="email"||intent==="analysis"||humanize?"standard":"quick";
  const needsEvidence=!humanize&&(research||/(?:依據|來源|引用|佐證)/.test(q));
- const requiresNetwork=needsEvidence&&!opts.privateMode;
+ const requiresNetwork=needsEvidence&&!opts.privateMode&&!/(?:不要上網|不需搜尋|不需要網路|不要搜尋|不需網路|僅使用附件|只根據文件|只用本地|離線回答|不要查網路|不用查網路)/.test(q);
  const needsArtifact=!humanize&&(document||email);
  const engines:DetroitEngine[]=["merlin","victoria","diana","athena","zeus"];
  if(depth!=="quick"){
@@ -66,6 +66,15 @@ export function merlinParse(text:string,opts:{image?:boolean;file?:boolean;priva
 /** Update an auditable status only; never store prompt text or model private thoughts. */
 export function stageUpdate(plan:DetroitPlan,engine:DetroitEngine,state:DetroitStage["state"],detail:string):DetroitPlan{
  return {...plan,stages:plan.stages.map(x=>x.engine===engine?{...x,state,detail:detail.slice(0,160)}:x)};
+}
+/** Close a finished foreground task. A planned-only stage cannot remain pending forever
+ * or give the impression of a background agent that will eventually run.
+ */
+export function settleDetroitStages(plan:DetroitPlan):DetroitPlan{
+ return {...plan,stages:plan.stages.map(s=>
+  s.state==="waiting"?{...s,state:"skipped" as const,detail:"本輪未呼叫此工具，沒有背景執行"}:
+  s.state==="running"?{...s,state:"error" as const,detail:"任務結束但這個階段未完成"}:s
+ )};
 }
 export function cloudDetroitBrief(plan:DetroitPlan):string{
  if(plan.depth==="quick")return "";

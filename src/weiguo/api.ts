@@ -334,3 +334,15 @@ export async function getWeiGuoCanvaJob(kind:CanvaKind,id:string):Promise<CanvaJ
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw Error("Canva 任務識別碼無效");
  return request<CanvaJob>("/v1/family/canva/jobs/"+kind+"/"+encodeURIComponent(id),undefined,true);
 }
+
+/** Private Ceres server-model diagnostic: no secrets or message bodies. */
+export type CeresServerAgentStatus={
+ enabled:boolean;modelConfigured:boolean;serverReady:boolean;
+ runtime:"railway-server";foregroundPhoneRequired:false;
+ states:Record<string,number>;latestState:string|null;
+ tools:string[];privilegedExecution:false;
+};
+export async function getCeresServerAgentStatus():Promise<CeresServerAgentStatus>{
+ ceresGuard();
+ return request<CeresServerAgentStatus>("/v1/family/ceres/agent/status",undefined,true);
+}

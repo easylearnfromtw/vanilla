@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.31-orchestra-ai-detroit",
-  "description": "Diana Zeus Orchestra direct local artifact execution, AI compose handoff and privacy boundaries"
+  "build": "2026.10.20.36-orchestra-ai-native",
+  "description": "Detroit native capability bus and Orchestra AI artifact executor"
 }

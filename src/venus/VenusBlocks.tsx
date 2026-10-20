@@ -96,7 +96,7 @@ function Gallery({block}:{block:Extract<VenusBlock,{kind:"gallery"}>}){
   {active!==null&&current&&<div className="venus-lightbox" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)close();}}>
    <div className="venus-lightbox-dialog" role="dialog" aria-modal="true" aria-label="圖片放大檢視">
     <div className="venus-lightbox-head"><span>{active+1} / {block.items.length}</span><button type="button" ref={closeRef} className="venus-lightbox-close" onClick={close} aria-label="關閉圖片預覽">✕ 關閉</button></div>
-    <div className="venus-lightbox-stage">{failed.includes(active)?<p>圖片無法載入，請查看來源。</p>:<img src={current.url} alt={current.alt} referrerPolicy="no-referrer" onError={()=>setFailed(old=>old.includes(active)?old:[...old,active])}/>}</div>
+    <div className="venus-lightbox-stage">{!loaded.includes(active)?<button type="button" className="venus-image-consent" onClick={()=>setLoaded(old=>old.includes(active)?old:[...old,active])}>載入外部圖片</button>:failed.includes(active)?<p>圖片無法載入，請查看來源。</p>:<img src={current.url} alt={current.alt} referrerPolicy="no-referrer" onError={()=>setFailed(old=>old.includes(active)?old:[...old,active])}/>}</div>
     <div className="venus-lightbox-foot"><button type="button" onClick={()=>setActive(i=>i===null?null:(i+block.items.length-1)%block.items.length)} aria-label="上一張">← 上一張</button><p>{current.caption||current.alt}{current.source&&<a href={current.source} rel="noopener noreferrer" target="_blank">圖片出處 ↗</a>}</p><button type="button" onClick={()=>setActive(i=>i===null?null:(i+1)%block.items.length)} aria-label="下一張">下一張 →</button></div>
    </div>
   </div>}

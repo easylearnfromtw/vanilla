@@ -179,7 +179,11 @@ async def telegram_webhook(request: Request,
             and isinstance(callback.get("id"),str) and isinstance(callback.get("data"),str)):
             from ceres_admin_bot import callback as admin_callback, owner_subject
             if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
-                await admin_callback(chat_id,callback["id"],callback["data"])
+                if callback["data"].startswith("hub:"):
+                    from ceres_command_center import callback as hub_callback
+                    await hub_callback(chat_id,callback["id"],callback["data"])
+                else:
+                    await admin_callback(chat_id,callback["id"],callback["data"])
                 return {"ok":True,"accepted":True}
         return {"ok":True,"accepted":False}
     message = payload.get("message")
@@ -199,7 +203,34 @@ async def telegram_webhook(request: Request,
     if not isinstance(body, str) or not 1 <= len(body.strip()) <= MAX_TEXT:
         return {"ok": True, "accepted": False}
     text=body.strip()
-    if text.split()[0].split("@")[0].lower() in ("/admin","/manage"):
+    # Owner-only command center stays out of the AI job queue and is
+    # deduplicated like /admin. Natural-language shortcuts are deterministic.
+    hub_text = None
+    prefix = text.split()[0].split("@")[0].lower()
+    if prefix in ("/hub", "/center", "/centre"):
+        hub_text = text
+    elif prefix == "/start" or text in ("控制中心", "開啟控制中心", "打開控制中心"):
+        hub_text = "/hub"
+    elif text in ("系統狀態", "查看系統狀態", "底特律狀態"):
+        hub_text = "/hub status"
+    elif text in ("有哪些功能", "功能清單", "查看工具能力"):
+        hub_text = "/hub tools"
+    if hub_text is None:
+        # Read-only natural-language GitHub lookup, not remote installation.
+        search = re.fullmatch(
+            r"(?:幫我)?(?:找|搜尋|尋找)\s*github\s*(?:上的|上|的)?\s*"
+            r"(?:開源|專案|項目)?\s*(.{2,80})",
+            text, re.I)
+        if search:
+            hub_text = "/hub github " + search.group(1).strip()
+    if hub_text is not None:
+        from ceres_admin_bot import owner_subject
+        from ceres_command_center import command as hub_command
+        if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+            await hub_command(chat_id, hub_text)
+            return {"ok":True,"accepted":True}
+        return {"ok":True,"accepted":False}
+    if prefix in ("/admin","/manage"):
         from ceres_admin_bot import command as admin_command, owner_subject
         if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
             await admin_command(chat_id,text)

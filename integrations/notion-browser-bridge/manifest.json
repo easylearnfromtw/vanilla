@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Vanilla · Notion 網頁橋接（實驗性）",
+  "version": "0.1.0",
+  "description": "No Notion API key. User-approved title entry into an already-open, signed-in Notion page. Does not run in background.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

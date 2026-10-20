@@ -66,7 +66,7 @@ async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
  const controller=new AbortController();
  // Time out while waiting for the first byte (cold model load on a home host can be slow);
  // once streaming starts the caller's own signal governs cancellation.
- const timeout=setTimeout(()=>controller.abort(),180000);
+ const timeout=setTimeout(()=>controller.abort(),240000);
  init.signal?.addEventListener("abort",()=>controller.abort(),{once:true});
  try{
   const response=await fetch(url,{...init,signal:controller.signal,headers:headers()});
@@ -126,16 +126,19 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
   // Older Ollama builds reject the `think` field; retry once without it.
   if(error instanceof Error&&/HTTP 400/.test(error.message))res=await send(false);else throw error;
  }
- let text="",failure="";
+ let text="",failure="",completed=false,truncated=false;
  await readNDJSON<{message?:{content?:string};error?:string;done?:boolean}>(res,chunk=>{
   if(chunk.error){failure=chunk.error;return;}
+  if(chunk.done){completed=true;truncated=(chunk as {done_reason?:string}).done_reason==="length";}
   const piece=chunk.message?.content||"";
   if(piece){
    text+=piece;
    if(options.onText){const view=stripThinking(text);options.onText(toTaiwanese(view.text)||(view.thinking?"（正在思考…）":""));}
   }
  });
- if(failure&&!text)throw new Error(failure);
+ if(failure)throw new Error(failure);
+ if(!completed)throw new Error("Ollama 串流未正常完成，已拒絕將不完整回答顯示成成功。");
+ if(truncated)throw new Error("Ollama 達到生成長度上限，已拒絕將截斷的答案視為完成。");
  const answer=structured?stripThinking(text).text.trim():toTaiwanese(cleanModelOutput(text));
  if(!answer)throw new Error("Ollama 未回傳回答");
  return answer;

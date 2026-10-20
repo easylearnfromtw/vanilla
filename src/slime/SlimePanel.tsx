@@ -133,8 +133,14 @@ export default function SlimePanel(){
    <p className="slime-fine"><Power size={15}/> 「未連線」只代表沒有心跳，無法判定真正關機或被刪除；150 秒後自動不再納入派工。遠端關機、螢幕關閉與 Wake-on-LAN 尚未啟用，需要硬體支援及該電腦所有者另行同意。</p>
    <div className="slime-route">
     <div><strong>AI 自動調度 · 資源預覽</strong><p>已建立選節點資格檢查；尚未讓 AI 在朋友電腦上執行模型或工具。</p></div>
-    <button type="button" disabled={!supported||!allowed||Boolean(working)} onClick={()=>void doWork("route",async()=>{const r=await previewSlimeRoute("model-shard",4);setRoute(r.candidate_nodes.length?"目前符合記憶體條件的節點："+r.candidate_nodes.map(n=>n.label).join("、")+"；未執行推論":"目前沒有符合條件且在線的節點。";})}>查看可用節點</button>
+    <button type="button" disabled={!supported||!allowed||Boolean(working)} onClick={()=>void doWork("route",async()=>{const r=await previewSlimeRoute("model-shard",4);setRoute(r.candidate_nodes.length?"目前符合記憶體條件的節點："+r.candidate_nodes.map(n=>n.label).join("、")+"；未執行推論":"目前沒有符合條件且在線的節點。");})}>查看可用節點</button>
     {route&&<small role="status">{route}</small>}
    </div>
   </article>
+  <details className="slime-legacy">
+   <summary>進階：既有 Windows Ollama 推論節點（需自行配置）</summary>
+   <p>這是 Vanilla 已有的 Windows 推論功能，和新的朋友版共享註冊表不同。需在本機安裝 Ollama 與模型；它不是 Slime 跨機 30B 分片。</p>
+   <Suspense fallback={<p role="status">載入既有 Windows 推論節點…</p>}><LegacyWindowsNodes/></Suspense>
+  </details>
  </section>;
+}

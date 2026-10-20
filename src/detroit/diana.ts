@@ -2,6 +2,7 @@
  * Routing is deterministic and never grants permissions or starts unavailable adapters.
  */
 import {DETROIT_ENGINES} from "./core";
+import {chooseVenusIntent} from "../venus/presentation";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {makeHumanizeRequest} from "../erya/humanize";
 import {creamInstruction} from "../cream/core";
@@ -57,6 +58,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
+ if(chooseVenusIntent(q)!=="standard")add("venus",92,"Venus 自動選擇地圖、影片、公式、圖庫或即時時間元件（只呈現已取得資料）");
  if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"需實際文件輸出時使用 Retina");
  if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|跨格式)/i.test(q))add("orchestra",88,"跨格式工作交給 Orchestra");
  if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張)/i.test(q))add("bard",86,"生成圖片須在 Bard 中同意雲端 API");
@@ -92,6 +94,10 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(ctx.privateMode&&tool==="quirinus")return report(tool,"私密模式禁止 Quirinus 遠端掃描派工。","隱私限制");
  if(ctx.privateMode&&tool==="medusa")return report(tool,"私密模式禁止向 Judge0 後端傳送程式碼。","隱私限制");
  if(ctx.privateMode&&tool==="jensen-huang")return report(tool,"私密模式不會將工作內容轉交 GitHub 程式工作台。","隱私限制");
+ if(tool==="venus"&&chooseVenusIntent(task)!=="standard"){
+  if(ctx.hasModel===false)return report(tool,"Venus 的模型生成呈現需要先連線可用文字模型；圖片搜尋可使用已連線的公開來源。","模型未就緒");
+  return choose({kind:"delegate",command:task});
+ }
  if(["zeus","athena","venus","veritas","mnemosyne","hermes","dionysus","holy-roman-empire"].includes(tool))return report(tool,LABELS[tool]+" 是內部協作或治理角色，不能繞過原本的資料與權限流程直接啟動。","內部工具");
  if(tool==="weiguo")return choose({kind:"open",event:"vanilla-open-weiguo"});
  if(tool==="er-ya"){

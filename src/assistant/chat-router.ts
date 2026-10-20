@@ -80,6 +80,12 @@ export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  // Memory, sheets, projects and integrations are explicit commands; they win over web search.
  if(app&&app.kind!=="search"&&!url)return {kind:"app"};
  if(url)return ctx.privateMode?{kind:"private-blocked",what:"讀取網頁"}:{kind:"web-read",url};
+ // Connected/private application intents outrank generic "查詢..." web search.
+ // Do not send personal Telegram, LUCA or security-tool questions to public search.
+ if(/(?:Telegram|Ceres|LUCA|Quirinus|Medusa)/i.test(q)){
+  const internal=proposeProactiveDiana(q,{privateMode:ctx.privateMode,hasCreamResult:ctx.hasCreamResult});
+  if(internal)return {kind:"diana",request:q,forcedTool:null};
+ }
  const explicit=SEARCH_REQUEST.exec(q)?.[1]?.trim()||(app?.kind==="search"?app.query:"");
  if(explicit)return ctx.privateMode?{kind:"private-blocked",what:"網路搜尋"}:{kind:"web-search",query:explicit,explicit:true};
  // Diana proactively selects real editors or local deterministic tools for clear action requests.

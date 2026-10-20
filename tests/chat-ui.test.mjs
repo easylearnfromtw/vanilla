@@ -43,8 +43,8 @@ test("conversation uses rich message formatting without duplicating CREAM and ta
  assert.match(source,/<ChatMarkdown source=\{stripRenderedTable\(turn.content\)\}/);
  assert.match(source,/<MessageArtifacts turn=\{turn\}/);
  assert.doesNotMatch(source,/\{turn.role==="assistant"&&renderTable\(turn.content\)\}/);
- assert.match(source,/NoodlesPanel privateMode/);
- assert.match(source,/GoogleSourcesPanel privateMode/);
+ assert.doesNotMatch(source,/<AssistantTools |<NoodlesPanel |<GoogleSourcesPanel /);
+ assert.doesNotMatch(source,/vanilla-tools-drawer/);
 });
 test("two-model comparison uses same swipe architecture and stays actionable",()=>{
  const cmp=file("src/ai/CompareAnswers.tsx");

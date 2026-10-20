@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.14-webllm-auto-recovery",
-  "description": "Diana 3.0 + Venus Janus v2 retained; fix iPhone WebLLM disposed objects with pinned 0.2.82, serialized reloads and one automatic recovery"
+  "build": "2026.10.20.15-quirinus-dispatch",
+  "description": "Quirinus approved Actions dispatch; retains Ceres, Diana 3.0 and iPhone WebLLM recovery"
 }

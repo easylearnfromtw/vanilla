@@ -278,3 +278,29 @@ export async function sendWeiGuoCeresReply(id:number,text:string,approved:boolea
  return request<{sent:true;eventId:number}>(
   "/v1/family/ceres/events/"+id+"/reply",{approved:true,text:text.trim()},true);
 }
+
+
+/** Canva Developer API preview bridge. No Canva OAuth credential is ever held in the PWA. */
+export type CanvaKind="image"|"presentation";
+export type CanvaStatus={configured:boolean;enabled:boolean;preview:true;authMode:string;availableKinds:CanvaKind[]};
+export type CanvaJob={kind:CanvaKind;id:string;status:"in_progress"|"success"|"failed";url?:string;title?:string;pages?:number|null;error?:string};
+export async function getWeiGuoCanvaStatus():Promise<CanvaStatus>{
+ if(weiGuoIdentity()?.role!=="owner")throw Error("Canva 需要已驗證的衞國家庭擁有者身分");
+ return request<CanvaStatus>("/v1/family/canva/status",undefined,true);
+}
+export async function startWeiGuoCanvaGeneration(input:{
+ kind:CanvaKind;prompt:string;aspect_ratio:"square"|"landscape"|"portrait";
+ approved_cloud_send:boolean;
+}):Promise<CanvaJob>{
+ if(currentChatMode()==="private")throw Error("私人模式不傳送任何內容至 Canva");
+ if(weiGuoIdentity()?.role!=="owner")throw Error("請以衞國家庭擁有者身分登入");
+ if(!input.approved_cloud_send)throw Error("請先勾選本次 Canva 雲端傳送同意");
+ if(input.prompt.trim().length<3||input.prompt.length>5000)throw Error("Canva 提示詞須介於 3–5000 字");
+ return request<CanvaJob>("/v1/family/canva/generate",input,true);
+}
+export async function getWeiGuoCanvaJob(kind:CanvaKind,id:string):Promise<CanvaJob>{
+ if(currentChatMode()==="private")throw Error("私人模式不連線至 Canva");
+ if(weiGuoIdentity()?.role!=="owner")throw Error("請以衞國家庭擁有者身分登入");
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw Error("Canva 任務識別碼無效");
+ return request<CanvaJob>("/v1/family/canva/jobs/"+kind+"/"+encodeURIComponent(id),undefined,true);
+}

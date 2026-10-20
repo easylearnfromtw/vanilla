@@ -24,7 +24,7 @@ services:
       CERES_AI_DRAFT_ENABLED: "false"
       # CERES_FAMILY_LINKS_JSON: '{"123456789":"verified-google-sub"}'
       # CERES_TELEGRAM_BOT_TOKEN: "${CERES_TELEGRAM_BOT_TOKEN}"
-      # CERES_OLLAMA_URL: "http://127.0.0.1:11434" # loopback only, optional
+      # CERES_OLLAMA_URL: "http://127.0.0.1:11434" # loopback only
       # CERES_OLLAMA_MODEL: "qwen3:4b"
       # CERES_TELEGRAM_WEBHOOK_SECRET: "${CERES_TELEGRAM_WEBHOOK_SECRET:?Required when enabled}"
       # CERES_TELEGRAM_CHAT_IDS: "${CERES_TELEGRAM_CHAT_IDS:?Required when enabled}"
@@ -45,6 +45,10 @@ services:
       MEDUSA_ENABLED: "false"
       MEDUSA_SANDBOX_EGRESS_BLOCKED: "false"
       MEDUSA_FAMILY_ENABLED: "false"
+      MEDUSA_ENGINE: "judge0"  # alternative: cloudrun
+      MEDUSA_CLOUD_RUN_VERIFIED: "false"
+      # MEDUSA_CLOUD_RUN_URL: "https://medusa-cloud-<generated>.a.run.app"
+      # MEDUSA_CLOUD_SHARED_SECRET: configure server-side only
       # MEDUSA_FAMILY_OWNER_SUBS: "verified Google sub"
       # MEDUSA_JUDGE0_URL: "http://judge0:2358"
       # MEDUSA_PYTHON_LANGUAGE_ID: "109" # Verify the deployment language ID first.

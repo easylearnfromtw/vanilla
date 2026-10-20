@@ -29,13 +29,13 @@ export default function MedusaTool(){
   try{
    const next=await runMedusa(source,stdin,true);
    setResult(next);
-   setMessage(next.accepted?'Judge0 已完成程式執行':'Judge0 已完成，程式發生編譯或執行錯誤');
+   setMessage(next.accepted?'Medusa 已完成程式執行':'Medusa 已完成，程式發生編譯或執行錯誤');
   }catch(err){setMessage(err instanceof Error?err.message:String(err));}
   finally{setBusy(false);}
  }
  return <section className="detroit-studio-form">
   <h2><Terminal size={21} aria-hidden="true"/> Medusa · 程式執行</h2>
-  <p>Detroit Factory 的 Judge0 Python 工具，透過受控後端執行，不會在 iPhone 上執行原始程式碼。尚未部署的執行節點會保持停用。</p>
+  <p>Detroit Factory 的 Python 沙盒，可由管理端選擇 Judge0 或 Google Cloud Run Sandbox。程式在受控雲端執行，不會在 iPhone 上執行。未驗證的執行節點保持停用。</p>
   <p role="status">{message||'正在查詢 Medusa 後端…'}</p>
   {eligible&&<button type="button" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={15}/>重新檢查連線</button>}
   {!person&&<button type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-weiguo'))}>前往衞國系統登入</button>}
@@ -49,14 +49,14 @@ export default function MedusaTool(){
   </label>
   <label className="detroit-consent"><input type="checkbox" checked={consent}
    onChange={e=>setConsent(e.target.checked)}/>
-   我同意本次將程式碼與標準輸入傳送到管理員配置的獨立 Judge0 沙盒；不包含密碼、權杖、私人資料或未經授權內容。
+   我同意本次將程式碼與標準輸入傳送到管理員配置的獨立雲端沙盒；不包含密碼、權杖、私人資料或未經授權內容。
   </label>
   <button type="button" className="detroit-primary"
     disabled={busy||!eligible||!status?.enabled||!status?.connected||!consent||!source.trim()}
     onClick={()=>void execute()}><Play size={16}/>{busy?'執行中…':'執行 Python'}</button>
   {result&&<div className="detroit-medusa-result" aria-label="Medusa 實際執行結果">
-   <strong>Judge0 · {result.status}（狀態碼 {result.status_id}）</strong>
-   <p>CPU {result.time||'—'} s · Memory {result.memory??'—'} KB · Exit {result.exit_code??'—'}</p>
+   <strong>{result.backend==='cloudrun-sandbox'?'Cloud Run Sandbox':'Judge0'} · {result.status}（狀態碼 {result.status_id}）</strong>
+   <p>執行耗時 {result.time||'—'} s · Memory {result.memory??'—'} KB · Exit {result.exit_code??'—'}</p>
    {([['標準輸出',result.stdout],['錯誤輸出',result.stderr],['編譯錯誤',result.compile_output]] as const)
      .filter(([,value])=>Boolean(value)).map(([label,value])=><div key={label}>
       <strong>{label}</strong><pre>{value}</pre>

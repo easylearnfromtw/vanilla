@@ -175,9 +175,9 @@ export async function exportCreamGridCraftReport(payload:import("../cream/gridcr
 
 
 /** Detroit Factory: Judge0 results are returned only after a real backend execution. */
-export type MedusaStatus={enabled:boolean;connected:boolean;language?:string;note:string};
+export type MedusaStatus={enabled:boolean;connected:boolean;language?:string;backend?:"judge0"|"cloudrun-sandbox";note:string};
 export type MedusaOutput={
- engine:"medusa";backend:"judge0";language:string;finished:boolean;accepted:boolean;
+ engine:"medusa";backend:"judge0"|"cloudrun-sandbox";language:string;finished:boolean;accepted:boolean;
  status_id:number;status:string;stdout:string;stderr:string;compile_output:string;
  exit_code:number|null;time:string;memory:number|null;
 };
@@ -214,7 +214,6 @@ export async function getWeiGuoLucaSummary():Promise<LucaSnapshot>{
  if(!identity||identity.role!=="owner")throw Error("LUCA 總覽僅供已登入的家庭擁有者使用");
  return request<LucaSnapshot>("/v1/family/luca/summary",undefined,true);
 }
-
 
 /** Ceres never exposes operator keys or Telegram bot credentials to the PWA. */
 export type CeresFamilyStatus={

@@ -54,6 +54,7 @@ export function generateIntegratedCurriculum(out="training/agent_sandbox/generat
 export function gradeIntegrated(pred,caseItem){
  if(!pred||typeof pred!=="object"||Array.isArray(pred))return false;
  const expected=caseItem.expected;
+ if(Object.keys(pred).length!==Object.keys(expected).length||Object.keys(pred).some(k=>!(k in expected)))return false;
  for(const [key,value] of Object.entries(expected)){
   const actual=pred[key];
   if(typeof value==="number"){

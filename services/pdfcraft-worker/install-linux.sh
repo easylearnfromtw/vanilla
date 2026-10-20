@@ -16,7 +16,7 @@ if [[ ! -f /opt/vanilla/services/pdfcraft-worker/worker_api.py ]]; then
 fi
 
 apt-get update
-apt-get install -y --no-install-recommends bubblewrap ca-certificates curl python3-venv
+apt-get install -y --no-install-recommends bubblewrap ca-certificates curl python3-venv apparmor apparmor-profiles apparmor-utils
 tmp="$(mktemp -d -t vanilla-pdfcraft-install.XXXXXXXX)"
 trap 'rm -rf "$tmp"' EXIT
 curl --fail --location --show-error --silent --retry 3 --connect-timeout 15 --max-time 180 \

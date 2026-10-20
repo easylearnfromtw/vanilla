@@ -2,7 +2,7 @@
  * No private text/attachments, no cookies or location. Image bytes are not
  * downloaded by this function; Venus Gallery requires a separate human click.
  */
-import {venusSafeUrl,type VenusBlock} from "./presentation";
+import {venusSafeUrl,type VenusBlock} from "./presentation.ts";
 export function imageSearchQuery(input:string):string|null{
  const raw=input.trim();
  if(/(?:生成|製作|畫|設計|合成|修改|編輯).{0,10}(?:圖片|照片|插畫|圖像)/.test(raw))return null;

@@ -57,3 +57,6 @@
 .orchestra-motion-preview p{margin:0;font-size:13px;}
 @keyframes orchestra-media-entrance{from{transform:translateX(0);opacity:.6}to{transform:translateX(14px);opacity:1}}
 @media(prefers-reduced-motion:reduce){.orchestra-motion-preview strong{animation:none}}
+
+.orchestra-ai-brief{border:1px solid #aaa5a0;border-radius:9px;padding:13px;margin-bottom:16px;display:flex;flex-direction:column;gap:7px;background:color-mix(in srgb,#af4634 5%,transparent)}
+.orchestra-ai-brief strong{font-size:13px}.orchestra-ai-brief p{font-size:12px;line-height:1.5;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto}.orchestra-ai-brief small{font-size:11px;opacity:.72}

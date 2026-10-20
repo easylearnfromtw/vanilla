@@ -29,7 +29,7 @@ export function classifyClientFault(error:unknown):FaultCode{
  if(/worker-stalled|worker.*stalled/.test(message))return "worker-stalled";
  if(/out of memory|memory allocation|insufficient memory|quota.*memory/.test(message))return "memory";
  if(/quotaexceeded|storage.*full|indexeddb.*failed|not enough storage/.test(message))return "storage";
- if(/timeout|timed out|aborterror/.test(message))return "timeout";
+ if(/timeout|timed out|aborterror|model-download-stalled/.test(message))return "timeout";
  if(/401|403|unauthorized|permission denied|notallowederror/.test(message))return "permission";
  if(/network|fetch failed|failed to fetch|offline|connection refused/.test(message))return "network";
  return "unknown";

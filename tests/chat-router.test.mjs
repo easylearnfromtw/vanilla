@@ -289,3 +289,9 @@ test("Orchestra opens from chat and slash command without model hallucination",(
  const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(chat,/orchestra:"vanilla-open-orchestra"/);
 });
+
+test("Orchestra slash keeps task arguments",()=>{
+ assert.equal(expandSlashCommand("/Orchestra 製作 PDF")?.text,"@Orchestra 製作 PDF");
+ assert.equal(kind("@Orchestra 製作 PDF"),"diana");
+ assert.equal(expandSlashCommand("/Orchestra")?.text,"開啟 Orchestra Studio");
+});

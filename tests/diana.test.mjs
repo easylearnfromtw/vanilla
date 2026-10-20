@@ -30,7 +30,7 @@ test("Diana supports CREAM, Janus, Retina and Studio handoffs",()=>{
  const csv=chooseDianaTool("日期,數值\n2026-10-01,5\n2026-10-02,7",normal,"cream");
  assert.equal(csv.kind,"delegate");
  assert.equal(routeMessage(csv.command||"",{privateMode:false,hasCreamResult:false}).kind,"cream-csv");
- assert.equal(chooseDianaTool("製作PDF正式文件",normal).tab,"retina");
+ assert.equal(chooseDianaTool("製作PDF正式文件",normal).event,"vanilla-open-orchestra");
  assert.equal(chooseDianaTool("幫我設計醫美電子報",normal).event,"vanilla-open-email");
  assert.equal(chooseDianaTool("請使用 Bard 生成圖片",normal).tab,"bard");
  assert.equal(chooseDianaTool("修改 Vanilla GitHub 原始碼",normal).event,"vanilla-open-builder");
@@ -61,7 +61,7 @@ test("Diana supports Chinese, full-width and full-name @ mentions without fabric
 test("Diana creates data-first sequence rather than exporting unvalidated figures",()=>{
  const p=chooseDianaTool("分析年度 CSV 數據並製作 PDF 報告",normal);
  assert.equal(p.tool,"cream");
- assert.deepEqual(p.nextSteps,["retina"]);
+ assert.deepEqual(p.nextSteps,["orchestra"]);
  assert.equal(p.kind,"open");
  assert.equal(chooseDianaTool("整理統計圖表到電子報",normal).tool,"cream");
  assert.deepEqual(chooseDianaTool("整理統計圖表到電子報",normal).nextSteps,["janus"]);
@@ -75,7 +75,7 @@ test("Diana exposes offline and incomplete-tool constraints",()=>{
  assert.equal(expandSlashCommand("/Quirinus")?.text,"@Quirinus");
  assert.equal(chooseDianaTool("執行排程",normal,"chronos").kind,"report");
 });
-test("Notion schedule intents open an offline editor, without background execution",()=>{
+test("Notion schedule intents open the offline editor without starting background jobs",()=>{
  assert.equal(parseDianaInvocation("@Notion 明天開會")?.forcedTool,"notion");
  assert.equal(expandSlashCommand("/排程")?.text,"@Notion");
  assert.equal(expandSlashCommand("/Notion")?.text,"@Notion");
@@ -99,12 +99,12 @@ test("Diana never copies private conversation text into Orchestra automatically"
  assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
 });
 
-test("Canva images and slides are a consent-gated Orchestra handoff, not fake execution",()=>{
+test("Canva remains a cloud-consent-gated Orchestra handoff",()=>{
  const named=parseDianaInvocation("@Canva 幫我生成簡報");
  assert.equal(named?.forcedTool,"canva");
- const design=chooseDianaTool("使用 Canva 製作公司簡報",normal);
- assert.equal(design.tool,"canva");
- assert.equal(design.event,"vanilla-open-orchestra");
+ const choice=chooseDianaTool("使用 Canva 製作公司簡報",normal);
+ assert.equal(choice.tool,"canva");
+ assert.equal(choice.event,"vanilla-open-orchestra");
  assert.equal(chooseDianaTool("Canva 製作圖片",privateMode).kind,"report");
  assert.equal(routeMessage("請用 Canva 生成一份簡報",normal).kind,"diana");
  assert.equal(DETROIT_ENGINES.find(x=>x.id==="canva")?.status,"adapter");

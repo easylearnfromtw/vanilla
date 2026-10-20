@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.45-cloud-detroit-grounding",
-  "description": "Cloud Gemini DeepSeek and Ollama grounded answers to Detroit registered capabilities and execution status"
+  "build": "2026.10.20.46-quality-first-generation",
+  "description": "Vanilla quality-first reasoning: watchdog recovery, strict completion checks, and provider stream validation"
 }

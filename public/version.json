@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.33-veritas-gate",
-  "description": "Veritas source-backed fact guard, automatic Scouts checks, safe knowledge-model routing"
+  "build": "2026.10.20.34-venus-3-multimodal",
+  "description": "Venus 3.0 native multimodal presentation, Diana routes, validated maps/video, MathML, device time and public Commons image search"
 }

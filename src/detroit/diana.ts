@@ -2,6 +2,7 @@
  * Routing is deterministic and never grants permissions or starts unavailable adapters.
  */
 import {DETROIT_ENGINES} from "./core";
+import {chooseVenusIntent} from "../venus/presentation";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {DETROIT_CAPABILITIES,detroitAvailability} from "./capability-bus";
 import {makeHumanizeRequest} from "../erya/humanize";
@@ -64,6 +65,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:製作|產生|生成|建立|匯出|下載|輸出|做成|轉成|製成|存成).{0,45}(?:PDF|DOCX|PPTX|Word|簡報|文件|報告|海報|圖卡|資訊圖|SVG|PNG|JPG|JPEG|GIF)|(?:PDF|DOCX|PPTX|Word|簡報|報告|SVG|PNG|JPEG|GIF).{0,35}(?:製作|產生|匯出|下載|輸出|轉成|做成)/i.test(q))add("orchestra",93,"Detroit Orchestra 選擇已實作本機製作引擎，只有產生真實作品後才能聲稱完成");
  if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"Retina 是本機文件輸出引擎");
  if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|PhotoCraft|PdfCraft|DesignCraft|EffectCraft|跨格式)/i.test(q))add("orchestra",98,"Craft 工作由 Orchestra 統一選擇已驗證可用的引擎");
+ if(chooseVenusIntent(q)!=="standard")add("venus",92,"Venus 選擇經驗證的地圖、影片、MathML、圖庫或時間元件");
  if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張)/i.test(q))add("bard",86,"生成圖片須在 Bard 中同意雲端 API");
  if(/(?:CSV|統計|數據|趨勢|分析資料|折線圖|圓餅圖|圖表|長期追蹤|體重|血壓|心率)/i.test(q))add("cream",84,"數據分析應優先使用確定性的 CREAM");
  // Analyze source data before producing a document or sending it into a visual editor.
@@ -98,6 +100,10 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(ctx.privateMode&&tool==="quirinus")return report(tool,"私密模式禁止 Quirinus 遠端掃描派工。","隱私限制");
  if(ctx.privateMode&&tool==="medusa")return report(tool,"私密模式禁止向 Judge0 後端傳送程式碼。","隱私限制");
  if(ctx.privateMode&&tool==="jensen-huang")return report(tool,"私密模式不會將工作內容轉交 GitHub 程式工作台。","隱私限制");
+ if(tool==="venus"&&chooseVenusIntent(task)!=="standard"){
+  if(ctx.hasModel===false)return report(tool,"Venus 的智慧呈現需要文字模型；公開圖片搜尋走獨立本機路由。","模型未就緒");
+  return choose({kind:"delegate",command:task});
+ }
  if(["zeus","athena","venus","veritas","mnemosyne","hermes","dionysus","holy-roman-empire"].includes(tool))return report(tool,LABELS[tool]+" 是內部協作或治理角色，不能繞過原本的資料與權限流程直接啟動。","內部工具");
  if(tool==="weiguo")return choose({kind:"open",event:"vanilla-open-weiguo"});
  if(tool==="er-ya"){

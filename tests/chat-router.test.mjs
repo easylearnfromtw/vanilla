@@ -78,6 +78,39 @@ test("slash commands expand into canonical phrases the router understands",()=>{
  assert.equal(matchSlashCommands("一般句子").length,0);
 });
 
+test("slash commands handle bare input, fullwidth input and punctuation",()=>{
+ const build=expandSlashCommand("/建立");
+ assert.equal(build?.text,"開啟 自建功能");
+ assert.equal(kind(build.text),"open");
+ assert.equal(routeMessage(build.text,ctx).section,"builder");
+ for(const input of ["/搜尋","／搜尋","/搜尋："]){
+  const result=expandSlashCommand(input);
+  assert.equal(result?.ui,"prompt",input);
+  assert.match(result.hint,/\/搜尋/,input);
+  assert.equal(result.prefill,"/搜尋 ",input);
+ }
+ assert.equal(expandSlashCommand("/搜尋 x")?.ui,"prompt");
+ for(const input of ["／搜尋　台北天氣","/搜尋：台北天氣","/搜尋:台北天氣"]){
+  assert.equal(kind(expandSlashCommand(input).text),"web-search",input);
+ }
+ assert.equal(routeTail(expandSlashCommand("／建立　喝水紀錄").text).kind,"feature-builder");
+ assert.deepEqual(matchSlashCommands("／搜").map(x=>x.cmd),["/搜尋"]);
+ assert.deepEqual(matchSlashCommands("／").length,SLASH_MENU_EXPECTED_LENGTH());
+ assert.equal(expandSlashCommand("/讀")?.ui,"prompt");
+ assert.equal(expandSlashCommand("/記住")?.ui,"prompt");
+ assert.equal(expandSlashCommand("/潤稿")?.ui,"prompt");
+ assert.equal(expandSlashCommand("/未註冊"),null);
+});
+
+function SLASH_MENU_EXPECTED_LENGTH(){return matchSlashCommands("/").length;}
+
+test("chat dispatches explicit slash commands before Merlin and proactive Diana",()=>{
+ const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(chat,/const slashCommand=\/\^\[/);
+ assert.match(chat,/if\(!slashCommand&&merlinPending\)/);
+ assert.match(chat,/const slashTail=slashCommand\?routeTail\(question\):null/);
+});
+
 test("Janus and legacy email commands route to the same local tool",()=>{
  for(const q of ["開啟 Janus","Janus","打開郵件編輯器","開啟 Email Studio"]){
   const route=routeMessage(q,ctx);

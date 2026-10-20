@@ -49,7 +49,7 @@ export default function MedusaTool(){
   </label>
   <label className="detroit-consent"><input type="checkbox" checked={consent}
    onChange={e=>setConsent(e.target.checked)}/>
-   我同意本次將程式碼與標準輸入傳送到管理員配置的獨立雲端沙盒；不包含密碼、權杖、私人資料或未經授權內容。
+   我同意本次將程式碼與標準輸入傳送到管理員配置的 Medusa 雲端執行環境；不包含密碼、權杖、私人資料或未經授權內容。
   </label>
   <button type="button" className="detroit-primary"
     disabled={busy||!eligible||!status?.enabled||!status?.connected||!consent||!source.trim()}

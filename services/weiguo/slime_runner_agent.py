@@ -96,6 +96,11 @@ def _execute(request):
     n=request.get("max_tokens")
     if type(n) is not int or not 1<=n<=2048:
         raise ValueError("Invalid output budget")
+    # Conservative text-byte bound prevents silent Ollama context truncation.
+    # This is not a claim about the actual model tokenizer.
+    prompt_upper=sum(len(m["content"].encode("utf-8"))+len(m["role"])+256 for m in messages)
+    if prompt_upper+n>4096:
+        raise ValueError("Input exceeds conservative local context budget")
     temperature=request.get("temperature",0.4)
     if type(temperature) not in (float,int) or not 0<=temperature<=2:
         raise ValueError("Invalid temperature")

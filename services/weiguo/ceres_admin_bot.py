@@ -10,6 +10,7 @@ import httpx
 from ceres_gateway import _allowed_chat_ids, _session
 from ceres_admin_policy import (accounts, enforce, grant, revoke, set_enforce,
                                 provider_status, toggle_provider, role_for_sub)
+from ceres_model_catalog import catalog
 
 def owner_subject(chat_id: int) -> str|None:
     """Keep owner control separate from AI, username, forwarded text and Gmail display names."""
@@ -52,6 +53,7 @@ def _btn(label: str, action: str):
 
 def _menu_buttons():
     return [[_btn("👥 Gmail 白名單","users"),_btn("🔌 API 服務","providers")],
+            [_btn("🧠 AI 模型偵測與選擇","models")],
             [_btn("🔒 開啟白名單限制","on"),_btn("🔓 停用限制","off")],
             [_btn("🛡️ 管理狀態","status"),_btn("🔑 安全設定 API","vault")]]
 
@@ -62,6 +64,7 @@ def _guide():
             "/admin allow email@gmail.com member chat,files — 授權帳號及功能\n"
             "/admin revoke email@gmail.com — 撤銷（需要按鈕確認）\n"
             "/admin providers — API 狀態\n"
+            "/admin models — 已偵測模型、目前策略與所選版本\n"
             "/admin enable gemini — 啟用服務\n"
             "/admin disable canva — 停用服務\n"
             "/admin enforce on — 開啟 Gmail 白名單模式\n"
@@ -73,6 +76,18 @@ async def _status(chat: int):
     providers=provider_status()
     p="、".join(x["provider"]+(" ✓" if x["enabled"] and x["configured"] else " ·") for x in providers)
     await say(chat,f"Vanilla · 管理狀態\nGmail 白名單：{'強制' if enforce() else '尚未強制'}\n有效帳號：{active}\n服務：{p}",_menu_buttons())
+
+async def _models(chat: int):
+    rows=[]
+    for provider in ("gemini","openai","deepseek"):
+        item=catalog(provider)
+        rows.append(provider+": "+str(len(item["models"]))+" 個可見模型"+
+                    " · "+item["mode"]+" · "+(item["selected"] or "未偵測"))
+    await say(chat,"AI 模型設定\n"+"\n".join(rows)+
+              "\n\n版本由供應商官方清單取得；速度、均衡、品質採規則推薦，並非實際價格或效能評測。"+
+              "\n透過安全表單重新偵測或手動選擇。",[
+              [_btn("開啟安全模型設定","vault"),_btn("返回","menu")]])
+
 
 async def _users(chat: int):
     entries=accounts()
@@ -139,6 +154,7 @@ async def command(chat: int, body: str):
         if action=="status": await _status(chat)
         elif action=="users": await _users(chat)
         elif action=="providers": await _providers(chat)
+        elif action=="models": await _models(chat)
         elif action=="vault": await _vault(chat)
         elif action=="allow" and len(args)==4:
             grant(args[1],args[2],args[3].lower().split(","),chat)
@@ -170,11 +186,12 @@ async def callback(chat: int, callback_id: str, data: str):
         return
     await _telegram("answerCallbackQuery",{"callback_query_id":callback_id})
     action=data[4:]
-    if action in ("menu","status","users","providers","vault"):
+    if action in ("menu","status","users","providers","models","vault"):
         if action=="menu": await say(chat,_guide(),_menu_buttons())
         elif action=="status": await _status(chat)
         elif action=="users": await _users(chat)
         elif action=="providers": await _providers(chat)
+        elif action=="models": await _models(chat)
         else: await _vault(chat)
     elif action in ("on","off"):
         await command(chat,"/admin enforce "+action)

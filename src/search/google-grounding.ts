@@ -74,12 +74,16 @@ export function extractGoogleGrounding(raw:GoogleResponse):{sources:GroundedSour
  * It has its own published free-tier allowance, but can also return 429.
  * `groundingChunks` is the only source of URLs; the model must not invent them.
  */
-export function extractLegacyGrounding(raw:{
- candidates?:Array<{content?:{parts?:Array<{text?:string}>};groundingMetadata?:{
- groundingChunks?:Array<{web?:{uri?:string;title?:string}}>;
- groundingSupports?:Array<{segment?:{text?:string};groundingChunkIndices?:number[]}>;
- }}>}>
-}):{sources:GroundedSource[];notes:string}{
+type LegacyGroundingResponse={
+ candidates?:Array<{
+  content?:{parts?:Array<{text?:string}>};
+  groundingMetadata?:{
+   groundingChunks?:Array<{web?:{uri?:string;title?:string}}>;
+   groundingSupports?:Array<{segment?:{text?:string};groundingChunkIndices?:number[]}>;
+  };
+ }>;
+};
+export function extractLegacyGrounding(raw:LegacyGroundingResponse):{sources:GroundedSource[];notes:string}{
  const sources:GroundedSource[]=[],seen=new Set<string>();
  const notes=(raw.candidates?.[0]?.content?.parts||[]).map(x=>x.text||"").join("\n").slice(0,8500);
  const meta=raw.candidates?.[0]?.groundingMetadata;

@@ -3,6 +3,8 @@ import type {OrchestraChart} from "./orchestra/cream-chart";
 import {orchestraComposePrompt,type OrchestraHandoff} from "./orchestra/ai-handoff";
 import {makeHumanizeRequest} from "./erya/humanize";
 import LocalChat from "./local-ai/LocalChat";
+// Eager load the small offline schedule panel with the app shell; no first-visit network required.
+import NotionSchedulePanel from "./notion/NotionSchedulePanel";
 import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
@@ -59,7 +61,7 @@ const [section,setSection]=useState<Section>("chat");
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
-const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca">("retina");
+const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca"|"notion">("retina");
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
 const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream"|"ai">("manual");
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
@@ -119,7 +121,7 @@ useEffect(()=>{
     setChatKey(k=>k+1);setSection("chat");setMenuOpen(false);
    }catch{window.alert("無法將 Orchestra 任務交接回 AI 對話");}
   }],
-  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
+  ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-email",go("email")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
  ];
@@ -189,7 +191,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
-section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/></div>:
+section==="detroit"?<div className="workspace-page">{detroitStartTab==="notion"?<NotionSchedulePanel/>:<DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/>}</div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart} handoff={orchestraAI}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:

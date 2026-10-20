@@ -18,6 +18,9 @@ export const DETROIT_FACTORY_TOOLS:readonly DetroitFactoryTool[]=[
  {id:"ceres",label:"Ceres",engine:"Diana / Athena / Zeus",provider:"Vanilla native gateway",
   status:"adapter",enabledByDefault:false,
   description:"原生 Telegram 進站事件適配器；獨立 Webhook secret、私聊 ID 白名單、管理員審核，不能由來訊直接執行工具"},
+ {id:"notion",label:"Notion Schedule Board",engine:"Diana / Chronos / Zeus",provider:"Notion API",
+  status:"adapter",enabledByDefault:false,
+  description:"選用的 Notion 同步外掛；Vanilla 本地排程可完全離線使用。API 無權取代本地任務、啟動背景執行或繞過使用者同意"},
  {id:"moli",label:"Moli",engine:"Scouts / Zeus",provider:"Moli",
   status:"adapter",enabledByDefault:false,
   description:"實驗性唯讀瀏覽器，需受控後端與額外網路隔離"}

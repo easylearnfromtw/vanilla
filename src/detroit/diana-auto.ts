@@ -22,7 +22,8 @@ export function proposeProactiveDiana(question:string,ctx:DianaContext):DianaDec
  const rewrite=/(?:幫我|請|麻煩).{0,10}(?:潤稿|去除AI腔|自然化這段)/i.test(q);
  const stats=/(?:幫我|請|麻煩).{0,12}(?:分析|統計|繪製).{0,35}(?:CSV|數據|圖表|資料集|折線圖|圓餅圖)/i.test(q);
  const code=/(?:幫我|請|麻煩|我要).{0,12}(?:修改|修復|重構|新增|實作).{0,45}(?:Vanilla|GitHub|原始碼|程式碼|bug)/i.test(q);
- if(!(doc||media||visual||email||rewrite||stats||code||canva))return null;
+  const schedule=/(?:新增|建立|安排|記下|記錄).{0,45}(?:待辦|行程|排程|任務|提醒)|(?:待辦|排程|行程).{0,30}(?:新增|建立|安排|記下)/i.test(q);
+ if(!(doc||media||visual||email||rewrite||stats||code||canva||schedule))return null;
  const choice=chooseDianaTool(q,ctx);
  // Keep ordinary LLM chat as-is if Diana cannot identify a concrete tool.
  if(choice.tool==="merlin"||choice.tool==="diana")return null;

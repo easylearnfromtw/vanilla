@@ -60,6 +60,13 @@ export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIde
 export async function startWeiGuoTask(start_url:string,steps:Array<{action:"extract"|"navigate"|"scroll";url?:string;pixels?:number}>):Promise<WeiGuoTask>{
  return request<WeiGuoTask>("/v1/family/tasks",{start_url,steps},true);
 }
+/** Notion requests reuse the verified in-memory family bearer; no Notion token is sent to the PWA. */
+export async function notionFamilyRequest<T>(path:string,body?:unknown):Promise<T>{
+ if(currentChatMode()==='private')throw Error('私人模式禁止連接外部 Notion 工作區');
+ if(!/^\/v1\/family\/notion\/(?:status|tasks(?:\/[a-f0-9-]{36}\/(?:complete|reschedule))?)$/i.test(path))throw Error('不支援的 Notion 操作');
+ return request<T>(path,body,true);
+}
+
 export async function getWeiGuoTask(id:string):Promise<WeiGuoTask>{
  if(!/^[a-f0-9-]{36}$/i.test(id))throw Error("任務識別碼不正確");
  return request<WeiGuoTask>("/v1/family/tasks/"+encodeURIComponent(id),undefined,true);

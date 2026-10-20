@@ -26,6 +26,7 @@ from ceres_gateway import telegram_router as ceres_telegram_router, operator_rou
 from ceres_dialogue import router as ceres_family_router
 from ceres_agent_bridge import router as ceres_bridge_router
 from ceres_agent_delivery import router as ceres_delivery_router
+from ceres_server_agent import router as ceres_server_router, worker_loop as ceres_server_loop, enabled as ceres_server_enabled, ready as ceres_server_ready
 from ceres_telegram_registration import register_telegram_webhook
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
@@ -88,7 +89,20 @@ async def lifespan(app: FastAPI):
         from medusa_lite import production_selftest
         passed = production_selftest()
         print("Medusa Lite startup execution proof: " + ("PASS" if passed else "FAIL (Lite execution blocked)"), flush=True)
-    yield
+    ceres_agent_task = None
+    if ceres_server_ready():
+        ceres_agent_task = asyncio.create_task(ceres_server_loop())
+    elif ceres_server_enabled():
+        print("Ceres server agent: model configuration incomplete; auto-replies paused", flush=True)
+    try:
+        yield
+    finally:
+        if ceres_agent_task is not None:
+            ceres_agent_task.cancel()
+            try:
+                await ceres_agent_task
+            except asyncio.CancelledError:
+                pass
 
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.
 WORDCRAFT_RATE_LOCK = asyncio.Lock()
@@ -140,6 +154,7 @@ app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)
 app.include_router(ceres_bridge_router)
 app.include_router(ceres_delivery_router)
+app.include_router(ceres_server_router)
 
 @app.get("/v1/health")
 @app.get("/health")

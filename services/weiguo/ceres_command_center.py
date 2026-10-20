@@ -279,7 +279,7 @@ async def command(chat: int, body: str) -> None:
         await say(chat,message,[[_button("✓ 確認套用","confirmplan:"+proposal["token"]),
                                 _button("× 取消","home")]],html=True)
     elif action in ("health","incidents","jobs","approvals","deploy","report",
-                     "budget","audit","security","backup","maintenance","flows"):
+                     "audit","security","backup","maintenance","flows") or (action=="budget" and not tail):
         from ceres_maintenance import (overview,budget_state,version,jobs,audit_log,security,
                                        report,node_snapshot,backup_guidance,setting,workflow_plan,
                                        run_workflow,audit)

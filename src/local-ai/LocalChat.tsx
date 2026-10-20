@@ -461,8 +461,8 @@ async function executeIntent(question:string):Promise<boolean>{
  return false;
 }
 /** Search → read top pages → (model synthesis with citations, or an honest index when no model). */
-async function gatherWeb(kind:"read"|"search",target:string):Promise<{context:string;sources:WebCitation[];index:IndexedPage[]}|null>{
- const sources:WebCitation[]=[],index:IndexedPage[]=[];let context="";
+async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:string):Promise<{context:string;sources:WebCitation[];index:IndexedPage[]}|null>{
+ const sources:WebCitation[]=[],index:IndexedPage[]=[];let context="",searchDiagnostics="";
  setBusy(true);setLastRoute(kind==="read"?"正在讀取網頁正文…":"正在搜尋並讀取前幾篇公開網頁…");
  try{
   if(kind==="read"){
@@ -472,6 +472,7 @@ async function gatherWeb(kind:"read"|"search",target:string):Promise<{context:st
    context="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
   }else{
    const report=await searchLiveWeb(target);
+   searchDiagnostics=report.errors.join("；");
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(target)]);
    for(const hit of report.results.slice(0,3)){
     try{
@@ -487,10 +488,10 @@ async function gatherWeb(kind:"read"|"search",target:string):Promise<{context:st
     }
    }
   }
-  if(!context){toolReply(target,"沒有取得可閱讀的網頁正文或搜尋摘要；請先設定可用的 HTTPS 搜尋／閱讀後端，或確認網址可公開存取。",kind==="read"?"web":"search");return null;}
+  if(!context){toolReply(originalQuestion,"Scouts 沒有取得可引用的網站內容。"+(searchDiagnostics?"服務診斷："+searchDiagnostics+"。":"")+"一般網站的搜尋／讀取需要先在「來源設定」配置可用的 HTTPS /search 與 /read 後端。",kind==="read"?"web":"search");return null;}
   setLastRoute("已取得 "+sources.length+" 筆來源，正在依證據統整；正文與搜尋摘要會分別標示。");
   return {context,sources,index};
- }catch(error){toolReply(target,"網頁實際讀取失敗，未產生虛構摘要："+String(error),kind==="read"?"web":"search");return null;}
+ }catch(error){toolReply(originalQuestion,"Scouts 網頁擷取失敗，沒有產生未經驗證的內容："+String(error),kind==="read"?"web":"search");return null;}
  finally{setBusy(false);}
 }
 async function send(value=draft):Promise<void>{
@@ -775,7 +776,7 @@ async function send(value=draft):Promise<void>{
   case "web-read":
   case "web-search":{
    if(route.kind==="web-search"&&!route.explicit&&!contextPrefs.web)break; // auto-research turned off
-   const gathered=await gatherWeb(route.kind==="web-read"?"read":"search",route.kind==="web-read"?route.url:route.query);
+   const gathered=await gatherWeb(route.kind==="web-read"?"read":"search",route.kind==="web-read"?route.url:route.query,question);
    if(!gathered)return;
    webContext=gathered.context;webSources=gathered.sources;webIndex=gathered.index;
    // Read the actual Vanilla routes: indexed pages are shown as-is without a model.

@@ -33,6 +33,12 @@ User / Vanilla chat / CREAM
 
 Each upstream project provides CLI/MCP interfaces with differing command contracts. Tool names, formats and UX descriptions are **planning metadata**, not claims that an adapter is installed or a particular round-trip is production-ready.
 
+## Canva Cloud Studio (preview, opt-in)
+
+Orchestra Studio contains the optional Canva REST API image and editable-presentation panel. Server-only OAuth access token, family-owner verification and per-operation consent are mandatory. This is not native DeckCraft execution; LUNA/Retina outputs remain offline. No live Canva generation is claimed without verified scopes, credits and successful API results.
+
+Setup: [Canva integration](CANVA_INTEGRATION.md).
+
 ## User-facing touchpoints
 
 1. **Sidebar → Orchestra Studio**: select Craft category, choose supported format, enter document text, view staged route, and export locally using Retina when the format is DOCX/PDF/PPTX.

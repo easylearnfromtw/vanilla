@@ -43,6 +43,15 @@ async def _telegram(method: str, data: dict) -> None:
         async with httpx.AsyncClient(timeout=8,follow_redirects=False,trust_env=False) as client:
             response=await client.post("https://api.telegram.org/bot"+token+"/"+method,json=data)
         if response.status_code!=200:
+            if method=="editMessageText" and response.status_code==400:
+                # Idempotent refresh: Telegram may reject unchanged edits;
+                # treat that as success rather than creating duplicate cards.
+                try:
+                    desc=response.json().get("description","")
+                    if isinstance(desc,str) and "message is not modified" in desc.lower():
+                        return True
+                except (ValueError,TypeError,AttributeError):
+                    pass
             print("Ceres Telegram send: provider_http_"+str(response.status_code),flush=True)
             return False
         try:

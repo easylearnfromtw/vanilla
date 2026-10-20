@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.24-slash-commands",
-  "description": "Slash commands recognize Chinese fullwidth input, show missing-argument guidance and dispatch before agent clarification"
+  "build": "2026.10.20.25-venus-rich-presentation",
+  "description": "Venus 2.0 safe rich chat UI; preserves new fullwidth slash command release"
 }

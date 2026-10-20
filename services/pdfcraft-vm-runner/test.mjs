@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createHmac,createHash} from "node:crypto";
-import {mergeInEphemeralVM,startupPreflight,validPdf,templateFor,MAX_OUTPUT,classifyVmFailure} from "./runtime.mjs";
+import {mergeInEphemeralVM,startupPreflight,validPdf,verifyInsideVM,MAX_OUTPUT,classifyVmFailure} from "./runtime.mjs";
 
 process.env.NODE_ENV="test";
 process.env.PDFCRAFT_VM_RUNNER_ENABLED="true";
@@ -43,12 +43,13 @@ function fakeVM({output=pdf,network=true}={}){
   async destroy(){destroyed=true;}
  };
  const Sandbox={template(){return{withPackages(){return this},run(){return this}}},
-               async create(_template,options){records.push({sandboxOptions:options});return vm}};
+               async create(options){records.push({sandboxOptions:options});return vm}};
  return{Sandbox,records,written,wasDestroyed:()=>destroyed};
 }
+async function mockPrepare(vm){await vm.files.mkdir("/work");await verifyInsideVM(vm)}
 test("one VM per merge, verified network namespace, bounded data and guaranteed destroy",async()=>{
  const m=fakeVM();
- const merged=await mergeInEphemeralVM(m.Sandbox,[pdf,pdf]);
+ const merged=await mergeInEphemeralVM(m.Sandbox,[pdf,pdf],mockPrepare);
  assert.deepEqual(Buffer.from(merged),pdf);
  assert.deepEqual(m.records[0].sandboxOptions,{networkIsolation:"ISOLATED",idleTimeoutMinutes:1});
  assert.equal(m.records.some(x=>typeof x==="string"&&x.includes("--unshare-net")),true);
@@ -59,22 +60,22 @@ test("one VM per merge, verified network namespace, bounded data and guaranteed 
 });
 test("namespace isolation failure always rejects and destroys VM",async()=>{
  const m=fakeVM({network:false});
- await assert.rejects(mergeInEphemeralVM(m.Sandbox,[pdf,pdf]),/network sandbox not proven/i);
+ await assert.rejects(mergeInEphemeralVM(m.Sandbox,[pdf,pdf],mockPrepare),/network sandbox not proven/i);
  assert.equal(m.wasDestroyed(),true);
 });
 test("oversized output is rejected and sandbox destroyed",async()=>{
  const m=fakeVM({output:Buffer.alloc(MAX_OUTPUT+1,65)});
- await assert.rejects(mergeInEphemeralVM(m.Sandbox,[pdf,pdf]),/bounds/i);
+ await assert.rejects(mergeInEphemeralVM(m.Sandbox,[pdf,pdf],mockPrepare),/bounds/i);
  assert.equal(m.wasDestroyed(),true);
 });
 test("preflight verifies and destroys paid VM",async()=>{
- const m=fakeVM();assert.equal(await startupPreflight(m.Sandbox),true);
+ const m=fakeVM();assert.equal(await startupPreflight(m.Sandbox,mockPrepare),true);
  assert.equal(m.wasDestroyed(),true);
 });
 
 test("startup verification creates workdir before namespace probe",async()=>{
  const m=fakeVM();
- assert.equal(await startupPreflight(m.Sandbox),true);
+ assert.equal(await startupPreflight(m.Sandbox,mockPrepare),true);
  assert.ok(m.records.indexOf("mkdir /work") < m.records.findIndex(x=>typeof x==="string"&&x.includes("--unshare-net")));
  assert.equal(m.wasDestroyed(),true);
 });
@@ -84,20 +85,15 @@ test("failure diagnostics are classified without printing raw SDK messages",()=>
  assert.equal(classifyVmFailure(new Error("unexpected private blob")),"unknown");
 });
 
-test("template build failure is distinguished from a working plain VM and both are destroyed",async()=>{
- const events=[];
- const basic={async exec(cmd){assert.equal(cmd,"true");return{exitCode:0}},async destroy(){events.push("destroy")}};
- const fake={
-  template(){return{withPackages(){return this},run(){return this}}},
-  async create(source){if(source?.run)throw Error("template build failed");events.push("plain");return basic}
- };
- await assert.rejects(startupPreflight(fake),/pdfcraft_preflight_create_template_build_vm_ok/);
- assert.deepEqual(events,["plain","destroy"]);
+
+test("startup runs actual merge smoke in temporary VM",async()=>{
+ const m=fakeVM();
+ assert.equal(await startupPreflight(m.Sandbox,mockPrepare),true);
+ assert.ok(m.records.some(x=>typeof x==="string"&&x.includes(" combine ")));
+ assert.equal(m.wasDestroyed(),true);
 });
-test("plain VM failure is categorised and never enables native work",async()=>{
- const fake={
-  template(){return{withPackages(){return this},run(){return this}}},
-  async create(source){if(source?.run)throw Error("template build failed");throw Error("401 Unauthorized details")}
- };
- await assert.rejects(startupPreflight(fake),/pdfcraft_preflight_create_template_build_vm_auth_denied/);
+test("guest setup errors are reported only as safe categories",()=>{
+ assert.equal(classifyVmFailure(new Error("401 private API response")),"auth_denied");
+ assert.equal(classifyVmFailure(new Error("Bubblewrap guest install failed")),"bubblewrap_install");
+ assert.equal(classifyVmFailure(new Error("Guest architecture unsupported")),"architecture");
 });

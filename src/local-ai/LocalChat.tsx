@@ -1,7 +1,4 @@
 import {useState,useRef,useEffect} from "react";
-import AssistantTools from "../assistant/AssistantTools";
-import NoodlesPanel from "../noodles/NoodlesPanel";
-import TeacherLearningPanel from "../noodles/TeacherLearningPanel";
 import {recordTeacherSample,readTeacherState} from "../noodles/teacher-store";
 import {teacherStyleHint} from "../noodles/teacher-core";
 import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
@@ -14,7 +11,6 @@ import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
-import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,type CreamDataset,type CreamResult} from "../cream/core";
 import {extractTextMeasurements} from "../cream/longitudinal";
 import {persistCreamDataset,longitudinalReport} from "../cream/history-store";
@@ -68,8 +64,9 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
+import {getQuirinusFamilyStatus,prepareQuirinusFamilyScan} from "../weiguo/api";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
-import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
+import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult,type NativeBardResult,type NativeMedusaResult,type NativeQuirinusResult,type NativeLucaResult,type NativeCeresResult} from "../detroit/native-executors";
 import type {VictoriaRecall} from "../detroit/victoria";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
@@ -644,6 +641,7 @@ async function send(value=draft):Promise<void>{
  // Diana proactively selects genuine external images when explicitly asked; uploads use Retina instead.
  if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;
  let inlineFileContext="";
+ let detroitToolNote="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
@@ -652,6 +650,27 @@ async function send(value=draft):Promise<void>{
    if(await runVenusImageLookup(route.request,question))return;
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
+   // Compose deterministic CREAM analysis with an artifact in this same turn
+   // whenever the user actually supplied CSV data. No fabricated statistics.
+   const requestedArtifact=planDianaNativeArtifact(route.request);
+   const fencedCSV=/```(?:csv|tsv)?\s*\n([\s\S]{8,200000}?)\n```/i.exec(route.request);
+   if(requestedArtifact?.capability==="retina"&&fencedCSV){
+    setBusy(true);
+    try{
+     const calculated=await executeDetroitNative<CreamResult>("cream",{csv:fencedCSV[1],source:"對話 CSV"},{privateMode});
+     setCreamDataset(parseCreamCSV(fencedCSV[1],"對話 CSV"));
+     const report=composeDianaCreamDocument(route.request,calculated);
+     if(report){
+      const exported=await executeDetroitNative<NativeRetinaResult>("retina",{...report,download:true},{privateMode});
+      toolReply(question,"Detroit 已自動串接 CREAM 計算與 Retina 匯出："+exported.filename+
+       "。分析樣本 "+calculated.rowCount+" 筆，所有統計均來自實際 CSV 資料。","diana",{cream:calculated});
+      return;
+     }
+     inlineFileContext="CREAM 已實際分析此 CSV：\n"+summarizeCream(calculated);
+    }catch(error){
+     detroitToolNote="CSV 運算或匯出未完成："+(error instanceof Error?error.message:String(error))+"。不可自行補造統計值。";
+    }finally{setBusy(false);}
+   }
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.
    const previousCream=[...history].reverse().find(x=>x.cream)?.cream;
    if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
@@ -659,9 +678,8 @@ async function send(value=draft):Promise<void>{
     if(report){
      setBusy(true);
      try{
-      const output=await createRetinaDocument(report);
-      downloadRetina(output);
-      toolReply(question,"Diana 已依已驗證的 CREAM 數據產生並觸發本機下載："+output.name+"。統計圖仍保留在聊天中，未嵌入匯出文件。","diana");
+      const output=await executeDetroitNative<NativeRetinaResult>("retina",{...report,download:true},{privateMode});
+      toolReply(question,"Detroit 已依真正的 CREAM 數據產生檔案："+output.filename+"。","diana",{cream:previousCream});
      }catch(error){toolReply(question,"Diana：統計保留，但本機文件匯出失敗："+String(error),"diana");}
      finally{setBusy(false);}
      return;
@@ -669,8 +687,8 @@ async function send(value=draft):Promise<void>{
    }
    // An explicit artifact request is fulfilled in this chat by the actual native
    // executor after model drafting. Opening an editor is the no-model fallback only.
-   if(!route.forcedTool&&canReply&&planDianaNativeArtifact(route.request)&&
-      (pick.tool==="retina"||pick.tool==="janus")){
+   if(canReply&&requestedArtifact&&
+      (pick.tool==="retina"||pick.tool==="janus"||pick.tool==="orchestra"||pick.tool==="cream")){
     setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
     break;
    }
@@ -688,24 +706,107 @@ async function send(value=draft):Promise<void>{
     finally{setBusy(false);}
     return;
    }
+   // Browser-generated images are native Detroit calls, with explicit
+   // consent for potentially billed cloud requests (never an editor switch).
+   if(pick.tool==="bard"&&/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張|插畫|生成.*圖)/i.test(route.request)){
+    if(privateMode){toolReply(question,"私密模式不可使用雲端生圖；可在對話中請 Detroit 使用 LUNA 本機海報模板。","diana");return;}
+    if(!window.confirm("Detroit 將把這次生圖描述傳送到你已連接的 Gemini 圖片服務。這可能使用 API 額度或產生費用；同意本次生成嗎？")){
+     toolReply(question,"已取消雲端圖片生成，沒有傳送資料或使用 API 額度。","diana");return;
+    }
+    setBusy(true);
+    try{
+     const output=await executeDetroitNative<NativeBardResult>("bard",{prompt:route.request,download:true},{privateMode,approved:true});
+     toolReply(question,"Detroit 已成功產生圖片："+output.filename+"（"+output.model+"），並已觸發下載。","diana");
+    }catch(error){toolReply(question,"Detroit 生圖未完成："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   // Medusa receives only code explicitly supplied by the user in this turn.
+   // It is never given model output, a fetched webpage or an attached secret.
+   if(pick.tool==="medusa"){
+    const code=/```(?:python|py)\s*\n([\s\S]{1,16000}?)\n```/i.exec(route.request)?.[1];
+    if(!code){toolReply(question,"請直接在對話貼上 Python 程式碼區塊，Detroit 才能經你核准後使用 Medusa 沙盒執行。","diana");return;}
+    if(!window.confirm("Detroit 將本則訊息中你提供的 Python 程式碼（"+code.length+" 字元）傳送至已設定的 Medusa 沙盒執行。確認本次授權嗎？")){
+     toolReply(question,"本次 Medusa 執行已取消，沒有傳送程式碼。","diana");return;
+    }
+    setBusy(true);
+    try{
+     const out=await executeDetroitNative<NativeMedusaResult>("medusa",{source_code:code,stdin:""},{privateMode,approved:true});
+     toolReply(question,"Medusa 實際執行結果（"+out.backend+"；"+out.status+"）\n"+
+      "結束代碼："+(out.exit_code===null?"無":out.exit_code)+"\n"+
+      (out.stdout?"標準輸出：\n```text\n"+out.stdout.slice(0,6000)+"\n```\n":"")+
+      (out.stderr?"錯誤：\n```text\n"+out.stderr.slice(0,2000)+"\n```":"")+
+      (out.compile_output?"\n編譯訊息："+out.compile_output.slice(0,1500):""),"diana");
+    }catch(error){toolReply(question,"Medusa 未能執行："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   // Quirinus is fixed-scope, read-only and requires a fresh, one-time approval
+   // token. A dispatch receipt is NOT a completed security scan.
+   if(pick.tool==="quirinus"&&/(?:掃描|檢查|稽核|執行)/.test(route.request)){
+    if(privateMode){toolReply(question,"私密模式禁止 Quirinus 遠端掃描派工。","diana");return;}
+    setBusy(true);
+    try{
+     const status=await getQuirinusFamilyStatus();
+     if(!status.enabled)throw Error(status.note||"Quirinus 後端尚未啟用");
+     const plan=await prepareQuirinusFamilyScan();
+     const scope=plan.repo+" / "+plan.ref+" / "+plan.scope;
+     if(!window.confirm("Detroit / Quirinus 本次安全掃描\n範圍："+scope+
+      "\n僅唯讀、不得攻擊外站、不得自動修改或部署。你確認授權啟動這一次 GitHub Actions 嗎？")){
+      toolReply(question,"已取消本次 Quirinus 掃描派工。","diana");return;
+     }
+     const out=await executeDetroitNative<NativeQuirinusResult>("quirinus",
+      {approval_token:plan.approvalToken},{privateMode,approved:true});
+     toolReply(question,"Quirinus 已送出固定範圍掃描任務（"+out.requestId+"）。目前狀態："+out.status+
+      "；尚不能視為掃描完成。"+(out.url?"\nGitHub Actions："+out.url:""),"diana");
+    }catch(error){toolReply(question,"Quirinus 派工未完成："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   if(pick.tool==="luca"&&/(?:查看|查詢|分析|統計|監控|狀態|報告)/.test(route.request)){
+    setBusy(true);
+    try{
+     const out=await executeDetroitNative<NativeLucaResult>("luca",{operation:"summary"}, {privateMode});
+     toolReply(question,"LUCA 真實後端觀測："+out.count+" 筆事件、"+out.failures+" 筆失敗；平均耗時 "+
+      out.averageMs.toFixed(1)+" ms，P95 "+out.p95Ms.toFixed(1)+" ms。"+
+      (out.recommendations.length?"\n建議：\n"+out.recommendations.slice(0,6).map(x=>"- "+x).join("\n"):""),"diana");
+    }catch(error){toolReply(question,"LUCA 未取得即時監控資料："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   if(pick.tool==="ceres"&&/(?:查看|讀取|整理|查詢|檢查|最新訊息|狀態)/.test(route.request)){
+    if(!window.confirm("Detroit 將經已授權的 Ceres Gateway 讀取 Telegram 通訊狀態／待審核訊息。內容不會自動觸發其他工具或發送回覆。允許此次讀取嗎？")){
+     toolReply(question,"已取消 Ceres 讀取，未存取通訊內容。","diana");return;
+    }
+    setBusy(true);
+    try{
+     const out=await executeDetroitNative<NativeCeresResult>("ceres",{operation:"events"},{privateMode,approved:true});
+     if("events" in out){
+      toolReply(question,"Ceres 本次取得 "+out.events.length+" 則待審核事件；外部訊息均視為不可信資料，不會直接執行。\n"+
+       out.events.slice(0,8).map(x=>"- 事件 "+x.id+"："+x.text.replace(/[<>]/g,"").slice(0,360)).join("\n"),"diana");
+     }else toolReply(question,"Ceres 連線："+(out.linked?"已連結":"未連結")+"，可讀取狀態："+out.enabled,"diana");
+    }catch(error){toolReply(question,"Ceres 讀取未完成："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
    if(pick.kind==="delegate"&&pick.command){
-    if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
+    if(pick.command.trim()===question.trim()){
+     // No recursive self-dispatch: ask the model to fulfill the rest of the
+     // task, without claiming an external executor ran.
+     detroitToolNote=pick.label+" 已識別為適合的能力；沒有符合本輪任務的原生執行操作。";
+     break;
+    }
     setDraft("");setLastRoute("Diana → "+pick.label+"："+pick.reason+next);
     await send(pick.command);
     return;
    }
-   if(pick.kind==="open"&&pick.event){
-    // Private conversation text must not be copied into regular non-private workspaces.
-    if(privateMode&&pick.event==="vanilla-open-orchestra"&&route.request.trim()){
-     toolReply(question,"私密模式不會把這段對話自動複製到一般 Orchestra 工作室；若要繼續，請在工作室自行貼入已確認可分享的內容。","diana");
-     return;
-    }
-    const detail=pick.event==="vanilla-open-detroit"?{tab:pick.tab}:pick.event==="vanilla-open-builder"?{idea:route.request,mode:"code"}:pick.event==="vanilla-open-orchestra"?{body:route.request}:{};
-    window.dispatchEvent(new CustomEvent(pick.event,{detail}));
-    toolReply(question,"Diana 選擇 "+pick.label+"（"+pick.reason+"）"+next+"，已開啟工具工作區。真正產製、雲端連線及寫入仍需要在該工具操作與確認。","diana");
-    return;
-   }
-   toolReply(question,pick.message||"Diana 無法執行這個工具。","diana");return;
+   // A work request never diverts the user to another screen.
+   // An unavailable integration is a bounded model task, not a fake success.
+   detroitToolNote=pick.kind==="open"?
+    pick.label+" 的獨立工作室不是 AI 已完成執行的證據；目前本輪沒有已驗證的原生操作。請只完成能在對話內真正完成的部分，未執行的寫入、上傳或遠端任務須明確說明。":
+    (pick.message||pick.label+" 尚未接通可供本輪對話執行的功能。");
+   if(!canReply){toolReply(question,detroitToolNote,"diana");return;}
+   break;
   }
   case "capability":{
    const capabilityTopic=capabilityIntent(question);
@@ -916,14 +1017,8 @@ async function send(value=draft):Promise<void>{
  }
  if(!image&&!webContext&&!inlineFileContext&&route.kind==="continue"&&await executeIntent(question))return;
  const tail=image?({kind:"continue"} as const):routeTail(question);
- if(tail.kind==="code-builder"){
-  if(privateMode&&!window.confirm("這份私密對話內容要轉移至一般 GitHub 程式工作台嗎？請確認不包含任何金鑰或私密資料。"))return;
-  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:tail.idea,mode:"code"}}));
-  setDraft("");setLastRoute("已切換 Self-Build CODE；只有你確認後才會讀取、產生與提交 GitHub 原始碼。");return;
- }
- if(tail.kind==="feature-builder"){
-  if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
-  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:tail.idea}}));setDraft("");return;
+ if(tail.kind==="code-builder"||tail.kind==="feature-builder"){
+  detroitToolNote="這個任務需要 JENSEN HUANG 的程式修改能力；此輪尚未取得可直接提交 GitHub 的授權執行器。可以提供具體修改方案或程式碼，但不能聲稱已提交。";
  }
  const toneChange=image?null:applyExplicitToneRequest(question,privateMode);
  if(toneChange){
@@ -977,10 +1072,10 @@ async function send(value=draft):Promise<void>{
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
  }
- await answerWithModel(question,{inlineFileContext,webContext,webSources},visibleClarificationAnswer);
+ await answerWithModel(question,{inlineFileContext,webContext,webSources,detroitToolNote},visibleClarificationAnswer);
 }
 
-async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]},visibleQuestion?:string){
+async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];detroitToolNote?:string},visibleQuestion?:string){
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
@@ -1125,7 +1220,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+(humanize?.guidance||"");
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+(humanize?.guidance||"")+(found.detroitToolNote?"\n[Detroit 真實執行狀態] "+found.detroitToolNote:"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
@@ -1328,13 +1423,13 @@ const composer=<div className="composer-wrap">
 </div>;
 return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-private":"")}>
 <div className="chat-controls">
- <button type="button" className={"model-pill state-"+modelState} aria-expanded={sheetOpen} aria-haspopup="dialog" aria-label={"模型與工具："+shortLabel} onClick={()=>setSheetOpen(v=>!v)}>
+ <button type="button" className={"model-pill state-"+modelState} aria-expanded={sheetOpen} aria-haspopup="dialog" aria-label={"模型與隱私："+shortLabel} onClick={()=>setSheetOpen(v=>!v)}>
   {privateMode?<LockKeyhole size={12}/>:<span className="model-pill-dot" aria-hidden="true"/>}<span className="model-pill-label">{shortLabel}</span><ChevronDown size={13}/>
  </button>
 </div>
 {sheetOpen&&<><button type="button" className="sheet-backdrop" aria-label="關閉模型面板" onClick={()=>setSheetOpen(false)}/>
-<div className="control-sheet" role="dialog" aria-label="模型與工具">
- <div className="control-sheet-head"><span className="vh-section-label">模型與工具</span><button type="button" className="icon-button" aria-label="關閉" onClick={()=>setSheetOpen(false)}><X size={18}/></button></div>
+<div className="control-sheet" role="dialog" aria-label="模型與隱私">
+ <div className="control-sheet-head"><span className="vh-section-label">模型與隱私</span><button type="button" className="icon-button" aria-label="關閉" onClick={()=>setSheetOpen(false)}><X size={18}/></button></div>
  <div className="vh-segmented" role="group" aria-label="對話模式" data-active={privateMode?"1":"0"}>
   <span className="vh-segmented-capsule" aria-hidden="true"/>
   <button type="button" aria-pressed={!privateMode} disabled={busy} onClick={()=>{if(privateMode)switchPrivacy();}}>一般</button>
@@ -1354,21 +1449,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
   <label className="vh-switch"><input type="checkbox" checked={contextPrefs.project} onChange={()=>toggleContext("project")}/><span><strong><Code2 size={13}/> 專案程式碼</strong><small>問到專案或程式時附上 PROJECT HUB 索引</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={contextPrefs.web} onChange={()=>toggleContext("web")}/><span><strong><Globe size={13}/> 自動查證</strong><small>問到「最新」資訊時先上網找來源</small></span></label>
  </div>}
- <details className="vanilla-tools-drawer"><summary>更多工具 <span>CREAM · NOODLES · Google</span></summary>
- <AssistantTools onPrompt={query=>{setSheetOpen(false);void send(query);}}/>
- <NoodlesPanel privateMode={privateMode}/>
- <TeacherLearningPanel privateMode={privateMode}/>
- <GoogleSourcesPanel privateMode={privateMode} onAnalyze={(dataset,summary)=>{
-  const result=analyzeCream(dataset,"line");
-  setCreamDataset(dataset);
-  const now=Date.now();
-  setHistory(previous=>[...previous,
-   {role:"user",content:"CREAM：從 Google Analytics 匯入唯讀資料「"+dataset.source+"」",id:crypto.randomUUID(),createdAt:now},
-   {role:"assistant",content:summary,cream:result,tool:{...TOOL.cream,status:"ok",detail:"GA4"},id:crypto.randomUUID(),createdAt:now+1}]);
-  setLastRoute("GA4 資料已由 CREAM 本機計算；Studio 僅為外部報表延伸。");
-  setSheetOpen(false);
- }}/>
- </details>
+
  <div className="control-sheet-foot"><PWAUpdateNotice/></div>
 </div></>}
 {noticeShown&&(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice route-line" role="status"><span>{lastRoute||fileStatus||(modelError?status:"")}</span></p>}

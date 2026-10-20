@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.24-victoria-context",
-  "description": "Victoria opt-in same-account archived conversation context with Merlin and deterministic privacy-safe retrieval"
+  "build": "2026.10.20.25-victoria-context",
+  "description": "Victoria opt-in archived conversation context with Merlin, preserving Venus and slash commands"
 }

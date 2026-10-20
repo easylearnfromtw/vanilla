@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.24-victoria-context";
+export const VANILLA_BUILD="2026.10.20.25-victoria-context";

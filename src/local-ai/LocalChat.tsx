@@ -641,7 +641,9 @@ async function send(value=draft):Promise<void>{
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
  const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
- // Diana proactively selects genuine external images when explicitly asked; uploads use Retina instead.\n if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;\n let inlineFileContext="";
+ // Diana proactively selects genuine external images when explicitly asked; uploads use Retina instead.
+ if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;
+ let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];

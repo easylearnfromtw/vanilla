@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.17-quirinus-autonomous",
-  "description": "Quirinus PR, main and daily offline scans with redacted issue alerts; preserves family approval, Ceres and iPhone stability"
+  "build": "2026.10.20.18-merlin-clarification",
+  "description": "Merlin clarification follow-ups for underspecified tasks; asks before guessing and resumes within the current chat"
 }

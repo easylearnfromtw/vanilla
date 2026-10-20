@@ -29,10 +29,11 @@ def compare(base: dict, candidate: dict) -> dict:
     # Either category growing requires review. Not every positive delta is a
     # new vulnerability, and decreases do not guarantee a fix.
     increased = any(after > before for before, after in zip(base_severe, next_severe))
-    incomplete = base["truncated"] or candidate["truncated"]
+    # The underlying scanner counts every rule hit. "truncated" only means
+    # the per-finding preview was capped at 80; aggregate counters are complete.
     return {
-        "blocked": increased or incomplete,
-        "reason": "incomplete" if incomplete else ("elevated" if increased else "stable"),
+        "blocked": increased,
+        "reason": "elevated" if increased else "stable",
         "criticalBefore": base_severe[0], "criticalAfter": next_severe[0],
         "highBefore": base_severe[1], "highAfter": next_severe[1],
         "fileCountBefore": base["filesScanned"], "fileCountAfter": candidate["filesScanned"],
@@ -70,7 +71,7 @@ def main(argv: list[str]) -> int:
             summary.write(render(result))
         if result["blocked"]:
             print("::error title=Quirinus aggregate security review::"
-                  "Critical or High rule counts rose, or a scan was truncated. "
+                  "Critical or High rule counts rose. "
                   "Owner review required; no exploit was confirmed.")
             return 1
         print("Quirinus PR comparison passed: no increasing Critical/High rule counts.")

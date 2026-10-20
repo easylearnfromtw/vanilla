@@ -40,7 +40,9 @@ The isolated scanner runs automatically:
   on the host. Both the proposed source and the trusted base are scanned with
   the same trusted scanner image. If Critical or High aggregate findings increase,
   the PR check fails closed; this is a statistical regression warning, NOT proof
-  of new exploitable vulnerabilities. Repository branch protection is required
+  of new exploitable vulnerabilities. The "truncated" flag only limits the
+  detailed preview to 80 findings; the complete aggregate counters remain
+  comparable, so that flag alone does not fail a PR. Repository branch protection is required
   if the maintainer wants this check to block merging.
 - On matching pushes to main (existing behavior).
 - Daily at 01:19 UTC (09:19 Taiwan), including days with no source change.

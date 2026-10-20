@@ -44,9 +44,11 @@ class QuirinusRegressionTests(unittest.TestCase):
         # Fixing Critical while increasing High still requires review.
         self.assertTrue(self.gate(report(critical=1), report(high=1))["blocked"])
 
-    def test_truncated_fail_closed(self):
-        self.assertEqual(self.gate(report(), report(truncated=True))["reason"], "incomplete")
-        self.assertEqual(self.gate(report(truncated=True), report())["reason"], "incomplete")
+    def test_truncated_preview_does_not_block_complete_aggregate(self):
+        self.assertEqual(self.gate(report(), report(truncated=True))["reason"], "stable")
+        self.assertEqual(self.gate(report(truncated=True), report())["reason"], "stable")
+        self.assertTrue(self.gate(report(high=1, truncated=True),
+                                  report(high=2, truncated=True))["blocked"])
 
     def test_sensitive_fields_cannot_change_output(self):
         p=report(high=3)

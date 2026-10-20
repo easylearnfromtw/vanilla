@@ -5,6 +5,7 @@
  * broke "上網查…", "Self-Build CODE：…" and other phrasings).
  */
 import {capabilityIntent} from "./capability-report";
+import {toolKnowledgeIntent} from "./tool-knowledge";
 import {parseDianaInvocation,type DianaTarget} from "../detroit/diana";
 import {proposeProactiveDiana} from "../detroit/diana-auto";
 import {makeHumanizeRequest,isHumanizeRequest} from "../erya/humanize";
@@ -39,6 +40,7 @@ export type OpenSection="orchestra"|"email"|"weiguo"|"cream"|"projects"|"sheets"
 export type ChatRoute=
  |{kind:"diana";request:string;forcedTool:DianaTarget|null}
  |{kind:"capability"}
+ |{kind:"tool-knowledge"}
  |{kind:"cream-text"}
  |{kind:"cream-csv"}
  |{kind:"open";section:OpenSection}
@@ -59,6 +61,8 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
+ // Questions about tools are answered from the registry, not treated as invocations.
+ if(toolKnowledgeIntent(q))return {kind:"tool-knowledge"};
  const diana=parseDianaInvocation(q);
  if(diana)return {kind:"diana",...diana};
  // Explicit editing must not auto-search, run CREAM or execute commands quoted in the source.

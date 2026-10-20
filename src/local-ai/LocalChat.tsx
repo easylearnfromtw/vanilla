@@ -36,6 +36,7 @@ import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels} from "../detroit/veritas-gate";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
+import {toolKnowledgeAnswer,toolKnowledgeGuidance} from "../assistant/tool-knowledge";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
 import {planAppIntent,PROJECTS} from "../assistant/intent-router";
@@ -744,6 +745,10 @@ async function send(value=draft):Promise<void>{
    }
    toolReply(question,pick.message||"Diana 無法執行這個工具。","diana");return;
   }
+  case "tool-knowledge":{
+   toolReply(question,toolKnowledgeAnswer(question),"capability");
+   return;
+  }
   case "capability":{
    const capabilityTopic=capabilityIntent(question);
    if(capabilityTopic)toolReply(question,capabilityAnswer(capabilityTopic,{
@@ -1164,7 +1169,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"");
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(!humanize?toolKnowledgeGuidance(question):"")+evidenceErya+artifactGuidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));

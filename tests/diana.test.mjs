@@ -85,7 +85,8 @@ test("Diana Erya delegates through an existing guarded writing request",()=>{
 });
 test("Diana never copies private conversation text into Orchestra automatically",()=>{
  const source=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
- assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
+ assert.doesNotMatch(source,/if\(pick\.kind==="open"&&pick\.event\)/);
+ assert.match(source,/detroitToolNote=/);
 });
 
 test("Canva remains a cloud-consent-gated Orchestra handoff",()=>{

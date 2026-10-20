@@ -96,5 +96,6 @@ export async function createMotionGif(title:string,body:string):Promise<Blob>{
   for(let p=0;p<indices.length;p++){const o=p*4;indices[p]=Math.round(rgba[o]/51)*36+Math.round(rgba[o+1]/51)*6+Math.round(rgba[o+2]/51);}
   frames.push(indices);
  }
- return new Blob([encodeIndexedGif(frames,w,h,14)],{type:"image/gif"});
+ const bytes=encodeIndexedGif(frames,w,h,14);
+ return new Blob([bytes.buffer as ArrayBuffer],{type:"image/gif"});
 }

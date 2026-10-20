@@ -29,7 +29,7 @@ export default function LocalCraftPanel({tool,format,title,body,privateMode}:{to
     blob=await adjustPhoto(photo,format,brightness,contrast,saturation);
    }else if(motion){blob=await createMotionGif(title,body);}
    else if(format==="svg"){blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"});}
-   else if(format==="png"||format==="jpeg"){blob=await svgAsBitmap(svg,"image/"+format);}
+   else if(format==="png"||format==="jpeg"){blob=await svgAsBitmap(svg,format==="png"?"image/png":"image/jpeg");}
    else throw Error("尚未實作此格式的本機輸出器");
    downloadLocalBlob(blob,(title.trim()||"Orchestra")+"."+format);
    setNotice("已完成本機 "+format.toUpperCase()+" 匯出；未連線原生 Craft 引擎，也沒有上傳。");

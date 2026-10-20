@@ -28,6 +28,7 @@ import {saveChatAttachment,attachmentOwner,listChatAttachments} from "../library
 import {signedChatAccount,chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
 import {searchLiveWeb,searchWebSummary} from "../search/live-search";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
+import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
@@ -54,7 +55,7 @@ import {isIOSWebLLMDevice,shouldAutoLoadCachedModel,needsMobileMemoryConfirmatio
 import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
 import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversations,reopenConversation} from "./chat-session";
 import type {ArchiveSummary} from "../library/conversation-archive";
-import {merlinParse,stageUpdate,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
+import {merlinParse,stageUpdate,settleDetroitStages,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
 import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
 import {detectMerlinClarification,resolveMerlinClarification,type MerlinClarification} from "../detroit/merlin-clarifier";
 import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
@@ -475,18 +476,23 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    const report=await searchLiveWeb(target);
    searchDiagnostics=report.errors.join("；");
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(target)]);
-   for(const hit of report.results.slice(0,3)){
+   // Parallel independent page reads: three unreachable URLs should not each
+   // consume a separate ten-second Safari/CORS timeout.
+   const pages=await Promise.all(report.results.slice(0,3).map(async hit=>{
     try{
      const article=await readPublicPage(hit.url);
-     sources.push({title:article.title,url:article.url,kind:"full"});
-     index.push({title:article.title,url:article.url,kind:"full",excerpt:article.text});
-     context+="\n["+sources.length+"] "+article.title+"\n來源："+article.url+"\n已讀取正文：\n"+wrapExternalText(article.text.slice(0,7500),"web")+"\n";
+     return {title:article.title,url:article.url,kind:"full" as const,excerpt:article.text};
     }catch{
-     // A search snippet is explicitly labeled as such, never as read article.
-     sources.push({title:hit.title,url:hit.url,kind:"snippet"});
-     index.push({title:hit.title,url:hit.url,kind:"snippet",excerpt:hit.snippet});
-     context+="\n["+sources.length+"] "+hit.title+"\n來源："+hit.url+"\n僅取得搜尋摘要："+wrapExternalText(hit.snippet,"web")+"\n";
+     // Search hit alone is not a verified full article.
+     return {title:hit.title,url:hit.url,kind:"snippet" as const,excerpt:hit.snippet};
     }
+   }));
+   for(const page of pages){
+    sources.push({title:page.title,url:page.url,kind:page.kind});
+    index.push(page);
+    context+="\n["+sources.length+"] "+page.title+"\n來源："+page.url+
+      (page.kind==="full"?"\n已讀取正文：\n":"\n僅取得搜尋摘要：")+
+      wrapExternalText(page.excerpt.slice(0,7500),"web")+"\n";
    }
   }
   if(!context){toolReply(originalQuestion,"Scouts 沒有取得可引用的網站內容。"+(searchDiagnostics?"服務診斷："+searchDiagnostics+"。":"")+"一般網站的搜尋／讀取需要先在「來源設定」配置可用的 HTTPS /search 與 /read 後端。",kind==="read"?"web":"search");return null;}
@@ -803,8 +809,23 @@ async function send(value=draft):Promise<void>{
   setDraft("");setLastRoute("已在本裝置調整語氣設定，不需要使用 AI API");
   return;
  }
+ // Detroit can classify an ordinary question as external research even when
+ // the command router fell through to generic chat. Actually execute Scouts
+ // before the model, rather than merely leaving its planned stage "waiting".
+ if(!webContext&&shouldAutoRunScouts(question,{
+  routeKind:route.kind,autoResearchEnabled:contextPrefs.web,privateMode,
+  hasAttachment:Boolean(fileName||fileContext||inlineFileContext),hasImage:Boolean(image)
+ })){
+  const gathered=await gatherWeb("search",question,question);
+  if(!gathered)return; // Fail visibly; never synthesize a fake web answer.
+  webContext=gathered.context;webSources=gathered.sources;webIndex=gathered.index;
+  if(!canReply){
+   toolReply(question,formatIndexedPages(webIndex),{...TOOL.search,status:"ok",detail:webSources.length+" 個來源"},{webSources});
+   return;
+  }
+ }
  if(!canReply){
-  if(!privateMode&&/(?:專案|CITYMUS|citymusic|musiccity|musictown|稜角|Signwell|Github|GitHub|我的程式碼)/i.test(question)){
+  if(!privateMode&&/(?:專案|CITYMUS|citymusic|musictown|musiccity|稜角|Signwell|Github|GitHub|我的程式碼)/i.test(question)){
    const found=await projectMatches(attachmentOwner(signedChatAccount()),question).catch(()=>[]);
    if(found.length){toolReply(question,"這些是真正讀取過的專案程式碼索引；目前沒有可用 AI 模型可進行語意推理：\n"+
      found.map((f,i)=>"["+(i+1)+"] "+f.repo+"/"+f.path+"\n"+(f.url||"本機上傳")+"\n"+
@@ -828,7 +849,13 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const scan=athenaScanText((found.webContext||"")+"\n"+(found.inlineFileContext||""));
   markDetroit("athena","done",scan.findings.length?"發現不可信指令，僅作資料引用":"外部資料僅用於回答，不取得系統權限");
   markDetroit("zeus","done","選擇可用的單一模型與相關工具");
-  if(found.webSources.length)markDetroit("scouts","done","已讀取 "+found.webSources.length+" 個來源");
+  if(detroit.stages.some(x=>x.engine==="scouts")){
+   if(found.webSources.length){
+    const full=found.webSources.filter(x=>x.kind==="full").length;
+    markDetroit("scouts","done","已取得 "+full+" 篇正文、"+(found.webSources.length-full)+" 筆搜尋摘要");
+   }else markDetroit("scouts","skipped",contextPrefs.web?
+    "本輪沒有取得外部來源；此階段沒有執行，不會在背景自動開始":"自動查證已關閉，沒有呼叫網路工具");
+  }
   if(detroit.stages.some(x=>x.engine==="cream"))markDetroit("cream","skipped","數值由 CREAM 程式分析；此題未觸發新的表格統計");
  }
  const task=humanize?"writing":classifyTask(question,Boolean(image));
@@ -1015,7 +1042,10 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    setLastRoute("生成失敗，請檢查模型、網路、權限及額度");
   }
  }
- }finally{setBusy(false);setGenerating(false);abortRef.current=null;}
+ }finally{
+  setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
+  setBusy(false);setGenerating(false);abortRef.current=null;
+ }
 }
 function stopGenerating(){abortRef.current?.abort();}
 function openCreatedSheet(sheet:import("./sheet-preview-model").SheetPreviewData){

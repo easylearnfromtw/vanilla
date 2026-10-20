@@ -1,5 +1,6 @@
 import {useState,useEffect,useRef,lazy,Suspense} from "react";
 import type {OrchestraChart} from "./orchestra/cream-chart";
+import {orchestraComposePrompt,type OrchestraHandoff} from "./orchestra/ai-handoff";
 import {makeHumanizeRequest} from "./erya/humanize";
 import LocalChat from "./local-ai/LocalChat";
 import TabBar from "./ui/TabBar";
@@ -21,6 +22,7 @@ const BuildStudio=lazy(()=>import("./builder/BuildStudio"));
 const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
+const CeresForegroundBridge=lazy(()=>import("./ceres/CeresForegroundBridge"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
 const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
@@ -59,8 +61,9 @@ const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
 const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca"|"notion">("retina");
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
-const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream">("manual");
+const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream"|"ai">("manual");
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
+const [orchestraAI,setOrchestraAI]=useState<OrchestraHandoff|null>(null);
 const [compactTabs,setCompactTabs]=useState(false);
 const [recent,setRecent]=useState<ArchiveSummary[]>([]);
 const mainRef=useRef<HTMLElement|null>(null);
@@ -103,9 +106,19 @@ useEffect(()=>{
    catch(e){window.alert("無法建立爾雅潤稿草稿："+String(e instanceof Error?e.message:e));}
   }],
   ["vanilla-open-luna",go("luna")],
-  ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart}>).detail;
+  ["vanilla-open-orchestra",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;source?:string;chart?:OrchestraChart;handoff?:OrchestraHandoff}>).detail;
+   setOrchestraAI(detail?.handoff?.source==="ai"?detail.handoff:null);
    setOrchestraSeed(typeof detail?.body==="string"?detail.body.slice(0,50000):null);
-   setOrchestraSource(detail?.source==="cream"?"cream":"manual");setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
+   setOrchestraSource(detail?.handoff?.source==="ai"?"ai":detail?.source==="cream"?"cream":"manual");
+   setOrchestraChart(detail?.chart||null);setSection("orchestra");setMenuOpen(false);}],
+  ["vanilla-orchestra-compose",(event:Event)=>{
+   const plan=(event as CustomEvent<OrchestraHandoff>).detail;
+   if(!plan||plan.source!=="ai")return;
+   try{
+    sessionStorage.setItem("vanilla.orchestra.compose-draft.v1",orchestraComposePrompt(plan).slice(0,8000));
+    setChatKey(k=>k+1);setSection("chat");setMenuOpen(false);
+   }catch{window.alert("無法將 Orchestra 任務交接回 AI 對話");}
+  }],
   ["vanilla-open-detroit",(event:Event)=>{const detail=(event as CustomEvent<{body?:string;tab?:"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"}>).detail;setRetinaSeed(typeof detail?.body==="string"?detail.body.slice(0,160000):null);setDetroitStartTab(detail?.tab||"retina");setSection("detroit");setMenuOpen(false);}],
   ["vanilla-open-cream",go("cream")],["vanilla-open-email",go("email")],["vanilla-open-projects",go("projects")],["vanilla-open-files",go("files")],
   ["vanilla-open-settings",go("settings")],["vanilla-open-sheets",go("sheets")],["vanilla-open-library",go("library")]
@@ -142,6 +155,7 @@ async function openRecent(id:string){
 const initial=(signedIn?.email||"V").trim().charAt(0).toUpperCase();
 const navButton=(x:NavItem)=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)} aria-current={section===x.id?"page":undefined}><span className={"nav-icon tone-"+x.tone}><x.icon size={17}/></span><span>{x.label}</span></button>;
 return <div className="shell">
+<Suspense fallback={null}><CeresForegroundBridge/></Suspense>
 {menuOpen&&<button className="nav-backdrop" aria-label="關閉選單" onClick={()=>setMenuOpen(false)}/>}
 <aside className={"sidebar "+(menuOpen?"sidebar-open":"")} aria-label="Vanilla 選單">
 <div className="brand">
@@ -176,7 +190,7 @@ section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
 section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/></div>:
-section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart}/></div>:
+section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart} handoff={orchestraAI}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:
 section==="feature"?<div className="workspace-page">{activeFeature?<FeatureRuntime key={activeFeature.id} spec={activeFeature} onEdit={editFeature}/>:<div className="builder-feature-not-found"><h2>找不到這項功能</h2><p>可能已在此裝置移除。</p><button type="button" onClick={()=>navigate("builder")}>返回 Self-Build Studio</button></div>}</div>:

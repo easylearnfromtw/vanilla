@@ -65,6 +65,7 @@ jobs:
           npm run test:tool-knowledge
           npm run test:email
           npm run test:model-tuning
+          npm run test:small-model
           npm run test:reliability
           npm run test:archive
           npm run test:providers

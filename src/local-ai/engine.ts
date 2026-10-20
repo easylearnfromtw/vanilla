@@ -126,8 +126,9 @@ async function createEngine(model:LocalModelId,onProgress:(message:string,progre
    let pulse=firstDownloadProgress(Date.now());
    let noticeShown=false;
    const progress=(report:{text:string;progress:number})=>{
+    const before=pulse.highest;
     pulse=noteDownloadProgress(pulse,report.progress,Date.now());
-    if(report.progress>0)noticeShown=false;
+    if(pulse.highest>before)noticeShown=false;
     onProgress(report.text,report.progress);
    };
    const created=mod.CreateWebWorkerMLCEngine(worker,model,{initProgressCallback:progress});

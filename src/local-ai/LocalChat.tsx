@@ -1,7 +1,4 @@
 import {useState,useRef,useEffect} from "react";
-import AssistantTools from "../assistant/AssistantTools";
-import NoodlesPanel from "../noodles/NoodlesPanel";
-import TeacherLearningPanel from "../noodles/TeacherLearningPanel";
 import {recordTeacherSample,readTeacherState} from "../noodles/teacher-store";
 import {teacherStyleHint} from "../noodles/teacher-core";
 import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
@@ -12,7 +9,6 @@ import {venusPresentationGuidance} from "../venus/presentation";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
-import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,type CreamDataset,type CreamResult} from "../cream/core";
 import {extractTextMeasurements} from "../cream/longitudinal";
 import {persistCreamDataset,longitudinalReport} from "../cream/history-store";
@@ -1216,13 +1212,13 @@ const composer=<div className="composer-wrap">
 </div>;
 return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-private":"")}>
 <div className="chat-controls">
- <button type="button" className={"model-pill state-"+modelState} aria-expanded={sheetOpen} aria-haspopup="dialog" aria-label={"模型與工具："+shortLabel} onClick={()=>setSheetOpen(v=>!v)}>
+ <button type="button" className={"model-pill state-"+modelState} aria-expanded={sheetOpen} aria-haspopup="dialog" aria-label={"模型與隱私："+shortLabel} onClick={()=>setSheetOpen(v=>!v)}>
   {privateMode?<LockKeyhole size={12}/>:<span className="model-pill-dot" aria-hidden="true"/>}<span className="model-pill-label">{shortLabel}</span><ChevronDown size={13}/>
  </button>
 </div>
 {sheetOpen&&<><button type="button" className="sheet-backdrop" aria-label="關閉模型面板" onClick={()=>setSheetOpen(false)}/>
-<div className="control-sheet" role="dialog" aria-label="模型與工具">
- <div className="control-sheet-head"><span className="vh-section-label">模型與工具</span><button type="button" className="icon-button" aria-label="關閉" onClick={()=>setSheetOpen(false)}><X size={18}/></button></div>
+<div className="control-sheet" role="dialog" aria-label="模型與隱私">
+ <div className="control-sheet-head"><span className="vh-section-label">模型與隱私</span><button type="button" className="icon-button" aria-label="關閉" onClick={()=>setSheetOpen(false)}><X size={18}/></button></div>
  <div className="vh-segmented" role="group" aria-label="對話模式" data-active={privateMode?"1":"0"}>
   <span className="vh-segmented-capsule" aria-hidden="true"/>
   <button type="button" aria-pressed={!privateMode} disabled={busy} onClick={()=>{if(privateMode)switchPrivacy();}}>一般</button>
@@ -1242,21 +1238,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
   <label className="vh-switch"><input type="checkbox" checked={contextPrefs.web} onChange={()=>toggleContext("web")}/><span><strong><Globe size={13}/> 自動查證</strong><small>問到「最新」資訊時先上網找來源</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={victoriaEnabled} onChange={e=>{const yes=e.target.checked;const saved=setVictoriaConsent(attachmentOwner(signedChatAccount()),yes);if(saved)setVictoriaToggle(yes);else setLastRoute("Victoria 同意設定無法儲存，未變更權限");}}/><span><strong><Brain size={13}/> Victoria 舊對話脈絡</strong><small>預設關閉；同帳號本機一般對話，跨雲端傳送另行同意</small></span></label>
  </div>}
- <details className="vanilla-tools-drawer"><summary>更多工具 <span>CREAM · NOODLES · Google</span></summary>
- <AssistantTools onPrompt={query=>{setSheetOpen(false);void send(query);}}/>
- <NoodlesPanel privateMode={privateMode}/>
- <TeacherLearningPanel privateMode={privateMode}/>
- <GoogleSourcesPanel privateMode={privateMode} onAnalyze={(dataset,summary)=>{
-  const result=analyzeCream(dataset,"line");
-  setCreamDataset(dataset);
-  const now=Date.now();
-  setHistory(previous=>[...previous,
-   {role:"user",content:"CREAM：從 Google Analytics 匯入唯讀資料「"+dataset.source+"」",id:crypto.randomUUID(),createdAt:now},
-   {role:"assistant",content:summary,cream:result,tool:{...TOOL.cream,status:"ok",detail:"GA4"},id:crypto.randomUUID(),createdAt:now+1}]);
-  setLastRoute("GA4 資料已由 CREAM 本機計算；Studio 僅為外部報表延伸。");
-  setSheetOpen(false);
- }}/>
- </details>
+
  <div className="control-sheet-foot"><PWAUpdateNotice/></div>
 </div></>}
 {noticeShown&&(lastRoute||fileStatus||modelError)&&<p className="assistant-runtime-notice route-line" role="status"><span>{lastRoute||fileStatus||(modelError?status:"")}</span></p>}

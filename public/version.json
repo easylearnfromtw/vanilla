@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.49-notion-no-api-browser-bridge",
-  "description": "Offline-first Vanilla schedule with optional no-key Notion website CSV handoff and desktop browser companion"
+  "build": "2026.10.20.50-small-model-scaffold",
+  "description": "Merlin compact task cards and evidence-ranked local 0.5B-3B contexts; preserves strong-model and privacy policies"
 }

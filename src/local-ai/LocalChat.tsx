@@ -72,6 +72,8 @@ import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} 
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
 import type {VictoriaRecall} from "../detroit/victoria";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
+import {orchestraHandoff,canExecuteOrchestraHandoff} from "../orchestra/ai-handoff";
+
 import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
 
 // Only real implementations register callable capabilities; adapters remain catalog entries.
@@ -120,7 +122,10 @@ export default function LocalChat({onNavigate}:{onNavigate?:(section:"library"|"
 const [privateMode,setPrivateMode]=useState(restoreMode);
 const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(chatStorageKey(restoreMode())));
  const [merlinPending,setMerlinPending]=useState<MerlinClarification|null>(()=>restoreMerlinPending(restoreHistory(chatStorageKey(restoreMode()))));
-const [draft,setDraft]=useState(takeHumanizeDraft);
+const [draft,setDraft]=useState(()=>{
+ try{const key="vanilla.orchestra.compose-draft.v1",value=sessionStorage.getItem(key);if(value){sessionStorage.removeItem(key);return value.slice(0,8000);}}catch{}
+ return takeHumanizeDraft();
+});
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
 const [fileContext,setFileContext]=useState("");
@@ -387,7 +392,7 @@ function toolReply(question:string,answer:string,tool:ToolKey|ToolInfo="capabili
  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:Date.now()},{role:"assistant",content:answer,tool:info,...extra,id:crypto.randomUUID(),createdAt:Date.now()+1}]);
  setDraft("");setLastRoute("已由 Vanilla 工具執行 · 不消耗 AI API");
 }
-/** Detroit / Diana public image lookup. Only real Commons results are rendered. */
+/** Real Commons results only; never invent images or fetch in private mode. */
 async function runVenusImageLookup(request:string,originalQuestion=request):Promise<boolean>{
  const query=imageSearchQuery(request);
  if(!query)return false;
@@ -396,9 +401,9 @@ async function runVenusImageLookup(request:string,originalQuestion=request):Prom
  setBusy(true);setLastRoute("Diana → Venus：正在搜尋 Wikimedia Commons 真實公開圖片…");
  try{
   const gallery=await searchCommonsImages(query);
-  if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 沒有可顯示的圖片結果，並未製造圖片或來源。","venus");return true;}
+  if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 沒有可顯示的圖片結果，未製造圖片或來源。","venus");return true;}
   const fence=String.fromCharCode(96).repeat(3);
-  toolReply(originalQuestion,"Venus 已實際取得 "+gallery.items.length+" 張 Wikimedia Commons 縮圖及來源頁面；圖片須點擊後才載入，使用時請核對作者及授權。\n\n"+fence+"venus\n"+JSON.stringify(gallery)+"\n"+fence,"venus");
+  toolReply(originalQuestion,"Venus 已實際取得 "+gallery.items.length+" 張 Wikimedia Commons 縮圖及來源頁面；圖片請核對作者及授權。\n\n"+fence+"venus\n"+JSON.stringify(gallery)+"\n"+fence,"venus");
  }catch(error){toolReply(originalQuestion,"Venus 圖片搜尋失敗："+String(error instanceof Error?error.message:error)+"；不會改用虛構來源。","venus");}
  finally{setBusy(false);}
  return true;
@@ -641,7 +646,6 @@ async function send(value=draft):Promise<void>{
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
  const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
- // Diana proactively selects genuine external images when explicitly asked; uploads use Retina instead.
  if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;
  let inlineFileContext="";
  let webContext="";
@@ -654,7 +658,7 @@ async function send(value=draft):Promise<void>{
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.
    const previousCream=[...history].reverse().find(x=>x.cream)?.cream;
-   if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
+   if((pick.tool==="retina"||pick.tool==="orchestra")&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
     const report=composeDianaCreamDocument(route.request,previousCream);
     if(report){
      setBusy(true);
@@ -695,6 +699,23 @@ async function send(value=draft):Promise<void>{
     return;
    }
    if(pick.kind==="open"&&pick.event){
+    if(pick.tool==="orchestra"&&pick.event==="vanilla-open-orchestra"){
+     const previous=[...history].reverse().find(t=>t.role==="assistant"&&Boolean(t.content?.trim())&&t.tool?.id!=="diana"&&!t.cream);
+     const handoff=orchestraHandoff(route.request,previous?.content||"");
+     if(canExecuteOrchestraHandoff(handoff)){
+      setBusy(true);
+      try{
+       const filename=await executeDetroitNative<string>("orchestra",handoff,{privateMode});
+       toolReply(question,"Detroit → Diana → Zeus → Orchestra 已使用上一則 AI 回答完成本機匯出："+filename+"。實際使用 Retina／瀏覽器製作器，沒有呼叫原生 Craft 或上傳。","diana");
+      }catch(error){toolReply(question,"Orchestra 本機產製失敗，沒有交付檔案："+String(error instanceof Error?error.message:error),"diana");}
+      finally{setBusy(false);}
+      return;
+     }
+     if(privateMode){toolReply(question,"私密模式只允許直接在本機匯出已產生的回答，不會把新任務移到一般 Orchestra 工作區。","diana");return;}
+     window.dispatchEvent(new CustomEvent("vanilla-open-orchestra",{detail:{handoff}}));
+     toolReply(question,"Detroit → Diana → Zeus → Orchestra 已建立 "+handoff.format.toUpperCase()+" 製作任務。這是待編寫的草稿，尚未產生檔案；可在工作室交給 AI 撰寫內容。","diana");
+     return;
+    }
     // Private conversation text must not be copied into regular non-private workspaces.
     if(privateMode&&pick.event==="vanilla-open-orchestra"&&route.request.trim()){
      toolReply(question,"私密模式不會把這段對話自動複製到一般 Orchestra 工作室；若要繼續，請在工作室自行貼入已確認可分享的內容。","diana");

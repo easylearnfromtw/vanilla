@@ -8,10 +8,11 @@ import {downloadCreamSvg,type OrchestraChart} from "./cream-chart";
 import {ORCHESTRA_TOOLS,orchestraPlan,orchestraTool,type OrchestraFormat,type OrchestraToolId} from "./core";
 import LocalCraftPanel,{supportsLocalCraft} from "./LocalCraftPanel";
 import CanvaPanel from "../canva/CanvaPanel";
+import type {OrchestraHandoff} from "./ai-handoff";
 import "./orchestra.css";
 
-export default function OrchestraStudio({initialBody,source="manual",compact=false,chart}:{
- initialBody?:string|null;source?:"manual"|"cream";compact?:boolean;chart?:OrchestraChart|null
+export default function OrchestraStudio({initialBody,source="manual",compact=false,chart,handoff}:{
+ initialBody?:string|null;source?:"manual"|"cream"|"ai";compact?:boolean;chart?:OrchestraChart|null;handoff?:OrchestraHandoff|null
 }={}){
  const [tool,setTool]=useState<OrchestraToolId>("wordcraft");
  const [format,setFormat]=useState<OrchestraFormat>("docx");
@@ -37,6 +38,11 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  }
  useEffect(()=>{void refreshCapabilities();},[privateMode]);
  useEffect(()=>{if(initialBody?.trim()){setBody(initialBody.slice(0,50000));setStatus("已接收 "+(source==="cream"?"CREAM 統計結果":"前一個工作區的文字")+"，尚未傳送到任何後端。");}},[initialBody,source]);
+ useEffect(()=>{if(!handoff||source!=="ai")return;
+  setTool(handoff.tool);setFormat(handoff.format);setTitle(handoff.title);
+  setBody(handoff.body);setConsent(false);
+  setStatus(handoff.provenance==="assistant-answer"?"已接收 AI 回答內容，請審查後輸出。":"已建立 Detroit AI 製作任務；尚無完成內容，請先產生草稿。");
+ },[handoff,source]);
  const meta=orchestraTool(tool);
  const plan=useMemo(()=>orchestraPlan({tool,format,privateMode,cream:source==="cream",creamChart:!!chart&&chart.points.length>=2,remoteAvailable:backendWordcraft}),[tool,format,privateMode,source,chart,backendWordcraft]);
  const creamSvg=format==="svg"&&tool==="vectorcraft"&&!!chart&&chart.points.length>=2;
@@ -95,6 +101,13 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
   </div>
   <div className="orchestra-layout">
    <section className="orchestra-form">
+    {source==="ai"&&handoff&&<div className="orchestra-ai-brief">
+      <strong>Detroit AI → Diana → Zeus → Orchestra</strong>
+      <p>目標格式：{handoff.format.toUpperCase()} · {handoff.provenance==="assistant-answer"?"沿用已完成的 AI 回答":"需求草稿，尚無可匯出的正文"}</p>
+      <p>{handoff.request}</p>
+      {handoff.provenance==="brief-only"&&<button type="button" onClick={()=>window.dispatchEvent(new CustomEvent("vanilla-orchestra-compose",{detail:handoff}))}>交給 AI 撰寫內容草稿</button>}
+      <small>AI 文字由使用者審查後才匯出；不會把任務文字冒充完成作品。</small>
+    </div>}
     <h2><FileText size={18}/> 建立製作工作</h2>
     <label>作品標題<input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)}/></label>
     <label>內容／CREAM 結果<textarea rows={10} maxLength={50000} value={body} onChange={e=>setBody(e.target.value)} placeholder={"# 摘要\n輸入正式報告、簡報、版面或設計工作的內容…"} /></label>
@@ -128,7 +141,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
       {(!weiGuoApiBase()||!weiGuoIdentity())&&<p>請先設定並登入「衞國系統」，才能測試選用 WordCraft 後端。</p>}
       {!backendWordcraft&&<p>目前未取得後端 WordCraft 可用配置；不能執行原生轉檔。可使用本機 Retina。</p>}
     </div>}
-    <CanvaPanel initialPrompt={initialBody||""}/>
+    <CanvaPanel initialPrompt={handoff?.request||initialBody||""}/>
     <p className="orchestra-feedback" role="status">{status}</p>
    </section>
    <aside className="orchestra-stages">

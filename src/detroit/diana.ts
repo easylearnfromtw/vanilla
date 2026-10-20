@@ -60,11 +60,12 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
- if(/Canva/i.test(q))add("canva",105,"指定 Canva 生成可編輯簡報或圖片，須通過雲端授權與本次同意");
+ if(/Canva/i.test(q))add("canva",105,"指定 Canva 預覽雲端生成，須通過授權與單次同意");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
- if(chooseVenusIntent(q)!=="standard")add("venus",92,"Venus 自動選擇經驗證的地圖、影片、MathML、圖庫或時間元件");
- if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"需實際文件輸出時使用 Retina");
- if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|跨格式)/i.test(q))add("orchestra",88,"跨格式工作交給 Orchestra");
+ if(/(?:製作|產生|生成|建立|匯出|下載|輸出|做成|轉成|製成|存成).{0,45}(?:PDF|DOCX|PPTX|Word|簡報|文件|報告|海報|圖卡|資訊圖|SVG|PNG|JPG|JPEG|GIF)|(?:PDF|DOCX|PPTX|Word|簡報|報告|SVG|PNG|JPEG|GIF).{0,35}(?:製作|產生|匯出|下載|輸出|轉成|做成)/i.test(q))add("orchestra",93,"Detroit Orchestra 選擇已實作本機製作引擎，只有產生真實作品後才能聲稱完成");
+ if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"Retina 是本機文件輸出引擎");
+ if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|PhotoCraft|PdfCraft|DesignCraft|EffectCraft|跨格式)/i.test(q))add("orchestra",98,"Craft 工作由 Orchestra 統一選擇已驗證可用的引擎");
+ if(chooseVenusIntent(q)!=="standard")add("venus",92,"Venus 選擇經驗證的地圖、影片、MathML、圖庫或時間元件");
  if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張)/i.test(q))add("bard",86,"生成圖片須在 Bard 中同意雲端 API");
  if(/(?:CSV|統計|數據|趨勢|分析資料|折線圖|圓餅圖|圖表|長期追蹤|體重|血壓|心率)/i.test(q))add("cream",84,"數據分析應優先使用確定性的 CREAM");
  // Analyze source data before producing a document or sending it into a visual editor.
@@ -88,12 +89,12 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  const reason=forcedTool||hinted?"使用者明確指定工具":ranked[0].reason;
  const needsData=/(?:CSV|統計|數據|趨勢|折線圖|圓餅圖|圖表|長期追蹤)/i.test(task);
  const output=/(?:PDF|DOCX|PPTX|Word|簡報|報告書)/i.test(task)?"retina" as const:/(?:電子報|EDM|newsletter)/i.test(task)?"janus" as const:null;
- const nextSteps:DianaTarget[]=tool==="cream"&&needsData&&output?[output]:[];
+ const nextSteps:DianaTarget[]=tool==="cream"&&needsData&&output?[output==="janus"?"janus":"orchestra"]:[];
  const alternatives=[...new Set(ranked.filter(x=>x.tool!==tool).map(x=>LABELS[x.tool]))].slice(0,2);
  const choose=(more:Partial<DianaDecision>):DianaDecision=>({kind:"report",tool,label:LABELS[tool],reason,alternatives,nextSteps,...more});
  if(tool==="diana")return report("diana",dianaCatalog(),"工具目錄");
  if(DISABLED.has(tool))return report(tool,LABELS[tool]+" 未確認已部署並啟用執行後端；Diana 不能代替管理員安裝或執行。","適配器未就緒");
- if(ctx.privateMode&&tool==="canva")return report(tool,"私人模式禁止 Canva 雲端傳輸；請改用 LUNA 或 Retina 本機產出。","隱私限制");
+ if(ctx.privateMode&&tool==="canva")return report(tool,"私密模式禁止 Canva 雲端傳輸；可用 LUNA 或 Retina 本機輸出。","隱私限制");
  if(ctx.privateMode&&tool==="scouts")return report(tool,"私密模式禁止網路存取。Diana 不會自行切換模式。","隱私限制");
  if(ctx.online===false&&tool==="scouts")return report(tool,"目前裝置離線，Scouts 無法執行網頁搜尋或閱讀。","工具不可用");
  if(ctx.privateMode&&tool==="quirinus")return report(tool,"私密模式禁止 Quirinus 遠端掃描派工。","隱私限制");

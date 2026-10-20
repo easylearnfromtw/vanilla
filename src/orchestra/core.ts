@@ -5,13 +5,13 @@
 export type OrchestraToolId="wordcraft"|"deckcraft"|"vectorcraft"|"photocraft"|"pdfcraft"|"effectcraft"|"designcraft";
 export type OrchestraFormat="docx"|"pdf"|"pptx"|"svg"|"png"|"jpeg"|"gif"|"mp4";
 export type OrchestraIntent="document"|"presentation"|"vector"|"image"|"pdf"|"motion"|"publication";
-export type OrchestraBackend="retina-local"|"cream-local"|"craft-backend"|"unavailable";
+export type OrchestraBackend="retina-local"|"cream-local"|"studio-local"|"craft-backend"|"unavailable";
 export type OrchestraTool={
  id:OrchestraToolId;name:string;intent:OrchestraIntent;upstream:string;
  summary:string;formats:readonly OrchestraFormat[];capabilities:readonly string[];
  status:"optional";requiresBackend:true;
 };
-export type OrchestraStep={id:string;label:string;engine:"zeus"|"athena"|"cream"|"retina"|OrchestraToolId;status:"ready"|"blocked"|"pending";detail:string};
+export type OrchestraStep={id:string;label:string;engine:"zeus"|"athena"|"cream"|"retina"|"orchestra"|OrchestraToolId;status:"ready"|"blocked"|"pending";detail:string};
 export type OrchestraPlan={intent:OrchestraIntent;format:OrchestraFormat;backend:OrchestraBackend;
  tool:OrchestraToolId;steps:OrchestraStep[];canRunLocally:boolean;reason:string;
  requiresApproval:boolean;modelCalls:0;};
@@ -28,6 +28,14 @@ const ROUTING:Record<OrchestraFormat,OrchestraToolId>={docx:"wordcraft",pdf:"pdf
 export function orchestraTool(id:OrchestraToolId):OrchestraTool {
  const tool=ORCHESTRA_TOOLS.find(x=>x.id===id);if(!tool)throw Error("未知的 Orchestra 引擎");return tool;
 }
+/** Executable browser-only fallback capabilities; these are NOT native Craft binaries. */
+export function orchestraLocalAvailable(tool:OrchestraToolId,format:OrchestraFormat):boolean{
+ return (tool==="vectorcraft"&&["svg","png"].includes(format))||
+  (tool==="photocraft"&&["png","jpeg"].includes(format))||
+  (tool==="effectcraft"&&format==="gif")||
+  (tool==="designcraft"&&format==="png")||
+  (tool==="deckcraft"&&["png","jpeg","gif"].includes(format));
+}
 /** Explicit selection takes precedence; otherwise format selection is deterministic.
  * Backend activation must be discovered from verified deployment capabilities, never self-declared by a model.
  */
@@ -38,18 +46,20 @@ export function orchestraPlan(options:{format:OrchestraFormat;tool?:OrchestraToo
  const local=["docx","pdf","pptx"].includes(options.format);
  const creamSvg=options.creamChart===true&&options.format==="svg"&&tool==="vectorcraft";
  const remote=options.remoteAvailable===true&&!options.privateMode&&tool==="wordcraft"&&["docx","pdf"].includes(options.format);
- const backend:OrchestraBackend=remote?"craft-backend":local?"retina-local":creamSvg?"cream-local":"unavailable";
+ const studioLocal=orchestraLocalAvailable(tool,options.format);
+ const backend:OrchestraBackend=remote?"craft-backend":creamSvg?"cream-local":local?"retina-local":studioLocal?"studio-local":"unavailable";
  const stages:OrchestraStep[]=[
   {id:"route",label:"任務路由",engine:"zeus",status:"ready",detail:"根據輸出格式與指定編輯器挑選工具"},
   {id:"safety",label:"安全審查",engine:"athena",status:"ready",detail:"外部檔案／文字只作資料，後端需要獨立授權及同意"},
   ...(options.cream?[{id:"data",label:"確定性資料",engine:"cream" as const,status:"ready" as const,detail:"沿用已驗證的觀測資料、趨勢與來源"}]:[]),
   {id:"craft",label:craft.name,engine:tool,status:remote?"pending":"blocked",detail:remote?"僅在完成登入、部署及手動同意後能呼叫後端":"外部 Rust 引擎未確認已部署；不會假裝執行"},
-  {id:"export",label:creamSvg?"CREAM SVG 數線圖":local?"Retina 本機匯出":"輸出",engine:creamSvg?"cream":"retina",status:local||creamSvg?"ready":"blocked",detail:creamSvg?"由 CREAM 有效觀測數值本機繪製 SVG（非 VectorCraft 原生引擎）":local?"目前由可用的本機 Retina 產生文件（不等同 Craft 原生引擎）":"尚無可用本機匯出器"}
+  {id:"export",label:creamSvg?"CREAM SVG 數線圖":local?"Retina 本機匯出":studioLocal?"Orchestra 本機製作器":"輸出",engine:creamSvg?"cream":studioLocal&&!local?"orchestra":"retina",status:local||creamSvg||studioLocal?"ready":"blocked",detail:creamSvg?"由 CREAM 有效觀測數值本機繪製 SVG（非 VectorCraft 原生引擎）":local?"目前由可用的本機 Retina 產生文件（不等同 Craft 原生引擎）":studioLocal?"離線 SVG／PNG／JPEG／GIF 製作；不是原生 Craft 執行器":"尚無可用本機匯出器"}
  ];
- return {format:options.format,intent:craft.intent,tool,backend,steps:stages,canRunLocally:local||creamSvg,
+ return {format:options.format,intent:craft.intent,tool,backend,steps:stages,canRunLocally:local||creamSvg||studioLocal,
   requiresApproval:remote,modelCalls:0,
   reason:remote?"後端聲明 WordCraft 可用；仍需明確同意文件傳輸":creamSvg?"CREAM 已有數據，可用本機確定性 SVG 繪圖":local?
-   "Craft 引擎尚未部署；保留 Retina 現有 DOCX／PDF／PPTX 本機匯出能力":
+   "Craft 引擎尚未部署；保留 Retina 現有 DOCX／PDF／PPTX 本機匯出能力":studioLocal?
+   "可用確定性本機圖像／動圖製作器；不包含 Craft 原生編輯與渲染":
    "此格式需部署專用 Craft 引擎；目前只提供工作流規劃，不產生虛假成品"};
 }
 export type CreamOrchestraTrend={metric:string;unit:string;latest:number;change:number;firstDate:string;lastDate:string;uniqueDates:number;count:number;insights:readonly string[];quality:readonly string[];recommendations:readonly string[];source?:string};

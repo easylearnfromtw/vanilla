@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.25-venus-rich-presentation",
-  "description": "Venus 2.0 safe rich chat UI; preserves new fullwidth slash command release"
+  "build": "2026.10.20.30-orchestra-studio-media",
+  "description": "Orchestra Studio local media SVG PNG JPEG GIF with layout bounds, secure local exports and seven-category fallback routes"
 }

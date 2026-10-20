@@ -25,6 +25,7 @@ const CONVERSATIONAL_BUILD=/^(?:(?:我想|我要|幫我|幫Vanilla|請|讓Vanill
 const END="[！!。.?？\\s]*$";
 const OPEN:Array<{section:OpenSection;re:RegExp}>=[
  {section:"weiguo",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:衞國|衛國|Weiguo)(?:\\s*系統)?"+END,"i")},
+ {section:"orchestra",re:new RegExp("^(?:(?:開啟|打開|查看|前往)\\s*(?:Vanilla\\s*)?)?(?:Orchestra(?:\\s*Studio)?|跨格式製作工作室|管弦工作室)"+END,"i")},
  {section:"email",re:new RegExp("^(?:(?:開啟|打開|查看|前往)\\s*(?:Vanilla\\s*)?)?(?:Janus|Email\\s*Studio|郵件工作室|郵件編輯器|電子郵件設計)"+END,"i")},
  {section:"cream",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:CREAM|長期分析|數據中心)"+END,"i")},
  {section:"projects",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:PROJECT\\s*HUB|專案庫|所有專案)"+END,"i")},
@@ -33,7 +34,7 @@ const OPEN:Array<{section:OpenSection;re:RegExp}>=[
  {section:"builder",re:new RegExp("^(?:開啟|打開|前往)\\s*(?:Vanilla\\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?"+END,"i")},
  {section:"library",re:new RegExp("^(?:開啟|打開|前往|查看)\\s*(?:對話圖片與資料|附件庫|我的附件)"+END,"i")}
 ];
-export type OpenSection="email"|"weiguo"|"cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
+export type OpenSection="orchestra"|"email"|"weiguo"|"cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
 
 export type ChatRoute=
  |{kind:"diana";request:string;forcedTool:DianaTarget|null}
@@ -105,6 +106,7 @@ export const SLASH_COMMANDS:SlashCommand[]=[
  {cmd:"/Quirinus",label:"Quirinus · 資安掃描",hint:"先檢查家庭管理者權限，逐次核准後才提交 GitHub Actions",example:"/Quirinus",tone:"blue"},
  {cmd:"/Diana",label:"Diana · Detroit 工具導航",hint:"選擇並叫出最適合的實際工具",example:"/Diana 幫我分析年度數據",tone:"blue"},
  {cmd:"/潤稿",label:"爾雅 Erya 自然化",hint:"以現有模型潤稿，保留數據與引用",example:"/潤稿 這段文字...",tone:"yellow"},
+ {cmd:"/Orchestra",label:"Orchestra · 跨格式工作室",hint:"進入本機 DOCX、PPTX、圖片及動圖製作介面",example:"/Orchestra",tone:"yellow"},
  {cmd:"/Janus",label:"Janus · Detroit 郵件工具",hint:"本機產製 HTML／JSON、選用拖曳編輯",example:"/Janus",tone:"yellow"},
  {cmd:"/郵件",label:"Janus 郵件設計",hint:"相容舊版 Email Studio 指令",example:"/郵件",tone:"yellow"},
  {cmd:"/衞國",label:"衞國瀏覽器工具",hint:"管理 Playwright 與自訂工具",example:"/衞國",tone:"blue"},
@@ -142,6 +144,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
  switch(cmd){
   case "Quirinus":case "quirinus":return {text:"@Quirinus"+(arg?" "+arg:"")};
   case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
+  case "Orchestra":case "orchestra":case "製作":return {text:"開啟 Orchestra Studio"};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
   case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:missing("潤稿","/潤稿 請修改這段文章");
   case "衞國":case "衛國":return {text:"開啟 衞國系統"};

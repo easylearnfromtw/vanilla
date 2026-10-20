@@ -6,6 +6,7 @@ import {convertWeiGuoWordCraft,weiGuoApiBase,weiGuoIdentity,getWeiGuoOrchestraCa
 import {wordcraftConfigured,pdfcraftConfigured,type OrchestraCapabilities} from "./capability-contract";
 import {downloadCreamSvg,type OrchestraChart} from "./cream-chart";
 import {ORCHESTRA_TOOLS,orchestraPlan,orchestraTool,type OrchestraFormat,type OrchestraToolId} from "./core";
+import LocalCraftPanel,{supportsLocalCraft} from "./LocalCraftPanel";
 import "./orchestra.css";
 
 export default function OrchestraStudio({initialBody,source="manual",compact=false,chart}:{
@@ -39,6 +40,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  const plan=useMemo(()=>orchestraPlan({tool,format,privateMode,cream:source==="cream",creamChart:!!chart&&chart.points.length>=2,remoteAvailable:backendWordcraft}),[tool,format,privateMode,source,chart,backendWordcraft]);
  const creamSvg=format==="svg"&&tool==="vectorcraft"&&!!chart&&chart.points.length>=2;
  const local=["pdf","docx","pptx"].includes(format)||creamSvg;
+ const studioLocal=supportsLocalCraft(tool,format)&&!creamSvg&&!local;
  function selectTool(id:OrchestraToolId){
   const entry=orchestraTool(id);setTool(id);setFormat(entry.formats[0]);setStatus("");setConsent(false);setPdfFiles([]);
  }
@@ -83,11 +85,11 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
  }
  return <section className={"orchestra-studio"+(compact?" is-compact":"")}>
   {!compact&&<header className="orchestra-head"><p>DETROIT / ORCHESTRA</p><h1>ORCHESTRA <em>STUDIO</em></h1><span>跨格式製作管弦系統 · 7 種 Craft 工具統一調度</span></header>}
-  <div className="orchestra-summary"><Layers3 size={18}/><p><strong>Orchestra 是工作流及分工層，不是七個額外 AI 模型。</strong>目前可直接使用 Retina 的本機 DOCX／PDF／PPTX 匯出；七個 Craft 原生引擎屬選用整合，是否能執行需依後端部署與驗證結果。</p></div>
+  <div className="orchestra-summary"><Layers3 size={18}/><p><strong>Orchestra 是工作流及分工層，不是七個額外 AI 模型。</strong>已提供 Retina DOCX／PDF／PPTX、CREAM SVG、Orchestra 本機 SVG／PNG／JPEG／GIF 製作器。七個 Craft 原生引擎仍是獨立選用整合，需依後端部署及實測判定可用。</p></div>
   <div className="orchestra-capabilities"><p role="status">{capNotice}</p><button type="button" disabled={checking||privateMode} onClick={()=>void refreshCapabilities()}>{checking?"檢查中…":"重新檢查引擎"}</button></div>
   <div className="orchestra-tools" aria-label="選擇製作引擎">
    {ORCHESTRA_TOOLS.map(t=><button type="button" key={t.id} className={tool===t.id?"selected":""} aria-pressed={tool===t.id} onClick={()=>selectTool(t.id)}>
-     <small>CRAFT / {t.id.toUpperCase()}</small><strong>{t.name}</strong><span>{t.summary}</span><span>{(t.id==="wordcraft"&&backendWordcraft)||(t.id==="pdfcraft"&&backendPdfcraft)?"後端已配置 · 尚未完成實測":"原生引擎未啟用"}</span>
+     <small>CRAFT / {t.id.toUpperCase()}</small><strong>{t.name}</strong><span>{t.summary}</span><span>{(t.id==="wordcraft"&&backendWordcraft)||(t.id==="pdfcraft"&&backendPdfcraft)?"後端已配置 · 尚未完成實測":"原生引擎未啟用"}{t.formats.some(f=>supportsLocalCraft(t.id,f))?" · 有本機製作器":""}</span>
     </button>)}
   </div>
   <div className="orchestra-layout">
@@ -102,7 +104,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
     </select></label>
     {local?<button type="button" className="orchestra-export" disabled={busy||!body.trim()} onClick={()=>void makeLocal()}>
       <Download size={16}/> {creamSvg?"使用 CREAM 匯出 SVG 數線圖":"使用 Retina 本機匯出 "+format.toUpperCase()}
-    </button>:<p className="orchestra-pending">目前沒有可執行的 {format.toUpperCase()} 匯出器，已保留 {meta.name} 整合位置。</p>}
+    </button>:studioLocal?<LocalCraftPanel key={tool} tool={tool} format={format} title={title} body={body} privateMode={privateMode}/>:<p className="orchestra-pending">目前沒有可執行的 {format.toUpperCase()} 匯出器，已保留 {meta.name} 整合位置。</p>}
     {tool==="pdfcraft"&&<div className="orchestra-remote">
       <strong>PdfCraft · 原生 PDF 合併（選用）</strong>
       <p>請選擇 2–3 個本機 PDF，每份不超過 2 MB。需要家庭登入與單次明確同意。若啟用獨立 Linux Worker，檔案會經衞國後端以 HTTPS 轉送至該節點處理；不會存入衞國任務資料庫，也不是手機上的本機合併。</p>

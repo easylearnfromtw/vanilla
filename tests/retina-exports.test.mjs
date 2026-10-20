@@ -25,3 +25,34 @@ test('Retina PPTX has editable slide XML, master, theme and relationships',async
  assert.match(strFromU8(files['ppt/slides/slide1.xml']),/<p:sp>/);
  assert.match(strFromU8(files['ppt/slides/slide1.xml']),/章節一/);
 });
+
+import {isRetinaImageFile,retinaImageType,retinaUnavailableMessage,RETINA_MAX_IMAGE_BYTES} from '../src/detroit/retina-vision.ts';
+import {merlinParse} from '../src/detroit/core.ts';
+import {readFileSync} from 'node:fs';
+
+test('Retina accepts image attachments, including iPhone HEIC without MIME metadata',()=>{
+ assert.equal(isRetinaImageFile({name:'IMG_001.HEIC',type:''}),true);
+ assert.equal(isRetinaImageFile({name:'attack.svg',type:'image/svg+xml'}),true);
+ assert.equal(isRetinaImageFile({name:'notes.pdf',type:'application/pdf'}),false);
+ assert.deepEqual(retinaImageType({name:'IMG_001.HEIC',type:'',size:1024}),{mimeType:'image/heic',convert:true});
+ assert.deepEqual(retinaImageType({name:'image.png',type:'image/png',size:1024}),{mimeType:'image/png',convert:false});
+ assert.throws(()=>retinaImageType({name:'empty.png',type:'image/png',size:0}),/空白/);
+ assert.throws(()=>retinaImageType({name:'oversize.jpg',type:'image/jpeg',size:RETINA_MAX_IMAGE_BYTES+1}),/8 MB/);
+ assert.throws(()=>retinaImageType({name:'attack.svg',type:'image/svg+xml',size:123}),/尚未支援/);
+});
+test('Retina refuses to disguise unavailable image models as textual image recognition',()=>{
+ assert.match(retinaUnavailableMessage({privateMode:true,localOnly:true,online:true,geminiConfigured:true,cloudAllowed:true}),/私密/);
+ assert.match(retinaUnavailableMessage({privateMode:false,localOnly:false,online:true,geminiConfigured:false,cloudAllowed:false}),/Gemini/);
+ assert.match(retinaUnavailableMessage({privateMode:false,localOnly:false,online:false,geminiConfigured:true,cloudAllowed:true}),/離線/);
+ assert.match(retinaUnavailableMessage({privateMode:false,localOnly:false,online:true,geminiConfigured:true,cloudAllowed:false}),/授權|同意/);
+});
+test('Image conversations include a real Retina execution stage and bypass text-only tool intercepts',()=>{
+ const plan=merlinParse('這張圖片有哪些文字？',{image:true});
+ assert.notEqual(plan.depth,'quick');
+ assert.equal(plan.stages.filter(x=>x.engine==='retina').length,1);
+ const chat=readFileSync(new URL('../src/local-ai/LocalChat.tsx',import.meta.url),'utf8');
+ assert.match(chat,/const route=image\?\(\{kind:"continue"\}/);
+ assert.match(chat,/const alternative=!image&&automatic/);
+ assert.match(chat,/readRetinaVisionImage\(file\)/);
+ assert.match(chat,/retinaUnavailableMessage/);
+});

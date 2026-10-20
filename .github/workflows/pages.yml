@@ -51,6 +51,7 @@ jobs:
       - run: npm run test:victoria
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio
+      - run: npm run test:node-fabric
       - run: npm run test:retina
       - run: npm run test:detroit-notifications
       - run: npm run test:cream-longitudinal
@@ -71,6 +72,8 @@ jobs:
       - run: npm run test:reliability
       - run: npm run test:archive
       - run: npm run test:providers
+      - name: Node Fabric Python integration tests
+        run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Athena private scanner unit tests (no AV daemon)
         run: python3 -m unittest discover -s services/detroit-scanner -p 'test_*.py'
       - name: Install 衞國 authentication test dependencies

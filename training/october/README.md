@@ -33,6 +33,24 @@ Sandbox educational tasks and separated datasets live in `training/agent_sandbox
 
 Use a matched base checkpoint and validate target Ollama import; do not assume PEFT adapters can be added to arbitrary quantized runtimes. Consult current official docs: https://docs.ollama.com/modelfile and https://docs.ollama.com/import.
 
+## Windows install / low-VRAM alternative
+
+PowerShell after installing Ollama:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File training/october/install-october.ps1
+```
+
+If 4B is too large for your hardware:
+
+```sh
+ollama pull qwen3:0.6b
+ollama create october:lite -f training/october/Modelfile.lite
+ollama run october:lite
+```
+
+**The 2,600 learned policy-head weights are a separate module**, not inside the Ollama base model. GitHub action [October Policy Real Training](https://github.com/easylearnfromtw/vanilla/actions/runs/39420897057) has successfully re-trained the component on a GitHub CPU runner and published `october-policy-cpu-trained-v0.1` (download artifact from run details; expires after retention period).
+
 ## Commercial safeguards
 
 Model classification is never authorization. Backend identity, per-tenant checks, real scheduler persistence, scoped tools, audit, idempotency, replay, manual approval for high impact operations, emergency stop and data provenance are required before any real customer use. No customer data or regulated financial transaction in this training corpus.

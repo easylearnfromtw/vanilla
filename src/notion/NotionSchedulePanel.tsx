@@ -153,3 +153,4 @@ export default function NotionSchedulePanel(){
   </details>
   {notice&&<p role="status">{notice}</p>}
  </section>;
+}

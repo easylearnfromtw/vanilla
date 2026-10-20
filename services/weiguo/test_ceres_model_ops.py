@@ -121,7 +121,8 @@ class OwnerOperationsTests(unittest.IsolatedAsyncioTestCase):
         with patch("ceres_model_ops.httpx.AsyncClient",ProbeClient):
             r=await compare("gemini","gemini-2.5-flash","gemini-2.5-pro",123)
         self.assertEqual(len(r["results"]),2)
-        self.assertFalse(r["qualityAssessed"])
+        self.assertEqual(r["qualityAssessed"],"single_arithmetic_only")
+        self.assertIsNotNone(r["results"][0]["objectiveMathCorrect"])
         self.assertEqual(summary()["providers"][0]["calls"],2)
 
     async def test_telegram_check_requires_explicit_action(self):

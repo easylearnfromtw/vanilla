@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.42-offline-schedule-notion",
-  "description": "Vanilla offline-first task scheduling; Notion is optional manual sync, local model and tasks remain usable without network"
+  "build": "2026.10.20.43-scouts-google-quota-fallback",
+  "description": "Scouts Google 429 quota protection, Gemini 2.5 Flash-Lite fallback, regional source retrieval and clearer diagnostics"
 }

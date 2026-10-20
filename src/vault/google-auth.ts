@@ -2,7 +2,7 @@ import { DRIVE_SCOPE } from "./drive";
 export const GOOGLE_CLIENT_ID = "816806126786-q9thti1d4ic3fhp6ador9obrqs5p8919.apps.googleusercontent.com";
 type TokenResponse = {access_token?:string;expires_in?:number;error?:string;error_description?:string};
 type TokenClient = {requestAccessToken:(options?:{prompt?:string})=>void};
-type GIS = {accounts:{id:{initialize:(options:{client_id:string;callback:(response:{credential?:string})=>void;auto_select?:boolean;ux_mode?:"popup"})=>void;renderButton:(element:HTMLElement,options:{type:"standard";theme:"outline";size:"large";text:"signin_with";width:number})=>void;disableAutoSelect:()=>void};oauth2:{initTokenClient:(options:{client_id:string;scope:string;callback:(response:TokenResponse)=>void;error_callback?:(error:unknown)=>void})=>TokenClient;revoke:(token:string,callback:()=>void)=>void}}};
+type GIS = {accounts:{id:{initialize:(options:{client_id:string;callback:(response:{credential?:string})=>void;auto_select?:boolean;ux_mode?:"popup"})=>void;renderButton:(element:HTMLElement,options:{type:"standard";theme:"outline";size:"large";text:"signin_with";width:number})=>void;prompt:(callback?:(notification:unknown)=>void)=>void;disableAutoSelect:()=>void};oauth2:{initTokenClient:(options:{client_id:string;scope:string;callback:(response:TokenResponse)=>void;error_callback?:(error:unknown)=>void})=>TokenClient;revoke:(token:string,callback:()=>void)=>void}}};
 declare global {interface Window {google?:GIS}}
 let scriptPromise:Promise<void>|undefined;
 function loadGIS():Promise<void>{
@@ -48,4 +48,29 @@ export async function renderWeiGuoGoogleButton(element:HTMLElement,onToken:(cred
   callback:response=>{if(response.credential)onToken(response.credential);}
  });
  window.google.accounts.id.renderButton(element,{type:"standard",theme:"outline",size:"large",text:"signin_with",width:270});
+}
+
+/** Ask GIS for an identity credential without a second visible login button.
+ * The browser may suppress this prompt; callers must retain an interactive fallback.
+ */
+export async function promptWeiGuoIdentity():Promise<string>{
+ await loadGIS();
+ if(!window.google?.accounts?.id)throw Error("Google 身分元件無法初始化");
+ return new Promise<string>((resolve,reject)=>{
+  let settled=false;
+  const finish=(credential?:string)=>{
+   if(settled)return;
+   settled=true;
+   if(credential)resolve(credential);
+   else reject(Error("Google 無法自動完成衞國身分驗證"));
+  };
+  window.google!.accounts.id.initialize({
+   client_id:GOOGLE_CLIENT_ID,auto_select:true,ux_mode:"popup",
+   callback:response=>finish(response.credential)
+  });
+  window.google!.accounts.id.prompt(notification=>{
+   const n=notification as {isNotDisplayed?:()=>boolean;isSkippedMoment?:()=>boolean};
+   if(n.isNotDisplayed?.()||n.isSkippedMoment?.())finish();
+  });
+ });
 }

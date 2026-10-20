@@ -5,7 +5,7 @@ Only an owner-operated Vanilla inference backend. It never shares Gemini, OpenAI
 
 ## Owner administration
 @SignWell_bot → /hub → 我的模型 API (or /admin myapi). A five-screen monochrome iOS-style Telegram WebApp provides Overview, Applications, Keys, Models and Usage, authenticated through signed Telegram WebApp initData and linked Google Owner identity.
-Each customer/application receives its own project and distinct API key. Key secret appears only once; only its SHA256 hash is stored. Individual keys can be revoked, expire, be restricted to specific models, and have per-day/per-month token budgets, RPM and output caps.
+Each customer/application receives its own project and distinct API key. The Owner can disable an entire project, immediately blocking all its keys on new requests; this change and key lifecycle operations are audited without storing raw credentials. Key secret appears only once; only its SHA256 hash is stored. Individual keys can be revoked, expire, be restricted to specific models, and have per-day/per-month token budgets, RPM and output caps.
 
 ## Railway runtime configuration — feature OFF by default
 VANILLA_PUBLIC_API_ENABLED=true — set ONLY after verified owner-controlled inference is live.
@@ -17,6 +17,7 @@ The configured runtime must expose GET /v1/models and POST /v1/chat/completions 
 
 ## Consumer API
 GET https://YOUR-WEIGUO-DOMAIN/v1/models
+GET https://YOUR-WEIGUO-DOMAIN/v1/vanilla/usage — authenticated token holder's own daily/monthly KPI and limits
 POST https://YOUR-WEIGUO-DOMAIN/v1/chat/completions
 Authorization: Bearer vnl_YOUR_KEY
 Example JSON: {"model":"vanilla-default","messages":[{"role":"user","content":"你好"}],"max_tokens":256,"stream":false}

@@ -37,6 +37,13 @@ def family_enabled(identity: FamilyIdentity) -> bool:
         return False
     if os.environ.get("MEDUSA_FAMILY_ENABLED") != "true":
         return False
+    # Existing signed-in owner role comes from the server-side Google sub ACL.
+    # Only the bounded AST interpreter may bypass an additional per-sub list,
+    # and only with a separate, explicit server-side operator opt-in.
+    if (os.environ.get("MEDUSA_ENGINE") == "lite"
+            and os.environ.get("MEDUSA_LITE_OWNER_ROLE_ONLY") == "true"):
+        from medusa_lite import enabled as lite_enabled
+        return lite_enabled()
     allowed = [x.strip() for x in os.environ.get("MEDUSA_FAMILY_OWNER_SUBS", "").split(",") if x.strip()]
     return bool(allowed) and len(allowed) <= 30 and all(_SUB.fullmatch(x) for x in allowed) and identity.sub in allowed
 

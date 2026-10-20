@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.25-venus-rich-presentation",
-  "description": "Venus 2.0 safe rich chat UI; preserves new fullwidth slash command release"
+  "build": "2026.10.20.26-victoria-context",
+  "description": "Victoria opt-in historical chat context with Merlin, preserving Scouts, Venus 2.0 and slash commands"
 }

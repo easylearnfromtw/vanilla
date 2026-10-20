@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from ceres_admin_web import _verify
 from ceres_model_ops import (dashboard,diagnostics,summary,probe,compare,
-                            recommendations,preview,approve,set_price,failover_status)
+                            recommendations,preview,approve,set_price,failover_status,telegram_check)
 
 router=APIRouter(prefix="/v1/ceres/admin/ops",tags=["ceres-owner-operations"])
 
@@ -79,3 +79,8 @@ async def plan(body:Intent):
 async def confirm(body:Approval):
     actor=_verify(body.init_data)
     return approve(body.token,actor)
+
+@router.post("/telegram-check")
+async def telegram_check_endpoint(body:Auth):
+    actor=_verify(body.init_data)
+    return await telegram_check(actor)

@@ -168,3 +168,66 @@ Ceres can now use the **already-connected Vanilla model router inside the PWA** 
 **Privacy:** Choosing Gemini, DeepSeek or cloud Ollama transmits the selected Telegram message to the corresponding provider only after explicit in-UI consent and may incur charges. Phone-local means inference on the current device; loading or maintaining that model is performed from the existing Vanilla model panel. Railway holds only the Telegram bot credential and existing linked inbox. No background drafting, unreviewed Telegram sending, or automatic Detroit task dispatch is introduced.
 
 **Deployment:** Update `src/version.ts` and `public/version.json` together to make iPhone PWA release verification reliable; the GitHub Pages workflow runs `npm run test:ceres`.
+
+## Phase 4 — Telegram as a second Detroit conversation entrance
+
+The WeiGuo backend now exposes a **feature-flagged foreground bridge**.
+Railway handles signed inbound Telegram updates, one-use family-linked job
+leases and duplicate-safe outbound Telegram delivery. On the same Google-family
+account, the **currently open Vanilla PWA** may process these jobs using its
+**already-loaded on-device WebLLM model**.
+
+Before enabling `CERES_LOCAL_BRIDGE_ENABLED=true` in Railway, confirm the
+existing `CERES_ENABLED`, `CERES_OUTBOUND_ENABLED`, Telegram chat allowlist,
+`CERES_FAMILY_LINKS_JSON` and Google family ACL. No Telegram token or family
+session secret is exposed to the browser. The PWA requires a **separate
+per-Google-account device opt-in** in Detroit Studio → Ceres. Opening Ceres or
+receiving Telegram messages does not silently enable local automation.
+
+Flow:
+
+```text
+Telegram SignWell_bot (private allowlisted message)
+  → signed WeiGuo /v1/ceres/telegram/webhook
+  → SQLite one-use queue (new messages only)
+  → Google family-authorized foreground Vanilla PWA (visible and unlocked)
+  → Athena inspect untrusted text
+  → Diana selects a supported read-only tool (CREAM stats or Scouts URL read)
+     or Merlin/Erya uses the currently loaded phone WebLLM via Zeus
+  → bounded plain-text result and single-use lease
+  → WeiGuo verifies identity, link, claim and outbox reservation
+  → Telegram sendMessage once (no ambiguous-failure retry)
+```
+
+Implemented safe tool paths: Diana tool catalog/routing; CREAM CSV
+descriptive statistics; Scouts explicit public HTTPS URL read; Erya text editing
+and Merlin short text generation over the already-loaded model. Tools that
+require a browser editor or higher permission (Bard images, Retina artifacts,
+GitHub code changes, Medusa execution, Quirinus, Drive mutation, email send,
+payments) **do not execute automatically** and must be separately authorized in
+their original Vanilla workbench. No generic tool-call JSON, arbitrary URL
+execution, shell or plugin invocation is allowed through Telegram.
+
+Operational caveats:
+
+- **Not a 24/7 local model**: iOS suspends WebLLM when the PWA is backgrounded,
+  closed or the GPU is disposed. Railway cannot wake the iPhone model.
+- **No auto-download**: the local WebLLM must already be loaded in Vanilla.
+- **Short-lived session**: WeiGuo's family bearer expires after 15 minutes.
+  The device must reauthenticate periodically; until then polling stops.
+- **Explicit opt-in** per identity/device; private-chat mode and hidden app
+  prevent processing.
+- Messages over five minutes old expire. Each job lease is 90 seconds and
+  cannot be re-leased after timeout; accepted but failed messages remain
+  available for manual review in the existing Ceres inbox.
+- Exactly one outbound attempt is reserved in SQLite before calling Telegram.
+  Delivery uncertainty never triggers an automatic retry.
+- PWA automatically checks for newly queued jobs only while visible; there
+  are no background service workers, cron agents or secrets in JavaScript.
+- Audit facts are the actual registered job and send outcomes. A Railway
+  successful deploy is **not** proof that the iPhone WebLLM ran.
+
+An always-on self-hosted model requires **another independently configured
+Ollama/llama.cpp daemon or approved remote model adapter** with a verified
+network path, model capacity and security posture; this PR does not
+pretend such a daemon exists.

@@ -21,6 +21,7 @@ const BuildStudio=lazy(()=>import("./builder/BuildStudio"));
 const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
+const CeresForegroundBridge=lazy(()=>import("./ceres/CeresForegroundBridge"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
 const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
@@ -142,6 +143,7 @@ async function openRecent(id:string){
 const initial=(signedIn?.email||"V").trim().charAt(0).toUpperCase();
 const navButton=(x:NavItem)=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)} aria-current={section===x.id?"page":undefined}><span className={"nav-icon tone-"+x.tone}><x.icon size={17}/></span><span>{x.label}</span></button>;
 return <div className="shell">
+<Suspense fallback={null}><CeresForegroundBridge/></Suspense>
 {menuOpen&&<button className="nav-backdrop" aria-label="關閉選單" onClick={()=>setMenuOpen(false)}/>}
 <aside className={"sidebar "+(menuOpen?"sidebar-open":"")} aria-label="Vanilla 選單">
 <div className="brand">

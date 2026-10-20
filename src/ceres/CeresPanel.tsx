@@ -3,9 +3,12 @@ import {currentChatMode} from "../local-ai/chat-session";
 import {getLoadedLocalModel,isLocalModelReady} from "../local-ai/engine";
 import {listCandidates} from "../ai/model-orchestrator";
 import {generateCeresDraft} from "./ai-draft";
+import {bridgePreference,setBridgePreference} from "./bridge-settings";
+import {CERES_RUNTIME_STATUS_EVENT} from "./CeresForegroundBridge";
 import {ceresDraftDestination,type CeresDraftTone} from "./draft-policy";
 import {
- getWeiGuoCeresEvents,getWeiGuoCeresStatus,
+ getWeiGuoCeresEvents,getWeiGuoCeresStatus,getCeresBridgeStatus,
+ type CeresBridgeStatus,
  sendWeiGuoCeresReply,weiGuoApiBase,weiGuoIdentity,
  type CeresFamilyEvent,type CeresFamilyStatus
 } from "../weiguo/api";
@@ -13,6 +16,9 @@ import {
 /** External Telegram messages are always plain text; no markdown/HTML evaluation. */
 export default function CeresPanel(){
  const [info,setInfo]=useState<CeresFamilyStatus|null>(null);
+ const [bridgeStatus,setBridgeStatus]=useState<CeresBridgeStatus|null>(null);
+ const [bridgeOn,setBridgeOn]=useState(()=>{const person=weiGuoIdentity();return person?bridgePreference(person.email):false;});
+ const [runtimeStatus,setRuntimeStatus]=useState("尚未啟動本地 Telegram 前景工作階段");
  const [items,setItems]=useState<CeresFamilyEvent[]>([]);
  const [chosen,setChosen]=useState<number|null>(null);
  const [reply,setReply]=useState("");
@@ -49,6 +55,7 @@ export default function CeresPanel(){
   try{
    const state=await getWeiGuoCeresStatus();
    setInfo(state);
+   setBridgeStatus(state.linked?await getCeresBridgeStatus().catch(()=>null):null);
    const result=state.linked?await getWeiGuoCeresEvents():{events:[]};
    setItems(result.events);
    setChosen(previous=>result.events.some(x=>x.id===previous)?previous:(result.events[0]?.id??null));
@@ -57,6 +64,20 @@ export default function CeresPanel(){
   finally{setBusy(false);}
  }
  useEffect(()=>{void reload();return ()=>requestController.current?.abort();},[]);
+ useEffect(()=>{const person=weiGuoIdentity();setBridgeOn(person?bridgePreference(person.email):false);},[identity?.email]);
+ useEffect(()=>{
+  const onStatus=(event:Event)=>setRuntimeStatus(String((event as CustomEvent<string>).detail||""));
+  const onRefresh=()=>{void reload();};
+  window.addEventListener(CERES_RUNTIME_STATUS_EVENT,onStatus);
+  window.addEventListener("vanilla-ceres-refresh",onRefresh);
+  return ()=>{window.removeEventListener(CERES_RUNTIME_STATUS_EVENT,onStatus);window.removeEventListener("vanilla-ceres-refresh",onRefresh);};
+ },[]);
+ function toggleBridge(enabled:boolean){
+  if(!identity)return;
+  try{setBridgePreference(identity.email,enabled);setBridgeOn(enabled);
+    setNotice(enabled?"已允許本裝置前景自動回覆；須同時保持 Vanilla 開啟、本地模型已載入與衞國登入有效。":"已關閉本裝置自動回覆。");
+  }catch(e){setNotice("無法設定 Ceres 橋接："+String(e));}
+ }
  function choose(id:number){
   cancelDraft();
   setChosen(id);setReply("");setReplyApproved(false);setDraftApproved(false);
@@ -112,6 +133,11 @@ export default function CeresPanel(){
   <p role="status" aria-live="polite">{notice}</p>
   {info&&<p>Ceres：{info.enabled?"後端啟用":"尚未啟用"} · 帳號：{info.linked?"已綁定":"未綁定"} · Telegram 人工回覆：{info.outboundEnabled?"已啟用":"未啟用"} · Vanilla AI 草稿：選擇下方模型後使用</p>}
   {ready&&info?.linked&&<>
+   <h3>Detroit × Ceres · Telegram 第二對話入口</h3>
+   <p>可在本機使用 Merlin、Diana、Zeus 與受控唯讀工具。只在目前裝置的 Vanilla PWA 處於前景且本地模型已載入時運作；關閉或背景化手機後不會繼續推論。</p>
+   <p>{bridgeStatus?.enabled?"Railway 本地橋接已啟用":"Railway 尚未啟用前景橋接"} · {runtimeStatus}</p>
+   <label className="detroit-consent"><input type="checkbox" checked={bridgeOn} disabled={!bridgeStatus?.enabled} onChange={e=>toggleBridge(e.target.checked)}/>允許這個家庭帳號在本裝置前景自動回覆 Telegram 訊息（無須逐則確認發送，僅限安全文字與唯讀工具）</label>
+   <p>高權限工具（部署、程式執行、寄信、檔案寫入、付款等）不會由 Telegram 自動執行，必須返回 Vanilla 個別授權。</p>
    <label>選擇收到的訊息
     <select value={chosen??""} onChange={e=>choose(Number(e.target.value))}>
      {items.length===0&&<option value="">尚無訊息</option>}
@@ -151,6 +177,6 @@ export default function CeresPanel(){
     </>}
    </>}
   </>}
-  <p>沒有自動回覆、背景代理執行或跨家庭資料存取；即使 AI 完成草稿，也必須獨立授權每次 Telegram 發送。</p>
+  <p>手動草稿仍須逐次確認。前景自動回覆必須另外啟用，只使用已載入的本地模型；沒有全天候背景執行、跨家庭資料存取或管理員權限。</p>
  </section>;
 }

@@ -313,11 +313,20 @@ def report(chat: int) -> str:
 
 def backup_guidance(chat: int) -> str:
     _require(chat)
-    return ("備份／復原檢查清單\n"
-            "• Ceres SQLite 位於已掛載持久化資料層；目前未自動外傳備份。\n"
-            "• 金鑰加密所需的 WEIGUO_VAULT_KEY 應在 Railway 安全保存，不得輸出到聊天。\n"
-            "• 復原前要驗證備份完整性與 Owner 權限。\n"
-            "• 未設定加密儲存目的地與驗證流程，不能宣稱已完成自動備份。")
+    # SQLite integrity proof is NOT a remotely restorable backup.
+    try:
+        with _session() as db:
+            result=db.execute("PRAGMA quick_check(1)").fetchone()
+        integrity=(result[0]=="ok") if result else False
+    except Exception:
+        integrity=False
+    vault=bool(os.getenv("WEIGUO_VAULT_KEY",""))
+    return ("備份／復原檢查\n"
+            "• SQLite 完整性："+("通過" if integrity else "未通過／無法檢查")+"\n"
+            "• Vault 解密金鑰已配置："+("是" if vault else "否")+"（不顯示內容）\n"
+            "• SQLite 完整 ≠ 異地備份；目前未自動外傳。\n"
+            "• 復原前需要獨立加密備份、加密金鑰與完整驗證。\n"
+            "• 未設定已授權的加密目的地，不可宣稱已完成自動備份。")
 
 
 async def watch_tick(chat: int) -> list[str]:

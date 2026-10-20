@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createHmac,createHash} from "node:crypto";
-import {mergeInEphemeralVM,startupPreflight,validPdf,templateFor,MAX_OUTPUT} from "./runtime.mjs";
+import {mergeInEphemeralVM,startupPreflight,validPdf,templateFor,MAX_OUTPUT,classifyVmFailure} from "./runtime.mjs";
 
 process.env.NODE_ENV="test";
 process.env.PDFCRAFT_VM_RUNNER_ENABLED="true";
@@ -30,15 +30,15 @@ test("PDF container checks reject garbage",()=>{
  assert.equal(validPdf(pdf),true);assert.equal(validPdf(Buffer.from("Hello")),false);
 });
 function fakeVM({output=pdf,network=true}={}){
- const records=[],written={};let destroyed=false;
+ const records=[],written={};let destroyed=false,hasWork=false;
  const vm={
   async exec(command){records.push(command);
    if(command.startsWith("sha256sum"))return{exitCode:0,stdout:"073c9c4eb4193cbbf52211d5ad8102969b0731b3294e44c47ab289ac84d2640f  /opt/pdfcraft/pdfcraft-cli"};
    if(command==="readlink /proc/self/ns/net")return{exitCode:0,stdout:"net:[123]\n"};
-   if(command.includes("readlink /proc/self/ns/net"))return{exitCode:0,stdout:network?"net:[456]\n":"net:[123]\n"};
+   if(command.includes("readlink /proc/self/ns/net"))return{exitCode:hasWork?0:1,stdout:hasWork?(network?"net:[456]\n":"net:[123]\n"):""};
    if(command.includes(" combine "))return{exitCode:0,timedOut:false};
    throw Error("unexpected command "+command);},
-  files:{async mkdir(path){records.push("mkdir "+path)},async write(path,data){written[path]=data},
+  files:{async mkdir(path){records.push("mkdir "+path); if(path==="/work")hasWork=true},async write(path,data){written[path]=data},
          async stat(){return{size:output.length}},async read(){return output}},
   async destroy(){destroyed=true;}
  };
@@ -52,6 +52,7 @@ test("one VM per merge, verified network namespace, bounded data and guaranteed 
  assert.deepEqual(Buffer.from(merged),pdf);
  assert.deepEqual(m.records[0].sandboxOptions,{networkIsolation:"ISOLATED",idleTimeoutMinutes:1});
  assert.equal(m.records.some(x=>typeof x==="string"&&x.includes("--unshare-net")),true);
+ assert.ok(m.records.indexOf("mkdir /work")<m.records.findIndex(x=>typeof x==="string"&&x.includes("--unshare-net")));
  assert.equal(m.records.some(x=>typeof x==="string"&&x.includes("--unshare-user")),true);
  assert.deepEqual(m.written["/work/source-1.pdf"],pdf);
  assert.equal(m.wasDestroyed(),true);
@@ -69,4 +70,16 @@ test("oversized output is rejected and sandbox destroyed",async()=>{
 test("preflight verifies and destroys paid VM",async()=>{
  const m=fakeVM();assert.equal(await startupPreflight(m.Sandbox),true);
  assert.equal(m.wasDestroyed(),true);
+});
+
+test("startup verification creates workdir before namespace probe",async()=>{
+ const m=fakeVM();
+ assert.equal(await startupPreflight(m.Sandbox),true);
+ assert.ok(m.records.indexOf("mkdir /work") < m.records.findIndex(x=>typeof x==="string"&&x.includes("--unshare-net")));
+ assert.equal(m.wasDestroyed(),true);
+});
+test("failure diagnostics are classified without printing raw SDK messages",()=>{
+ assert.equal(classifyVmFailure(new Error("401 Unauthorized token details")),"auth_denied");
+ assert.equal(classifyVmFailure(new Error("Nested network sandbox not proven")),"network_namespace");
+ assert.equal(classifyVmFailure(new Error("unexpected private blob")),"unknown");
 });

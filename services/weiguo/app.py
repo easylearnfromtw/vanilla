@@ -73,6 +73,13 @@ async def lifespan(app: FastAPI):
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":
         print("Orchestra PdfCraft kernel sandbox: " + ("supported" if probe_sandbox() else "unavailable; native PDF execution denied"))
+    if remote_requested():
+        # This authenticates against the independently isolated VM worker,
+        # using the existing server-only key. Never include keys or PDF bytes
+        # in application logs, and do not pretend readiness on HTTP 200 alone.
+        worker_ok = await remote_ready()
+        print("Orchestra PdfCraft signed remote readiness: "
+              + ("PASS" if worker_ok else "FAIL (remote PDF unavailable)"), flush=True)
     if os.environ.get("MEDUSA_ENGINE") == "lite" and os.environ.get("MEDUSA_ENABLED") == "true":
         from medusa_lite import production_selftest
         passed = production_selftest()

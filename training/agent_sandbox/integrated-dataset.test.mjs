@@ -37,4 +37,5 @@ test("tampering numerical outputs or tool order fails objective grading",()=>{
  const item=curriculumCase("business",2,"eval");
  assert.equal(gradeIntegrated({...item.expected,npv_twd:item.expected.npv_twd+1},item),false);
  assert.equal(gradeIntegrated({...item.expected,tool_plan:[...item.expected.tool_plan].reverse()},item),false);
+ assert.equal(gradeIntegrated({...item.expected,claimed_real_transfer:true},item),false);
 });

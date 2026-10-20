@@ -9,6 +9,8 @@ import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-template
 import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
 import {lunaPNG,saveLunaFile} from "../luna/export";
 import {recallVictoria,isVictoriaEnabled,type VictoriaRecall} from "./victoria";
+import {orchestraHandoff,type OrchestraHandoff} from "../orchestra/ai-handoff";
+import {executeOrchestraHandoff} from "../orchestra/agent-executor";
 
 type ScoutInput={query:string};
 type CreamInput={csv:string;source?:string};
@@ -56,6 +58,13 @@ export function registerDetroitNativeExecutors():void{
   const result:NativeRetinaResult={filename:artifact.name,format:request.format,sections:artifact.sections};
   return result;
  });
+ detroitBus.register("orchestra",async(raw)=>{
+  const data=assertObject(raw),request=limited(data.request,8000),body=limited(data.body,50000);
+  if(data.source!=="ai"||data.provenance!=="assistant-answer")throw Error("Orchestra 只接受已完成的 AI 回答作為本機匯出來源");
+  const verified=orchestraHandoff(request,body);
+  if(verified.provenance!=="assistant-answer"||data.tool!==verified.tool||data.format!==verified.format)throw Error("Orchestra 格式或來源與實際要求不符");
+  return executeOrchestraHandoff(verified);
+ });
  detroitBus.register("janus",async(raw)=>{
   const data=assertObject(raw);
   if(!["invitation","newsletter","announcement"].includes(String(data.kind)))throw Error("Janus 模板類型不支援");
@@ -95,7 +104,7 @@ export function registerDetroitNativeExecutors():void{
  registered=true;
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
-export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput,
+export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria"|"orchestra",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|OrchestraHandoff,
  context:{privateMode:boolean;signal?:AbortSignal}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);

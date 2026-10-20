@@ -9,6 +9,7 @@ import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
 import ChatMarkdown from "./ChatMarkdown";
 import {venusPresentationGuidance} from "../venus/presentation";
+import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
@@ -91,7 +92,7 @@ function restoreMerlinPending(turns:ChatTurn[]):MerlinClarification|null{
 }
 const TOOL={
  merlin:{id:"merlin-clarify",label:"Merlin · 需求釐清"},
- capability:{id:"capability",label:"功能實況"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
+ capability:{id:"capability",label:"功能實況"},venus:{id:"venus",label:"Venus · 圖片搜尋"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
  retina:{id:"retina",label:"Retina · 圖片辨識"},github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"},diana:{id:"diana",label:"Diana 工具選擇"}
@@ -379,6 +380,21 @@ function toolReply(question:string,answer:string,tool:ToolKey|ToolInfo="capabili
  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:Date.now()},{role:"assistant",content:answer,tool:info,...extra,id:crypto.randomUUID(),createdAt:Date.now()+1}]);
  setDraft("");setLastRoute("已由 Vanilla 工具執行 · 不消耗 AI API");
 }
+/** Diana -> Scouts public Commons discovery -> Venus gallery, with real links and human-controlled image loading. */
+async function handleVenusImageSearch(request:string,originalQuestion=request):Promise<boolean>{
+ const query=imageSearchQuery(request);
+ if(!query)return false;
+ if(privateMode){toolReply(originalQuestion,"Venus 私密模式不會連線 Wikimedia Commons 搜尋圖片。切換一般模式才能執行公開圖片搜尋。","privacy");return true;}
+ if(!online){toolReply(originalQuestion,"目前無網路連線，Venus 無法查詢公開圖片來源。","venus");return true;}
+ setBusy(true);setLastRoute("Diana → Venus：正在 Wikimedia Commons 搜尋可追溯的公開圖片…");
+ try{
+  const gallery=await searchCommonsImages(query);
+  if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 未找到可展示的圖片；沒有產生假照片或網址。","venus");return true;}
+  toolReply(originalQuestion,"Venus 已取得 "+gallery.items.length+" 張 Wikimedia Commons 公開圖片的真實縮圖與原始頁面。點擊圖片卡片才會下載圖片；使用前請在出處核對授權及作者。\n\n"+`\`\`\`venus\n`+JSON.stringify(gallery)+`\n\`\`\``,"venus");
+ }catch(error){toolReply(originalQuestion,"Venus 公開圖片搜尋失敗："+String(error instanceof Error?error.message:error)+"。未展示任何未驗證的圖片。","venus");}
+ finally{setBusy(false);}
+ return true;
+}
 async function executeIntent(question:string):Promise<boolean>{
  try{
   const action=proposeSheetAction(question);
@@ -617,12 +633,13 @@ async function send(value=draft):Promise<void>{
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
  const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
- let inlineFileContext="";
+ // Proactive Diana selection for explicit image lookup, without inventing images.\n if(!image&&route.kind!=="diana"&&await handleVenusImageSearch(question))return;\n let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
  switch(route.kind){
   case "diana":{
+   if(await handleVenusImageSearch(route.request,question))return;
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.

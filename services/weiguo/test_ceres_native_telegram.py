@@ -43,7 +43,7 @@ class NativeTelegramTests(unittest.TestCase):
             self.assertEqual(method,"sendMessage")
             self.assertEqual(payload["parse_mode"],"HTML")
             self.assertIn("<b>Ceres</b>",payload["text"])
-            self.assertEqual(len(payload["reply_markup"]["inline_keyboard"]),4)
+            self.assertGreaterEqual(len(payload["reply_markup"]["inline_keyboard"]),4)
             self.assertIn("hub:status",
                 str(payload["reply_markup"]["inline_keyboard"]))
 

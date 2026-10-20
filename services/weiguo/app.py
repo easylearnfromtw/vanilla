@@ -28,6 +28,7 @@ from ceres_agent_bridge import router as ceres_bridge_router
 from ceres_agent_delivery import router as ceres_delivery_router
 from ceres_server_agent import router as ceres_server_router, worker_loop as ceres_server_loop, enabled as ceres_server_enabled, ready as ceres_server_ready
 from ceres_telegram_registration import register_telegram_webhook
+from ceres_maintenance import monitor_loop as ceres_maintenance_loop
 from ceres_admin_web import router as ceres_admin_web_router
 from ceres_model_routes import router as ceres_model_router
 from ceres_model_ops_routes import router as ceres_ops_router
@@ -95,6 +96,9 @@ async def lifespan(app: FastAPI):
         from medusa_lite import production_selftest
         passed = production_selftest()
         print("Medusa Lite startup execution proof: " + ("PASS" if passed else "FAIL (Lite execution blocked)"), flush=True)
+    ceres_maintenance_task = None
+    if os.getenv("CERES_MAINTENANCE_ENABLED", "false").lower() == "true":
+        ceres_maintenance_task = asyncio.create_task(ceres_maintenance_loop())
     ceres_agent_task = None
     if ceres_server_ready():
         ceres_agent_task = asyncio.create_task(ceres_server_loop())
@@ -107,6 +111,12 @@ async def lifespan(app: FastAPI):
             ceres_agent_task.cancel()
             try:
                 await ceres_agent_task
+            except asyncio.CancelledError:
+                pass
+        if ceres_maintenance_task is not None:
+            ceres_maintenance_task.cancel()
+            try:
+                await ceres_maintenance_task
             except asyncio.CancelledError:
                 pass
 

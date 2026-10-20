@@ -202,7 +202,12 @@ async def process_one() -> bool:
             except ToolDenied:
                 reply, tool, page = ("此操作未授權。請使用已支援的 Slime 對話設定。", "diana", "")
             if reply is None:
-                reply = await generate_with_failover(settings, source, history_for(chat), page, generator=generate_reply)
+                from ceres_maintenance import model_call_allowed
+                if not model_call_allowed(chat):
+                    reply = ("Ceres 已暫停額外模型請求：已記錄且可計價的 30 日費用"
+                             "已達 Owner 設定的門檻。請使用 /hub budget 檢查。")
+                else:
+                    reply = await generate_with_failover(settings, source, history_for(chat), page, generator=generate_reply)
     except (ModelUnavailable, ValueError, TypeError):
         set_job_state(event_id, "model_unavailable")
         print("Ceres server agent: model response unavailable", flush=True)

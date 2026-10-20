@@ -37,6 +37,19 @@ def _menu() -> list[list[dict]]:
         [_button("◇ Detroit 工具", "tools"), _button("◎ Slime 節點", "nodes")],
         [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
         [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
+        [_button("✦ 進階運維中心", "operations")],
+    ]
+
+
+def _ops_menu() -> list[list[dict]]:
+    return [
+        [_button("🩺 系統巡檢","health"),_button("🚨 異常事件","incidents")],
+        [_button("🗂 任務／Diana","jobs"),_button("🛡 審批中心","approvals")],
+        [_button("🚀 部署版本","deploy"),_button("📋 營運報告","report")],
+        [_button("💰 API 預算","budget"),_button("🔎 安全稽核","audit")],
+        [_button("🔐 權限安全","security"),_button("🗃 備份復原","backup")],
+        [_button("⚙️ 巡檢設定","maintenance"),_button("🧠 Diana 流程","flows")],
+        [_button("← 返回主控台","home")],
     ]
 
 
@@ -275,6 +288,127 @@ async def command(chat: int, body: str) -> None:
                  +"<i>尚未執行 · 請於 120 秒內確認</i>")
         await say(chat,message,[[_button("✓ 確認套用","confirmplan:"+proposal["token"]),
                                 _button("× 取消","home")]],html=True)
+    elif action in ("operations","ops"):
+        await say(chat,_title("OPERATIONS / 進階運維")
+                  +"<b>主動維護、事件告警與安全審批</b>\n"
+                  +"按下方功能查看狀態。\n\n"
+                  +"<i>高權限動作不會直接從聊天自動執行。</i>",
+                  _ops_menu(),html=True)
+    elif action in ("health","incidents","jobs","approvals","deploy","report",
+                     "audit","security","backup","maintenance","flows") or (action=="budget" and not tail):
+        from ceres_maintenance import (overview,budget_state,version,jobs,audit_log,security,
+                                       report,node_snapshot,backup_guidance,setting,workflow_plan,
+                                       run_workflow,audit)
+        label={"health":"HEALTH / 系統巡檢","incidents":"ALERTS / 事件告警",
+               "jobs":"TASKS / 任務中心","approvals":"APPROVALS / 審批中心",
+               "deploy":"RELEASE / 部署資訊","report":"REPORT / 營運摘要",
+               "budget":"BUDGET / API 預算","audit":"AUDIT / 操作紀錄",
+               "security":"SECURITY / 安全狀態","backup":"RECOVERY / 備份指引",
+               "maintenance":"SETTINGS / 主動監控","flows":"DIANA / 唯讀工作流程"}[action]
+        if action=="health":
+            state=overview(chat)
+            detail=("Agent："+("就緒" if state["agentReady"] else "未就緒")
+                    +"\n模型歷史成功："+str(state["modelProbeSuccess"])
+                    +"\n近期異常："+(", ".join(state["issues"]) or "無已知異常")
+                    +"\n最近回覆記錄："+("有" if state["telegram"].get("lastVerifiedReplyAt") else "尚未確認")
+                    +"\n端到端實際測試：未執行")
+            audit(chat,"view_health")
+        elif action=="incidents":
+            from ceres_maintenance import watch_tick
+            state=overview(chat)
+            detail=("目前診斷碼："+(", ".join(state["issues"]) or "無已知異常")
+                    +"\n主動提醒："+("啟用" if setting(chat,"notifications")=="on" else "停用")
+                    +"\n注意：首次巡檢僅建立基準，異常持續才會通知。")
+            audit(chat,"view_incidents")
+        elif action=="jobs":
+            records=jobs(chat)
+            detail="\n".join(x["id"]+" · "+x["kind"]+" · "+x["state"] for x in records) or "尚無任務"
+            detail+="\n\n輸入 /hub workflow 巡檢 可執行安全唯讀工作流程。"
+            audit(chat,"view_jobs")
+        elif action=="approvals":
+            detail=("高風險操作一律保留 Owner 120 秒單次確認。\n"
+                    "支援：設定 API 預算、開啟／關閉異常通知、每日營運報告。\n"
+                    "部署、回滾、金鑰操作不會由 Telegram 自動執行。")
+            audit(chat,"view_approvals")
+        elif action=="deploy":
+            item=version(chat)
+            detail=("Railway commit："+item["commit"]+"\n部署識別："+item["deploymentId"]
+                    +"\n回滾執行：未連接具權限的 Railway 審批執行器。\n"+item["note"])
+            audit(chat,"view_deploy")
+        elif action=="report":
+            detail=report(chat)+"\n\n每日 08:00 報告："+("開啟" if setting(chat,"daily_report")=="on" else "關閉")
+            audit(chat,"view_report")
+        elif action=="budget":
+            item=budget_state(chat)
+            detail=("30 日預算 US$"+str(item["limitUsd"])+"\n已知費率估算 US$"+str(item["knownEstimateUsd"])
+                    +"\n未計價："+str(item["unpricedCalls"])+" 次\n"
+                    +"完整定價可用於阻止額外模型請求："+("是" if item["hardStopEligible"] else "否")
+                    +"\n設定：/hub budget 5.00（先預覽再確認）。\n"+item["note"])
+            audit(chat,"view_budget")
+        elif action=="audit":
+            entries=audit_log(chat)
+            detail="\n".join(x["action"] for x in entries[-15:]) or "尚無稽核紀錄"
+            audit(chat,"view_audit")
+        elif action=="security":
+            item=security(chat)
+            detail=("Owner 已驗證："+("是" if item["ownerChecked"] else "否")
+                    +"\nGmail 白名單強制："+("開啟" if item["gmailEnforced"] else "關閉")
+                    +"\n已授權帳號："+str(item["enabledAccounts"])
+                    +"\n可用 API 供應商："+str(item["providerConfigured"])
+                    +"\n原生聊天 Face ID 驗證：未支援\n"+item["note"])
+        elif action=="backup":
+            detail=backup_guidance(chat)
+            audit(chat,"view_backups")
+        elif action=="maintenance":
+            detail=("自動巡檢由 Ceres 後端排程控制；關閉時不會發出任何告警。\n"
+                    "異常通知："+setting(chat,"notifications")+
+                    "\n每日摘要："+setting(chat,"daily_report")+
+                    "\n切換：/hub alerts on、/hub daily on\n"
+                    "以上操作會產生確認卡片。")
+        else:
+            detail="Diana 唯讀流程：巡檢、調查故障、成本分析、節點管理、部署檢查。\n例如 /hub workflow 調查故障。"
+        buttons=[[_button("↻ 更新",action),_button("← 控制中心","home")]]
+        if action=="health":
+            buttons.insert(0,[_button("🚨 告警","incidents"),_button("🗂 任務","jobs")])
+        if action=="budget":
+            buttons.insert(0,[_button("↗ 成本摘要","usage")])
+        if action=="maintenance":
+            buttons.insert(0,[_button("📋 營運摘要","report")])
+        await say(chat,_title(label)+"<pre>"+escape(detail[:2900])+"</pre>",buttons,html=True)
+    elif action in ("alerts","daily") and tail in ("on","off"):
+        from ceres_maintenance import request_change
+        kind="notifications" if action=="alerts" else "daily_report"
+        token=request_change(chat,kind,tail)
+        await say(chat,_title("REVIEW / 等待確認")
+                  +escape(("異常通知" if action=="alerts" else "每日營運報告")
+                          +" → "+tail)
+                  +"\n\n<i>此處尚未生效，請於 120 秒內完成確認。</i>",
+                  [[_button("✓ 確認套用","maintconfirm:"+token),
+                    _button("× 取消","home")]],html=True)
+    elif action=="budget" and tail:
+        from ceres_maintenance import request_change
+        try:
+            token=request_change(chat,"budget",tail)
+        except ValueError as exc:
+            await say(chat,str(exc),_page_buttons("budget"))
+            return
+        await say(chat,_title("REVIEW / API 成本防護")
+                  +"預算門檻 <b>US$"+escape(tail)+"</b>／30 日\n"
+                  +"僅在所有已記錄呼叫可計價時實施停止。\n"
+                  +"<i>可能存在未記錄的供應商費用；此值不是完整帳單。</i>",
+                  [[_button("✓ 確認門檻","maintconfirm:"+token),
+                    _button("× 取消","budget")]],html=True)
+    elif action=="workflow" and tail:
+        from ceres_maintenance import run_workflow
+        try:
+            data=run_workflow(chat,tail)
+            await say(chat,_title("DIANA / 任務已完成")
+                      +"<code>"+escape(data["id"])+"</code>\n"
+                      +"<pre>"+escape(data["result"])+"</pre>\n"
+                      +"<i>僅執行已核准唯讀步驟；未變更權限或部署。</i>",
+                      _page_buttons("jobs"),html=True)
+        except ValueError:
+            await say(chat,"未知工作流程，使用 /hub flows 查看支援項目。")
     elif action in ("accounts", "gmail", "providers", "api", "admin"):
         from ceres_admin_bot import command as admin_command
         await admin_command(chat, "/admin " + ("users" if action in ("accounts", "gmail")
@@ -303,6 +437,18 @@ async def _handle_callback(chat: int, action: str) -> None:
         await say(chat, "輸入 /hub github 關鍵字，例如 /hub github telegram AI agent。")
     elif action in ("diagnostics","usage"):
         await command(chat,"/hub "+action)
+    elif action == "operations":
+        await command(chat,"/hub operations")
+    elif action in {"health","incidents","jobs","approvals","deploy","report","budget",
+                     "audit","security","backup","maintenance","flows"}:
+        await command(chat,"/hub "+action)
+    elif action.startswith("maintconfirm:"):
+        from ceres_maintenance import approve
+        try:
+            result=approve(chat,action[len("maintconfirm:"):])
+            await say(chat,_title("APPROVED / 設定已套用")+escape(result),_page_buttons("maintenance"),html=True)
+        except (ValueError,PermissionError) as exc:
+            await say(chat,_title("EXPIRED / 操作未執行")+escape(str(exc)),_page_buttons("maintenance"),html=True)
     elif action.startswith("confirmplan:"):
         from ceres_model_ops import approve
         from fastapi import HTTPException

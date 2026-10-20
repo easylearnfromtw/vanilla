@@ -65,16 +65,18 @@ async function callGemini(config:ProviderConfig,model:string,history:ChatTurn[],
   if(withThinking&&rejectsTuning(res.status,detail))return callGemini(config,model,history,system,task,image,options,false);
   throw error;
  }
- let text="",blocked="";
+ let text="",blocked="",truncated=false;
  await readSSE(res,data=>{
   try{
    const chunk=JSON.parse(data) as {candidates?:Array<{content?:{parts?:Array<{text?:string;thought?:boolean}>};finishReason?:string}>;promptFeedback?:{blockReason?:string}};
    if(chunk.promptFeedback?.blockReason)blocked=chunk.promptFeedback.blockReason;
+   if(chunk.candidates?.[0]?.finishReason==="MAX_TOKENS")truncated=true;
    const parts=chunk.candidates?.[0]?.content?.parts||[];
    const piece=parts.filter(p=>!p.thought).map(p=>p.text||"").join("");
    if(piece){text+=piece;publish(options.onText,text);}
   }catch{/* ignore keep-alive or partial lines */}
  });
+ if(truncated)throw new Error("Gemini 回答達到輸出長度上限，已拒絕將截斷的答案視為完成。");
  if(!text&&blocked)throw new Error("Gemini 因安全設定未回答（"+blocked+"），可以換個說法再試");
  return text;
 }
@@ -90,14 +92,16 @@ async function callDeepSeek(config:ProviderConfig,model:string,history:ChatTurn[
   if(withThinking&&rejectsTuning(res.status,detail))return callDeepSeek(config,model,history,system,task,options,false);
   throw error;
  }
- let text="";
+ let text="",truncated=false;
  await readSSE(res,data=>{
   try{
-   const chunk=JSON.parse(data) as {choices?:Array<{delta?:{content?:string|null}}>};
+   const chunk=JSON.parse(data) as {choices?:Array<{delta?:{content?:string|null};finish_reason?:string|null}>};
+   if(chunk.choices?.[0]?.finish_reason==="length")truncated=true;
    const piece=chunk.choices?.[0]?.delta?.content||"";
    if(piece){text+=piece;publish(options.onText,text);}
   }catch{/* ignore */}
  });
+ if(truncated)throw new Error("DeepSeek 回答達到輸出長度上限，已拒絕將截斷的答案視為完成。");
  return text;
 }
 

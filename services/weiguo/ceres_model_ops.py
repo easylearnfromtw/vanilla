@@ -345,11 +345,12 @@ def approve(token: str, actor: int):
     raise HTTPException(422,"不支援的操作")
 
 
-async def generate_with_failover(settings, message, history, source_hint):
+async def generate_with_failover(settings, message, history, source_hint, generator=None):
     """Exactly one optional same-provider retry after a primary failure; opt-in only."""
     from ceres_server_model import generate_reply, ModelUnavailable
+    run=generator or generate_reply
     try:
-        return await generate_reply(settings,message,history,source_hint)
+        return await run(settings,message,history,source_hint)
     except ModelUnavailable:
         provider=("gemini" if "generativelanguage.googleapis.com" in settings.base
                   else "deepseek" if "api.deepseek.com" in settings.base
@@ -364,4 +365,4 @@ async def generate_with_failover(settings, message, history, source_hint):
             raise
         # Prefer last observed fast responder, with deterministic tie-breaking.
         alt=min(records,key=lambda x:(x["latency_ms"] or 999999,x["model"]))["model"]
-        return await generate_reply(replace(settings,model=alt),message,history,source_hint)
+        return await run(replace(settings,model=alt),message,history,source_hint)

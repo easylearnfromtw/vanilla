@@ -1,5 +1,6 @@
 import {useState} from "react";
 import type {VenusBlock} from "./presentation";
+import {VenusMath,VenusMap,VenusVideo,VenusLive} from "./VenusAdvanced";
 import "./presentation.css";
 
 function Heading({title}:{title:string}){return title?<h3 className="venus-title">{title}</h3>:null;}
@@ -47,7 +48,7 @@ function Quiz({block}:{block:Extract<VenusBlock,{kind:"quiz"}>}){
 function Gallery({block}:{block:Extract<VenusBlock,{kind:"gallery"}>}){
  const [loaded,setLoaded]=useState<number[]>([]);
  return <section className="venus-widget"><Heading title={block.title}/><div className="venus-gallery">
- {block.items.map((item,i)=><figure key={i}>{loaded.includes(i)?<img src={item.url} alt={item.alt} loading="lazy" referrerPolicy="no-referrer"/>:<button type="button" className="venus-image-consent" onClick={()=>setLoaded(old=>[...old,i])}>載入外部圖片</button>}<figcaption>{item.caption||item.alt}</figcaption></figure>)}
+ {block.items.map((item,i)=><figure key={i}>{loaded.includes(i)?<img src={item.url} alt={item.alt} loading="lazy" referrerPolicy="no-referrer"/>:<button type="button" className="venus-image-consent" onClick={()=>setLoaded(old=>[...old,i])}>載入外部圖片</button>}<figcaption>{item.caption||item.alt}{item.source&&<span className="venus-gallery-source"> · <a href={item.source} rel="noopener noreferrer" target="_blank">圖片出處 ↗</a></span>}</figcaption></figure>)}
  </div><p className="venus-muted">圖片來源連結由回答提供；點擊載入前不會向外站下載圖片。</p></section>;
 }
 export default function VenusBlocks({blocks}:{blocks:VenusBlock[]}){
@@ -64,6 +65,10 @@ export default function VenusBlocks({blocks}:{blocks:VenusBlock[]}){
    case "quiz":return <Quiz key={key} block={block}/>;
    case "chart":return <Chart key={key} block={block}/>;
    case "gallery":return <Gallery key={key} block={block}/>;
+   case "map":return <VenusMap key={key} block={block}/>;
+   case "video":return <VenusVideo key={key} block={block}/>;
+   case "math":return <VenusMath key={key} block={block}/>;
+   case "live":return <VenusLive key={key} block={block}/>;
    }
   })}
  </div>;

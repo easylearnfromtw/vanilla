@@ -103,8 +103,8 @@ export function routeTail(question:string):ChatRoute{
 /* ---------- slash commands ---------- */
 export type SlashCommand={cmd:string;label:string;hint:string;example:string;tone:"blue"|"red"|"yellow"|"ink"};
 export const SLASH_COMMANDS:SlashCommand[]=[
- {cmd:"/Notion",label:"Notion · 任務排程",hint:"建立與同步 Notion 任務及時間",example:"/Notion",tone:"blue"},
- {cmd:"/排程",label:"Notion · 排程表",hint:"開啟 Notion 排程工作台",example:"/排程",tone:"blue"},
+ {cmd:"/Notion",label:"Notion（選用同步）",hint:"開啟 Vanilla 本地排程；Notion 僅手動同步",example:"/Notion",tone:"blue"},
+ {cmd:"/排程",label:"Vanilla 本地排程",hint:"離線新增、查看與更新任務，不需要登入",example:"/排程",tone:"blue"},
  {cmd:"/Quirinus",label:"Quirinus · 資安掃描",hint:"先檢查家庭管理者權限，逐次核准後才提交 GitHub Actions",example:"/Quirinus",tone:"blue"},
  {cmd:"/Diana",label:"Diana · Detroit 工具導航",hint:"選擇並叫出最適合的實際工具",example:"/Diana 幫我分析年度數據",tone:"blue"},
  {cmd:"/潤稿",label:"爾雅 Erya 自然化",hint:"以現有模型潤稿，保留數據與引用",example:"/潤稿 這段文字...",tone:"yellow"},

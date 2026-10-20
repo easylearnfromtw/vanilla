@@ -129,6 +129,16 @@ def _store(update_id: int, chat_id: int, user_id: int, text: str) -> bool:
     return True
 
 
+def _claim_admin_update(update_id: int) -> bool:
+    """Dedupe privileged Telegram updates without storing their text or secrets."""
+    with _session() as db:
+        db.execute("CREATE TABLE IF NOT EXISTS ceres_admin_updates (update_id INTEGER PRIMARY KEY, at INTEGER NOT NULL)")
+        db.execute("DELETE FROM ceres_admin_updates WHERE at<?",(int(time.time())-14*86400,))
+        cur=db.execute("INSERT OR IGNORE INTO ceres_admin_updates VALUES(?,?)",
+                       (update_id,int(time.time())))
+        return bool(cur.rowcount)
+
+
 @telegram_router.post("/telegram/webhook")
 async def telegram_webhook(request: Request,
                            x_telegram_bot_api_secret_token: str | None = Header(default=None)):
@@ -156,6 +166,22 @@ async def telegram_webhook(request: Request,
         raise HTTPException(400, "Invalid JSON") from None
     if not isinstance(payload, dict) or type(payload.get("update_id")) is not int:
         raise HTTPException(400, "Invalid update identifier")
+    # Telegram button events are verified independently and never reach the AI queue.
+    callback=payload.get("callback_query")
+    if isinstance(callback,dict):
+        sender=callback.get("from")
+        sent=callback.get("message")
+        chat=sent.get("chat") if isinstance(sent,dict) else None
+        chat_id=chat.get("id") if isinstance(chat,dict) else None
+        if (isinstance(sender,dict) and isinstance(chat,dict)
+            and chat.get("type")=="private" and type(chat_id) is int
+            and sender.get("id")==chat_id and chat_id in allowed
+            and isinstance(callback.get("id"),str) and isinstance(callback.get("data"),str)):
+            from ceres_admin_bot import callback as admin_callback, owner_subject
+            if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+                await admin_callback(chat_id,callback["id"],callback["data"])
+                return {"ok":True,"accepted":True}
+        return {"ok":True,"accepted":False}
     message = payload.get("message")
     if not isinstance(message, dict):
         return {"ok": True, "accepted": False}
@@ -172,7 +198,14 @@ async def telegram_webhook(request: Request,
     body = message.get("text")
     if not isinstance(body, str) or not 1 <= len(body.strip()) <= MAX_TEXT:
         return {"ok": True, "accepted": False}
-    accepted = _store(payload["update_id"], chat_id, user_id, body.strip())
+    text=body.strip()
+    if text.split()[0].split("@")[0].lower() in ("/admin","/manage"):
+        from ceres_admin_bot import command as admin_command, owner_subject
+        if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+            await admin_command(chat_id,text)
+            return {"ok":True,"accepted":True}
+        return {"ok":True,"accepted":False}
+    accepted = _store(payload["update_id"], chat_id, user_id, text)
     return {"ok": True, "accepted": accepted}
 
 

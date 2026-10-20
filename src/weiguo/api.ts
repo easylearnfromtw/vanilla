@@ -55,6 +55,15 @@ export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIde
  if(!reply.token||!Number.isFinite(reply.expiresIn)||reply.expiresIn<60)throw Error("無效的後端工作階段");
  auth={token:reply.token,expiresAt:Date.now()+Math.min(reply.expiresIn,900)*1000,
   member:reply.member,role:reply.role,email:reply.email.trim().toLowerCase()};
+ // Register server-proxied Gemini only when the backend verifies account access.
+ try{
+  const service=await request<{ready:boolean;model:string}>("/v1/family/models/status",undefined,true);
+  if(service.ready){
+   const {setProvider,getConfigs}=await import("../vault/providers");
+   if(!getConfigs().some(c=>c.provider==="gemini"&&c.key!=="managed:weiguo"))
+    setProvider({provider:"gemini",key:"managed:weiguo",model:service.model});
+  }
+ }catch{/* Optional provider status must not block login. */}
  return {member:auth.member,role:auth.role,email:auth.email};
 }
 /** Scouts public research uses the already verified family identity.
@@ -414,4 +423,14 @@ export async function previewSlimeRoute(workload:"model-shard"|"tools"|"independ
 }>{
  if(currentChatMode()==="private")throw Error("私人模式不會使用朋友的裝置");
  return request("/v1/family/slime/route",{workload,min_ram_gb:minRam},true);
+}
+
+/** Ceres-managed Gemini; no vendor API credential ever enters the public PWA. */
+export async function generateWeiGuoGemini(turns:Array<{role:"user"|"assistant";content:string}>):Promise<string>{
+ if(currentChatMode()==="private")throw Error("私密模式不允許傳送至雲端模型");
+ const response=await request<{text:string;model:string}>("/v1/family/models/chat",{
+  turns:turns.slice(-12).map(t=>({role:t.role,content:t.content.slice(0,5000)})),approved_cloud_send:true
+ },true);
+ if(!response.text.trim())throw Error("Gemini 後端沒有回傳文字");
+ return response.text;
 }

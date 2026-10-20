@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import FamilyIdentity, family_user
+from ceres_admin_policy import check_identity, enforce, provider_key, provider_enabled
 
 router = APIRouter(prefix="/v1/family/canva", tags=["canva"])
 _API = "https://api.canva.com/rest/v1"
@@ -34,14 +35,19 @@ class GenerationRequest(BaseModel):
 
 
 def _owner(user: FamilyIdentity) -> None:
-    if user.role != "owner":
+    if enforce():
+        check_identity(user.sub,user.email,scope="canva")
+    elif user.role != "owner":
         raise HTTPException(403, "Canva 雲端生成僅開放已驗證的家庭擁有者")
 
 
 def _token() -> str:
-    if os.environ.get("WEIGUO_CANVA_ENABLED", "").lower() != "true":
+    enabled=provider_enabled("canva")
+    if enabled is None:
+        enabled=os.environ.get("WEIGUO_CANVA_ENABLED", "").lower()=="true"
+    if not enabled:
         raise HTTPException(503, "Canva 雲端適配器預設停用")
-    value = os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()
+    value = provider_key("canva") or os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()
     if len(value) < 20 or "\n" in value or "\r" in value:
         raise HTTPException(503, "Canva OAuth 存取權杖尚未在後端安全配置")
     return value
@@ -113,8 +119,10 @@ def _job_view(kind: str, item: dict) -> dict:
 @router.get("/status")
 async def status(user: FamilyIdentity = Depends(family_user)):
     _owner(user)
-    enabled = os.environ.get("WEIGUO_CANVA_ENABLED", "").lower() == "true"
-    configured = enabled and len(os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()) >= 20
+    enabled = provider_enabled("canva")
+    if enabled is None:
+        enabled = os.environ.get("WEIGUO_CANVA_ENABLED", "").lower() == "true"
+    configured = enabled and len(provider_key("canva") or os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()) >= 20
     return {"configured": configured, "enabled": enabled, "preview": True,
             "authMode": "operator-provisioned-oauth-token",
             "availableKinds": ["image", "presentation"] if configured else []}

@@ -215,7 +215,8 @@ async def process_one() -> bool:
                    ("sent" if ok else "unknown", now, event_id))
         db.execute("UPDATE ceres_agent_jobs SET status=?,updated_at=? WHERE event_id=?",
                    ("completed" if ok else "delivery_unknown", now, event_id))
-        if ok:
+        if ok and tool != "slime":
+            # Do not persist short-lived Slime pairing secrets in Ceres history.
             db.execute(
                 "INSERT OR IGNORE INTO ceres_agent_history"
                 "(event_id,chat_id,request,reply,created_at) VALUES(?,?,?,?,?)",

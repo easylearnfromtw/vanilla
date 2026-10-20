@@ -95,3 +95,28 @@ test("Ollama JSON mode for structured output and plain retry on HTTP 400",async(
   assert.equal(m.calls[1].body.think,undefined);
  }finally{m.restore();}
 });
+
+
+test("provider stream explicitly cut off by token limit is not considered a success",async()=>{
+ setProvider({provider:"gemini",key:"test-key",model:"gemini-3.8-flash"});
+ const m=mockFetch(()=>streamed(['data: {"candidates":[{"content":{"parts":[{"text":"前半段"}]},"finishReason":"MAX_TOKENS"}]}\n\n']));
+ try{
+  await assert.rejects(generateCloudReply("gemini",[{role:"user",content:"請回答"}]),/輸出長度上限/);
+ }finally{m.restore();}
+});
+
+test("DeepSeek truncated stream fails instead of silently returning partial text",async()=>{
+ setProvider({provider:"deepseek",key:"test-key",model:"deepseek-flash"});
+ const m=mockFetch(()=>streamed(['data: {"choices":[{"delta":{"content":"不完整"},"finish_reason":"length"}]}\n\n']));
+ try{
+  await assert.rejects(generateCloudReply("deepseek",[{role:"user",content:"請回答"}]),/輸出長度上限/);
+ }finally{m.restore();}
+});
+
+test("Ollama broken NDJSON stream is not accepted even when there is partial text",async()=>{
+ setOllamaConfig({endpoint:"https://ollama.example.test",model:"qwen3:14b",models:[]});
+ const m=mockFetch(()=>streamed(['{"message":{"content":"只得到半句"}}\n']));
+ try{
+  await assert.rejects(generateOllamaReply([{role:"user",content:"請回答"}]),/串流未正常完成/);
+ }finally{m.restore();}
+});

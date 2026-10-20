@@ -5,17 +5,17 @@ import {DETROIT_ENGINES} from "./core";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {makeHumanizeRequest} from "../erya/humanize";
 import {creamInstruction} from "../cream/core";
-export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
+export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"canva"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
 export type DianaDecision={kind:"delegate"|"open"|"report";tool:DianaTarget;label:string;reason:string;alternatives:string[];command?:string;event?:string;tab?:string;message?:string;nextSteps?:DianaTarget[]};
 const NAMES:Record<string,DianaTarget>={
  diana:"diana",merlin:"merlin",cream:"cream",scouts:"scouts",atriensis:"atriensis",
- janus:"janus",retina:"retina",orchestra:"orchestra",bard:"bard",luna:"luna",jensen:"jensen-huang",
+ janus:"janus",retina:"retina",orchestra:"orchestra",bard:"bard",luna:"luna",canva:"canva",jensen:"jensen-huang",
  "jensen-huang":"jensen-huang",zeus:"zeus",athena:"athena",medusa:"medusa",ceres:"ceres",gridcraft:"gridcraft",
  moli:"moli","persistent-jobs":"persistent-jobs",luca:"luca",quirinus:"quirinus",erya:"er-ya",humanize:"er-ya","er-ya":"er-ya",weiguo:"weiguo",venus:"venus",veritas:"veritas",mnemosyne:"mnemosyne",hermes:"hermes",chronos:"chronos",dionysus:"dionysus","holy-roman-empire":"holy-roman-empire"
 };
 const LABELS:Record<DianaTarget,string>={
  diana:"Diana",merlin:"Merlin",cream:"CREAM",scouts:"Scouts",atriensis:"Atriensis",
- janus:"Janus",retina:"Retina",orchestra:"Orchestra",bard:"Bard",luna:"LUNA",
+ janus:"Janus",retina:"Retina",orchestra:"Orchestra",bard:"Bard",luna:"LUNA",canva:"Canva Cloud",
  "jensen-huang":"JENSEN HUANG / Self-Build CODE",zeus:"Zeus",athena:"Athena",medusa:"Medusa",ceres:"Ceres",
  gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs",luca:"LUCA",quirinus:"Quirinus",
  "er-ya":"爾雅 Erya",weiguo:"衞國系統",venus:"Venus",veritas:"Veritas",mnemosyne:"Mnemosyne",hermes:"Hermes",chronos:"Chronos",dionysus:"Dionysus","holy-roman-empire":"Holy Roman Empire"
@@ -56,6 +56,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
+ if(/Canva/i.test(q))add("canva",105,"指定 Canva 生成可編輯簡報或圖片，須通過雲端授權與本次同意");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
  if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"需實際文件輸出時使用 Retina");
  if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|跨格式)/i.test(q))add("orchestra",88,"跨格式工作交給 Orchestra");
@@ -87,6 +88,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  const choose=(more:Partial<DianaDecision>):DianaDecision=>({kind:"report",tool,label:LABELS[tool],reason,alternatives,nextSteps,...more});
  if(tool==="diana")return report("diana",dianaCatalog(),"工具目錄");
  if(DISABLED.has(tool))return report(tool,LABELS[tool]+" 未確認已部署並啟用執行後端；Diana 不能代替管理員安裝或執行。","適配器未就緒");
+ if(ctx.privateMode&&tool==="canva")return report(tool,"私人模式禁止 Canva 雲端傳輸；請改用 LUNA 或 Retina 本機產出。","隱私限制");
  if(ctx.privateMode&&tool==="scouts")return report(tool,"私密模式禁止網路存取。Diana 不會自行切換模式。","隱私限制");
  if(ctx.online===false&&tool==="scouts")return report(tool,"目前裝置離線，Scouts 無法執行網頁搜尋或閱讀。","工具不可用");
  if(ctx.privateMode&&tool==="quirinus")return report(tool,"私密模式禁止 Quirinus 遠端掃描派工。","隱私限制");
@@ -104,7 +106,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(tool==="medusa"||tool==="luca"||tool==="quirinus")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
  if(tool==="luna")return choose({kind:"open",event:"vanilla-open-luna"});
  if(tool==="retina"||tool==="bard")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
- if(tool==="orchestra")return choose({kind:"open",event:"vanilla-open-orchestra"});
+ if(tool==="orchestra"||tool==="canva")return choose({kind:"open",event:"vanilla-open-orchestra"});
  if(tool==="jensen-huang")return choose({kind:"open",event:"vanilla-open-builder"});
  if(tool==="atriensis"&&!/(?:讀取|查看|分析|摘要|檢查|整理|刪除|移除)/.test(task))return choose({kind:"open",event:"vanilla-open-files"});
  if(tool==="cream"){

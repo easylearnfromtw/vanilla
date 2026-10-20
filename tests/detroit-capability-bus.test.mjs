@@ -22,7 +22,8 @@ test("every installed Detroit specialist and Craft engine belongs to one capabil
 test("a tool without a real executor can never report completion",async()=>{
  const bus=new DetroitCapabilityBus();
  await assert.rejects(()=>bus.execute("medusa",{}, {privateMode:false,approved:true}),/尚未連接/);
- assert.throws(()=>bus.register("victoria",async()=>({})),/尚未實作/);
+ bus.register("victoria",async()=>({matches:[],context:""}));
+ assert.equal(bus.isRunnable("victoria"),true);
  assert.throws(()=>bus.register("unknown-plugin",async()=>({})),/尚未實作/);
 });
 

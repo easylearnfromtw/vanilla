@@ -25,10 +25,13 @@ function renderMath(node:MathNode,key=0):ReactNode{
 }
 export function VenusMath({block}:{block:MathBlock}){
  const ast=parseVenusMath(block.expression);
- return <section className="venus-widget venus-math"><Title title={block.title}/>
+ const [copied,setCopied]=useState<"idle"|"ok"|"failed">("idle");
+ const copy=async()=>{try{if(!navigator.clipboard?.writeText)throw Error("clipboard unavailable");await navigator.clipboard.writeText(block.expression);setCopied("ok");}catch{setCopied("failed");}};
+ return <section className="venus-widget venus-math"><div className="venus-widget-head"><Title title={block.title}/><button type="button" className="venus-text-action" onClick={()=>{void copy();}}>複製公式</button></div>
   {ast?<div className="venus-math-scroll" aria-label={"數學公式："+block.expression}>
    {createElement("math",{xmlns:"http://www.w3.org/1998/Math/MathML",display:"block"},renderMath(ast))}
   </div>:<p className="venus-math-fallback"><code>{block.expression}</code><small>此公式含尚未支援的符號，保留原始 LaTeX，避免顯示錯誤公式。</small></p>}
+  {copied!=="idle"&&<p role="status" className="venus-muted">{copied==="ok"?"已複製原始 LaTeX 公式。":"無法存取剪貼簿，請長按選取公式複製。"}</p>}
  </section>;
 }
 /** Interactive position chooser; real OSM tiles and marker load only after affirmative click. */
@@ -39,7 +42,7 @@ export function VenusMap({block}:{block:MapBlock}){
  const bbox=[Math.max(-180,lon-delta),Math.max(-85,lat-delta),Math.min(180,lon+delta),Math.min(85,lat+delta)].join(",");
  const embed="https://www.openstreetmap.org/export/embed.html?bbox="+encodeURIComponent(bbox)+"&layer=mapnik&marker="+encodeURIComponent(lat+","+lon);
  const open="https://www.openstreetmap.org/?mlat="+lat+"&mlon="+lon+"#map=14/"+lat+"/"+lon;
- return <section className="venus-widget venus-map"><Title title={block.title}/>
+ return <section className="venus-widget venus-map"><div className="venus-widget-head"><Title title={block.title}/>{permitted&&<button type="button" className="venus-text-action" onClick={()=>setPermitted(false)}>收起地圖</button>}</div>
   <div className="venus-point-picker" aria-label="選擇地圖地點">
   {block.points.map((p,i)=><button type="button" key={i} aria-pressed={selected===i} className={selected===i?"selected":""} onClick={()=>{setSelected(i);setPermitted(false);}}>{p.label}</button>)}
   </div>
@@ -54,7 +57,7 @@ export function VenusVideo({block}:{block:VideoBlock}){
  const [permitted,setPermitted]=useState(false);
  const url=block.provider==="youtube"?"https://www.youtube-nocookie.com/embed/"+block.videoId:"https://player.vimeo.com/video/"+block.videoId;
  const external=block.provider==="youtube"?"https://www.youtube.com/watch?v="+block.videoId:"https://vimeo.com/"+block.videoId;
- return <section className="venus-widget venus-video"><Title title={block.title}/>
+ return <section className="venus-widget venus-video"><div className="venus-widget-head"><Title title={block.title}/>{permitted&&<button type="button" className="venus-text-action" onClick={()=>setPermitted(false)}>關閉播放器</button>}</div>
   {permitted?<iframe className="venus-video-frame" title={block.title} src={url} loading="lazy"
    allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen
    sandbox="allow-scripts allow-same-origin allow-presentation" referrerPolicy="no-referrer"/>:

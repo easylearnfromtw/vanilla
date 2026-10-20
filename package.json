@@ -20,7 +20,7 @@
     "test:web-workflows": "node --experimental-strip-types --test tests/web-workflows.test.mjs",
     "test:cream-google": "node --experimental-strip-types --test tests/cream-google.test.mjs",
     "test:noodles": "node --experimental-strip-types --test tests/noodles.test.mjs",
-    "test:chat-ui": "node --experimental-strip-types --test tests/chat-ui.test.mjs tests/venus-presentation.test.mjs",
+    "test:chat-ui": "node --experimental-strip-types --test tests/chat-ui.test.mjs tests/venus-presentation.test.mjs tests/venus-ux.test.mjs",
     "test:release": "node --experimental-strip-types --test tests/release-readiness.test.mjs",
     "test:pwa-update": "node --experimental-strip-types --test tests/pwa-update.test.mjs",
     "test:autocode": "node --experimental-strip-types --test tests/autonomous-selfbuild.test.mjs",

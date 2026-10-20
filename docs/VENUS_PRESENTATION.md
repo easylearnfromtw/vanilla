@@ -81,3 +81,24 @@ Venus 3.0 依自然語言自動判斷輸出種類（chooseVenusIntent），接�
 校驗：npm run test:chat-ui、npm run test:diana、npm run build，並確認 Quirinus CI、安全提示和 Safari 實際播放器／地圖服務的可用性。**第三方圖片與影片始終保留來源與手動同意條件。**
 
 仍未提供 ChatGPT 的全套媒體服務、地點搜尋／路徑規劃、全球圖片索引或任何未整合的即時外部資料。
+
+
+## Venus 4.0 — UI / UX refinement
+
+Venus remains a native AI output renderer; users do not have to manually open another studio or call a separate model. This release changes display and user interaction, not the fact-checking, model, or external tool permission contract.
+
+| Component | Improvements | Privacy / truth boundary |
+| --- | --- | --- |
+| Chart | Graph/data segmented view, horizontal data table with source label | Source labels are model-provided; raw values are not auto-verified |
+| Tabs | Horizontal swipe, Arrow Left/Right + Home/End, roving keyboard focus, associated tabpanel | All content remains plain text |
+| Checklist | Progress meter, percentage, reset | Ephemeral local React state; no persistence/network |
+| Quiz | Lettered tap targets, answer styling and retry | Model answer always labeled unverified |
+| Gallery | Responsive two-column mobile cards, zoom dialog, next/previous navigation, Escape close, real source links and load errors | Every image requires an explicit opt-in; navigating a lightbox must never auto-fetch an unapproved image |
+| Map / video | Easy close/unload actions; mobile horizontal pin-picker; click-to-load preserved | No auto-loading, no assumed coordinates or video existence |
+| MathML | Copy original LaTeX with success/failure feedback | No HTML execution; unsupported math falls back to raw text |
+
+Responsive design: 44-pixel minimum touch targets, keyboard focus indicators, card spacing, consistent typography, dark mode, reduced motion and print safeguards. For narrow iPhone screens, media is bounded by viewport dimensions and avoids horizontal overflow.
+
+Regression suite: npm run test:chat-ui, npm run build, existing Quirinus security workflows. For manual review, verify Safari mobile / landscape portrait, dark mode, keyboard tabs, disabled network and external media consent state (including lightbox next/previous on an unapproved image).
+
+No unsupported service or expensive graphics library added; high-level layout stays independent from the chosen AI model and Detroit routing.

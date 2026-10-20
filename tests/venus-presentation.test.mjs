@@ -56,7 +56,7 @@ test("interactive components are limited and do not trigger external actions",()
 test("Venus instruction is task-aware and keeps small local models light",()=>{
  assert.equal(venusPresentationGuidance("你好","casual",false),"");
  assert.equal(venusPresentationGuidance("請給我趨勢圖","analysis",true),"");
- assert.match(venusPresentationGuidance("請比較兩種方案的時間軸","analysis",false),/Venus 2.0/);
+ assert.match(venusPresentationGuidance("請比較兩種方案的時間軸","analysis",false),/Venus 3.0/);
  assert.equal(venusPresentationGuidance("寫一封關於趨勢的信","writing",false),"");
 });
 test("Venus is integrated into existing safe Markdown and Detroit pipeline",()=>{

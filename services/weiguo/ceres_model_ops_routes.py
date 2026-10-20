@@ -19,6 +19,9 @@ class Auth(BaseModel):
 class Provider(Auth):
     provider: str=Field(min_length=3,max_length=20)
 
+class Recommendation(Provider):
+    task: str=Field(default="general",min_length=3,max_length=12)
+
 class Model(Provider):
     model: str=Field(min_length=2,max_length=100)
 
@@ -51,9 +54,9 @@ async def usage(body:Auth):
     return summary()
 
 @router.post("/recommend")
-async def recommend(body:Provider):
+async def recommend(body:Recommendation):
     _verify(body.init_data)
-    return recommendations(body.provider)
+    return recommendations(body.provider,body.task)
 
 @router.post("/probe")
 async def test_model(body:Model):

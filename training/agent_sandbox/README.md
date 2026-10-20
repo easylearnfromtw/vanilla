@@ -24,6 +24,12 @@ This is an offline synthetic simulation and evaluation harness, NOT updated mode
 - Domain retrieval and deterministic calculators provide grounded answers; a backend plugin runtime must validate actual execution and authorization.
 - Real fine-tuning using SFT/LoRA/QLoRA requires a compatible trainer, reviewed dataset, training hardware and license checks. Never train on held-out eval cases.
 
+## Knowledge grounding (five professional disciplines)
+
+- 25 concise original cards in knowledge.json: formula, interpretation, assumptions and search keywords.
+- Offline retrieval: node training/agent_sandbox/retrieve.mjs "GDP 平減指數"
+- Local model answer with retrieved context: node training/agent_sandbox/retrieve.mjs --chat --model signwell-agent:0.1 "請解釋 NPV 與折現率的關係"
+- Retrieval is a simple lexical baseline, not full vector RAG, a live data feed, or trained weights.
 ## Combined ABC roadmap
 
 - A: LUCA metrics -> Diana diagnostics -> persistent scheduler -> allowlisted tools -> verified result.

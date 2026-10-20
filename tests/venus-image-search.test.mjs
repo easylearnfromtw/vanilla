@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {imageSearchQuery,searchCommonsImages} from "../src/venus/image-search.ts";
 
 test("Venus image lookup routes explicit image retrieval but not generation",()=>{
@@ -33,4 +34,12 @@ test("Wikimedia results must have real source URLs and a trusted image host",asy
   assert.equal(options.credentials,"omit");
   assert.equal(options.referrerPolicy,"no-referrer");
  }finally{globalThis.fetch=originalFetch;globalThis.window=originalWindow;}
+});
+
+test("native Detroit chat routes explicit Commons image searches without an unavailable model",()=>{
+ const src=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(src,/await runVenusImageLookup\(question\)/);
+ assert.match(src,/await runVenusImageLookup\(route\.request,question\)/);
+ assert.match(src,/if\(privateMode\)/);
+ assert.match(src,/searchCommonsImages\(query\)/);
 });

@@ -40,6 +40,8 @@ MEDUSA_ENABLED=true
 MEDUSA_LITE_ENABLED=true
 MEDUSA_FAMILY_ENABLED=true
 MEDUSA_FAMILY_OWNER_SUBS=<已驗證的 Google OIDC sub；絕對不是 email>
+# 或者僅限 Lite，在已配置伺服器端家庭 owner ACL 時，可以改用：
+# MEDUSA_LITE_OWNER_ROLE_ONLY=true
 \`\`\`
 
 以 Railway 的 \`weiguo-browser\` 服務作為執行位置，不另行部署任何服務。

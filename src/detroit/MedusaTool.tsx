@@ -35,7 +35,7 @@ export default function MedusaTool(){
  }
  return <section className="detroit-studio-form">
   <h2><Terminal size={21} aria-hidden="true"/> Medusa · 程式執行</h2>
-  <p>Detroit Factory 的 Python 沙盒，可由管理端選擇 Judge0 或 Google Cloud Run Sandbox。程式在受控雲端執行，不會在 iPhone 上執行。未驗證的執行節點保持停用。</p>
+  <p>Medusa 支援 Judge0、Cloud Run 沙盒或內建的 Medusa Lite。Lite 在現有衞國雲端後端解讀受限 Python 語法，不是完整 Python，也不允許任意外部程式碼、檔案或網路操作。</p>
   <p role="status">{message||'正在查詢 Medusa 後端…'}</p>
   {eligible&&<button type="button" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={15}/>重新檢查連線</button>}
   {!person&&<button type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-weiguo'))}>前往衞國系統登入</button>}

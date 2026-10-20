@@ -37,7 +37,7 @@
     "test:orchestra": "node --experimental-strip-types --test tests/orchestra.test.mjs",
     "test:luna": "node --experimental-strip-types --test tests/luna.test.mjs",
     "test:retina": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/retina-exports.test.mjs",
-    "test:diana": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/diana.test.mjs tests/diana-auto.test.mjs",
+    "test:diana": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/diana.test.mjs tests/diana-auto.test.mjs tests/local-schedule.test.mjs",
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs tests/merlin-clarifier.test.mjs",
     "test:victoria": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/victoria.test.mjs",

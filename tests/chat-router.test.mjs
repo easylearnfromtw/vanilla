@@ -197,3 +197,82 @@ test("Scouts uses the configured reader backend first on Safari and keeps its pr
   else globalThis.localStorage=previousStorage;
  }
 });
+
+
+test("Scouts regional 3+1 selection uses real HTTPS evidence and does not invent sources",async()=>{
+ const {selectScoutsSources,getScoutsRegion,hasRegionalSource}=await import("../src/search/scouts-region.ts");
+ const previous=globalThis.localStorage;
+ globalThis.localStorage={getItem:()=>null};
+ try{
+  assert.equal(getScoutsRegion(),"台灣");
+  const records=[
+   {title:"Science",url:"https://science.example.org/a",snippet:"global"},
+   {title:"Public data",url:"https://data.example.org/b",snippet:"global"},
+   {title:"News",url:"https://news.example.org/c",snippet:"global"},
+   {title:"衛福部公告",url:"https://www.mohw.gov.tw/a",snippet:"臺灣"},
+   {title:"duplicate",url:"https://science.example.org/a",snippet:"duplicate"},
+   {title:"unsafe",url:"http://127.0.0.1/latest",snippet:"unsafe"}
+  ];
+  const chosen=selectScoutsSources(records,"台灣");
+  assert.equal(chosen.length,4);
+  assert.equal(chosen[3].regionSpecific,true);
+  assert.equal(chosen[3].url,"https://www.mohw.gov.tw/a");
+  assert.ok(hasRegionalSource(chosen,"台灣"));
+  assert.equal(selectScoutsSources(records.slice(0,2),"台灣").length,2);
+  assert.equal(selectScoutsSources([], "台灣").length,0);
+ }finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
+});
+
+test("official Google grounding keeps only actual URL annotations, never search suggestions as sources",async()=>{
+ const {extractGoogleGrounding}=await import("../src/search/google-grounding.ts");
+ const result=extractGoogleGrounding({steps:[
+  {type:"google_search_result",result:[{search_suggestions:"<a href='http://fake'>ad</a>"}]},
+  {type:"model_output",content:[{type:"text",text:"衛福部發布資料與官方公告",annotations:[
+    {type:"url_citation",url:"https://www.mohw.gov.tw/news/a",title:"衛福部",start_index:0,end_index:12},
+    {type:"url_citation",url:"http://127.0.0.1/private",title:"private"},
+    {type:"url_citation",url:"https://www.mohw.gov.tw/news/a",title:"duplicate"}
+  ]}]}
+ ]});
+ assert.equal(result.sources.length,1);
+ assert.equal(result.sources[0].title,"衛福部");
+ assert.match(result.notes,/衛福部/);
+ assert.doesNotMatch(JSON.stringify(result.sources),/fake|private/);
+});
+
+test("Google grounding performs one global and at most one regional call with existing Gemini credentials",async()=>{
+ const {setProvider,removeProvider,getConfigs}=await import("../src/vault/providers.ts");
+ const {searchGroundedGoogle}=await import("../src/search/google-grounding.ts");
+ const originalFetch=globalThis.fetch,originalStorage=globalThis.localStorage,originalWindow=globalThis.window;
+ let calls=0;
+ globalThis.window={dispatchEvent:()=>true};
+ globalThis.localStorage={getItem:()=>null};
+ const initial=getConfigs().find(x=>x.provider==="gemini");
+ setProvider({provider:"gemini",key:"dummy-test-secret",model:"gemini-3.8-flash"});
+ globalThis.fetch=async (input,options)=>{
+  calls++;
+  assert.match(String(input),/generativelanguage.googleapis.com\/v1beta\/interactions/);
+  const payload=JSON.parse(options.body);
+  assert.deepEqual(payload.tools,[{type:"google_search"}]);
+  const urls=calls===1?[
+   "https://news.example.org/a","https://science.example.org/b","https://history.example.org/c"
+  ]:["https://www.mohw.gov.tw/regional"];
+  const names=calls===1?["news","science","history"]:["衛福部台灣"];
+  const result={steps:[{type:"model_output",content:[{type:"text",text:"Sources supplied",
+   annotations:urls.map((url,i)=>({type:"url_citation",url,title:names[i],start_index:0,end_index:7}))
+  }]}]};
+  return new Response(JSON.stringify(result),{status:200,headers:{"content-type":"application/json"}});
+ };
+ try{
+  const result=await searchGroundedGoogle("2027 PGY 招募");
+  assert.equal(calls,2);
+  assert.equal(result.sources.length,4);
+  assert.equal(result.sources[3].regionSpecific,true);
+  assert.equal(result.region,"台灣");
+  assert.equal(result.queries,2);
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=originalStorage;
+  if(initial)setProvider(initial);else removeProvider("gemini");
+  if(originalWindow===undefined)delete globalThis.window;else globalThis.window=originalWindow;
+ }
+});

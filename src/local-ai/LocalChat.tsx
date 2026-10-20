@@ -28,6 +28,7 @@ import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner,listChatAttachments} from "../library/attachment-vault";
 import {signedChatAccount,chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
 import {searchLiveWeb,searchWebSummary} from "../search/live-search";
+import {googleGroundingAvailable,searchGroundedGoogle} from "../search/google-grounding";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
@@ -488,8 +489,51 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    index.push({title:page.title,url:page.url,kind:"full",excerpt:page.text});
    context="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
   }else{
+   // Google-first route: official Gemini Google Search grounding with real
+   // citation URLs. No Google SERP scraping and no invented source metadata.
+   let googleResolved=false;
+   if(googleGroundingAvailable()){
+    const consentKey="vanilla.scouts.google-grounding-consent.v1";
+    const accepted=localStorage.getItem(consentKey)==="yes"||
+      window.confirm("Scouts 將使用已連接的 Gemini API 呼叫 Google Search Grounding（最多兩次：一般搜尋與必要的地區補充）。搜尋請求會送到 Google，可能消耗 API 額度或產生費用；不會將本機附件傳送到搜尋。允許嗎？");
+    if(!accepted){
+     toolReply(originalQuestion,"已取消 Google 搜尋。Scouts 不會在未授權的情況下呼叫可能計費的 Google API。","search");
+     return null;
+    }
+    localStorage.setItem(consentKey,"yes");
+    try{
+     const grounded=await searchGroundedGoogle(target);
+     if(grounded.sources.length){
+      googleResolved=true;
+      setLastRoute("Google 搜尋已取得 "+grounded.sources.length+" 個引用；正在讀取網頁與進行爾雅核對…");
+      setSearchResults([...grounded.sources.map(hit=>({label:hit.title,url:hit.url,snippet:hit.snippet,provider:hit.regionSpecific?"Google · "+grounded.region:"Google 搜尋"})),...searchLinks(target)]);
+      const pages=await Promise.all(grounded.sources.map(async hit=>{
+       try{
+        const page=await readPublicPage(hit.url);
+        return {title:page.title,url:page.url,kind:"full" as const,excerpt:page.text,regionSpecific:hit.regionSpecific};
+       }catch{
+        return {title:hit.title,url:hit.url,kind:"snippet" as const,excerpt:hit.snippet||"Google 已引用此來源，尚未取得網頁正文",regionSpecific:hit.regionSpecific};
+       }
+      }));
+      for(const page of pages){
+       sources.push({title:page.title,url:page.url,kind:page.kind});
+       index.push(page);
+       context+="\n["+sources.length+"] "+page.title+"\n來源："+page.url+
+        (page.regionSpecific?"\n地區相關來源："+grounded.region:"")+
+        (page.kind==="full"?"\n實際取得網站正文：\n":"\n僅有 Google 搜尋引用／模型摘錄（未讀全文）：\n")+
+        wrapExternalText(page.excerpt.slice(0,7500),"web")+"\n";
+      }
+      context+="\nGoogle Grounding 摘要（Gemini 合成文字，不是任何來源的全文；須依上方引用核對）：\n"+
+       wrapExternalText(grounded.notes.slice(0,4800),"web")+
+       "\n來源涵蓋 "+sources.length+" 筆，目標是三個主要來源加一個"+grounded.region+"地區來源；不足時請明說，不能補造來源。\n";
+     }
+    }catch(error){
+     searchDiagnostics="Google Grounding："+String(error instanceof Error?error.message:error).slice(0,180);
+    }
+   }
+   if(!googleResolved){
    const report=await searchLiveWeb(target);
-   searchDiagnostics=report.errors.join("；");
+   searchDiagnostics=[searchDiagnostics,...report.errors].filter(Boolean).join("；");
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(target)]);
    // Parallel independent page reads: three unreachable URLs should not each
    // consume a separate ten-second Safari/CORS timeout.
@@ -509,8 +553,11 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
       (page.kind==="full"?"\n已讀取正文：\n":"\n僅取得搜尋摘要：")+
       wrapExternalText(page.excerpt.slice(0,7500),"web")+"\n";
    }
+   }
   }
-  if(!context){toolReply(originalQuestion,"Scouts 沒有取得可引用的網站內容。"+(searchDiagnostics?"服務診斷："+searchDiagnostics+"。":"")+"一般網站的搜尋／讀取需要先在「來源設定」配置可用的 HTTPS /search 與 /read 後端。",kind==="read"?"web":"search");return null;}
+  if(!context){toolReply(originalQuestion,"Scouts 尚未取得可核對的搜尋來源。"+(searchDiagnostics?"服務診斷："+searchDiagnostics+"。":"")+
+   (googleGroundingAvailable()?"請確認 Gemini Google 搜尋權限、模型及額度。":"可在模型設定連接 Gemini，讓 Scouts 使用官方 Google Search Grounding，免另設自架 /search 服務。")+
+   "下方保留 Google 搜尋入口，並未假稱已讀取網站。",kind==="read"?"web":"search");setSearchResults(searchLinks(target));return null;}
   setLastRoute("已取得 "+sources.length+" 筆來源，正在依證據統整；正文與搜尋摘要會分別標示。");
   return {context,sources,index};
  }catch(error){toolReply(originalQuestion,"Scouts 網頁擷取失敗，沒有產生未經驗證的內容："+String(error),kind==="read"?"web":"search");return null;}
@@ -993,7 +1040,8 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(victoriaContext)contexts.push({id:"victoria",label:"Victoria 舊對話",priority:2,text:victoriaContext});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"");
+ const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));

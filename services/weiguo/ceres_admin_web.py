@@ -130,14 +130,10 @@ nav a[aria-current="location"],nav a:hover{
 label{display:block;font-size:12px;font-weight:730;margin:16px 0 7px;color:var(--text)}
 input,select{
   width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--stroke-strong);
-  border-radius:13px;background:var(--bg);color:var(--text);outline:none;appearance:none;
-  -webkit-appearance:none;transition:border-color .18s,box-shadow .18s;
+  border-radius:13px;background:var(--bg);color:var(--text);outline:none;
+  transition:border-color .18s,box-shadow .18s;
 }
-select{
-  padding-right:36px;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%239daabd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-size:12px 8px;background-repeat:no-repeat;background-position:right 15px center
-}
+select{padding-right:22px;cursor:pointer}
 input::placeholder{color:var(--hint);opacity:.78}
 input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
 button{
@@ -325,6 +321,27 @@ form.addEventListener("submit",async e=>{
  }catch(err){field.value="";result.textContent=String(err.message||err);}
  button.disabled=false;
 });
+// Presentation-only state; no settings are changed by tab navigation.
+const navLinks=[...document.querySelectorAll('nav a[href^="#"]')];
+function activateNav(href){
+ for(const link of navLinks){
+   if(link.getAttribute("href")===href)link.setAttribute("aria-current","location");
+   else link.removeAttribute("aria-current");
+ }
+}
+navLinks.forEach(link=>link.addEventListener("click",()=>activateNav(link.getAttribute("href"))));
+if("IntersectionObserver" in window){
+ const sections=navLinks.map(link=>document.querySelector(link.getAttribute("href"))).filter(Boolean);
+ const observer=new IntersectionObserver(entries=>{
+   const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio);
+   if(visible[0])activateNav("#"+visible[0].target.id);
+ },{rootMargin:"-12% 0px -62% 0px",threshold:[0,.25,.5]});
+ sections.forEach(section=>observer.observe(section));
+}
+function metricTone(id,tone){
+ const card=document.getElementById(id);
+ if(card)card.dataset.tone=tone;
+}
 let previewToken=null;
 function fmtTime(t){return t?new Date(t*1000).toLocaleString("zh-TW"):"尚無成功紀錄";}
 function safeResult(id,message){document.getElementById(id).textContent=String(message);}
@@ -334,12 +351,19 @@ async function refreshHealth(){
   safeResult("health-agent",x.agent.ready?"執行緒就緒":"未就緒");
   safeResult("health-models",x.probes.filter(p=>p.ok).length+" 次通過紀錄");
   safeResult("health-failover",Object.entries(x.failover).filter(([k,v])=>v).map(([k,v])=>k).join("、")||"未開啟");
+  metricTone("metric-telegram",x.telegram.lastVerifiedReplyAt?"ok":"muted");
+  metricTone("metric-agent",x.agent.ready?"ok":"warn");
+  metricTone("metric-models",x.probes.some(p=>p.ok)?"ok":"muted");
+  metricTone("metric-failover",Object.values(x.failover).some(Boolean)?"ok":"neutral");
   safeResult("diagnostics-result","最近接收："+fmtTime(x.telegram.lastInboundAt)+"\\n最近已發送回覆："+fmtTime(x.telegram.lastVerifiedReplyAt)+
     "\\n近 24 小時失敗任務："+(x.agent.last24hFailedJobs??"未知")+
     "\\n最近主動發送測試："+(x.telegram.lastTelegramSendCheck?
     fmtTime(x.telegram.lastTelegramSendCheck.at)+(x.telegram.lastTelegramSendCheck.apiAccepted?"（Bot API 接受）":"（失敗）"):"尚無")+
     "\\n即時端對端測試：尚未進行");
- }catch(e){safeResult("diagnostics-result",e.message||e);}
+ }catch(e){
+  ["metric-telegram","metric-agent","metric-models","metric-failover"].forEach(id=>metricTone(id,"warn"));
+  safeResult("diagnostics-result",e.message||e);
+ }
 }
 async function refreshUsage(){
  try{const x=await api("ops/usage",{});

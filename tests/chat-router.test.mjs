@@ -107,7 +107,8 @@ function SLASH_MENU_EXPECTED_LENGTH(){return matchSlashCommands("/").length;}
 test("chat dispatches explicit slash commands before Merlin and proactive Diana",()=>{
  const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(chat,/const slashCommand=\/\^\[/);
- assert.match(chat,/if\(!slashCommand&&merlinPending\)/);
+ assert.match(chat,/if\(!slashCommand&&!image&&merlinPending\)/);
+ assert.match(chat,/const route=image\?/);
  assert.match(chat,/const slashTail=slashCommand\?routeTail\(question\):null/);
 });
 

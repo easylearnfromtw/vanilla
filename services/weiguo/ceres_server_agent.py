@@ -36,7 +36,10 @@ def enabled() -> bool:
 
 
 def ready() -> bool:
-    return enabled() and model_settings() is not None
+    # Owner can manage Slime even if the chat's remote model is unavailable.
+    return enabled() and (model_settings() is not None or
+                          (os.getenv("SLIME_ENABLED", "").lower() == "true"
+                           and len(_allowed_chat_ids()) == 1))
 
 
 def ensure_history(db: sqlite3.Connection) -> None:
@@ -171,10 +174,12 @@ async def process_one() -> bool:
         set_job_state(event_id, "access_revoked")
         return True
     settings = model_settings()
-    if not settings:
+    source = job["text"]
+    # Non-Slime messages still require the configured model or an existing
+    # deterministic read-only tool. This never grants extra privileges.
+    if settings is None and handle_slime(chat, subject, source) is None:
         set_job_state(event_id, "model_not_configured")
         return True
-    source = job["text"]
     try:
         # Slime actions are executed by a deterministic, ACL-checked controller.
         # No model-generated SQL or privileged tool instruction is trusted.

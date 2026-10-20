@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {merlinParse,stageUpdate,DETROIT_ENGINES,cloudDetroitBrief} from "../src/detroit/core.ts";
+import {merlinParse,stageUpdate,settleDetroitStages,DETROIT_ENGINES,cloudDetroitBrief} from "../src/detroit/core.ts";
+import {shouldAutoRunScouts} from "../src/search/scouts-execution.ts";
 import {athenaScanText,athenaScanFile,holyRomanEmpireAuthorize} from "../src/detroit/athena.ts";
 import {SingleInferenceQueue,parallelLightTools} from "../src/detroit/zeus.ts";
 import {allowedURL,requireAdmin} from "../services/detroit-jobs/worker.mjs";
@@ -78,4 +79,35 @@ test("Merlin routes email work to Janus without affecting LUNA or Retina",()=>{
  const report=merlinParse("請製作 PDF 正式報告");
  assert.ok(report.stages.some(x=>x.engine==="retina"));
  assert.ok(cloudDetroitBrief(p).includes("Janus"));
+});
+
+test("planned Scouts research actually selects the fallback fetch path",()=>{
+ const ctx={routeKind:"continue",autoResearchEnabled:true,privateMode:false,hasAttachment:false,hasImage:false};
+ for(const question of ["請幫我研究台灣醫美市場現況","分析醫美市場現況與公開資料來源","請整理官方網站公布的健保政策"]){
+  const plan=merlinParse(question);
+  assert.ok(plan.stages.some(x=>x.engine==="scouts"),question);
+  assert.equal(shouldAutoRunScouts(question,ctx),true,question);
+ }
+ assert.equal(shouldAutoRunScouts("請幫我研究台灣醫美市場現況",{...ctx,routeKind:"web-search"}),false);
+ assert.equal(shouldAutoRunScouts("研究資料",{...ctx,autoResearchEnabled:false}),false);
+ assert.equal(shouldAutoRunScouts("請幫我研究台灣醫美市場現況",{...ctx,privateMode:true}),false);
+ assert.equal(shouldAutoRunScouts("請幫我研究台灣醫美市場現況",{...ctx,hasAttachment:true}),false);
+ assert.equal(shouldAutoRunScouts("請幫我研究台灣醫美市場現況",{...ctx,hasImage:true}),false);
+ assert.equal(shouldAutoRunScouts("請幫我研究台灣醫美市場現況，不要上網",{...ctx}),false);
+ assert.equal(shouldAutoRunScouts("請幫我潤稿以下這篇研究報告",{...ctx}),false);
+ assert.equal(shouldAutoRunScouts("Scouts 等待執行，為什麼？",{...ctx}),false);
+});
+
+test("finished Detroit stages do not claim unexecuted Scouts will later run",()=>{
+ const plan=merlinParse("幫我研究醫美市場現況");
+ const finish=settleDetroitStages(plan);
+ assert.equal(finish.stages.find(x=>x.engine==="scouts")?.state,"skipped");
+ assert.ok(finish.stages.every(x=>x.state!=="waiting"&&x.state!=="running"));
+ const progressed=stageUpdate(stageUpdate(plan,"merlin","done","已理解"),"scouts","done","已取得來源");
+ const checked=settleDetroitStages(progressed);
+ assert.equal(checked.stages.find(x=>x.engine==="scouts")?.state,"done");
+ assert.equal(checked.stages.find(x=>x.engine==="merlin")?.state,"done");
+ const inFlight=stageUpdate(plan,"scouts","running","嘗試讀取");
+ assert.equal(settleDetroitStages(inFlight).stages.find(x=>x.engine==="scouts")?.state,"error");
+ assert.ok(!merlinParse("研究最新醫療指引，但不要上網").stages.some(x=>x.engine==="scouts"));
 });

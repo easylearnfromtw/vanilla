@@ -85,7 +85,7 @@ export function linkReadingIntent(text:string):string|null{
  if(/^https:\/\/\S{4,2000}$/.test(q))return q;
  // A natural-language URL request may include a follow-up clause. Do not
  // require the link to be the very last token of the user's message.
- const lead=/^(?:(?:請|幫我|麻煩(?:你)?)\s*)?(?:閱讀|讀取|打開|開啟|摘要|總結|統整|整理|分析|研究|解讀|幫我看|看一下|幫我讀|讀一下|看看|幫我分析)\s*(?:這個|這篇|以下|該)?\s*(?:網站|網頁|連結|網址|文章|內容|頁面)?\s*[：:\s]*/i;
+ const lead=/^(?:(?:請幫我|請|幫我|麻煩(?:你)?)\s*)?(?:閱讀|讀取|打開|開啟|摘要|總結|統整|整理|分析|研究|解讀|幫我看|看一下|幫我讀|讀一下|看看|幫我分析)\s*(?:這個|這篇|以下|該)?\s*(?:網站|網頁|連結|網址|文章|內容|頁面)?\s*[：:\s]*/i;
  if(!lead.test(q))return null;
  const found=/https:\/\/[^\s<>"'，。！？；、]+/i.exec(q);
  if(!found)return null;

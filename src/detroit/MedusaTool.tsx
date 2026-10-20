@@ -55,7 +55,7 @@ export default function MedusaTool(){
     disabled={busy||!eligible||!status?.enabled||!status?.connected||!consent||!source.trim()}
     onClick={()=>void execute()}><Play size={16}/>{busy?'執行中…':'執行 Python'}</button>
   {result&&<div className="detroit-medusa-result" aria-label="Medusa 實際執行結果">
-   <strong>{result.backend==='cloudrun-sandbox'?'Cloud Run Sandbox':'Judge0'} · {result.status}（狀態碼 {result.status_id}）</strong>
+   <strong>{result.backend==='medusa-lite'?'Medusa Lite':result.backend==='cloudrun-sandbox'?'Cloud Run Sandbox':'Judge0'} · {result.status}（狀態碼 {result.status_id}）</strong>
    <p>執行耗時 {result.time||'—'} s · Memory {result.memory??'—'} KB · Exit {result.exit_code??'—'}</p>
    {([['標準輸出',result.stdout],['錯誤輸出',result.stderr],['編譯錯誤',result.compile_output]] as const)
      .filter(([,value])=>Boolean(value)).map(([label,value])=><div key={label}>

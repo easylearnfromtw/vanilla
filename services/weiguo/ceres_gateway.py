@@ -216,6 +216,16 @@ async def telegram_webhook(request: Request,
     elif text in ("有哪些功能", "功能清單", "查看工具能力"):
         hub_text = "/hub tools"
     if hub_text is None:
+        # Deterministic Owner-only setting intent preview. Never execute
+        # model-generated instructions and never apply without confirmation.
+        config_intent = re.fullmatch(
+            r"(?:幫我)?(?:把|將)?\s*(?:gemini|openai|deepseek)\s*(?:模型)?\s*"
+            r"(?:改成|設為|切換成)?\s*"
+            r"(?:速度優先|品質優先|均衡|開啟備援|關閉備援)",
+            text, re.I)
+        if config_intent:
+            hub_text = "/hub plan " + text
+    if hub_text is None:
         # Read-only natural-language GitHub lookup, not remote installation.
         search = re.fullmatch(
             r"(?:幫我)?(?:找|搜尋|尋找)\s*github\s*(?:上的|上|的)?\s*"

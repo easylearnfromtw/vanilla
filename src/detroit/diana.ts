@@ -57,6 +57,9 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  const out:Candidate[]=[];
  const add=(tool:DianaTarget,score:number,reason:string)=>out.push({tool,score,reason});
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
+ if(/(?:漏洞|弱點|資安掃描|Quirinus|VulnClaw).{0,32}(?:掃描|檢查|稽核|GitHub|vanilla)|(?:掃描|檢查).{0,32}(?:漏洞|資安|Quirinus)/i.test(q))add("quirinus",105,"Quirinus 僅在固定核准範圍內執行唯讀掃描");
+ if(/(?:執行|跑一下|測試).{0,35}(?:Python|程式碼|Medusa)|(?:Medusa).{0,25}(?:執行|測試)/i.test(q))add("medusa",102,"Medusa 只能在核准的 Python 沙盒中執行明確提供的原始碼");
+ if(/(?:LUCA|監控報告|故障紀錄|錯誤統計|延遲指標|系統健康).{0,25}(?:查看|查詢|分析|摘要|報告|統計|狀態)|(?:查看|查詢|分析).{0,30}(?:LUCA|故障紀錄|系統健康)/i.test(q))add("luca",100,"LUCA 從授權後端取得真實診斷指標");
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");

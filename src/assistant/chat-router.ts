@@ -147,7 +147,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
   case "Notion":case "notion":case "排程":return {text:"@Notion"+(arg?" "+arg:"")};
   case "Quirinus":case "quirinus":return {text:"@Quirinus"+(arg?" "+arg:"")};
   case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
-  case "Orchestra":case "orchestra":case "製作":return {text:"開啟 Orchestra Studio"};
+  case "Orchestra":case "orchestra":case "製作":return {text:arg?"@Orchestra "+arg:"開啟 Orchestra Studio"};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
   case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:missing("潤稿","/潤稿 請修改這段文章");
   case "衞國":case "衛國":return {text:"開啟 衞國系統"};

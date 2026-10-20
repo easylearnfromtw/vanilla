@@ -92,7 +92,7 @@ async function serve(req,res){
 }
 const port=Number(process.env.PORT||8080);
 const server=createServer((req,res)=>{void serve(req,res).catch(()=>{if(!res.headersSent)json(res,500,{detail:"Server error"});else res.destroy()})});
-server.requestTimeout=60_000;server.headersTimeout=10_000;
+server.requestTimeout=240_000;server.headersTimeout=10_000;
 if(process.env.NODE_ENV!=="test"){
 server.listen(port,"0.0.0.0",()=>{console.log("PdfCraft VM runner online; readiness: "+(configured?"checking":"not configured"))});
 if(configured){

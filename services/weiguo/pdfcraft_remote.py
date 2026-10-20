@@ -19,7 +19,7 @@ from pdfcraft_engine import (
 )
 from pdfcraft_wire import READY_PATH, COMBINE_PATH, WireDenied, sign_request, worker_key
 
-TIMEOUT = httpx.Timeout(connect=4.0, read=47.0, write=15.0, pool=3.0)
+TIMEOUT = httpx.Timeout(connect=4.0, read=210.0, write=30.0, pool=3.0)
 
 
 def remote_requested() -> bool:

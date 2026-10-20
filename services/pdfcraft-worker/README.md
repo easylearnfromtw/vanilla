@@ -22,6 +22,88 @@ not** supplied by this repository. Do not claim the worker is online until
 after a signed readiness probe. Railway's existing embedded Bubblewrap mode
 was observed to fail its kernel admission test; never disable that safety gate.
 
+## VPS launch checklist (production preparation)
+
+This installation pattern follows the Linux sandbox troubleshooting seen in
+projects such as `anthropics/sandbox-runtime`, `styin/kaguya` and Codex:
+**test user namespaces first**, use the distribution-supplied narrowly scoped
+Bubblewrap AppArmor profile when necessary, and keep global AppArmor controls
+enabled. Your present standard Railway `weiguo-browser` container failed the
+rootless Bubblewrap admission probe. A Railway **Sandbox VM** is a different
+product and its compatibility cannot be inferred from that failure.
+
+The template is **provider neutral**. Choose a Linux **x86_64 Ubuntu 24.04**
+VPS (2 vCPU; 4 GB RAM recommended, 2 GB minimum) from a provider you trust.
+Do not buy a machine with ARM-only architecture for this pinned CLI release.
+In its VPS setup interface:
+
+1. Inject an SSH public key, disable SSH passwords, and optionally supply
+   [`cloud-init.example.yaml`](cloud-init.example.yaml) as user data.
+   It installs only OS prerequisites, never credentials or the worker service.
+2. Keep SSH access restricted to the operator. Permit HTTPS **443** and
+   temporary **80** for automatic TLS certificate issuance as needed.
+   Do **not** expose port **8090**. Verify firewall rules before applying them
+   to prevent locking yourself out.
+3. Point an operator-controlled DNS name (e.g., `pdfcraft.your-domain.example`)
+   at the VPS and wait until TLS resolves correctly.
+4. Review and clone the trusted Vanilla repo to `/opt/vanilla` at a
+   **reviewed commit SHA**. Do not run the installer from an unverified fork.
+
+After reviewing the scripts, run these commands on the **new VPS**:
+
+```sh
+sudo bash /opt/vanilla/services/pdfcraft-worker/install-linux.sh
+
+# Does not change the host: tests actual namespaces and merges two valid PDFs
+# through the pinned native binary with pypdf independent verification.
+sudo bash /opt/vanilla/services/pdfcraft-worker/check-host.sh
+```
+
+If you see a user namespace or network namespace failure on Ubuntu 24.04,
+do **not** run a global AppArmor-disabling sysctl. Inspect the system-provided
+`bwrap-userns-restrict` profile first:
+
+```sh
+sudo apt-get install apparmor-profiles apparmor-utils
+sudo less /usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+# Only after reviewing the vendor profile, explicitly opt in:
+sudo bash /opt/vanilla/services/pdfcraft-worker/enable-scoped-apparmor.sh
+sudo bash /opt/vanilla/services/pdfcraft-worker/check-host.sh
+```
+
+This is a narrowly scoped, reversible policy change. It is **not** executed
+automatically by cloud-init or the base installer. If the profile does not
+exist, another kernel/AppArmor restriction still prevents the sandbox, or a
+preflight assertion fails, stop deployment and investigate instead of weakening
+the global kernel policy or removing `--unshare-net`.
+
+**Live activation gate:** ONLY after `check-host.sh` has printed both
+`PASS: verified pinned binary, rootless sandbox and independent network namespace`
+and `PASS: actual native PDF merge IN the sandbox` should you create the
+separate worker's secret, enable the systemd service and configure TLS. Before
+the worker is online and the signed `/ready` check succeeds, do not set the
+Railway `WEIGUO_PDFCRAFT_REMOTE_ENABLED` flag. The existing PWA/Retina/CREAM
+remains usable throughout.
+
+**Caddy requirement:** `request_body { max_size ... }` requires **Caddy
+2.10.0 or newer**. Use Caddy's official package or a reviewed equivalent and
+validate with `sudo caddy validate --config /etc/caddy/Caddyfile`. Do not
+replace another site's live Caddyfile without merging its existing entries.
+Configure HTTPS routing only for `/v1/pdfcraft/ready` and
+`/v1/pdfcraft/combine`.
+
+### Operator acceptance record
+
+| Gate | What to verify | Result before VPS provisioning |
+| --- | --- | --- |
+| OS/CPU | Ubuntu 24.04, Linux x86_64 | Not tested on user's VPS |
+| Namespace/AppArmor | User, PID, mount, isolated network namespaces | Not tested on user's VPS |
+| Executable integrity | Pinned v0.9.0 SHA-256 | Verified in CI only |
+| Golden test | Two PDF inputs, two pages in correct order | CI passed; VPS test pending |
+| TLS/DNS | Valid HTTPS certificate, expected domain | Not configured |
+| Worker HMAC | Shared 256-bit key, signed readiness and merge | Offline tests passed; VPS pending |
+| Gateway switch | Feature advertised only after signed readiness | Off by default |
+
 ## 1. Host requirements
 
 Use a dedicated Ubuntu **24.04 x86_64** VM with at least 2 vCPU/2 GB RAM,

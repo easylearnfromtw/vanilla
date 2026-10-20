@@ -118,9 +118,9 @@ test('GIF encoder emits bounded animated GIF89a with trailer',()=>{
 
 test('long headlines and body stay above the footer in every local graphic aspect ratio',()=>{
  for(const kind of ['slide','vector','publication']){
-  const svg=posterSvg({title:'測試標題'.repeat(50),body:('正文內容 '*20+'\\n').repeat(40),kind});
+  const svg=posterSvg({title:'測試標題'.repeat(50),body:('正文內容 '*20+'\n').repeat(40),kind});
   const height=kind==='slide'?720:kind==='publication'?1350:1080;
-  const positions=Array.from(svg.matchAll(/<text[^>]* y="(\\d+)"/g),m=>Number(m[1]));
+  const positions=Array.from(svg.matchAll(/<text[^>]* y="(\d+)"/g),m=>Number(m[1]));
   assert.ok(positions.length>2,kind);
   assert.ok(positions.every(y=>y<=height-70),kind+' has a text line outside the safe canvas');
  }

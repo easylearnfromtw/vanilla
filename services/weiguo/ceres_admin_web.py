@@ -58,7 +58,10 @@ form.addEventListener("submit",async e=>{
 def _verify(init_data: str) -> int:
     if not isinstance(init_data,str) or not 20<len(init_data)<8192:
         raise HTTPException(401,"Telegram WebApp authorization required")
-    pairs=parse_qsl(init_data,keep_blank_values=True,strict_parsing=True,max_num_fields=35)
+    try:
+        pairs=parse_qsl(init_data,keep_blank_values=True,strict_parsing=True,max_num_fields=35)
+    except (ValueError, UnicodeError):
+        raise HTTPException(401,"Invalid Telegram data") from None
     fields=dict(pairs)
     if len(fields)!=len(pairs) or "hash" not in fields:
         raise HTTPException(401,"Invalid Telegram signature")

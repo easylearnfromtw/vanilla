@@ -28,6 +28,10 @@ services:
       # CERES_OLLAMA_MODEL: "qwen3:4b"
       # CERES_TELEGRAM_WEBHOOK_SECRET: "${CERES_TELEGRAM_WEBHOOK_SECRET:?Required when enabled}"
       # CERES_TELEGRAM_CHAT_IDS: "${CERES_TELEGRAM_CHAT_IDS:?Required when enabled}"
+      # Notion integration remains disabled unless server-only token and data-source ID are configured.
+      WEIGUO_NOTION_ENABLED: "false"
+      # WEIGUO_NOTION_TOKEN: "${WEIGUO_NOTION_TOKEN}"
+      # WEIGUO_NOTION_DATA_SOURCE_ID: "${WEIGUO_NOTION_DATA_SOURCE_ID}"
       LUCA_ENABLED: "false"
       LUCA_DB: "/data/luca.sqlite3"
       # Optional local OTLP collector:

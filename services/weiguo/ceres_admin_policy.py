@@ -5,6 +5,7 @@ The allowlist is independent of browser local storage and Google Drive tokens.
 """
 from __future__ import annotations
 import base64
+import binascii
 import json
 import os
 import re
@@ -149,7 +150,7 @@ def _fernet() -> Fernet:
         if len(key)!=32 or len(raw)!=44:
             raise ValueError("invalid key")
         return Fernet(raw.encode("ascii"))
-    except (ValueError,TypeError,UnicodeError) as exc:
+    except (ValueError,TypeError,UnicodeError,binascii.Error) as exc:
         raise HTTPException(503,"尚未在後端配置加密金鑰 WEIGUO_VAULT_KEY") from exc
 
 def store_provider_key(provider: str, secret: str, actor: int):

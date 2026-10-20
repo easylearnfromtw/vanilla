@@ -87,3 +87,34 @@ test("Ceres AI drafting requires each model choice and consent, never dispatches
  assert.doesNotMatch(runner,/sendWeiGuoCeresReply|sendMessage|localStorage|Telegram Bot Token/);
  assert.doesNotMatch(ui,/CERES_TELEGRAM_BOT_TOKEN/);
 });
+
+test("Ceres Detroit uses a foreground-only, identity-scoped and permission-limited bridge",()=>{
+ const source=readFileSync(new URL("../src/ceres/CeresForegroundBridge.tsx",import.meta.url),"utf8");
+ const tools=readFileSync(new URL("../src/ceres/agent-tools.ts",import.meta.url),"utf8");
+ const prefs=readFileSync(new URL("../src/ceres/bridge-settings.ts",import.meta.url),"utf8");
+ const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
+ const panel=readFileSync(new URL("../src/ceres/CeresPanel.tsx",import.meta.url),"utf8");
+ const api=readFileSync(new URL("../src/weiguo/api.ts",import.meta.url),"utf8");
+ assert.match(app,/CeresForegroundBridge/);
+ assert.match(panel,/toggleBridge/);
+ assert.match(panel,/bridgeStatus\?\.enabled/);
+ assert.match(source,/document\.visibilityState/);
+ assert.match(source,/isLocalModelReady/);
+ assert.match(source,/currentChatMode\(\)==="private"/);
+ assert.match(source,/getCeresBridgeStatus/);
+ assert.match(source,/claimCeresBridgeJob/);
+ assert.match(source,/completeCeresBridgeJob/);
+ assert.match(source,/skipCeresBridgeJob/);
+ assert.match(source,/requestController|AbortController/);
+ assert.match(prefs,/vanilla\.ceres\.foreground/);
+ assert.match(tools,/inspectExternalText/);
+ assert.match(tools,/chooseDianaTool/);
+ assert.match(tools,/analyzeCream/);
+ assert.match(tools,/readPublicPage/);
+ assert.match(tools,/actionRequest/);
+ assert.match(tools,/model\.source!=="local"/);
+ assert.doesNotMatch(tools,/\beval\s*\(|\bFunction\s*\(/);
+ assert.doesNotMatch(tools,/sendMessage|CERES_TELEGRAM_BOT_TOKEN/);
+ assert.match(api,/\/v1\/family\/ceres\/bridge\/claim/);
+ assert.match(api,/\/v1\/family\/ceres\/bridge\/events/);
+});

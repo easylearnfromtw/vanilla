@@ -22,7 +22,7 @@ export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
  {id:"bard",label:"Bard",group:"資料與產出",status:"adapter",description:"需 Gemini 圖片 API 授權和明確付費同意的雲端生圖工具"},
  {id:"retina",label:"Retina",group:"資料與產出",status:"active",description:"圖片附件格式驗證、轉檔與視覺模型派工；另保留瀏覽器本機 PDF、可編輯 DOCX 和 PPTX 匯出"},
  {id:"orchestra",label:"Orchestra",group:"資料與產出",status:"adapter",description:"七個 Craft 工具的能力路由、CREAM 作品交接與本機 Retina／SVG 回退；原生執行須獨立部署"},
- {id:"canva",label:"Canva Cloud Studio",group:"資料與產出",status:"adapter",description:"需另外配置 Canva OAuth 權杖、具備預覽生成權限的帳號與後端家庭擁有者授權；圖片與簡報需本次雲端傳送同意"},
+ {id:"canva",label:"Canva Cloud Studio",group:"資料與產出",status:"adapter",description:"需另外配置 Canva OAuth、預覽 API 帳號權限與逐次雲端傳送同意"},
  {id:"luna",label:"LUNA",group:"資料與產出",status:"active",description:"原生離線海報設計工具：可編輯圖層、模板、圖片與 PNG/JSON 匯出；沒有後端管理員或上游登入"},
  {id:"ceres",label:"Ceres · 通訊 Gateway",group:"入口與治理",status:"adapter",description:"Vanilla 原生 Telegram 簽章 Webhook 與白名單審核收件匣；不自動執行、不自動回覆，LINE/Discord 待開發"},
  {id:"janus",label:"Janus · 郵件設計",group:"資料與產出",status:"active",description:"Detroit 本機 Unlayer Elements 產製 HTML／設計 JSON，選用人工同意後的 Unlayer 雲端拖曳編輯；不自動寄信"},

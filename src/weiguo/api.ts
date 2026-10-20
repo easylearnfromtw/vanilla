@@ -279,6 +279,36 @@ export async function sendWeiGuoCeresReply(id:number,text:string,approved:boolea
   "/v1/family/ceres/events/"+id+"/reply",{approved:true,text:text.trim()},true);
 }
 
+/** Ceres second Detroit entrypoint: verified family-linked foreground bridge. */
+export type CeresBridgeStatus={
+ enabled:boolean;linked:boolean;runtime:"foreground-pwa-only";
+ alwaysOn:false;tools:string[];automaticRepliesWhenConnected:boolean;privilegedExecution:false
+};
+export type CeresBridgeJob={eventId:number;text:string;createdAt:number;lease:string};
+export async function getCeresBridgeStatus():Promise<CeresBridgeStatus>{
+ ceresGuard();
+ return request<CeresBridgeStatus>("/v1/family/ceres/bridge/status",undefined,true);
+}
+export async function claimCeresBridgeJob():Promise<{job:CeresBridgeJob|null;rateLimited:boolean}>{
+ ceresGuard();
+ return request<{job:CeresBridgeJob|null;rateLimited:boolean}>(
+  "/v1/family/ceres/bridge/claim",{},true);
+}
+export async function completeCeresBridgeJob(job:CeresBridgeJob,text:string,tool:string):Promise<{sent:true;automatic:true}>{
+ ceresGuard();
+ if(!Number.isSafeInteger(job.eventId)||job.eventId<=0||!job.lease||
+   !text.trim()||text.length>1200||!["merlin","diana","cream","scouts","erya","none"].includes(tool))
+  throw Error("Ceres 前景橋接回覆的內容或工具不符合允許範圍");
+ return request<{sent:true;automatic:true}>(
+  "/v1/family/ceres/bridge/events/"+job.eventId+"/complete",
+  {lease:job.lease,text,tool},true);
+}
+export async function skipCeresBridgeJob(job:CeresBridgeJob):Promise<{skipped:true;sent:false}>{
+ ceresGuard();
+ if(!Number.isSafeInteger(job.eventId)||job.eventId<=0||!job.lease)throw Error("無效的 Ceres 工作");
+ return request<{skipped:true;sent:false}>(
+  "/v1/family/ceres/bridge/events/"+job.eventId+"/skip",{lease:job.lease},true);
+}
 
 /** Canva Developer API preview bridge. No Canva OAuth credential is ever held in the PWA. */
 export type CanvaKind="image"|"presentation";

@@ -3,6 +3,7 @@
  */
 import {DETROIT_ENGINES} from "./core";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
+import {DETROIT_CAPABILITIES,detroitAvailability} from "./capability-bus";
 import {makeHumanizeRequest} from "../erya/humanize";
 import {creamInstruction} from "../cream/core";
 export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"canva"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
@@ -43,7 +44,9 @@ export function dianaCatalog():string{
   "部署／授權依賴的適配器："+groups("adapter"),
   "規劃中："+groups("planned"),
   "Factory 選用工具："+DETROIT_FACTORY_TOOLS.map(x=>x.label+"（"+(x.enabledByDefault?"啟用":"預設停用")+"）").join("、"),
-  "指令：/Diana 任務描述、@CREAM、@Retina、@Janus、@Scouts、@爾雅、@衞國 等。跨工具任務依序規劃，前一步沒有真正完成時，不會聲稱後一步已完成。只交接到已有工具，不自動部署後端、寄信、付款、執行程式碼或更改權限。"
+  "Detroit 已收編能力："+DETROIT_CAPABILITIES.map(x=>x.label).join("、"),
+  "目前已註冊執行器："+detroitAvailability().filter(x=>x.state==="runnable").map(x=>x.id).join("、")+"（僅代表當前程式內有執行器，非外部服務已授權）",
+  "工具以 Detroit 統一調度，使用者毋須手動指定。/Diana 與 @工具 僅是可選快捷方式。資料僅在已授權範圍內傳遞；尚未部署的適配器不會報稱執行完成。"
  ].join("\n\n");
 }
 function report(tool:DianaTarget,message:string,reason:string):DianaDecision{
@@ -56,7 +59,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
- if(/Canva/i.test(q))add("canva",105,"指定 Canva 生成可編輯簡報或圖片，須通過雲端授權與本次同意");
+ if(/Canva/i.test(q))add("canva",105,"使用 Canva 生成圖片或可編輯簡報，需逐次授權傳輸");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
  if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"需實際文件輸出時使用 Retina");
  if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|跨格式)/i.test(q))add("orchestra",88,"跨格式工作交給 Orchestra");
@@ -88,7 +91,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  const choose=(more:Partial<DianaDecision>):DianaDecision=>({kind:"report",tool,label:LABELS[tool],reason,alternatives,nextSteps,...more});
  if(tool==="diana")return report("diana",dianaCatalog(),"工具目錄");
  if(DISABLED.has(tool))return report(tool,LABELS[tool]+" 未確認已部署並啟用執行後端；Diana 不能代替管理員安裝或執行。","適配器未就緒");
- if(ctx.privateMode&&tool==="canva")return report(tool,"私人模式禁止 Canva 雲端傳輸；請改用 LUNA 或 Retina 本機產出。","隱私限制");
+ if(ctx.privateMode&&tool==="canva")return report(tool,"私人模式禁止 Canva 雲端傳輸；請用 LUNA 或 Retina 本機輸出。","隱私限制");
  if(ctx.privateMode&&tool==="scouts")return report(tool,"私密模式禁止網路存取。Diana 不會自行切換模式。","隱私限制");
  if(ctx.online===false&&tool==="scouts")return report(tool,"目前裝置離線，Scouts 無法執行網頁搜尋或閱讀。","工具不可用");
  if(ctx.privateMode&&tool==="quirinus")return report(tool,"私密模式禁止 Quirinus 遠端掃描派工。","隱私限制");

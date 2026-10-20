@@ -10,7 +10,6 @@ import {recordClientFault} from "../luca/client-diagnostics";
 import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
 import {venusPresentationGuidance} from "../venus/presentation";
-import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
@@ -29,7 +28,7 @@ import {toRows} from "../workspace/sheets-model";
 import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner,listChatAttachments} from "../library/attachment-vault";
 import {signedChatAccount,chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
-import {searchLiveWeb,searchWebSummary} from "../search/live-search";
+import {searchWebSummary,type LiveSearchReport} from "../search/live-search";
 import {googleGroundingAvailable,searchGroundedGoogle} from "../search/google-grounding";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
@@ -62,16 +61,20 @@ import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversation
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,settleDetroitStages,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
 import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
-import {isVictoriaEnabled,setVictoriaEnabled,recallVictoria} from "../detroit/victoria";
+import {isVictoriaEnabled,setVictoriaEnabled} from "../detroit/victoria";
 import {detectMerlinClarification,resolveMerlinClarification,type MerlinClarification} from "../detroit/merlin-clarifier";
 import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
-import {composeDianaCreamDocument,requestedDianaFormat} from "../detroit/diana-auto";
+import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
+import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
+import type {VictoriaRecall} from "../detroit/victoria";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
 
+// Only real implementations register callable capabilities; adapters remain catalog entries.
+registerDetroitNativeExecutors();
 const BASE=import.meta.env.BASE_URL;
 const MODE_KEY=CHAT_MODE_KEY;
 const CONTEXT_KEY="vanilla.chat.context-prefs.v1";
@@ -94,7 +97,7 @@ function restoreMerlinPending(turns:ChatTurn[]):MerlinClarification|null{
 }
 const TOOL={
  merlin:{id:"merlin-clarify",label:"Merlin · 需求釐清"},
- capability:{id:"capability",label:"功能實況"},venus:{id:"venus",label:"Venus · 圖片搜尋"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
+ capability:{id:"capability",label:"功能實況"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
  retina:{id:"retina",label:"Retina · 圖片辨識"},github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"},diana:{id:"diana",label:"Diana 工具選擇"}
@@ -383,21 +386,6 @@ function toolReply(question:string,answer:string,tool:ToolKey|ToolInfo="capabili
  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:Date.now()},{role:"assistant",content:answer,tool:info,...extra,id:crypto.randomUUID(),createdAt:Date.now()+1}]);
  setDraft("");setLastRoute("已由 Vanilla 工具執行 · 不消耗 AI API");
 }
-/** Diana -> Scouts public Commons discovery -> Venus gallery, with real links and human-controlled image loading. */
-async function handleVenusImageSearch(request:string,originalQuestion=request):Promise<boolean>{
- const query=imageSearchQuery(request);
- if(!query)return false;
- if(privateMode){toolReply(originalQuestion,"Venus 私密模式不會連線 Wikimedia Commons 搜尋圖片。切換一般模式才能執行公開圖片搜尋。","privacy");return true;}
- if(!online){toolReply(originalQuestion,"目前無網路連線，Venus 無法查詢公開圖片來源。","venus");return true;}
- setBusy(true);setLastRoute("Diana → Venus：正在 Wikimedia Commons 搜尋可追溯的公開圖片…");
- try{
-  const gallery=await searchCommonsImages(query);
-  if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 未找到可展示的圖片；沒有產生假照片或網址。","venus");return true;}
-  toolReply(originalQuestion,"Venus 已取得 "+gallery.items.length+" 張 Wikimedia Commons 公開圖片的真實縮圖與原始頁面。點擊圖片卡片才會下載圖片；使用前請在出處核對授權及作者。\n\n"+String.fromCharCode(96).repeat(3)+"venus\n"+JSON.stringify(gallery)+"\n"+String.fromCharCode(96).repeat(3),"venus");
- }catch(error){toolReply(originalQuestion,"Venus 公開圖片搜尋失敗："+String(error instanceof Error?error.message:error)+"。未展示任何未驗證的圖片。","venus");}
- finally{setBusy(false);}
- return true;
-}
 async function executeIntent(question:string):Promise<boolean>{
  try{
   const action=proposeSheetAction(question);
@@ -438,7 +426,7 @@ async function executeIntent(question:string):Promise<boolean>{
   if(privateMode){toolReply(question,"私密模式不會連上網路搜尋。請切換一般模式再試。","privacy");return true;}
   setBusy(true);setLastRoute("正在從公開來源取得真正的搜尋結果…");
   try{
-   const report=await searchLiveWeb(intent.query);
+   const report=await executeDetroitNative<LiveSearchReport>("scouts",{query:intent.query},{privateMode});
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(intent.query)]);
    toolReply(question,searchWebSummary(report,intent.query),"search");
   }catch(error){
@@ -552,7 +540,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
     }
    }
    if(!googleResolved){
-   const report=await searchLiveWeb(target);
+   const report=await executeDetroitNative<LiveSearchReport>("scouts",{query:target},{privateMode});
    searchDiagnostics=[searchDiagnostics,...report.errors].filter(Boolean).join("；");
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(target)]);
    // Parallel independent page reads: three unreachable URLs should not each
@@ -636,15 +624,12 @@ async function send(value=draft):Promise<void>{
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
  const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
- // Proactive Diana selection for explicit image lookup, without inventing images.
- if(!image&&route.kind!=="diana"&&await handleVenusImageSearch(question))return;
  let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
  switch(route.kind){
   case "diana":{
-   if(await handleVenusImageSearch(route.request,question))return;
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.
@@ -661,6 +646,27 @@ async function send(value=draft):Promise<void>{
      finally{setBusy(false);}
      return;
     }
+   }
+   // An explicit artifact request is fulfilled in this chat by the actual native
+   // executor after model drafting. Opening an editor is the no-model fallback only.
+   if(!route.forcedTool&&canReply&&planDianaNativeArtifact(route.request)&&
+      (pick.tool==="retina"||pick.tool==="janus")){
+    setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
+    break;
+   }
+   // LUNA is a real, offline renderer. A poster request does not need a UI handoff.
+   if(pick.tool==="luna"&&/(?:海報|品牌主視覺|廣告版面|poster|LUNA)/i.test(route.request)){
+    setBusy(true);
+    try{
+     const result=await executeDetroitNative<NativeLunaResult>("luna",{
+      prompt:route.request.slice(0,300),owner:attachmentOwner(signedChatAccount()),
+      download:true,save:!privateMode
+     },{privateMode});
+     toolReply(question,"Detroit / LUNA 已以本機模板產生 PNG 海報："+result.filename+
+      "（"+result.layers+" 個圖層）。"+(result.savedEditable?"已儲存可編輯作品於 LUNA 工作室。":"沒有寫入非私密工作室；請保留下載檔案。"),"diana");
+    }catch(error){toolReply(question,"Detroit / LUNA 未完成輸出："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
    }
    if(pick.kind==="delegate"&&pick.command){
     if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
@@ -957,6 +963,7 @@ async function send(value=draft):Promise<void>{
 async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]},visibleQuestion?:string){
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
+ const nativeArtifact=!image?planDianaNativeArtifact(question):null;
  const merlin=optimizeMerlinPrompt(question,detroit);
  const humanize=prepareHumanization(question);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
@@ -1025,7 +1032,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }
- const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
+ const chosen:ModelCandidate[]=!nativeArtifact&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -1079,7 +1086,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  let victoriaContext="";
  if(!privateMode&&victoriaEnabled&&!humanize){
   try{
-   const recalledChats=await recallVictoria(question,{owner:victoriaOwner,enabled:true,privateMode:false});
+   const recalledChats=await executeDetroitNative<VictoriaRecall>("victoria",{owner:victoriaOwner,query:question},{privateMode});
    victoriaContext=recalledChats.context;
    if(detroit.depth!=="quick")markDetroit("victoria",recalledChats.matches.length?"done":"skipped",
     recalledChats.matches.length?"已找到 "+recalledChats.matches.length+" 段同帳號的相關封存對話":"沒有找到足夠相關的舊對話，不進行猜測");
@@ -1109,6 +1116,28 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   return {history:[...history,{role:"user" as const,content:composed.content}],labels,notice:notes.join("；")};
  };
  const controller=new AbortController();abortRef.current=controller;
+ // Tool output is derived from a completed model response, never from a claimed result.
+ async function finishNativeArtifact(body:string):Promise<string>{
+  if(!nativeArtifact||!body.trim()||controller.signal.aborted)return "";
+  try{
+   if(nativeArtifact.capability==="retina"){
+    const result=await executeDetroitNative<NativeRetinaResult>("retina",{
+     title:nativeArtifact.title,body,format:nativeArtifact.format,download:true
+    },{privateMode,signal:controller.signal});
+    markDetroit("retina","done","已由 Retina 真正建立本機 "+result.format.toUpperCase()+" 檔案");
+    return "\n\nDetroit / Retina 已產生檔案："+result.filename+"（已觸發本機下載）。";
+   }
+   const result=await executeDetroitNative<NativeJanusResult>("janus",{
+    kind:nativeArtifact.kind,title:nativeArtifact.title,body,brand:nativeArtifact.brand,download:true
+   },{privateMode,signal:controller.signal});
+   markDetroit("janus","done","已產出 Janus 本機 HTML 電子報");
+   return "\n\nDetroit / Janus 已產生 HTML 郵件檔案："+result.filename+"（沒有寄送郵件）。";
+  }catch(error){
+   const reason=error instanceof Error?error.message:String(error);
+   markDetroit(nativeArtifact.capability,"error","原生匯出失敗："+reason);
+   return "\n\nDetroit 原生匯出未完成："+reason+"。上方保留已生成的文字草稿。";
+  }
+ }
  setDraft("");setBusy(true);setGenerating(true);
  if(detroit.depth!=="quick")markDetroit("dionysus","running","推論排隊或執行中，單一本地模型");
  const started=Date.now();
@@ -1152,9 +1181,11 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    partial=text;
    if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-  setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,result||""),source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
+  const drafted=finalizeHumanizedText(humanize,result||"");
+  const artifactNote=await finishNativeArtifact(drafted);
+  setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
   if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
-  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
+  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact&&!nativeArtifact)markDetroit("retina","skipped","本題未要求支援格式的本機匯出");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
  }catch(error){
@@ -1177,7 +1208,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     const recovered=await generateCandidate(alternative,altPrompt.history,undefined,text=>{
      if(!humanize)setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);
     },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-    setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,recovered||""),source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
+    const drafted=finalizeHumanizedText(humanize,recovered||"");
+    const artifactNote=await finishNativeArtifact(drafted);
+    setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     if(detroit.depth!=="quick")markDetroit("dionysus","done","備援推論已完成");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){

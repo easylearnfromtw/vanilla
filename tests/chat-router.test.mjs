@@ -295,3 +295,36 @@ test("Orchestra slash keeps task arguments",()=>{
  assert.equal(kind("@Orchestra 製作 PDF"),"diana");
  assert.equal(expandSlashCommand("/Orchestra")?.text,"開啟 Orchestra Studio");
 });
+
+
+test("Google Search Grounding 429 enters cooldown and never hammers the quota on the next search",async()=>{
+ const {setProvider,removeProvider,getConfigs}=await import("../src/vault/providers.ts");
+ const {searchGroundedGoogle,googleGroundingCooldownSeconds,googleGroundingQuotaMessage}=await import("../src/search/google-grounding.ts");
+ const originalFetch=globalThis.fetch,originalStorage=globalThis.localStorage,originalWindow=globalThis.window;
+ globalThis.window={dispatchEvent:()=>true};
+ globalThis.localStorage={getItem:()=>null};
+ const original=getConfigs().find(x=>x.provider==="gemini");
+ let calls=0;
+ setProvider({provider:"gemini",key:"quota-test-key",model:"gemini-3.8-flash"});
+ globalThis.fetch=async()=>{
+  calls++;
+  return new Response(JSON.stringify({error:{code:429,status:"RESOURCE_EXHAUSTED",message:"quota exhausted"}}),{
+   status:429,headers:{"content-type":"application/json","retry-after":"120"}
+  });
+ };
+ try{
+  await assert.rejects(searchGroundedGoogle("台灣 PGY 招募"),/429/);
+  assert.equal(calls,1);
+  assert.ok(googleGroundingCooldownSeconds()>=110);
+  assert.match(googleGroundingQuotaMessage(),/429/);
+  await assert.rejects(searchGroundedGoogle("不同的台灣醫療查詢"),/429/);
+  assert.equal(calls,1,"Second query should be served by cooldown, not by another charged API request");
+  setProvider({provider:"gemini",key:"replacement-key",model:"gemini-3.8-flash"});
+  assert.equal(googleGroundingCooldownSeconds(),0,"An explicitly replaced API key may be attempted independently");
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=originalStorage;
+  if(original)setProvider(original);else removeProvider("gemini");
+  if(originalWindow===undefined)delete globalThis.window;else globalThis.window=originalWindow;
+ }
+});

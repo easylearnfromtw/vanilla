@@ -40,5 +40,5 @@ test("LUCA quality panel has stats and manual export/delete, independent of NOOD
  assert.match(panel,/clearLucaFeedback\(\)/);
  assert.match(panel,/privateMode\?<p>私人模式不記錄、讀取或匯出回答品質回饋/);
  assert.match(journal,/localStorage\.removeItem\(key\)/);
- assert.doesNotMatch(journal,/resetNoodles|resetModelChoices|cloud|syncChat/i);
+ assert.doesNotMatch(journal,/resetNoodles|resetModelChoices|scheduleChatSync/i);
 });

@@ -1,5 +1,5 @@
 import type {ReactNode} from "react";
-import {MessageCircle,Search,WandSparkles,FolderOpen,Download} from "lucide-react";
+import {Download} from "lucide-react";
 import type {ArchiveSummary} from "../library/conversation-archive";
 
 const BASE=import.meta.env.BASE_URL;
@@ -13,12 +13,6 @@ export default function ChatHome(props:{
  onReopen:(id:string)=>void;onLoadLocal:()=>void;
 }){
  const {status}=props;
- const tiles=[
-  {id:"chat",label:"對話",icon:MessageCircle,run:props.onFocusComposer},
-  {id:"research",label:"研究",icon:Search,run:()=>props.onPrefill("/搜尋 ")},
-  {id:"create",label:"建立",icon:WandSparkles,run:()=>props.onPrefill("/建立 ")},
-  {id:"organize",label:"整理",icon:FolderOpen,run:()=>props.onOpenSection("library")}
- ] as const;
  return <div className="vh-home">
   <div className="vh-hero vh-reveal">
    <img className="vh-mark" src={BASE+"brand/vanilla-mark.webp"} alt="" width={900} height={769} decoding="async"/>
@@ -34,11 +28,8 @@ export default function ChatHome(props:{
     !status.privateMode&&!status.loading?<button type="button" onClick={()=>props.onOpenSection("settings")}>連接雲端模型</button>:null}
   </div>}
 
-  <div className="vh-tiles vh-reveal" role="group" aria-label="主要工具">
-   {tiles.map(t=><button key={t.id} type="button" className="vh-tile" disabled={props.busy&&t.id!=="organize"} onClick={t.run}>
-    <t.icon size={22} strokeWidth={1.6}/><span>{t.label}</span>
-   </button>)}
-  </div>
+  <p className="vh-tagline">直接描述任務，Detroit 會在對話中自動選擇可用能力。</p>
+
 
 
  </div>;

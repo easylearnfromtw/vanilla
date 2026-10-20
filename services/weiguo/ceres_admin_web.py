@@ -80,6 +80,10 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.65 system-ui,sans-se
 <button type="button" id="apply">套用選擇</button>
 <p id="models-result" role="status"></p>
 <small>官方清單表示 API 金鑰可見該模型，但無法保證立即可呼叫、可用額度或實際費率；自動排序是啟發式推薦，不等於確定最強或最便宜。私人模式不使用雲端模型。</small>
+<label for="task-type">分析任務型態</label><select id="task-type">
+<option value="general">日常（沿用模型設定）</option><option value="fast">快速回覆</option>
+<option value="reasoning">深度推理</option><option value="coding">程式開發</option>
+<option value="budget">成本優先（需已核對費率）</option></select>
 <div class="action-row"><button type="button" id="recommend" class="secondary">智慧選模建議</button>
 <button type="button" id="probe">實際測試選定模型（可能計費）</button></div>
 <label for="compare-model">第二個模型（比較用）</label><select id="compare-model"></select>
@@ -214,8 +218,9 @@ document.getElementById("refresh-diagnostics").addEventListener("click",async()=
  }catch(e){safeResult("diagnostics-result",e.message||e);}
 });
 document.getElementById("recommend").addEventListener("click",async()=>{
- try{const r=await api("ops/recommend",{provider:providerField.value});
- safeResult("ops-result","目前選擇："+(r.selected||"未偵測")+"\\n已測得最低延遲："+(r.observedFastest||"尚無有效樣本")+"\\n"+r.note);
+ try{const r=await api("ops/recommend",{provider:providerField.value,task:document.getElementById("task-type").value});
+ safeResult("ops-result","目前選擇："+(r.selected||"未偵測")+"\\n任務建議："+(r.taskRecommended||"資料不足")+
+ "\\n依據："+r.recommendationBasis+"\\n已測得最低延遲："+(r.observedFastest||"尚無有效樣本")+"\\n"+r.note);
  }catch(e){safeResult("ops-result",e.message||e);}
 });
 document.getElementById("probe").addEventListener("click",async()=>{

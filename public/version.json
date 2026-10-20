@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.18-merlin-clarification",
-  "description": "Merlin clarification follow-ups for underspecified tasks; asks before guessing and resumes within the current chat"
+  "build": "2026.10.20.19-iphone-webllm-stability",
+  "description": "Merlin clarification remains enabled; prevent iPhone WebLLM model auto-load crashes, worker fallback and GPU memory retention"
 }

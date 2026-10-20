@@ -1,3 +1,4 @@
+import {isIOSWebLLMDevice,shouldAutoLoadCachedModel,needsMobileMemoryConfirmation,mayFallbackToMainThread} from "../src/local-ai/mobile-safety.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {validateWebLLMMessages,inspectWebLLMMessages} from "../src/local-ai/request-guard.ts";
@@ -81,4 +82,33 @@ test("cancelled local requests never reload disposed engines",async()=>{
   controller.signal
  ),/disposed/);
  assert.equal(reloads,0);
+});
+
+test("iOS device detection also covers iPadOS desktop-user-agent mode",()=>{
+ assert.equal(isIOSWebLLMDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 26_1 like Mac OS X)"),true);
+ assert.equal(isIOSWebLLMDevice("Mozilla/5.0", "MacIntel",5),true);
+ assert.equal(isIOSWebLLMDevice("Mozilla/5.0", "MacIntel",0),false);
+ assert.equal(isIOSWebLLMDevice("Mozilla/5.0 (X11; Linux x86_64)"),false);
+});
+test("iPhone cached weights are never auto-initialized and large models require confirmation",()=>{
+ assert.equal(shouldAutoLoadCachedModel(true),false);
+ assert.equal(shouldAutoLoadCachedModel(false),true);
+ assert.equal(needsMobileMemoryConfirmation(true,945),false);
+ assert.equal(needsMobileMemoryConfirmation(true,1404),true);
+ assert.equal(needsMobileMemoryConfirmation(false,3432),false);
+});
+test("iPhone worker failure cannot silently fall back to UI-thread WebGPU",()=>{
+ assert.equal(mayFallbackToMainThread(true,"auto"),false);
+ assert.equal(mayFallbackToMainThread(true,"broken"),false);
+ assert.equal(mayFallbackToMainThread(true,"off"),true);
+ assert.equal(mayFallbackToMainThread(false,"broken"),true);
+ const engine=readFileSync(new URL("../src/local-ai/engine.ts",import.meta.url),"utf8");
+ const panel=readFileSync(new URL("../src/local-ai/LocalModelPanel.tsx",import.meta.url),"utf8");
+ const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(engine,/if\(!mayFallbackToMainThread\(iosDevice,mode\)\)/);
+ assert.match(engine,/worker\?\.terminate\(\)/);
+ assert.match(engine,/await releaseEngine\(old\)/);
+ assert.match(panel,/checked=\{worker==="auto"\}/);
+ assert.match(chat,/shouldAutoLoadCachedModel\(iosDevice\)/);
+ assert.match(chat,/if\(!iosDevice&&/);
 });

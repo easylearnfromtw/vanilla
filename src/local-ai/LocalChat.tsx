@@ -49,6 +49,7 @@ import type {ImageInput} from "../vault/providers";
 import {ArrowUp,Square,Sparkles,Copy,Check,ThumbsUp,ThumbsDown,ChevronDown,LockKeyhole,Plus,X,MoreHorizontal,Search,BarChart3,Database,FolderOpen,Code2,Wrench,Paperclip,Globe,Brain} from "lucide-react";
 import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
+import {isIOSWebLLMDevice,shouldAutoLoadCachedModel,needsMobileMemoryConfirmation} from "./mobile-safety";
 import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
 import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversations,reopenConversation} from "./chat-session";
 import type {ArchiveSummary} from "../library/conversation-archive";
@@ -230,6 +231,7 @@ useEffect(()=>{const update=()=>setOllamaConnected(isOllamaConfigured());window.
 const [copied,setCopied]=useState<number|null>(null);
 const bottomRef=useRef<HTMLDivElement>(null);
 const capabilities=detectLocalAICapabilities();
+const iosDevice=isIOSWebLLMDevice(navigator.userAgent,navigator.platform,navigator.maxTouchPoints);
 useEffect(()=>{
  const onNetwork=()=>setOnline(navigator.onLine);
  window.addEventListener("online",onNetwork);window.addEventListener("offline",onNetwork);
@@ -245,6 +247,7 @@ useEffect(()=>{
    if(!active)return;
    setModelCached(cached);
    if(!cached){setStatus("本地模型尚未下載");return;}
+   if(!shouldAutoLoadCachedModel(iosDevice)){setStatus("模型已有快取。為避免 iPhone 記憶體不足，請手動按「載入」。");return;}
    setLoadingModel(true);setModelError(false);setStatus("正在載入已快取的本地模型…");
    void loadLocalModel((message,progress)=>{if(active){setStatus(message);setModelProgress(Math.round(progress*100));}},selectedLocalModel).then(()=>{
     if(active){setReady(true);setStatus("本地模型已就緒");setLoadingModel(false);}
@@ -254,7 +257,7 @@ useEffect(()=>{
   });
  },900);
  return()=>{active=false;window.clearTimeout(timer);};
-},[capabilities.webgpu]);
+},[capabilities.webgpu,selectedLocalModel,iosDevice]);
 function selectLocalModel(model:LocalModelId){
  if(busy||loadingModel)return;
  setSelectedLocalModel(model);
@@ -305,6 +308,12 @@ async function reopen(id:string){
  catch(e){setLastRoute(String(e instanceof Error?e.message:e));}
 }
 async function initialize(){
+ const modelEntry=LOCAL_MODELS.find(x=>x.id===selectedLocalModel);
+ if(needsMobileMemoryConfirmation(iosDevice,modelEntry?.vramMB||0)&&
+   !window.confirm("iPhone Safari 可能因大型 WebLLM 模型超出網頁記憶體限制而直接關閉。建議先使用 0.5B 輕量模型，或在一般模式連接雲端模型。\n\n仍要手動下載／載入「"+(modelEntry?.label||selectedLocalModel)+"」嗎？")){
+  setStatus("已取消高記憶體模型載入；建議改用 Qwen2.5 0.5B。");
+  return;
+ }
  setLoadingModel(true);setModelError(false);setModelProgress(0);
  try{
   await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},selectedLocalModel);
@@ -825,7 +834,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  let activeModel=selectedLocalModel,localReady=ready;
  const upgradeId=LOCAL_MODELS.find(m=>m.recommended&&isLocalModelSupported(m.id))?.id;
- if((privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
+ if(!iosDevice&&(privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
     (task==="code"||task==="analysis")&&upgradeId&&sessionStorage.getItem("vanilla.upgrade.asked.v1")!=="yes"){
   sessionStorage.setItem("vanilla.upgrade.asked.v1","yes");
   if(window.confirm("這題比較複雜。手機目前只載入 0.5B 本地模型，品質可能不足。要另外下載並載入 1.5B 本地模型（約 1.6 GB）後再回答嗎？")){

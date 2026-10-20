@@ -9,7 +9,6 @@ import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
 import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync";
-import {loadProviderConfigs} from "./vault/provider-sync";
 import {startNewConversation,recentConversations,reopenConversation,currentChatMode,CHAT_ARCHIVE_EVENT} from "./local-ai/chat-session";
 import type {ArchiveSummary} from "./library/conversation-archive";
 import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen,Mail,Server} from "lucide-react";
@@ -72,12 +71,11 @@ const [compactTabs,setCompactTabs]=useState(false);
 const [recent,setRecent]=useState<ArchiveSummary[]>([]);
 const mainRef=useRef<HTMLElement|null>(null);
 useEffect(()=>{const onRemote=()=>setChatKey(x=>x+1);window.addEventListener("vanilla-chat-remote-loaded",onRemote);return()=>window.removeEventListener("vanilla-chat-remote-loaded",onRemote);},[]);
-useEffect(()=>{try{const raw=sessionStorage.getItem("vanilla.drive.session.v1");if(!raw)return;const session=JSON.parse(raw) as {token?:string;expiresAt?:number};if(session.token&&session.expiresAt&&session.expiresAt>Date.now()+60000){void loadProviderConfigs(session.token).catch(()=>{});}}catch{}},[]);
 const [signedIn,setSignedIn]=useState(()=>driveSession());
 const [loginBusy,setLoginBusy]=useState(false);
 const [loginNotice,setLoginNotice]=useState("");
 useEffect(()=>{const refresh=()=>{setSignedIn(driveSession());setChatKey(x=>x+1);if(driveSession()&&chatSyncEnabled())void initializeChatSync();else stopChatSync();};window.addEventListener("vanilla-drive-connected",refresh);window.addEventListener("vanilla-drive-disconnected",refresh);return()=>{window.removeEventListener("vanilla-drive-connected",refresh);window.removeEventListener("vanilla-drive-disconnected",refresh);};},[]);
-async function connectAccount(){setLoginBusy(true);try{const session=await connectWorkspaceDrive();setSignedIn(session);await loadProviderConfigs(session.token);setLoginNotice("已登入："+session.email);}catch(e){setLoginNotice(e instanceof Error?e.message:String(e));}finally{setLoginBusy(false);}}
+async function connectAccount(){setLoginBusy(true);try{const session=await connectWorkspaceDrive();setSignedIn(session);setLoginNotice("已登入："+session.email);}catch(e){setLoginNotice(e instanceof Error?e.message:String(e));}finally{setLoginBusy(false);}}
 const [features,setFeatures]=useState<FeatureSpec[]>(loadFeatures);
 const [activeFeatureId,setActiveFeatureId]=useState("");
 const [editFeatureId,setEditFeatureId]=useState<string|null>(null);

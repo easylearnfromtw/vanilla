@@ -9,6 +9,7 @@ import {readNoodles,recordNoodles} from "../noodles/storage";
 import {preferTaideForTaiwan,isTaideModel} from "./taiwan-routing";
 import {profileFor,geminiLiteSibling} from "./model-profiles";
 import {localInferenceQueue} from "../detroit/zeus";
+import {createGenerationWatchdog,assertUsableModelAnswer} from "./generation-reliability";
 
 export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
@@ -100,7 +101,7 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
-  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id)+feedbackScore+(useNoodles?noodlesModelAdjustment(readNoodles(),task,candidate.id):0);
+  return baseScore(candidate,task)+localBonus+qualityBonus+selfHostedBonus+Math.max(-13,Math.min(13,36*(wins-losses)/(6+wins+losses)))+getHealthAdjustment(candidate.id,priority!=="quality")+feedbackScore+(useNoodles?noodlesModelAdjustment(readNoodles(),task,candidate.id):0);
  };
  return preferTaideForTaiwan([...candidates].sort((a,b)=>score(b)-score(a)),question);
 }
@@ -124,26 +125,33 @@ export async function generateCandidate(candidate:ModelCandidate,history:ChatTur
  const start=Date.now();
  const task=optimization?.task;
  const signal=optimization?.signal;
+ const watchdog=createGenerationWatchdog(signal);
+ const report=(text:string)=>{watchdog.progress(text);onText?.(text);};
  try{
   let result:string;
   if(candidate.source==="local")result=await retryDisposedLocalInference(
-   ()=>localInferenceQueue.run(()=>generateLocalReply(history,onText||(()=>{}),{task,signal,deep:optimization?.deep}),signal),
+   ()=>localInferenceQueue.run(()=>generateLocalReply(history,report,{task,signal:watchdog.signal,deep:optimization?.deep}),watchdog.signal),
    // Reload outside the Zeus GPU queue: loadLocalModel itself acquires this queue.
    ()=>loadLocalModel(()=>{},candidate.model),
-   ()=>onText?.(""),
-   signal
+   ()=>report(""),
+   watchdog.signal
   );
-  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal,deep:optimization?.deep});
-  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal,deep:optimization?.deep});
+  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep});
+  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep});
+  watchdog.assertCompleted();
+  assertUsableModelAnswer(result);
   const duration=Date.now()-start;
   recordModelRun(candidate.id,true,duration);
   if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:true,durationMs:duration},optimization.privateMode);
   return result;
  }catch(error){
+  // A stalled transport often throws a generic AbortError. Preserve the watchdog\u2019s useful reason.
+  let cause:unknown=error;
+  try{watchdog.assertCompleted();}catch(watchdogError){cause=watchdogError;}
   const duration=Date.now()-start;
   // A user pressing "stop" is not a model failure.
   if(!signal?.aborted)recordModelRun(candidate.id,false,duration);
   if(optimization&&!signal?.aborted)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:false,durationMs:duration},optimization.privateMode);
-  throw error;
- }
+  throw cause;
+ }finally{watchdog.dispose();}
 }

@@ -71,6 +71,12 @@ def parse_result(data: object) -> dict:
 
 
 async def execute_medusa(request: MedusaRunRequest) -> dict:
+    engine = os.environ.get("MEDUSA_ENGINE", "judge0")
+    if engine == "cloudrun":
+        from medusa_cloudrun_adapter import execute_cloudrun
+        return await execute_cloudrun(request)
+    if engine != "judge0":
+        raise HTTPException(503, "Medusa 不支援的執行引擎")
     endpoint, language_id = validated_config()
     if len(request.source_code.encode("utf-8")) > 16000 or len(request.stdin.encode("utf-8")) > 2048:
         raise HTTPException(413, "Medusa 程式或輸入資料超出大小限制")

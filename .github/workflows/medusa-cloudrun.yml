@@ -1,0 +1,31 @@
+name: Medusa Cloud Run Sandbox Contracts
+on:
+  pull_request:
+    paths:
+      - 'services/medusa-cloudrun/**'
+      - 'services/weiguo/medusa*'
+      - '.github/workflows/medusa-cloudrun.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/medusa-cloudrun/**'
+      - 'services/weiguo/medusa*'
+      - '.github/workflows/medusa-cloudrun.yml'
+permissions:
+  contents: read
+jobs:
+  worker-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install worker test requirements
+        run: |
+          python -m pip install -r services/medusa-cloudrun/requirements.txt httpx==0.28.1
+      - name: Validate worker request/auth isolation
+        working-directory: services/medusa-cloudrun
+        run: python -m unittest discover -p 'test_*.py' -v
+      - name: Compile Python worker and gateway
+        run: python -m py_compile services/medusa-cloudrun/app.py services/weiguo/medusa_cloudrun_adapter.py

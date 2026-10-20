@@ -64,6 +64,9 @@ async def family_medusa_status(user: FamilyIdentity = Depends(family_user)):
     """Does not assert the remote executor works without a successful code run."""
     if not family_enabled(user):
         return {"enabled": False, "connected": False, "note": "Medusa 尚未由管理端開啟"}
+    if os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
+        from medusa_cloudrun_adapter import cloudrun_status
+        return await cloudrun_status()
     try:
         endpoint, language_id = validated_config()
         async with httpx.AsyncClient(timeout=httpx.Timeout(4, connect=2),
@@ -91,7 +94,11 @@ async def family_medusa_run(request: FamilyMedusaRunRequest,
     if "\x00" in request.source_code or "\x00" in request.stdin:
         raise HTTPException(400, "程式內容不可包含 NUL 字元")
     # Verify actual upstream configuration BEFORE consuming quota.
-    validated_config()
+    if os.environ.get("MEDUSA_ENGINE", "judge0") == "cloudrun":
+        from medusa_cloudrun_adapter import validated_cloud_config
+        validated_cloud_config()
+    else:
+        validated_config()
     await take_quota(user.sub)
     output = await execute_medusa(MedusaRunRequest(
         source_code=request.source_code, stdin=request.stdin))

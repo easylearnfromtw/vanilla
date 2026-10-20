@@ -8,7 +8,11 @@ on:
       - 'src/nodes/**'
       - '.github/workflows/windows-node-installer.yml'
   push:
+    branches: [main]
     tags: ['windows-node-v*']
+    paths:
+      - 'services/windows-node/**'
+      - '.github/workflows/windows-node-installer.yml'
 permissions:
   contents: write
 jobs:
@@ -39,9 +43,15 @@ jobs:
           path: |
             dist/Vanilla-Windows-Node-Setup.exe
             dist/SHA256.txt
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/windows-node-v')
+      - name: Publish verified Windows build on main
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: powershell
-        run: gh release create $env:GITHUB_REF_NAME 'dist/Vanilla-Windows-Node-Setup.exe' 'dist/SHA256.txt' --title "Vanilla Windows Node $env:GITHUB_REF_NAME" --notes 'Unsigned Windows installer. Verify SHA256 before installing.'
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/windows-node-v*') {
+            $tag = $env:GITHUB_REF_NAME
+          } else {
+            $tag = 'windows-node-' + $env:GITHUB_SHA.Substring(0, 12)
+          }
+          gh release create $tag 'dist/Vanilla-Windows-Node-Setup.exe' 'dist/SHA256.txt' --target $env:GITHUB_SHA --title "Vanilla Windows Node $tag" --notes 'Unsigned Windows installer; verify SHA256 and Windows SmartScreen before installing. Built automatically from repository source.'

@@ -1,7 +1,7 @@
 /** User-visible, indexed provenance for web research; snippets are never
  * mislabeled as full article reading. No invented citations.
  */
-import {classifyFactRequest} from "../detroit/veritas-gate";
+import {classifyFactRequest} from "../detroit/veritas-gate.ts";
 export type IndexedPage={title:string;url:string;kind:"full"|"snippet";excerpt:string};
 export function formatIndexedPages(pages:IndexedPage[]):string{
  if(!pages.length)return "沒有成功取得可核對的網站內容，不能提供已讀取的網頁分析。";

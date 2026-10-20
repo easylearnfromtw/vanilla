@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.32-luca-feedback",
-  "description": "LUCA records explicit thumbs-up, thumbs-down and preferred-answer selections with local private feedback analytics"
+  "build": "2026.10.20.33-veritas-gate",
+  "description": "Veritas source-backed fact guard, automatic Scouts checks, safe knowledge-model routing"
 }

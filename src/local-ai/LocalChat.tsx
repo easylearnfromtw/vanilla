@@ -54,6 +54,7 @@ import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversation
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
 import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
+import {detectMerlinClarification,resolveMerlinClarification,type MerlinClarification} from "../detroit/merlin-clarifier";
 import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
@@ -74,7 +75,15 @@ function takeHumanizeDraft():string{try{const key="vanilla.erya.pending-draft.v1
 function restoreHistory(key=chatStorageKey(false)):ChatTurn[]{
   try{const raw=localStorage.getItem(key);if(!raw)return [];const parsed:unknown=JSON.parse(raw);return Array.isArray(parsed)?parsed.filter((x):x is ChatTurn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];}catch{return [];}
 }
+/** An interrupted clarification round can resume after refreshing or reopening this chat. */
+function restoreMerlinPending(turns:ChatTurn[]):MerlinClarification|null{
+ const last=turns[turns.length-1];
+ if(last?.role!=="assistant"||last.tool?.id!=="merlin-clarify"||!last.clarificationOriginalId)return null;
+ const original=turns.find(t=>t.role==="user"&&t.id===last.clarificationOriginalId);
+ return original?{original:original.content,question:last.content,originId:last.clarificationOriginalId,reason:"missing-material"}:null;
+}
 const TOOL={
+ merlin:{id:"merlin-clarify",label:"Merlin · 需求釐清"},
  capability:{id:"capability",label:"功能實況"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
@@ -96,6 +105,7 @@ function sourceLabel(turn:ChatTurn):string{
 export default function LocalChat({onNavigate}:{onNavigate?:(section:"library"|"settings"|"cream")=>void}){
 const [privateMode,setPrivateMode]=useState(restoreMode);
 const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(chatStorageKey(restoreMode())));
+ const [merlinPending,setMerlinPending]=useState<MerlinClarification|null>(()=>restoreMerlinPending(restoreHistory(chatStorageKey(restoreMode()))));
 const [draft,setDraft]=useState(takeHumanizeDraft);
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
@@ -276,7 +286,8 @@ function switchPrivacy(){
   if(busy||comparison)return;
   const next=!privateMode;
   try{localStorage.setItem(MODE_KEY,String(next));}catch{setStorageError(true);return;}
-  setHistory(restoreHistory(chatStorageKey(next)));
+  const restored=restoreHistory(chatStorageKey(next));
+  setHistory(restored);setMerlinPending(restoreMerlinPending(restored));
   setPrivateMode(next);
   setDraft("");setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute(next?"私密模式：只用手機本地模型，不上網、不寫入雲端。":"一般模式：可使用你已連接的模型與工具。");
@@ -285,12 +296,12 @@ async function newConversation(){
  if(busy)return;
  const result=await startNewConversation(privateMode?"private":"normal");
  if(result.error){setLastRoute("無法封存目前對話，為避免遺失已停止："+result.error);return;}
- setHistory([]);setComparison(null);setSearchResults([]);setCreamDataset(null);
+ setHistory([]);setMerlinPending(null);setComparison(null);setSearchResults([]);setCreamDataset(null);
  setLastRoute(result.archived?"已開始新對話；上一段收在「最近」。":"");
 }
 async function reopen(id:string){
  if(busy)return;
- try{await reopenConversation(id,privateMode?"private":"normal");setHistory(restoreHistory(chatStorageKey(privateMode)));setLastRoute("已打開過去的對話，可以接著聊。");}
+ try{await reopenConversation(id,privateMode?"private":"normal");const restored=restoreHistory(chatStorageKey(privateMode));setHistory(restored);setMerlinPending(restoreMerlinPending(restored));setLastRoute("已打開過去的對話，可以接著聊。");}
  catch(e){setLastRoute(String(e instanceof Error?e.message:e));}
 }
 async function initialize(){
@@ -484,9 +495,35 @@ async function send(value=draft):Promise<void>{
   if(expanded.ui==="new-chat"){await newConversation();return;}
   raw=expanded.text;
  }
- const question=raw||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
+ let question=raw||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
  if(!question||busy||comparison||assetBusy)return;
  setDetroitPlan(null);
+ let visibleClarificationAnswer:string|undefined;
+ if(merlinPending){
+  const response=resolveMerlinClarification(merlinPending,question);
+  if(response.kind==="cancel"){
+   setMerlinPending(null);toolReply(question,"已取消上一項需求；可以直接提出新問題。","merlin");return;
+  }
+  if(response.kind==="retry"){
+   const at=Date.now();
+   setMerlinPending({...merlinPending,question:response.question});
+   setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:at},
+    {role:"assistant",content:response.question,tool:{...TOOL.merlin,status:"partial"},clarificationOriginalId:merlinPending.originId,id:crypto.randomUUID(),createdAt:at+1}]);
+   setDraft("");setLastRoute("Merlin：仍在等待必要資訊");return;
+  }
+  visibleClarificationAnswer=question;
+  question=response.prompt;
+  setMerlinPending(null);
+ }else{
+  const clarification=detectMerlinClarification(question,{hasContext:history.some(x=>x.role==="user"),hasAttachment:Boolean(image||fileName||fileContext)});
+  if(clarification){
+   const at=Date.now(),originId=crypto.randomUUID();
+   setMerlinPending({...clarification,originId});
+   setHistory(prev=>[...prev,{role:"user",content:question,id:originId,createdAt:at},
+    {role:"assistant",content:clarification.question,tool:{...TOOL.merlin,status:"partial"},clarificationOriginalId:originId,id:crypto.randomUUID(),createdAt:at+1}]);
+   setDraft("");setLastRoute("Merlin：請補充必要資訊（無額外模型呼叫）");return;
+  }
+ }
  recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
  const route=routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
  let inlineFileContext="";
@@ -764,10 +801,10 @@ async function send(value=draft):Promise<void>{
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
  }
- await answerWithModel(question,{inlineFileContext,webContext,webSources});
+ await answerWithModel(question,{inlineFileContext,webContext,webSources},visibleClarificationAnswer);
 }
 
-async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]}){
+async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]},visibleQuestion?:string){
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const merlin=optimizeMerlinPrompt(question,detroit);
@@ -844,7 +881,8 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   }
  }
  if(!privateMode&&!humanize)learnToneFromMessage(question,false);
- const displayQuestion=question+(fileName?"（附件："+(imageName||fileName)+"）":"");
+ const displayQuestion=(visibleQuestion??question)+(fileName?"（附件："+(imageName||fileName)+"）":"");
+ const modelQuestion=question+(fileName?"（附件："+(imageName||fileName)+"）":"");
  const next:ChatTurn[]=[...history,{role:"user",content:displayQuestion,id:crypto.randomUUID(),createdAt:Date.now()}];
  const assistantId=crypto.randomUUID(),assistantTime=Date.now()+1;
  const tableExpected=/(?:表格|比較表|試算表|工作簿)/.test(question);
@@ -879,7 +917,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
-  const composed=composeUserPrompt(displayQuestion,contexts,guidance,promptBudgetFor(candidate,task));
+  const composed=composeUserPrompt(modelQuestion,contexts,guidance,promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
   const notes:string[]=[];
   const cut=composed.included.find(x=>x.truncated);

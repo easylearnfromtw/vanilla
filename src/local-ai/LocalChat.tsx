@@ -64,9 +64,11 @@ import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
-import {executeDetroitNative,type NativeRetinaResult,type NativeJanusResult} from "../detroit/native-executors";
+import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 
+// Register actual local executors once; a descriptor alone is never executable.
+registerDetroitNativeExecutors();
 const BASE=import.meta.env.BASE_URL;
 const MODE_KEY=CHAT_MODE_KEY;
 const CONTEXT_KEY="vanilla.chat.context-prefs.v1";
@@ -584,6 +586,20 @@ async function send(value=draft):Promise<void>{
       (pick.tool==="retina"||pick.tool==="janus")){
     setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
     break;
+   }
+   // LUNA is a real, offline renderer. A poster request does not need a UI handoff.
+   if(pick.tool==="luna"&&/(?:海報|品牌主視覺|廣告版面|poster|LUNA)/i.test(route.request)){
+    setBusy(true);
+    try{
+     const result=await executeDetroitNative<NativeLunaResult>("luna",{
+      prompt:route.request.slice(0,300),owner:attachmentOwner(signedChatAccount()),
+      download:true,save:!privateMode
+     },{privateMode});
+     toolReply(question,"Detroit / LUNA 已以本機模板產生 PNG 海報："+result.filename+
+      "（"+result.layers+" 個圖層）。"+(result.savedEditable?"已儲存可編輯作品於 LUNA 工作室。":"沒有寫入非私密工作室；請保留下載檔案。"),"diana");
+    }catch(error){toolReply(question,"Detroit / LUNA 未完成輸出："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
    }
    if(pick.kind==="delegate"&&pick.command){
     if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}

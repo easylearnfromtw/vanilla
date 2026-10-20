@@ -103,40 +103,64 @@ def _guide():
 async def _status(chat: int):
     users=accounts()
     active=sum(x["enabled"] for x in users)
-    providers=provider_status()
-    p="、".join(x["provider"]+(" ✓" if x["enabled"] and x["configured"] else " ·") for x in providers)
-    await say(chat,f"Vanilla · 管理狀態\nGmail 白名單：{'強制' if enforce() else '尚未強制'}\n有效帳號：{active}\n服務：{p}",_menu_buttons())
+    lines=[]
+    for p in provider_status():
+        state="● 已啟用" if p["enabled"] and p["configured"] else "○ 待配置"
+        lines.append("  "+escape(p["provider"].title())+"  "+state)
+    text=(_title("SYSTEM / 管理狀態")
+          +"<b>白名單模式</b>  "+("● 強制啟用" if enforce() else "○ 未強制")+"\n"
+          +"<b>授權帳號</b>  <code>"+str(active)+"</code>\n\n"
+          +"<b>API 供應商</b>\n"+("\n".join(lines) if lines else "尚無設定")+"\n\n"
+          +"<i>此處是配置快照，非模型端對端測試。</i>")
+    await say(chat,text,_back(refresh="status"),html=True)
+
 
 async def _models(chat: int):
     rows=[]
     for provider in ("gemini","openai","deepseek"):
         item=catalog(provider)
-        rows.append(provider+": "+str(len(item["models"]))+" 個可見模型"+
-                    " · "+item["mode"]+" · "+(item["selected"] or "未偵測"))
-    await say(chat,"AI 模型設定\n"+"\n".join(rows)+
-              "\n\n版本由供應商官方清單取得；速度、均衡、品質採規則推薦，並非實際價格或效能評測。"+
-              "\n透過安全表單重新偵測或手動選擇。",[
-              [_btn("開啟安全模型設定","vault"),_btn("返回","menu")]])
+        rows.append("<b>"+escape(provider.title())+"</b> · "+str(len(item["models"]))+" 個可見版本\n"
+                    +"  <code>"+escape(item["selected"] or "未偵測")+"</code>\n"
+                    +"  策略："+escape(item["mode"]))
+    await say(chat,_title("MODELS / AI 模型")
+              +"\n\n".join(rows)
+              +"\n\n<i>可見清單不等於實際推論成功；實測請透過安全設定。</i>",
+              [[_btn("🔐 開啟安全模型設定","vault")],
+               [_btn("↻ 更新","models"),_btn("← 返回","menu")]],html=True)
 
 
 async def _users(chat: int):
     entries=accounts()
-    text="Gmail 白名單\n"+("\n".join(
-        ("✓" if item["enabled"] else "×")+" "+item["email"]+" · "+item["role"]+
-        " · "+",".join(item["scopes"]) for item in entries[:25]) if entries else "尚無帳號")
-    await say(chat,text+"\n\n新增：/admin allow email@gmail.com member chat,files",[
-        [_btn("返回管理選單","menu")]])
+    lines=[("● " if item["enabled"] else "○ ")
+           +"<code>"+escape(item["email"])+"</code>\n"
+           +"  "+escape(item["role"])+" · "+escape(", ".join(item["scopes"]))
+           for item in entries[:20]]
+    remainder=("\n…另有 "+str(len(entries)-20)+" 位帳號未列出" if len(entries)>20 else "")
+    text=(_title("ACCESS / Gmail 白名單")
+          +"<b>已授權帳號</b> · "+str(len(entries))+"\n\n"
+          +("\n\n".join(lines) if lines else "尚無帳號")
+          +remainder+"\n\n"
+          +"新增指令：\n<code>/admin allow email@gmail.com member chat,files</code>")
+    await say(chat,text,_back(refresh="users"),html=True)
+
 
 async def _providers(chat: int):
     entries=provider_status()
-    text="外部服務狀態（不顯示金鑰）\n"+ "\n".join(
-        x["provider"]+": "+("已啟用" if x["enabled"] else "關閉")+
-        ("，已設定憑證" if x["configured"] else "，尚無憑證") for x in entries)
+    lines=[]
+    for p in entries:
+        state=("● 已連接" if p["enabled"] and p["configured"]
+               else ("◐ 已停用" if not p["enabled"] else "○ 尚無憑證"))
+        lines.append("<b>"+escape(p["provider"].title())+"</b>  "+state)
     buttons=[[_btn(("停用 " if x["enabled"] else "啟用 ")+x["provider"],
                     ("disable:" if x["enabled"] else "enable:")+x["provider"])]
              for x in entries]
-    buttons.append([_btn("設定／輪替 API 金鑰","vault"),_btn("返回","menu")])
-    await say(chat,text,buttons)
+    buttons.extend([[_btn("🔐 安全設定／更新 API 金鑰","vault")],
+                    [_btn("↻ 更新","providers"),_btn("← 返回","menu")]])
+    await say(chat,_title("PROVIDERS / API 供應商")
+              +"\n".join(lines)
+              +"\n\n<i>不會顯示金鑰；狀態不代表 API 已成功推論。</i>",
+              buttons,html=True)
+
 
 def _pending(chat: int, op: str, target: str) -> str:
     token=secrets.token_urlsafe(12)

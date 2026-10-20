@@ -191,8 +191,11 @@ async def _vault(chat: int):
             or parts.query or parts.fragment or parts.path!="/v1/ceres/admin/webapp"):
         await say(chat,"安全 API 設定頁尚未配置。管理員需先在 Railway 設定 CERES_ADMIN_WEBAPP_URL 與 WEIGUO_VAULT_KEY。")
         return
-    await say(chat,"透過 Telegram 內開啟的 HTTPS 安全表單輸入 API Key。請勿把金鑰傳到聊天視窗。",[
-        [{"text":"🔐 開啟安全憑證設定","web_app":{"url":url}}]])
+    await say(chat,_title("VAULT / 安全憑證")
+              +"所有 API Key 只會透過 HTTPS 表單送至加密保管庫。\n"
+              +"<i>請勿在 Telegram 聊天訊息中貼出金鑰。</i>",
+              [[{"text":"🔐 開啟加密設定頁","web_app":{"url":url}}],
+               [_btn("← 返回管理中心","menu")]],html=True)
 
 async def command(chat: int, body: str):
     if not owner_subject(chat):
@@ -233,13 +236,18 @@ async def command(chat: int, body: str):
     except ValueError:
         await say(chat,"輸入格式不合法；請檢查 Email、角色或功能範圍。")
 
-async def callback(chat: int, callback_id: str, data: str):
-    if not owner_subject(chat):
-        return
-    if not data.startswith("adm:"):
+async def callback(chat: int, callback_id: str, data: str, message_id: int | None=None):
+    if not owner_subject(chat) or not data.startswith("adm:"):
         return
     await _telegram("answerCallbackQuery",{"callback_query_id":callback_id})
-    action=data[4:]
+    token=_edit_target.set(message_id if type(message_id) is int and message_id>0 else None)
+    try:
+        await _handle_callback(chat,data[4:])
+    finally:
+        _edit_target.reset(token)
+
+
+async def _handle_callback(chat: int, action: str):
     if action in ("menu","status","users","providers","models","vault"):
         if action=="menu": await say(chat,_guide(),_menu_buttons(),html=True)
         elif action=="status": await _status(chat)

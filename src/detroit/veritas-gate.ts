@@ -3,7 +3,7 @@
  * *index*, not verified semantic truth; ungrounded exact claims fail closed.
  */
 import type {IndexedPage} from "../search/search-evidence";
-import {parseParamsB} from "../ai/model-profiles";
+import {parseParamsB} from "../ai/model-profiles.ts";
 
 export type FactRisk="none"|"stable"|"fresh"|"official";
 export type FactRequest={risk:FactRisk;needsLiveSources:boolean;restrictTinyModel:boolean;reason:string};

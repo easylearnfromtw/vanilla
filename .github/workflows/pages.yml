@@ -34,6 +34,7 @@ jobs:
       - run: npm run test:drive-orphan
       - run: npm run test:taide
       - run: npm run test:local-chat
+      - run: npm run test:model-download
       - run: npm run test:webllm-guard
       - run: npm run test:assistant
       - run: npm run test:resource-integration
@@ -44,6 +45,9 @@ jobs:
       - run: npm run test:ceres
       - run: npm run test:luca
       - run: npm run test:detroit
+      - run: npm run test:detroit-bus
+      - run: npm run test:diana
+      - run: npm run test:orchestra
       - run: npm run test:victoria
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio

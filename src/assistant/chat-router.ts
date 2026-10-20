@@ -61,7 +61,7 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
- // A named tool question must be answered, not treated as an instruction to invoke it.
+ // Questions about tools are answered from the registry, not treated as invocations.
  if(toolKnowledgeIntent(q))return {kind:"tool-knowledge"};
  const diana=parseDianaInvocation(q);
  if(diana)return {kind:"diana",...diana};
@@ -148,7 +148,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
  switch(cmd){
   case "Quirinus":case "quirinus":return {text:"@Quirinus"+(arg?" "+arg:"")};
   case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
-  case "Orchestra":case "orchestra":case "製作":return {text:"開啟 Orchestra Studio"};
+  case "Orchestra":case "orchestra":case "製作":return {text:arg?"@Orchestra "+arg:"開啟 Orchestra Studio"};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
   case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:missing("潤稿","/潤稿 請修改這段文章");
   case "衞國":case "衛國":return {text:"開啟 衞國系統"};

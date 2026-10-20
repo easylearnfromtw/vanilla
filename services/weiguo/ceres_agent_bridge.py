@@ -14,6 +14,9 @@ MAX_AGE = 300
 LEASE_SECONDS = 90
 
 def enabled():
+    from ceres_server_agent import ready as server_ready
+    if server_ready():
+        return False  # Server owns new messages when a persistent model is configured.
     return (_enabled() and os.getenv("CERES_LOCAL_BRIDGE_ENABLED", "").lower() == "true"
             and os.getenv("CERES_OUTBOUND_ENABLED", "").lower() == "true")
 

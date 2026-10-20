@@ -16,12 +16,13 @@ export function proposeProactiveDiana(question:string,ctx:DianaContext):DianaDec
  if(/^(?:【待潤稿原文】|以下是原文|原文如下|引用：|引述：|>)/.test(q))return null;
  const doc=DOC.test(q)&&ACTION.test(q);
  const canva=/Canva/i.test(q)&&/(?:圖片|生圖|圖像|簡報|海報|設計|製作|生成|建立)/i.test(q);
+ const media=/(?:SVG|PNG|JPEG|JPG|GIF|圖卡|資訊圖|向量圖|簡報|投影片)/i.test(q)&&ACTION.test(q);
  const visual=/(?:設計|製作|建立|生成|畫一張|幫我做).{0,40}(?:海報|廣告版面|品牌主視覺|AI\s*圖片|AI\s*圖像)/i.test(q);
  const email=/(?:設計|製作|建立|匯出|編輯).{0,40}(?:電子報|郵件模板|EDM|newsletter|Email\s*Studio)/i.test(q);
  const rewrite=/(?:幫我|請|麻煩).{0,10}(?:潤稿|去除AI腔|自然化這段)/i.test(q);
  const stats=/(?:幫我|請|麻煩).{0,12}(?:分析|統計|繪製).{0,35}(?:CSV|數據|圖表|資料集|折線圖|圓餅圖)/i.test(q);
  const code=/(?:幫我|請|麻煩|我要).{0,12}(?:修改|修復|重構|新增|實作).{0,45}(?:Vanilla|GitHub|原始碼|程式碼|bug)/i.test(q);
- if(!(doc||visual||email||rewrite||stats||code||canva))return null;
+ if(!(doc||media||visual||email||rewrite||stats||code||canva))return null;
  const choice=chooseDianaTool(q,ctx);
  // Keep ordinary LLM chat as-is if Diana cannot identify a concrete tool.
  if(choice.tool==="merlin"||choice.tool==="diana")return null;

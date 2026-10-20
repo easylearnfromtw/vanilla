@@ -52,3 +52,11 @@ test("artifact routing requires an affirmative request and never sends email",()
   assert.equal(planDianaNativeArtifact(q),null,q);
  }
 });
+
+test("Orchestra is registered as local Detroit-owned ability while native Craft stays gated",()=>{
+ assert.equal(DETROIT_CAPABILITIES.find(c=>c.id==="orchestra")?.state,"local");
+ assert.ok(ORCHESTRA_TOOLS.every(x=>DETROIT_CAPABILITIES.find(c=>c.id===x.id)?.state==="adapter"));
+ const bus=new DetroitCapabilityBus();
+ bus.register("orchestra",async()=>({filename:"verified.pdf"}));
+ assert.equal(bus.isRunnable("orchestra"),true);
+});

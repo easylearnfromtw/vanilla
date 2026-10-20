@@ -31,6 +31,7 @@
     "test:taide": "node --experimental-strip-types --test tests/taide-routing.test.mjs",
     "test:drive-orphan": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/drive-orphan-delete.test.mjs",
     "test:chat-router": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/chat-router.test.mjs tests/veritas-gate.test.mjs",
+    "test:tool-knowledge": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/tool-knowledge.test.mjs",
     "test:model-tuning": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/model-tuning.test.mjs",
     "test:archive": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/conversation-archive.test.mjs",
     "test:providers": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/provider-streaming.test.mjs",
@@ -55,8 +56,7 @@
     "test:erya": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/erya-humanize.test.mjs",
     "test:luna-advanced": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/luna-advanced.test.mjs",
     "test:luca": "node --experimental-strip-types --test tests/luca-ui.test.mjs tests/luca-client.test.mjs tests/luca-feedback.test.mjs",
-    "test:ceres": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/ceres.test.mjs",
-    "test:tool-knowledge": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/tool-knowledge.test.mjs"
+    "test:ceres": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/ceres.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

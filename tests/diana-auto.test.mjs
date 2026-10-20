@@ -8,7 +8,7 @@ const normal={privateMode:false,hasCreamResult:false,online:true,hasModel:true};
 
 test("Diana proactively selects actual tools without a prefix",()=>{
  for(const [q,tool] of [
-  ["幫我製作一份 PDF 報告","retina"],
+  ["幫我製作一份 PDF 報告","orchestra"],
   ["請設計品牌海報","luna"],
   ["幫我製作電子報","janus"],
   ["請幫我潤稿這段文字","er-ya"],
@@ -53,4 +53,10 @@ test("CREAM computes a verified local report before Retina exports",()=>{
  assert.match(planned.body,/資料來源：單元測試資料/);
  const empty=analyzeCream(fromCreamRows([["日期","文字"],["a","b"]],"無法計算"));
  assert.equal(composeDianaCreamDocument("製作 PDF",empty),null);
+});
+
+test("native Orchestra proactive routing is active for file and media creation",()=>{
+ for(const q of ["把上一則回答轉成 PDF","把回答做成 SVG","請製作 GIF 動圖"]){
+  assert.equal(proposeProactiveDiana(q,normal)?.tool,"orchestra",q);
+ }
 });

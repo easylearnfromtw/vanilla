@@ -31,12 +31,13 @@ distinct Linux network namespace. No insecure fallback exists.
    `orchestra-pdfcraft-vm` in the **same production environment**, with
    root directory `/services/pdfcraft-vm-runner`, Dockerfile `Dockerfile`,
    health check `/health`, resource cap and exactly one process replica.
-2. Railway's **project-scoped token** is created only by the project
-   owner in **Project Settings → Tokens**. It must be scoped to the
-   `Vanilla Detroit / production` environment. Store it as a **sealed**
-   `RAILWAY_TOKEN` variable **on the broker service only**. The connected
-   Railway app cannot read or create this token automatically.
-   `RAILWAY_ENVIRONMENT_ID` is injected by Railway.
+2. In Railway **Account / Workspace Settings → Tokens**, create an API token
+   with access to your Vanilla Detroit project. The SDK reads **only** the
+   `RAILWAY_API_TOKEN` variable; store it as a **sealed** server-side
+   variable on `orchestra-pdfcraft-vm`, never on WeiGuo or the static PWA.
+   This connector cannot create or retrieve that token. The existing
+   `RAILWAY_ENVIRONMENT_ID` variable is injected by Railway.
+   Do not use a GitHub personal access token or a frontend-exposed key.
 3. Set `PDFCRAFT_VM_RUNNER_ENABLED=true` **only after** token setup.
    At boot, a real VM is created from a cached template and a pinned CLI
    digest and separate Bubblewrap network namespace are checked. The VM

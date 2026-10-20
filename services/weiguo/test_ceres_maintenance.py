@@ -11,7 +11,7 @@ from ceres_maintenance import (setting,request_change,approve,audit_log,workflow
                                run_workflow,jobs,budget_state,model_call_allowed,
                                overview,version,watch_tick,_tables)
 from ceres_gateway import _session
-from ceres_command_center import command, callback, _menu
+from ceres_command_center import command, callback, _menu, _ops_menu
 
 CHAT=888123456
 OTHER=888123457
@@ -112,7 +112,8 @@ class MaintenanceTests(unittest.TestCase):
             send.reset_mock()
             asyncio.run(command(OTHER,"/hub health"))
             send.assert_not_awaited()
-        menu={x["callback_data"] for row in _menu() for x in row}
+        menu={x["callback_data"] for row in _ops_menu() for x in row}
+        self.assertIn("hub:operations",{x["callback_data"] for row in _menu() for x in row})
         self.assertIn("hub:health",menu)
         self.assertIn("hub:jobs",menu)
         self.assertIn("hub:approvals",menu)

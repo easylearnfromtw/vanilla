@@ -28,6 +28,8 @@ export const LOCAL_MODELS=LOCAL_CATALOG.map(x=>({id:x.id,label:x.label,descripti
 export type WebCitation={title:string;url:string;kind:"full"|"snippet"};
 export type ToolInfo={id:string;label:string;status:"ok"|"partial"|"error";detail?:string};
 export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"gemini"|"deepseek";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult;webSources?:WebCitation[];
+ /** The originating user message ID when Merlin is waiting for clarification; no duplicated prompt. */
+ clarificationOriginalId?:string;
  /** Which Vanilla tool produced this message (search, CREAM, files…). */
  tool?:ToolInfo;
  /** Labels of data attached to the model prompt for this answer (transparency chips). */

@@ -367,10 +367,10 @@ def production_selftest() -> bool:
     _BOOT_SELFTEST_OK = False
     try:
         arithmetic = run_subset("print(40 + 2)")
-        loop = run_subset("n=0\\nfor i in range(5):\\n    n+=i\\nprint(n)")
+        loop = run_subset("n=0\nfor i in range(5):\n    n+=i\nprint(n)")
         denied = run_subset("import os")
-        ok = (arithmetic["accepted"] and arithmetic["stdout"] == "42\\n"
-              and loop["accepted"] and loop["stdout"] == "10\\n"
+        ok = (arithmetic["accepted"] and arithmetic["stdout"] == "42\n"
+              and loop["accepted"] and loop["stdout"] == "10\n"
               and not denied["accepted"] and denied["status"] == "Unsupported Syntax")
     except Exception:
         ok = False

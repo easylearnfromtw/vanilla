@@ -51,8 +51,8 @@ test("one VM per merge, verified network namespace, bounded data and guaranteed 
  const merged=await mergeInEphemeralVM(m.Sandbox,[pdf,pdf]);
  assert.deepEqual(Buffer.from(merged),pdf);
  assert.deepEqual(m.records[0].sandboxOptions,{networkIsolation:"ISOLATED",idleTimeoutMinutes:1});
- assert.equal(m.records.some(x=>x.includes("--unshare-net")),true);
- assert.equal(m.records.some(x=>x.includes("--unshare-user")),true);
+ assert.equal(m.records.some(x=>typeof x==="string"&&x.includes("--unshare-net")),true);
+ assert.equal(m.records.some(x=>typeof x==="string"&&x.includes("--unshare-user")),true);
  assert.deepEqual(m.written["/work/source-1.pdf"],pdf);
  assert.equal(m.wasDestroyed(),true);
 });

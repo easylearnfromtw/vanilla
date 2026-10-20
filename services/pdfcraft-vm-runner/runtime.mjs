@@ -34,6 +34,9 @@ const CLI="/opt/pdfcraft/pdfcraft-cli";
 
 /** Independent VM namespace test; bwrap failures are fatal. */
 export async function verifyInsideVM(vm) {
+ // Bubblewrap binds /work from the sandbox guest filesystem. It must exist
+ // before the first namespace probe, including startup readiness checks.
+ await vm.files.mkdir("/work");
  const sha=await vm.exec("sha256sum /opt/pdfcraft/pdfcraft-cli", {timeoutSec:5});
  if(sha.exitCode!==0 || !sha.stdout.trim().startsWith(EXEC_SHA+" "))
    throw new Error("PdfCraft executable digest failed");
@@ -57,7 +60,6 @@ export async function mergeInEphemeralVM(Sandbox, inputs) {
  try {
   vm=await Sandbox.create(templateFor(Sandbox), { networkIsolation:"ISOLATED", idleTimeoutMinutes:1 }); // no inherited env/secrets
   await verifyInsideVM(vm);
-  await vm.files.mkdir("/work");
   for(let i=0;i<inputs.length;i++)
    await vm.files.write("/work/source-"+(i+1)+".pdf",inputs[i],{mode:0o600});
   const command=CMD+" "+CLI+" combine "+inputs.map((_,i)=>"/work/source-"+(i+1)+".pdf").join(" ")+" --out /work/merged.pdf";
@@ -78,13 +80,28 @@ export function validPdf(data) {
  return Buffer.from(data.subarray(0,5)).toString("ascii")==="%PDF-" &&
   Buffer.from(data.subarray(-2048)).includes(Buffer.from("%%EOF"));
 }
+/** A fixed, redacted category only: never include SDK error text or tokens in logs. */
+export function classifyVmFailure(error) {
+ const m=String(error?.message||"").toLowerCase();
+ if(m.includes("nested network sandbox"))return "network_namespace";
+ if(m.includes("executable digest"))return "binary_integrity";
+ if(/\\b401\\b|\\b403\\b|unauthori[sz]ed|forbidden|permission denied/.test(m))return "auth_denied";
+ if(/\\b429\\b|quota|sandbox limit|too many/.test(m))return "quota";
+ if(/timeout|timed out|deadline/.test(m))return "timeout";
+ if(/template|build failed|apt-get|curl|sha256sum/.test(m))return "template_build";
+ return "unknown";
+}
 /** Starting a VM is a paid operation: invoke once at explicit service enable. */
 export async function startupPreflight(Sandbox) {
- let vm;
+ let vm, stage="create";
  try {
   vm=await Sandbox.create(templateFor(Sandbox), { networkIsolation:"ISOLATED", idleTimeoutMinutes:1 });
+  stage="verify";
   await verifyInsideVM(vm);
   return true;
+ }catch(error) {
+  // Do not reveal raw Railway SDK/GraphQL failure details in application logs.
+  throw new Error("pdfcraft_preflight_"+stage+"_"+classifyVmFailure(error));
  }finally {
   if(vm)await vm.destroy().catch(()=>{});
  }

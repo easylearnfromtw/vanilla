@@ -29,6 +29,7 @@ _STATUS = re.compile(r"^(?:/nodes|/slime(?: status)?|節點狀態|電腦狀態|�
 _INVITE = re.compile(r"^(?:/slime invite|/node invite|(?:請|幫我|麻煩)?(?:建立|產生|生成|給我|新增|創建)(?:一個|新的)?(?:朋友)?(?:加入)?(?:邀請|邀請碼|邀請連結|節點邀請)(?:碼|連結)?(?:給朋友)?|我要邀請朋友(?:加入)?|邀請朋友(?:加入)?|我想邀請朋友(?:加入)?)$", re.I)
 _MUTATE = re.compile(r"^(?:請|幫我|麻煩)?(?:把|將)?\s*(?P<name>.{1,90}?)\s*(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?$", re.I)
 _PREFIX_MUTATE = re.compile(r"^(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?\s+(?P<name>.{1,90})$", re.I)
+_INFER = re.compile(r"^/slime infer ([a-f0-9]{8,48}) (on|off)$",re.I)
 _CONFIRM = re.compile(r"^確認\s+([A-Fa-f0-9]{8})$")
 _CANCEL = re.compile(r"^(?:取消|算了|不要了)$")
 
@@ -59,7 +60,7 @@ def _audit(db, sub: str, chat: int, operation: str, node_id: str = ""):
 
 def _listing(sub: str) -> str:
     with _db() as db:
-        rows = db.execute("SELECT id,label,role,last_seen,share_enabled,owner_enabled,ram_gb,gpu"
+        rows = db.execute("SELECT id,label,role,last_seen,share_enabled,owner_enabled,inference_enabled,ram_gb,gpu"
                           " FROM nodes WHERE owner=? ORDER BY label", (sub,)).fetchall()
     if not rows:
         return "Slime 目前沒有已配對的電腦。你可以說「幫我建立朋友邀請碼」。"
@@ -68,7 +69,8 @@ def _listing(sub: str) -> str:
     for x in rows[:25]:
         online = "在線" if time.time() - x["last_seen"] <= ONLINE_SECONDS else "離線"
         allowed = "可參與" if x["owner_enabled"] and x["share_enabled"] else "已暫停"
-        lines.append(f"• {x['label']}｜{online}｜{allowed}｜RAM {x['ram_gb']:g}GB｜ID {x['id']}")
+        inference = "已核准推論" if x["inference_enabled"] else "推論關閉"
+        lines.append(f"• {x['label']}｜{online}｜{allowed}｜{inference}｜RAM {x['ram_gb']:g}GB｜ID {x['id']}")
     if len(rows) > 25:
         lines.append(f"另有 {len(rows)-25} 台；目前只顯示前 25 台。")
     lines.append("目前只有節點註冊／心跳，尚未啟用 30B 分散式推論。")
@@ -118,6 +120,9 @@ def _confirm(sub: str, chat: int, code: str) -> str:
         operation, node_id = row["operation"], row["node_id"]
         if operation == "revoke":
             cur = db.execute("DELETE FROM nodes WHERE id=? AND owner=?", (node_id, sub))
+        elif operation in ("inference_on","inference_off"):
+            cur = db.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
+                             (int(operation=="inference_on"),node_id,sub))
         else:
             cur = db.execute("UPDATE nodes SET owner_enabled=? WHERE id=? AND owner=?",
                              (int(operation == "resume"), node_id, sub))
@@ -128,7 +133,9 @@ def _confirm(sub: str, chat: int, code: str) -> str:
         db.commit()
     return {"pause": "已暫停節點；目前不會接受此節點的新計畫。",
             "resume": "已恢復節點的管理端允許狀態；仍由朋友自行決定是否共享。",
-            "revoke": "已撤銷節點憑證；此設備必須重新取得邀請才能加入。"}[operation]
+            "revoke": "已撤銷節點憑證；此設備必須重新取得邀請才能加入。",
+            "inference_on": "已核准該節點提供推論。經 API Key 核准的提示可能傳送至此節點。",
+            "inference_off": "已禁止該節點承接新的模型推論。"}[operation]
 
 
 def handle_slime(chat: int, sub: str, message: str) -> str | None:
@@ -138,7 +145,7 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
         return None
     if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source)
             or source.lower().startswith(("/slime", "/nodes", "/node "))
-            or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
+            or _INFER.fullmatch(source) or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
             or _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
             or "slime" in source.lower()
             or ("節點" in source and any(x in source for x in ("管理", "設定", "GPU", "RAM", "上限", "查看", "查詢", "邀請", "移除")))
@@ -153,7 +160,8 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     if source.lower() in ("/slime help", "/node help", "/slime 設定", "/slime 設置"):
         return ("你可以直接說：「目前有哪些電腦」、「建立朋友邀請碼」、"
                 "「把『電腦名稱』暫停」、「恢復『電腦名稱』」、「移除『電腦名稱』」。"
-                "\n停用、恢復與移除均需回覆確認碼。")
+                "\n核准本地模型：/slime infer <節點ID> on；撤回：/slime infer <節點ID> off。"
+                "\n所有敏感操作都需要確認碼。")
     if _INVITE.fullmatch(source):
         try:
             return _invite(sub, chat)
@@ -168,6 +176,24 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     confirm = _CONFIRM.fullmatch(source)
     if confirm:
         return _confirm(sub, chat, confirm.group(1))
+    request=_INFER.fullmatch(source)
+    if request:
+        node_id,mode=request.group(1).lower(),request.group(2).lower()
+        with _db() as db:
+            _setup(db)
+            nodes=_lookup(db,sub,node_id)
+            if len(nodes)!=1:
+                return "找不到該 Owner 旗下的節點，請先查看 /nodes 取得完整 ID。"
+            code=secrets.token_hex(4)
+            db.execute("INSERT OR REPLACE INTO slime_telegram_confirm"
+                       "(chat_id,owner,node_id,operation,code_hash,expires)"
+                       " VALUES(?,?,?,?,?,?)",
+                       (chat,sub,nodes[0]["id"],
+                        "inference_on" if mode=="on" else "inference_off",
+                        hashlib.sha256(code.encode()).hexdigest(),time.time()+TTL))
+        description="核准節點接收外部 API 使用者的模型提示" if mode=="on" else "停止此節點接受新模型任務"
+        return (f"Slime · 安全確認\\n{description}：{nodes[0]['label']}。\\n"
+                f"請於 {TTL//60} 分鐘內回覆「確認 {code}」，或回覆「取消」。目前尚未更動。")
     mutation = _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
     if mutation:
         target = mutation.group("name").strip().removeprefix("的").strip()

@@ -37,9 +37,19 @@ def _menu() -> list[list[dict]]:
         [_button("◇ Detroit 工具", "tools"), _button("◎ Slime 節點", "nodes")],
         [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
         [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
-        [_button("🩺 運維巡檢", "health"), _button("🚨 事件告警", "incidents")],
-        [_button("🗂 任務／Diana", "jobs"), _button("🛡 審批／稽核", "approvals")],
-        [_button("🚀 版本管理", "deploy"), _button("📋 營運報告", "report")],
+        [_button("✦ 進階運維中心", "operations")],
+    ]
+
+
+def _ops_menu() -> list[list[dict]]:
+    return [
+        [_button("🩺 系統巡檢","health"),_button("🚨 異常事件","incidents")],
+        [_button("🗂 任務／Diana","jobs"),_button("🛡 審批中心","approvals")],
+        [_button("🚀 部署版本","deploy"),_button("📋 營運報告","report")],
+        [_button("💰 API 預算","budget"),_button("🔎 安全稽核","audit")],
+        [_button("🔐 權限安全","security"),_button("🗃 備份復原","backup")],
+        [_button("⚙️ 巡檢設定","maintenance"),_button("🧠 Diana 流程","flows")],
+        [_button("← 返回主控台","home")],
     ]
 
 
@@ -278,6 +288,12 @@ async def command(chat: int, body: str) -> None:
                  +"<i>尚未執行 · 請於 120 秒內確認</i>")
         await say(chat,message,[[_button("✓ 確認套用","confirmplan:"+proposal["token"]),
                                 _button("× 取消","home")]],html=True)
+    elif action in ("operations","ops"):
+        await say(chat,_title("OPERATIONS / 進階運維")
+                  +"<b>主動維護、事件告警與安全審批</b>\n"
+                  +"按下方功能查看狀態。\n\n"
+                  +"<i>高權限動作不會直接從聊天自動執行。</i>",
+                  _ops_menu(),html=True)
     elif action in ("health","incidents","jobs","approvals","deploy","report",
                      "audit","security","backup","maintenance","flows") or (action=="budget" and not tail):
         from ceres_maintenance import (overview,budget_state,version,jobs,audit_log,security,
@@ -421,6 +437,8 @@ async def _handle_callback(chat: int, action: str) -> None:
         await say(chat, "輸入 /hub github 關鍵字，例如 /hub github telegram AI agent。")
     elif action in ("diagnostics","usage"):
         await command(chat,"/hub "+action)
+    elif action == "operations":
+        await command(chat,"/hub operations")
     elif action in {"health","incidents","jobs","approvals","deploy","report","budget",
                      "audit","security","backup","maintenance","flows"}:
         await command(chat,"/hub "+action)

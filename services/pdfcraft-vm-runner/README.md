@@ -10,7 +10,9 @@ SDK from the existing **Vanilla Detroit** project. It needs an existing
 Vanilla PWA → WeiGuo (family auth, quota, PDF transfer consent)
  → fixed HTTPS HMAC endpoint in pdfcraft-vm-runner
    → Railway SDK creates a fresh, isolated Linux VM (not a normal service)
-      → a pinned PdfCraft v0.9.0 executable
+      → a pinned PdfCraft v0.9.0 executable, uploaded as verified bytes
+        from the immutable broker Docker image (no Sandbox Template builder)
+      → install/check Bubblewrap in the fresh VM before parsing PDFs
       → Bubblewrap --unshare-net verified inside that VM
       → merge 2–3 PDFs using fixed file names, verify output
    → VM destroyed after each request, even on error
@@ -39,8 +41,10 @@ distinct Linux network namespace. No insecure fallback exists.
    `RAILWAY_ENVIRONMENT_ID` variable is injected by Railway.
    Do not use a GitHub personal access token or a frontend-exposed key.
 3. Set `PDFCRAFT_VM_RUNNER_ENABLED=true` **only after** token setup.
-   At boot, a real VM is created from a cached template and a pinned CLI
-   digest and separate Bubblewrap network namespace are checked. The VM
+   At boot, a real basic VM is created without a Sandbox Template build.
+   The pinned CLI is uploaded from the verified broker Docker image; the guest
+   installs/checks Bubblewrap, and a separate network namespace plus a real
+   two-PDF native merge are checked. The VM
    is immediately destroyed after the check. If the VM cannot be created,
    **signed** `/ready` returns 503 and no PDF jobs will run.
 4. Generate one strong 64-character hex secret and set
@@ -59,9 +63,10 @@ distinct Linux network namespace. No insecure fallback exists.
 
 ## Cost and privacy
 
-VM allocation is **billable**. Cached templates avoid repeated compilation
-and the broker limits concurrent jobs to one and requests to three per
-minute. Railway charges Sandbox VMs for CPU, memory and egress; no VM remains
+VM allocation is **billable**. The broker image pins the CLI in advance,
+but each temporary VM may install Bubblewrap before processing documents.
+Cold starts can be slower; the broker limits concurrent jobs to one and
+requests to three per minute. Railway charges Sandbox VMs for CPU, memory and egress; no VM remains
 running after a normal successful task, and an idle timeout is a secondary
 cleanup mechanism. Avoid enabling on untrusted/public accounts. Set a
 project spending limit and monitor Sandbox usage in Railway.
@@ -77,8 +82,7 @@ processing and do not use production medical/financial files for tests.
 
 `npm test` uses a fake SDK and **never allocates a billable VM**. CI checks
 the broker Docker image. This does **not** replace the live boot-time
-namespace and native merge acceptance check. The on-demand design is not a
-guaranteed 47-second cold start; the first cached-template build may be
-slow. Retain opt-in and safe 503 errors until a production VM probe passes.
+namespace and native merge acceptance check. The on-demand design is not a guaranteed short cold start; guest package
+provisioning and startup acceptance may require longer than one minute. Retain opt-in and safe 503 errors until a production VM probe passes.
 
 Official Railway docs: https://docs.railway.com/sandboxes

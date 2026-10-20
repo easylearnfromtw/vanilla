@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.18-iphone-webllm-stability";
+export const VANILLA_BUILD="2026.10.20.19-iphone-webllm-stability";

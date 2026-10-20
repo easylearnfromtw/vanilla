@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.18-iphone-webllm-stability",
-  "description": "iPhone WebLLM crash protection: manual cached model load, prevent silent GPU main-thread fallback, terminate retired workers, show memory warnings"
+  "build": "2026.10.20.19-iphone-webllm-stability",
+  "description": "Merlin clarification remains enabled; prevent iPhone WebLLM model auto-load crashes, worker fallback and GPU memory retention"
 }

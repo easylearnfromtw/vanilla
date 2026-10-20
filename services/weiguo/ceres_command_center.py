@@ -280,11 +280,18 @@ async def command(chat: int, body: str) -> None:
         await say(chat, "無法辨識控制中心指令，請使用 /hub 查看選單。", _menu())
 
 
-async def callback(chat: int, callback_id: str, data: str) -> None:
+async def callback(chat: int, callback_id: str, data: str, message_id: int | None=None) -> None:
     if not data.startswith("hub:") or not owner_subject(chat):
         return
     await _telegram("answerCallbackQuery", {"callback_query_id": callback_id})
-    action = data[4:]
+    token=_edit_target.set(message_id if type(message_id) is int and message_id>0 else None)
+    try:
+        await _handle_callback(chat,data[4:])
+    finally:
+        _edit_target.reset(token)
+
+
+async def _handle_callback(chat: int, action: str) -> None:
     if action in {"home", "status", "tools", "nodes", "sources",
                   "accounts", "providers"}:
         await command(chat, "/hub " + action)

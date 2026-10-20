@@ -236,7 +236,9 @@ document.getElementById("compare").addEventListener("click",async()=>{
  safeResult("ops-result","將進行兩次小型 API 呼叫，可能計費…");
  try{const r=await api("ops/compare",{provider:providerField.value,model:modelField.value,
    second:document.getElementById("compare-model").value});
- safeResult("ops-result",r.results.map(p=>p.model+" · "+p.code+" · "+p.latencyMs+"ms").join("\\n")+"\\n"+r.note);
+ safeResult("ops-result",r.results.map(p=>p.model+" · "+p.code+" · "+p.latencyMs+"ms"+
+ " · 算術題："+(p.objectiveMathCorrect?"正確":"未答對／不可驗證")+
+ " · 測試估算："+(p.estimatedUsd==null?"費率未知":"US$"+p.estimatedUsd)).join("\\n")+"\\n"+r.note);
  await refreshUsage();
  }catch(e){safeResult("ops-result",e.message||e);}finally{button.disabled=false;}
 });

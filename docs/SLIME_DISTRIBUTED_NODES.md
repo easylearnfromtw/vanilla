@@ -6,7 +6,7 @@ Slime 是 Detroit 底下由 Diana／Zeus 使用的**選用算力資源池**。Ow
 ### 低摩擦使用者流程
 - Vanilla → Detroit Studio → **Slime 節點**。
 - 「我的電腦」、「朋友的電腦」分開下載；選 Windows / macOS / Linux。
-- Owner 使用原本的衞國 Google 家庭登入建立一次性邀請（10 分鐘有效）。
+- Owner 僅透過已驗證身分的 **Telegram 私人對話** 建立一次性邀請（10 分鐘有效）；Vanilla 前端不提供管理按鈕。
 - 朋友開啟 Slime，貼上**一個**邀請連結，勾選同意並連線，不需要 API Key、資料庫帳密、OpenAI 帳號、設定路由器或執行 shell 指令。
 - 裝置 UI 清楚呈現「暫停共享」和「退出並撤銷配對」；預設**不設置開機自動啟動、系統服務或背景常駐**。關閉視窗後一段時間自動轉離線。
 - 目前桌面程式為不需 Python 的獨立執行檔**建置配方**。只有 GitHub Actions 成功編譯、建立 slime-v* 發行版後，網站才顯示可下載的實際檔案；發行前不可宣稱二進位檔已存在。初期執行檔未簽章或 macOS 公證，需對簽章做正式產品化。
@@ -22,7 +22,7 @@ SLIME_DB_PATH=/var/lib/weiguo/slime.sqlite3
 
 使用持久性磁碟掛載 `/var/lib/weiguo`，否則重啟可能遺失邀請／節點註冊。原有 `WEIGUO_GOOGLE_CLIENT_ID`、`WEIGUO_FAMILY_ACL_JSON`、`WEIGUO_SESSION_SECRET`、`WEIGUO_CORS_ORIGINS` 仍需正確配置；帳號權限一律為家庭 owner 身分，不把管理令牌暴露到 PWA。
 
-Owner API（全都驗證 WeiGuo family bearer，僅 owner）：
+Owner 管理路由（保留 Python 函式供內部及既有生命週期測試，但 **FastAPI 不再掛載**，不對網頁開放；Owner 請由 Telegram 對話操作）：
 - `POST /v1/family/slime/invite`：單次邀請，600 秒內有效，至多 10 個待使用邀請。
 - `GET /v1/family/slime/status`：服務能力真實狀態。
 - `GET /v1/family/slime/nodes`：最多 50 個節點 CPU、RAM、GPU、OS、心跳與授權旗標。

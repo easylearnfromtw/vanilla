@@ -22,6 +22,7 @@ from ceres_agent_bridge import MAX_AGE, setup
 from ceres_agent_delivery import deliver
 from ceres_server_model import ModelUnavailable, generate_reply, model_settings
 from ceres_server_tools import ToolDenied, choose_tool
+from slime_telegram import handle_slime
 
 router = APIRouter(prefix="/v1/family/ceres/agent", tags=["ceres-server-agent"])
 _HISTORY_AGE = 24 * 3600
@@ -35,7 +36,10 @@ def enabled() -> bool:
 
 
 def ready() -> bool:
-    return enabled() and model_settings() is not None
+    # Owner can manage Slime even if the chat's remote model is unavailable.
+    return enabled() and (model_settings() is not None or
+                          (os.getenv("SLIME_ENABLED", "").lower() == "true"
+                           and len(_allowed_chat_ids()) == 1))
 
 
 def ensure_history(db: sqlite3.Connection) -> None:
@@ -63,6 +67,9 @@ def verified_subject(chat: int) -> str | None:
         return None
     role = acl.get(sub)
     if not isinstance(role, dict) or role.get("role") not in ("owner", "member"):
+        return None
+    if (os.getenv("CERES_OWNER_ONLY", "").lower() == "true"
+        or os.getenv("SLIME_ENABLED", "").lower() == "true") and role.get("role") != "owner":
         return None
     return sub
 
@@ -167,17 +174,25 @@ async def process_one() -> bool:
         set_job_state(event_id, "access_revoked")
         return True
     settings = model_settings()
-    if not settings:
+    source = job["text"]
+    # Call at most once: invitation creation is a side-effecting operation.
+    slime_reply = handle_slime(chat, subject, source)
+    # Non-Slime messages still require the configured model.
+    if settings is None and slime_reply is None:
         set_job_state(event_id, "model_not_configured")
         return True
-    source = job["text"]
     try:
-        try:
-            reply, tool, page = await choose_tool(source)
-        except ToolDenied:
-            reply, tool, page = ("此工具操作不符合安全規則，請改在 Vanilla 工作台確認。", "diana", "")
-        if reply is None:
-            reply = await generate_reply(settings, source, history_for(chat), page)
+        # Slime actions are executed by a deterministic, ACL-checked controller.
+        # No model-generated SQL or privileged tool instruction is trusted.
+        if slime_reply is not None:
+            reply, tool, page = slime_reply, "slime", ""
+        else:
+            try:
+                reply, tool, page = await choose_tool(source)
+            except ToolDenied:
+                reply, tool, page = ("此操作未授權。請使用已支援的 Slime 對話設定。", "diana", "")
+            if reply is None:
+                reply = await generate_reply(settings, source, history_for(chat), page)
     except (ModelUnavailable, ValueError, TypeError):
         set_job_state(event_id, "model_unavailable")
         print("Ceres server agent: model response unavailable", flush=True)
@@ -200,7 +215,8 @@ async def process_one() -> bool:
                    ("sent" if ok else "unknown", now, event_id))
         db.execute("UPDATE ceres_agent_jobs SET status=?,updated_at=? WHERE event_id=?",
                    ("completed" if ok else "delivery_unknown", now, event_id))
-        if ok:
+        if ok and tool != "slime":
+            # Do not persist short-lived Slime pairing secrets in Ceres history.
             db.execute(
                 "INSERT OR IGNORE INTO ceres_agent_history"
                 "(event_id,chat_id,request,reply,created_at) VALUES(?,?,?,?,?)",
@@ -250,6 +266,6 @@ async def agent_status(user: FamilyIdentity = Depends(family_reader)):
         "foregroundPhoneRequired": False,
         "states": {row["status"]: row["n"] for row in rows},
         "latestState": latest["status"] if latest else None,
-        "tools": ["diana", "cream", "scouts-read-approved-hosts", "merlin"],
+        "tools": ["diana", "cream", "scouts-read-approved-hosts", "merlin", "slime-owner-controls"],
         "privilegedExecution": False,
     }

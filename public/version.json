@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.31-ceres-telegram-detroit",
-  "description": "Ceres Telegram as opt-in second Detroit entrypoint with foreground WebLLM, Diane tool routing, CREAM statistics, Scouts read-only browsing and one-shot delivery"
+  "build": "2026.10.20.32-luca-feedback",
+  "description": "LUCA records explicit thumbs-up, thumbs-down and preferred-answer selections with local private feedback analytics"
 }

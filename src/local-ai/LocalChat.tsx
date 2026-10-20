@@ -543,7 +543,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    if(googleGroundingAvailable()){
     const consentKey="vanilla.scouts.google-grounding-consent.v1";
     const accepted=localStorage.getItem(consentKey)==="yes"||
-      window.confirm("Scouts 將使用已連接的 Gemini API 呼叫 Google Search Grounding（最多兩次：一般搜尋與必要的地區補充）。搜尋請求會送到 Google，可能消耗 API 額度或產生費用；不會將本機附件傳送到搜尋。允許嗎？");
+      window.confirm("Scouts 將使用已連接的 Gemini API 執行 Google Search Grounding（單題最多兩次，必要時切換 Gemini 2.5 Flash-Lite 額度或補充地區查詢）。搜尋請求會送到 Google，可能消耗 API 額度或產生費用；不會將本機附件傳送到搜尋。允許嗎？");
     if(!accepted){
      toolReply(originalQuestion,"已取消 Google 搜尋。Scouts 不會在未授權的情況下呼叫可能計費的 Google API。","search");
      return null;

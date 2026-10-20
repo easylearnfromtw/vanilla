@@ -1,8 +1,9 @@
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {lazy,Suspense,useCallback,useEffect,useMemo,useState} from "react";
 import {Activity,ChevronRight,Computer,Copy,Download,HardDrive,Power,RefreshCw,ShieldCheck,Users,WifiOff,Zap} from "lucide-react";
 import {currentChatMode} from "../local-ai/chat-session";
 import {weiGuoApiBase,weiGuoIdentity,getSlimeNodes,getSlimeStatus,createSlimeInvite,setSlimeNodeEnabled,revokeSlimeNode,previewSlimeRoute,type SlimeNode} from "../weiguo/api";
 import "./slime.css";
+const LegacyWindowsNodes=lazy(()=>import("../nodes/NodesPage"));
 
 type OS="windows"|"macos"|"linux";
 type Role="owner"|"friend";

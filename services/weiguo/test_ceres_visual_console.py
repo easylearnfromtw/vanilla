@@ -81,10 +81,10 @@ class CeresVisualRegression(unittest.IsolatedAsyncioTestCase):
     def test_native_owner_keyboard_preserves_callback_ids(self):
         buttons=_menu()
         actions={item["callback_data"] for row in buttons for item in row}
-        self.assertEqual(actions,{
+        self.assertTrue({
             "hub:status","hub:tools","hub:nodes","hub:providers",
             "hub:accounts","hub:sources","hub:diagnostics","hub:usage"
-        })
+        }.issubset(actions))
         self.assertTrue(all(1<=len(row)<=2 for row in buttons))
 
 

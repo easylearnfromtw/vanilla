@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
+from pathlib import Path
 
 from ceres_command_center import (_format_repo, _limit_search, _search_github,
                                   _status_text, command, callback)
@@ -102,6 +103,21 @@ class HubTests(unittest.TestCase):
             self.assertIn("常駐 Agent：未就緒", text)
             self.assertIn("Slime 節點註冊：未開啟", text)
 
+
+    def test_command_center_is_packaged_in_production_runtime(self):
+        # CI must catch a successful source-level test with a missing Docker COPY.
+        service_root = Path(__file__).resolve().parent
+        for dockerfile in ("Dockerfile", "Dockerfile.pdfcraft"):
+            with self.subTest(dockerfile=dockerfile):
+                lines = (service_root / dockerfile).read_text(encoding="utf-8").splitlines()
+                copy_lines = [line for line in lines
+                              if line.startswith("COPY ") and line.endswith(" ./")]
+                self.assertTrue(
+                    any("ceres_command_center.py" in line.split() for line in copy_lines),
+                    f"{dockerfile}: Telegram /hub module must ship inside the image")
+                self.assertIn(
+                    'RUN python3 -c "import ceres_command_center"', lines,
+                    f"{dockerfile}: module import must be validated at image build time")
 
 if __name__ == "__main__":
     unittest.main()

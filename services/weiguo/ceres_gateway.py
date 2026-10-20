@@ -39,7 +39,27 @@ def _allowed_chat_ids() -> set[int]:
     values = [part.strip() for part in raw.split(",")]
     if len(values) > 30 or any(not re.fullmatch(r"[0-9]{1,20}", v) for v in values):
         raise HTTPException(503, "Ceres allowlist is misconfigured")
-    return {int(v) for v in values if int(v) > 0}
+    listed = {int(v) for v in values if int(v) > 0}
+    # Restrict the personal Telegram bot to the SINGLE verified owner.
+    # Enabling Slime makes this fail-closed restriction mandatory.
+    if (os.getenv("CERES_OWNER_ONLY", "").lower() != "true"
+            and os.getenv("SLIME_ENABLED", "").lower() != "true"):
+        return listed
+    try:
+        links = json.loads(os.environ.get("CERES_FAMILY_LINKS_JSON", "{}"))
+        acl = json.loads(os.environ.get("WEIGUO_FAMILY_ACL_JSON", "{}"))
+    except (ValueError, TypeError):
+        return set()
+    if not isinstance(links, dict) or not isinstance(acl, dict):
+        return set()
+    verified = []
+    for chat, subject in links.items():
+        if (isinstance(chat, str) and re.fullmatch(r"[0-9]{1,20}", chat)
+                and int(chat) in listed and isinstance(subject, str)
+                and isinstance(acl.get(subject), dict)
+                and acl[subject].get("role") == "owner"):
+            verified.append(int(chat))
+    return {verified[0]} if len(verified) == 1 else set()
 
 
 def _secret() -> str:

@@ -52,6 +52,14 @@ jobs:
           if(evals.some(x=>ids.has(x.id)))process.exit(2);
           console.log("PASS: 320 integrated train, 128 integrated eval, disjoint");
           '
+      - name: Export NOODLES SFT candidate datasets
+        run: node training/agent_sandbox/to-noodles.mjs
+      - name: Validate NOODLES SFT schema and split without GPU
+        run: |
+          python3 training/noodles_train.py --mode sft \
+            --train training/agent_sandbox/generated/integrated-noodles-sft-train.jsonl \
+            --eval training/agent_sandbox/generated/integrated-noodles-sft-validation.jsonl \
+            --check-only
       - name: Exercise offline knowledge retrieval
         run: |
           node training/agent_sandbox/retrieve.mjs "GDP 平減指數"

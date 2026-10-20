@@ -75,6 +75,17 @@ test("Diana exposes offline and incomplete-tool constraints",()=>{
  assert.equal(expandSlashCommand("/Quirinus")?.text,"@Quirinus");
  assert.equal(chooseDianaTool("執行排程",normal,"chronos").kind,"report");
 });
+test("Notion schedule intents only open the authenticated studio, never execute background jobs",()=>{
+ assert.equal(parseDianaInvocation("@Notion 明天開會")?.forcedTool,"notion");
+ assert.equal(expandSlashCommand("/排程")?.text,"@Notion");
+ assert.equal(expandSlashCommand("/Notion")?.text,"@Notion");
+ const choice=chooseDianaTool("安排日程規劃",normal);
+ assert.equal(choice.tool,"notion");
+ assert.equal(choice.kind,"open");
+ assert.equal(choice.tab,"notion");
+ assert.equal(chooseDianaTool("明天排程",normal,"notion").tab,"notion");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="notion")?.status,"adapter");
+});
 test("Diana Erya delegates through an existing guarded writing request",()=>{
  const p=chooseDianaTool("原文：2026 年成功率 98%",{...normal,hasModel:true},"er-ya");
  assert.equal(p.kind,"delegate");

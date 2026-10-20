@@ -155,7 +155,7 @@ if(process.argv[1]&&process.argv[1].endsWith("/integrated.mjs")){
  }else if(process.argv.includes("--eval")){
   const {mkdirSync,writeFileSync}=await import("node:fs");
   const {dirname}=await import("node:path");
-  const file=process.argv[process.argv.indexOf("--eval")+1]||"training/agent_sandbox/generated/integrated-eval.jsonl";
+  const file=process.argv[process.argv.indexOf("--eval")+1]||"training/agent_sandbox/generated/integrated-business-eval.jsonl";
   mkdirSync(dirname(file),{recursive:true});
   const cases=createEvaluationSuite();
   writeFileSync(file,cases.map(x=>JSON.stringify(x)).join("\n")+"\n");

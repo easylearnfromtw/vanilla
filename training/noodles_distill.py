@@ -18,7 +18,7 @@ import re
 import sys
 import unicodedata
 from urllib.parse import urlsplit
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 
 from noodles_train import FORBIDDEN
 
@@ -207,7 +207,7 @@ class NoRedirect(HTTPRedirectHandler):
 def local_teacher_endpoint(url: str) -> str:
     parts = urlsplit(url)
     if (parts.scheme != "http" or parts.hostname not in
-            {"localhost", "127.0.0.1", "::1"} or parts.username or
+            {"127.0.0.1", "::1"} or parts.username or
             parts.password or parts.path not in {"", "/"} or parts.query or parts.fragment):
         raise ValueError("Teacher must use explicit loopback HTTP Ollama only")
     if parts.port is None or not 1 <= parts.port <= 65535:
@@ -227,7 +227,8 @@ def teacher_draft(args: argparse.Namespace) -> int:
             raise ValueError(f"Invalid or sensitive question/context on line {index}")
     deduplicate_questions(questions)
     preflight_outputs([args.output], [args.questions])
-    opener = build_opener(NoRedirect)
+    # Ignore HTTP_PROXY/HTTPS_PROXY to guarantee no prompt goes to a corporate proxy.
+    opener = build_opener(ProxyHandler({}), NoRedirect)
     drafts: list[dict] = []
     for row in questions:
         prompt = prompt_for(row)

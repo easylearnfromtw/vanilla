@@ -128,10 +128,25 @@ def _tools_text() -> str:
 
 async def _nodes(chat: int, sub: str) -> None:
     from slime_telegram import handle_slime
+    from slime import _db
     result = handle_slime(chat, sub, "目前有哪些電腦")
+    buttons=[]
+    try:
+        with _db() as db:
+            rows=db.execute("SELECT id,label,inference_enabled FROM nodes "
+                            "WHERE owner=? ORDER BY label LIMIT 6",(sub,)).fetchall()
+        for node in rows:
+            label=(node["label"][:16]+"…" if len(node["label"])>16 else node["label"])
+            direction="off" if node["inference_enabled"] else "on"
+            icon="✕ 停止推論" if node["inference_enabled"] else "✓ 核准推論"
+            buttons.append([_button(icon+" · "+label,"infer_"+direction+":"+node["id"])])
+    except (ValueError,TypeError,KeyError,RuntimeError):
+        pass
+    buttons.extend(_page_buttons("nodes"))
     await say(chat,_title("NODES / Slime 節點")
-              +"<pre>"+escape(result or "Slime 節點控制尚未設定。")+"</pre>",
-              _page_buttons("nodes"),html=True)
+              +"<pre>"+escape(result or "Slime 節點控制尚未設定。")+"</pre>"
+              +"\n<i>開啟推論後，已授權的 API 使用者提示可能傳送至此電腦。核准需二次確認。</i>",
+              buttons,html=True)
 
 
 async def _sources(chat: int) -> None:
@@ -436,6 +451,15 @@ async def _handle_callback(chat: int, action: str) -> None:
     if action in {"home", "status", "tools", "nodes", "sources",
                   "accounts", "providers"}:
         await command(chat, "/hub " + action)
+    elif re.fullmatch(r"infer_(on|off):[a-f0-9]{24}",action):
+        from slime_telegram import handle_slime
+        sub=owner_subject(chat)
+        operation,node_id=action.split(":",1)
+        mode=operation.removeprefix("infer_")
+        result=handle_slime(chat,sub,"/slime infer "+node_id+" "+mode)
+        await say(chat,_title("REVIEW / Slime 推論權限")
+                  +"<pre>"+escape(result or "操作不可用")+"</pre>",
+                  [[_button("← 返回節點","nodes")]],html=True)
     elif action == "github":
         await say(chat, "輸入 /hub github 關鍵字，例如 /hub github telegram AI agent。")
     elif action in ("diagnostics","usage"):

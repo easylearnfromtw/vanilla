@@ -245,7 +245,7 @@ export async function getWeiGuoLucaSummary():Promise<LucaSnapshot>{
 /** Ceres never exposes operator keys or Telegram bot credentials to the PWA. */
 export type CeresFamilyStatus={
  enabled:boolean;linked:boolean;outboundEnabled:boolean;draftEnabled:boolean;
- automaticDispatch:false;automaticReplies:false;
+ automaticDispatch:false;automaticReplies:boolean;
 };
 export type CeresFamilyEvent={
  id:number;text:string;created_at:number;reviewed_at:number|null;

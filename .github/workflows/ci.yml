@@ -80,3 +80,12 @@ jobs:
           GITHUB_PAGES: "true"
       - name: Verify output
         run: test -f dist/index.html && test -f dist/manifest.webmanifest
+      - name: Detroit P0 core release gate
+        run: node scripts/core-release-gate.mjs
+      - name: Save Detroit core gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detroit-core-gate
+          path: artifacts/core-release-gate.json
+          if-no-files-found: ignore

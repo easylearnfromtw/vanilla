@@ -344,7 +344,7 @@ async function initialize(){
 async function repairSelectedModelCache(){
  if(loadingModel||repairingCache)return;
  const label=LOCAL_MODELS.find(x=>x.id===selectedLocalModel)?.label||selectedLocalModel;
- if(!window.confirm("只清除「"+label+"」的模型權重快取嗎？\\n其他模型、對話紀錄與設定不受影響。清除後必須重新下載這個模型。"))return;
+ if(!window.confirm("只清除「"+label+"」的模型權重快取嗎？\n其他模型、對話紀錄與設定不受影響。清除後必須重新下載這個模型。"))return;
  setRepairingCache(true);
  try{
   await clearLocalModelCache(selectedLocalModel);

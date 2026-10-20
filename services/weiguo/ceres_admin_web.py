@@ -52,6 +52,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.65 system-ui,sans-se
 <div class="metric">備援 <b id="health-failover">預設關閉</b><span>僅經你批准後使用</span></div></div>
 <div class="action-row"><button type="button" class="secondary" id="refresh-health">更新健康狀態</button>
 <button type="button" class="secondary" id="refresh-diagnostics">安全故障診斷</button></div>
+<button type="button" class="secondary" id="telegram-check">發送 Telegram 回覆測試（一次）</button>
 <pre id="diagnostics-result" role="status" aria-live="polite"></pre>
 <div class="notice">系統在線 ≠ Bot 已回覆；最近一次成功回覆與即時端對端測試會分開顯示。</div></section>
 <section class="panel" id="usage-panel"><h2>◈ 用量與成本</h2><div class="tiny">近 30 天 Ceres 已記錄的呼叫；不代表供應商整體帳單。</div>
@@ -183,6 +184,8 @@ async function refreshHealth(){
   safeResult("health-failover",Object.entries(x.failover).filter(([k,v])=>v).map(([k,v])=>k).join("、")||"未開啟");
   safeResult("diagnostics-result","最近接收："+fmtTime(x.telegram.lastInboundAt)+"\\n最近已發送回覆："+fmtTime(x.telegram.lastVerifiedReplyAt)+
     "\\n近 24 小時失敗任務："+(x.agent.last24hFailedJobs??"未知")+
+    "\\n最近主動發送測試："+(x.telegram.lastTelegramSendCheck?
+    fmtTime(x.telegram.lastTelegramSendCheck.at)+(x.telegram.lastTelegramSendCheck.apiAccepted?"（Bot API 接受）":"（失敗）"):"尚無")+
     "\\n即時端對端測試：尚未進行");
  }catch(e){safeResult("diagnostics-result",e.message||e);}
 }
@@ -194,6 +197,15 @@ async function refreshUsage(){
    safeResult("usage-result",(rows.join("\\n")||"尚無紀錄")+"\\n"+x.note);
  }catch(e){safeResult("usage-result",e.message||e);}
 }
+document.getElementById("telegram-check").addEventListener("click",async()=>{
+ const button=document.getElementById("telegram-check");button.disabled=true;
+ try{const result=await api("ops/telegram-check",{});
+  safeResult("diagnostics-result",result.apiAccepted?
+    "Telegram 已接受本次測試訊息。請查看 Bot 私聊是否收到；未驗證已讀。":
+    "Telegram 未確認接收；請檢查 LUCA 伺服器日志。");
+  await refreshHealth();
+ }catch(e){safeResult("diagnostics-result",e.message||e);}finally{button.disabled=false;}
+});
 document.getElementById("refresh-health").addEventListener("click",()=>void refreshHealth());
 document.getElementById("refresh-usage").addEventListener("click",()=>void refreshUsage());
 document.getElementById("refresh-diagnostics").addEventListener("click",async()=>{

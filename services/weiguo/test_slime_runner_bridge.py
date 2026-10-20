@@ -154,9 +154,11 @@ class LocalModelRunnerTests(unittest.IsolatedAsyncioTestCase):
                        "VALUES(?,?,?,?,?,?,1,1,1)",
                        ("feedbeef0011223344556677","other-owner",slime._digest("Z"*40),
                         "other PC","owner",time.time()))
-        with self.assertRaises(HTTPException):
-            register(Registration(models=["local-v1:3b"]),
-                     authorization="Bearer "+"Z"*40)  # not this Owner's approved node
+        # The other owner may register their *own* approved node, but cannot
+        # read any job queued for this Owner's key or obtain this Owner's prompts.
+        register(Registration(models=["local-v1:3b"]),
+                 authorization="Bearer "+"Z"*40)
+        self.assertIsNone(poll(authorization="Bearer "+"Z"*40)["job"])
         # Missing/fabricated result IDs cannot be replayed or used to alter charging.
         with self.assertRaises(HTTPException) as invalid:
             complete(Result(job_id="0"*32,ok=True,text="fake",

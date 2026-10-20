@@ -8,6 +8,7 @@ import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core"
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
 import ChatMarkdown from "./ChatMarkdown";
+import {venusPresentationGuidance} from "../venus/presentation";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
@@ -928,7 +929,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
-  const composed=composeUserPrompt(modelQuestion,contexts,guidance,promptBudgetFor(candidate,task));
+  const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
   const notes:string[]=[];
   const cut=composed.included.find(x=>x.truncated);
@@ -979,7 +980,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
   setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,result||""),source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
-  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","回答已由現有 Markdown／圖表元件呈現");}
+  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
  }catch(error){

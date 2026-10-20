@@ -7,9 +7,9 @@ export default function NodesPage(){
  const [endpoint,setEndpoint]=useState("http://127.0.0.1:18765");
  const [token,setToken]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
  const [current,setCurrent]=useState<NodeInfo[]>([]),[known,setKnown]=useState(knownNodes);
- const [released,setReleased]=useState(false);
+ const [download,setDownload]=useState("");
  async function refresh(){setKnown(knownNodes());setCurrent(await availableNodes());}
- useEffect(()=>{void refresh();fetch("https://api.github.com/repos/easylearnfromtw/vanilla/releases/latest").then(r=>r.ok?r.json():null).then(j=>setReleased(Boolean(j?.assets?.some((a:{name:string})=>a.name===FILE)))).catch(()=>{});},[]);
+ useEffect(()=>{void refresh();fetch("https://api.github.com/repos/easylearnfromtw/vanilla/releases?per_page=30").then(r=>r.ok?r.json():[]).then(list=>{if(!Array.isArray(list))return;for(const release of list){const asset=release.assets?.find((a:{name:string})=>a.name===FILE);if(asset?.browser_download_url?.startsWith("https://github.com/easylearnfromtw/vanilla/releases/download/")){setDownload(asset.browser_download_url);break;}}}).catch(()=>{});},[]);
  async function connect(){
   setBusy(true);setMessage("正在核對節點…");
   try{
@@ -25,7 +25,7 @@ export default function NodesPage(){
   <p className="content-description">從 Vanilla 下載 Windows 安裝程式。安裝後完成一次安全配對，Diana 便可在一般對話中選擇在線、模型相容且未滿載的主機。</p>
   <section className="panel settings-card"><h2>01 · 安裝 Windows Node</h2>
    <p>支援 Windows 10／11 x64；這是 Ollama 推論節點，不提供任意遠端程式執行。需要另外安裝 Ollama 和模型。</p>
-   {released?<a href={RELEASE+"/latest/download/"+FILE} download>下載 Vanilla Windows Node 安裝程式（.exe）</a>:
+   {download?<a href={download} download>下載 Vanilla Windows Node 安裝程式（.exe）</a>:
     <p role="status">正式安裝檔尚未核實已發佈。Windows CI 產出發布檔後將自動開放按鈕。<a href={RELEASE} target="_blank" rel="noreferrer">查看發布頁</a></p>}
   </section>
   <section className="panel settings-card"><h2>02 · 配對此電腦</h2>

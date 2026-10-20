@@ -70,13 +70,20 @@ function Gallery({block}:{block:Extract<VenusBlock,{kind:"gallery"}>}){
  const [failed,setFailed]=useState<number[]>([]);
  const [active,setActive]=useState<number|null>(null);
  const closeRef=useRef<HTMLButtonElement|null>(null);
+ const dialogRef=useRef<HTMLDivElement|null>(null);
  const openerRef=useRef<HTMLButtonElement|null>(null);
  const current=active===null?null:block.items[active];
  useEffect(()=>{
   if(active===null)return;
   closeRef.current?.focus();
   const onKey=(event:globalThis.KeyboardEvent)=>{
-   if(event.key==="Escape"){event.preventDefault();setActive(null);}
+   if(event.key==="Escape"){event.preventDefault();setActive(null);openerRef.current?.focus();return;}
+   if(event.key==="Tab"){
+    const list=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')||[]);
+    if(list.length){const first=list[0],last=list[list.length-1],current=document.activeElement;
+     if(!dialogRef.current?.contains(current)||event.shiftKey&&current===first){event.preventDefault();(event.shiftKey?last:first).focus();}
+     else if(!event.shiftKey&&current===last){event.preventDefault();first.focus();}}
+   }
    if(event.key==="ArrowRight"){event.preventDefault();setActive(i=>i===null?null:(i+1)%block.items.length);}
    if(event.key==="ArrowLeft"){event.preventDefault();setActive(i=>i===null?null:(i+block.items.length-1)%block.items.length);}
   };
@@ -94,7 +101,7 @@ function Gallery({block}:{block:Extract<VenusBlock,{kind:"gallery"}>}){
   </figure>)}
   </div><p className="venus-muted">圖片來源連結由回答提供；點擊載入前不會向外站下載圖片。</p>
   {active!==null&&current&&<div className="venus-lightbox" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)close();}}>
-   <div className="venus-lightbox-dialog" role="dialog" aria-modal="true" aria-label="圖片放大檢視">
+   <div ref={dialogRef} className="venus-lightbox-dialog" role="dialog" aria-modal="true" aria-label="圖片放大檢視">
     <div className="venus-lightbox-head"><span>{active+1} / {block.items.length}</span><button type="button" ref={closeRef} className="venus-lightbox-close" onClick={close} aria-label="關閉圖片預覽">✕ 關閉</button></div>
     <div className="venus-lightbox-stage">{!loaded.includes(active)?<button type="button" className="venus-image-consent" onClick={()=>setLoaded(old=>old.includes(active)?old:[...old,active])}>載入外部圖片</button>:failed.includes(active)?<p>圖片無法載入，請查看來源。</p>:<img src={current.url} alt={current.alt} referrerPolicy="no-referrer" onError={()=>setFailed(old=>old.includes(active)?old:[...old,active])}/>}</div>
     <div className="venus-lightbox-foot"><button type="button" onClick={()=>setActive(i=>i===null?null:(i+block.items.length-1)%block.items.length)} aria-label="上一張">← 上一張</button><p>{current.caption||current.alt}{current.source&&<a href={current.source} rel="noopener noreferrer" target="_blank">圖片出處 ↗</a>}</p><button type="button" onClick={()=>setActive(i=>i===null?null:(i+1)%block.items.length)} aria-label="下一張">下一張 →</button></div>

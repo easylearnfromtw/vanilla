@@ -15,6 +15,15 @@
 
 Browser storage is device-specific and may be cleared by the user/browser. Export/backup is a separate future enhancement. Neither a due date nor a successfully synchronized Notion record means an automation is running. Reliable background execution/notifications require a separately deployed Chronos/Persistent Jobs worker.
 
+## No-API webpage handoff (optional)
+
+Users may export the local schedule as a Notion-ready CSV and import it manually
+on the Notion website. A separate desktop Chrome/Edge companion can assist
+with typing the title into an *already open, focused empty Notion editor*
+after explicit user action. No Notion API token is needed for either workflow.
+These actions are not bidirectional sync and cannot be marked as verified saves.
+See [NOTION_NO_API_BROWSER_BRIDGE.md](NOTION_NO_API_BROWSER_BRIDGE.md).
+
 ## Optional, explicit Notion sync
 
 The UI only sends an external request when the user **opens the optional sync section, checks consent, and explicitly clicks a sync button**. Reconnecting to the internet does not automatically send pending records. No Notion credentials appear in the PWA.

@@ -88,3 +88,79 @@ test("Janus and legacy email commands route to the same local tool",()=>{
  assert.equal(expandSlashCommand("/郵件")?.text,"開啟 Janus");
  assert.deepEqual(matchSlashCommands("/Jan").map(x=>x.cmd),["/Janus"]);
 });
+
+
+test("Scouts recognizes user questions without requiring a slash command",()=>{
+ for(const q of [
+  "幫我查一下 2027 年 PGY 說明會",
+  "可以幫我查一下 新竹臺大招生公告",
+  "請查詢 今年衛福部新公布的法規",
+  "根據最新官方資料整理 PGY 招募時程",
+  "請根據最新文獻報告股骨頸骨折治療方法"
+ ]){
+  const route=routeMessage(q,ctx);
+  assert.equal(route.kind,"web-search",q);
+  assert.ok(route.query.length>=2,q);
+ }
+ assert.equal(kind("請不要上網，只根據文件摘要"),"continue");
+ assert.equal(kind("幫我整理以下原文，不需要網路搜尋"),"continue");
+ assert.equal(kind("研究一下這篇報告"),"continue");
+ assert.equal(kind("請幫我閱讀 https://example.com/article 然後整理重點"),"web-read");
+ assert.equal(kind("幫我看 https://example.com/health，並解釋重點"),"web-read");
+ assert.equal(kind("幫我查一下 2027 年 PGY 說明會",{privateMode:true,hasCreamResult:false}),"private-blocked");
+});
+
+test("Scouts prioritizes real general-web backend results over encyclopedia fallback",async()=>{
+ const {searchLiveWeb}=await import("../src/search/live-search.ts");
+ const previousFetch=globalThis.fetch,previousStorage=globalThis.localStorage;
+ globalThis.localStorage={getItem:key=>key==="vanilla.search.bridge.url.v1"?"https://search.example.org/search":null};
+ globalThis.fetch=async input=>{
+  const url=String(input);
+  if(url.startsWith("https://search.example.org/search")){
+   return new Response(JSON.stringify({results:Array.from({length:8},(_,i)=>({
+    title:"官方資料 "+i,url:"https://gov.example.org/article/"+i,snippet:"近期資料 "+i
+   }))}),{status:200,headers:{"content-type":"application/json"}});
+  }
+  if(url.startsWith("https://zh.wikipedia.org/")){
+   return new Response(JSON.stringify({query:{search:Array.from({length:5},(_,i)=>({
+    pageid:100+i,title:"百科 "+i,snippet:"百科內容"
+   }))}}),{status:200,headers:{"content-type":"application/json"}});
+  }
+  throw Error("unexpected request "+url);
+ };
+ try{
+  const report=await searchLiveWeb("臺灣政府新聞");
+  assert.equal(report.results.length,9);
+  assert.ok(report.results.slice(0,8).every(x=>x.provider==="自訂搜尋"));
+  assert.equal(report.results[8].provider,"Wikipedia");
+  assert.deepEqual(report.errors,[]);
+ }finally{
+  globalThis.fetch=previousFetch;
+  if(previousStorage===undefined)delete globalThis.localStorage;
+  else globalThis.localStorage=previousStorage;
+ }
+});
+
+test("Scouts uses the configured reader backend first on Safari and keeps its provenance",async()=>{
+ const {readPublicPage}=await import("../src/search/web-reader.ts");
+ const previousFetch=globalThis.fetch,previousStorage=globalThis.localStorage;
+ globalThis.localStorage={getItem:key=>key==="vanilla.search.bridge.url.v1"?"https://search.example.org/search":null};
+ const requests=[];
+ globalThis.fetch=async input=>{
+  requests.push(String(input));
+  if(!String(input).startsWith("https://search.example.org/read?"))throw Error("browser direct fetch should not run");
+  return new Response(JSON.stringify({url:"https://news.example.org/post",title:"新聞來源",
+   text:"這是一篇實際取得的網站正文，包含可核對的新聞與事件資料。".repeat(10)}),{status:200,headers:{"content-type":"application/json"}});
+ };
+ try{
+  const page=await readPublicPage("https://news.example.org/post");
+  assert.equal(page.readMethod,"bridge");
+  assert.equal(page.title,"新聞來源");
+  assert.equal(requests.length,1);
+  assert.match(requests[0],/\/read\?url=/);
+ }finally{
+  globalThis.fetch=previousFetch;
+  if(previousStorage===undefined)delete globalThis.localStorage;
+  else globalThis.localStorage=previousStorage;
+ }
+});

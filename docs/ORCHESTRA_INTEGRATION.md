@@ -79,3 +79,6 @@ All seven tool categories now have at least one **real, local output route**, wi
 - DesignCraft → PNG typography poster, Retina PDF, shortcut to existing LUNA layer editor.
 
 Images/text are not sent to WeiGuo for these fallback operations. The GIF encoder bounds canvas dimensions and frame count; SVG output encodes text as XML data. The site requires an HTTPS origin for service worker caching, but export logic itself is offline. The native Craft sandbox, licensing review, comprehensive fidelity validation, remote execution and production smoke tests remain separate gates.
+## Release verification checklist
+
+Before publicly labeling this release available: merge the CI-green branch, verify the published PWA build marker over HTTPS, exercise actual DOCX/PDF/PPTX downloads, inspect SVG/PNG/JPEG on both narrow and wide layouts, decode exported GIF animations, confirm private mode performs no upload, and test optional backend routes only with authenticated and sandboxed production workers. Upstream seven-Craft parity and MP4 remain out of scope.

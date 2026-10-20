@@ -7,16 +7,19 @@ export function posterSvg(input:{title:string;body:string;kind:PosterKind;accent
  const kind=input.kind,slide=kind==="slide",w=slide?1280:1080,h=slide?720:kind==="publication"?1350:1080;
  const accent=palette.includes(input.accent as typeof palette[number])?input.accent!:"#AF4634";
  const headline=Array.from(input.title.trim()||"ORCHESTRA").slice(0,65);
- const max=slide?29:16;
+ const max=slide?28:16,maxTitleLines=slide?2:3;
  const titleLines:string[]=[];
- while(headline.length&&titleLines.length<3)titleLines.push(xml(headline.splice(0,max).join("")));
+ while(headline.length&&titleLines.length<maxTitleLines)titleLines.push(xml(headline.splice(0,max).join("")));
+ if(headline.length&&titleLines.length)titleLines[titleLines.length-1]+="…";
  const lines=input.body.replace(/\r/g,"").split("\n").map(s=>s.trim()).filter(Boolean)
   .flatMap(s=>{const words=Array.from(s.slice(0,700)),out:string[]=[];while(words.length&&out.length<10)out.push(xml(words.splice(0,slide?60:33).join("")));return out;})
   .slice(0,slide?5:kind==="publication"?12:8);
- const top=slide?205:295,titleSize=slide?72:kind==="publication"?85:100;
- const topLines=titleLines.map((line,i)=>'<text x="90" y="'+(top+i*(titleSize+20))+'" font-family="sans-serif" font-size="'+titleSize+'" font-weight="800" fill="#24211F">'+line+'</text>').join("");
- const contentY=top+titleLines.length*(titleSize+20)+55,step=slide?55:62;
- const content=lines.map((line,i)=>'<text x="94" y="'+(contentY+i*step)+'" font-family="sans-serif" font-size="'+(slide?27:32)+'" fill="#4B4945">'+line+'</text>').join("");
+ const top=slide?178:270,titleSize=slide?56:kind==="publication"?76:82;
+ const titleLeading=titleSize+14;
+ const topLines=titleLines.map((line,i)=>'<text x="90" y="'+(top+i*titleLeading)+'" font-family="sans-serif" font-size="'+titleSize+'" font-weight="800" fill="#24211F">'+line+'</text>').join("");
+ const contentY=top+titleLines.length*titleLeading+35,step=slide?44:kind==="publication"?54:58;
+ const maxBodyLines=Math.max(0,Math.floor((h-174-contentY)/step)+1);
+ const content=lines.slice(0,maxBodyLines).map((line,i)=>'<text x="94" y="'+(contentY+i*step)+'" font-family="sans-serif" font-size="'+(slide?23:kind==="publication"?27:29)+'" fill="#4B4945">'+line+'</text>').join("");
  return '<?xml version="1.0" encoding="UTF-8"?>'+
  '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+
  '<rect width="'+w+'" height="'+h+'" fill="#F6F3EE"/><rect width="'+w+'" height="28" fill="'+accent+'"/>'+
@@ -52,6 +55,7 @@ export async function adjustPhoto(file:File,format:"png"|"jpeg",brightness:numbe
   const scale=Math.min(1,2000/Math.max(img.naturalWidth,img.naturalHeight));
   const c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.naturalWidth*scale));c.height=Math.max(1,Math.round(img.naturalHeight*scale));
   const ctx=c.getContext("2d");if(!ctx)throw Error("無法啟用圖像處理器");
+  ctx.fillStyle="#FFFFFF";ctx.fillRect(0,0,c.width,c.height);
   ctx.filter="brightness("+Math.max(25,Math.min(200,brightness))+"%) contrast("+Math.max(25,Math.min(200,contrast))+"%) saturate("+Math.max(0,Math.min(250,saturation))+"%)";
   ctx.drawImage(img,0,0,c.width,c.height);
   const blob=await new Promise<Blob|null>(resolve=>c.toBlob(resolve,"image/"+format,.91));

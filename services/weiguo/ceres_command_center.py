@@ -30,30 +30,28 @@ def _button(label: str, item: str) -> dict:
 
 
 def _menu() -> list[list[dict]]:
+    """Telegram-native compact entry points; callback identities stay stable."""
     return [
-        [_button("📊 系統狀態", "status"), _button("🧰 工具能力", "tools")],
-        [_button("🖥 Slime 節點", "nodes"), _button("🔌 API 管理", "providers")],
-        [_button("👥 Gmail 權限", "accounts"), _button("🔎 GitHub 開源", "sources")],
-        [_button("🩺 模型診斷", "diagnostics"), _button("📈 成本報告", "usage")],
+        [_button("📊 系統概覽", "status"), _button("🩺 模型診斷", "diagnostics")],
+        [_button("🧠 Detroit 工具", "tools"), _button("🖥 Slime 節點", "nodes")],
+        [_button("🔌 API 與模型", "providers"), _button("👥 Gmail 權限", "accounts")],
+        [_button("📈 使用成本", "usage"), _button("🔎 GitHub 探索", "sources")],
     ]
-
 
 async def _home(chat: int) -> None:
     await say(chat,
-        "Ceres · Vanilla AI 控制中心\n"
-        "你可以直接和 AI 對話，也能透過指令與按鈕管理系統。\n\n"
-        "/hub status — 查看真實配置狀態\n"
-        "/hub tools — Detroit 工具能力清單\n"
-        "/hub nodes — 現有 Slime 節點\n"
-        "/hub github telegram agent — 搜尋 GitHub 公開開源專案\n"
-        "/hub sources — 值得研究的開源框架\n"
-        "/hub diagnostics — 最近模型探測／故障碼\n"
-        "/hub usage — 30 日已記錄 API 使用摘要\n"
-        "/hub plan Gemini 速度優先 — 設定預覽、確認後套用\n"
-        "/admin — API 憑證與 Gmail 管理\n\n"
-        "GitHub 搜尋只讀取中繼資料，不安裝、執行或自動合併外部程式。",
+        "CERES  /  VANILLA AI\n"
+        "────────────────────\n"
+        "Detroit · Owner 控制中心\n\n"
+        "選擇下方功能，或直接和 Ceres 對話。\n"
+        "系統狀態分為配置、歷史紀錄與實際測試；不會把「服務在線」當成已成功回覆。\n\n"
+        "快速指令\n"
+        "• /hub diagnostics — 模型實測與故障碼\n"
+        "• /hub usage — 30 日用量\n"
+        "• /hub plan Gemini 速度優先 — 預覽設定\n"
+        "• /admin — 安全憑證與詳細設定\n\n"
+        "權限與付費設定都需要經過後端授權。",
         _menu())
-
 
 def _status_text() -> str:
     from ceres_server_agent import enabled, ready

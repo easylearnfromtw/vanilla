@@ -21,52 +21,195 @@ _PAGE="""<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Ceres · 安全 API 設定</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style nonce="__NONCE__">
-*{box-sizing:border-box}body{background:var(--tg-theme-bg-color,#12151a);color:var(--tg-theme-text-color,#f7f7f7);font:16px system-ui,sans-serif;margin:0;padding:24px;max-width:560px}
-h1{font-size:1.4rem}p{line-height:1.6;opacity:.85}label{display:block;margin:20px 0 7px;font-weight:600}
-input,select,button{font:inherit;width:100%;padding:13px;border-radius:10px;border:1px solid #777}
-input,select{background:var(--tg-theme-secondary-bg-color,#252b35);color:inherit}
-button{margin-top:25px;background:var(--tg-theme-button-color,#4089df);color:var(--tg-theme-button-text-color,#fff);border:0;font-weight:700}
-small{display:block;margin-top:10px;line-height:1.5}#result{min-height:2em;margin-top:20px}
-:root{color-scheme:dark light}body{max-width:720px;margin:auto;padding:18px 16px 48px;background:var(--tg-theme-bg-color,#101319);line-height:1.45}
-.hero{padding:22px 18px;border:1px solid #657b9940;border-radius:20px;background:linear-gradient(140deg,#455f932d,#b1a2e20d);margin-bottom:14px}
-.hero h1{margin:6px 0 5px;font-size:1.6rem;letter-spacing:-.04em}.eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;opacity:.65}
-.hero p{font-size:13px;margin:5px 0}.panel{background:var(--tg-theme-secondary-bg-color,#1b2029);padding:18px;border-radius:18px;margin:12px 0;border:1px solid #7e94ae33}
-.panel h2{margin:0 0 10px;font-size:1.1rem}.panel p{font-size:13px}.tiny{font-size:12px;opacity:.72}
-nav{display:flex;gap:8px;overflow:auto;padding:0 0 8px}nav a{display:inline-block;white-space:nowrap;border:1px solid #8299b150;border-radius:25px;padding:9px 13px;font-size:13px;color:inherit;text-decoration:none}
-.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric{background:var(--tg-theme-bg-color,#101319);border-radius:13px;padding:12px;font-size:12px;word-wrap:break-word}.metric b{display:block;font-size:16px;margin:4px 0}
-button{cursor:pointer;transition:opacity .15s;padding:12px;margin-top:10px}button:disabled{opacity:.42;cursor:wait}
-button.secondary{background:transparent;color:inherit;border:1px solid #8696ac80}.action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-label{font-size:13px;margin:12px 0 5px}input,select{border-color:#8ba0b75c}
-pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.65 system-ui,sans-serif}
-.notice{font-size:12px;border-left:3px solid #86a5da;padding:9px 12px;background:#839ad519;border-radius:5px}
+:root{
+  color-scheme:light dark;
+  --bg:var(--tg-theme-bg-color,#10151d);
+  --surface:var(--tg-theme-secondary-bg-color,#1c2531);
+  --text:var(--tg-theme-text-color,#f4f7fc);
+  --hint:var(--tg-theme-hint-color,#a5b0c1);
+  --link:var(--tg-theme-link-color,#83b3ff);
+  --accent:var(--tg-theme-button-color,#718be8);
+  --accent-ink:var(--tg-theme-button-text-color,#ffffff);
+  --stroke:color-mix(in srgb,var(--text) 11%,transparent);
+  --stroke-strong:color-mix(in srgb,var(--text) 19%,transparent);
+  --subtle:color-mix(in srgb,var(--text) 4%,transparent);
+  --focus:color-mix(in srgb,var(--accent) 57%,transparent);
+  --shadow:0 16px 44px rgba(0,0,0,.10);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{
+  background:var(--bg);color:var(--text);font:15px/1.58 -apple-system,BlinkMacSystemFont,
+  "SF Pro Text","Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;margin:0 auto;padding:22px max(16px,env(safe-area-inset-right))
+  calc(48px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  max-width:820px;overflow-wrap:anywhere;
+}
+button,input,select{font:inherit}
+button{font-weight:680;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button,input,select,a{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+  outline:3px solid var(--focus);outline-offset:3px
+}
+a{color:inherit}
+.hero{
+  position:relative;overflow:hidden;padding:26px clamp(18px,5vw,30px) 28px;
+  border-radius:24px;border:1px solid var(--stroke);
+  background:linear-gradient(125deg,color-mix(in srgb,var(--accent) 14%,var(--surface)),
+    color-mix(in srgb,var(--accent) 3%,var(--bg)) 77%);
+  box-shadow:var(--shadow);
+}
+.hero:after{
+  content:"";pointer-events:none;position:absolute;width:225px;height:225px;
+  right:-100px;top:-106px;border:1px solid color-mix(in srgb,var(--accent) 29%,transparent);
+  border-radius:50%;box-shadow:0 0 0 32px color-mix(in srgb,var(--accent) 5%,transparent),
+    0 0 0 67px color-mix(in srgb,var(--accent) 3%,transparent)
+}
+.hero__top{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative;z-index:1}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand__mark{
+  display:grid;place-items:center;flex:none;width:41px;height:41px;
+  background:color-mix(in srgb,var(--accent) 21%,var(--surface));
+  color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  border-radius:14px;font-size:21px;font-weight:770;letter-spacing:-.08em
+}
+.brand__name{font-weight:810;font-size:16px;line-height:1.15;letter-spacing:-.04em}
+.brand__caption{display:block;font-size:10px;letter-spacing:.085em;color:var(--hint);margin-top:4px}
+.access-pill{
+  flex:none;padding:7px 10px;border-radius:100px;border:1px solid var(--stroke-strong);
+  font-size:10px;font-weight:780;letter-spacing:.05em;background:var(--subtle);color:var(--hint)
+}
+.hero__eyebrow{position:relative;z-index:1;color:var(--link);font-size:11px;font-weight:760;letter-spacing:.14em;margin:29px 0 9px}
+.hero h1{position:relative;z-index:1;font-size:clamp(27px,6vw,37px);line-height:1.18;letter-spacing:-.065em;margin:0 0 10px;font-weight:790}
+.hero p{position:relative;z-index:1;max-width:480px;margin:0;color:var(--hint);font-size:13px}
+nav{
+  position:sticky;top:0;z-index:8;display:flex;gap:4px;margin:14px -8px 16px;
+  padding:9px 8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  border-radius:16px;background:color-mix(in srgb,var(--bg) 93%,transparent);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+}
+nav::-webkit-scrollbar{display:none}
+nav a{
+  text-decoration:none;flex:0 0 auto;text-align:center;padding:9px 15px;
+  font-size:12px;font-weight:720;line-height:1.35;border:1px solid transparent;
+  border-radius:11px;color:var(--hint);transition:background .2s,color .2s;
+}
+nav a[aria-current="location"],nav a:hover{
+  background:var(--surface);border-color:var(--stroke);color:var(--text)
+}
+.panel{
+  position:relative;margin:14px 0;padding:clamp(17px,4.2vw,25px);
+  border:1px solid var(--stroke);border-radius:21px;background:var(--surface);
+  box-shadow:0 3px 14px rgba(0,0,0,.035);
+  scroll-margin-top:84px
+}
+.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:17px}
+.panel h2{font-size:18px;letter-spacing:-.045em;line-height:1.32;margin:0;font-weight:780}
+.panel h3{font-size:14px;letter-spacing:-.025em;margin:21px 0 9px}
+.section-note{display:block;font-size:12px;margin-top:5px;color:var(--hint);line-height:1.55}
+.section-symbol{
+  display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:12px;
+  background:color-mix(in srgb,var(--accent) 10%,var(--bg));
+  border:1px solid var(--stroke);color:var(--link);font-size:16px;font-weight:760
+}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 17px}
+.metric{
+  display:flex;flex-direction:column;gap:4px;min-height:130px;padding:15px;
+  border-radius:16px;border:1px solid var(--stroke);background:var(--bg)
+}
+.metric__top{display:flex;align-items:center;gap:8px;min-height:22px}
+.metric__dot{width:7px;height:7px;border-radius:50%;background:var(--hint);flex:none}
+.metric__label{font-size:12px;font-weight:730;color:var(--hint)}
+.metric b{display:block;font-size:clamp(15px,3.6vw,19px);letter-spacing:-.045em;font-weight:800;line-height:1.34;margin:5px 0;overflow-wrap:anywhere}
+.metric__foot{margin-top:auto;font-size:11px;line-height:1.45;color:var(--hint)}
+.metric[data-tone="ok"] .metric__dot{background:#37c39b;box-shadow:0 0 0 3px rgba(55,195,155,.13)}
+.metric[data-tone="muted"] .metric__dot{background:#e6aa65}
+.metric[data-tone="warn"] .metric__dot{background:#ee846d}
+.tiny,.panel>p,.panel small{font-size:12px;color:var(--hint);line-height:1.7}
+.panel>p{margin:0 0 17px}
+label{display:block;font-size:12px;font-weight:730;margin:16px 0 7px;color:var(--text)}
+input,select{
+  width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--stroke-strong);
+  border-radius:13px;background:var(--bg);color:var(--text);outline:none;
+  transition:border-color .18s,box-shadow .18s;
+}
+select{padding-right:22px;cursor:pointer}
+input::placeholder{color:var(--hint);opacity:.78}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+button{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;min-height:47px;padding:12px 16px;margin-top:12px;
+  color:var(--accent-ink);background:var(--accent);border:1px solid transparent;
+  border-radius:13px;box-shadow:none;line-height:1.35;letter-spacing:.005em;
+  transition:transform .15s ease,background .15s ease,opacity .15s ease;
+}
+button:active:not(:disabled){transform:scale(.987)}
+button:disabled{cursor:default;opacity:.5}
+button.secondary{
+  background:var(--subtle);border-color:var(--stroke-strong);color:var(--text)
+}
+button.secondary:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 11%,var(--surface))}
+button.billable{background:color-mix(in srgb,var(--accent) 12%,var(--bg));border-color:color-mix(in srgb,var(--accent) 32%,transparent);color:var(--text)}
+.action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:10px}
+.action-row button{height:100%}
+pre{
+  max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.75
+  -apple-system,BlinkMacSystemFont,"SF Pro Text","Noto Sans TC",system-ui,sans-serif;
+  padding:14px 15px;background:var(--bg);border:1px solid var(--stroke);
+  border-radius:14px;margin:14px 0 0;color:var(--text)
+}
+pre:empty{display:none}
+.notice{display:flex;align-items:flex-start;gap:10px;font-size:11px;
+  color:var(--hint);line-height:1.6;padding:13px 14px;margin-top:16px;
+  border:1px solid var(--stroke);border-radius:13px;background:var(--subtle)
+}
+.notice:before{content:"i";display:grid;place-items:center;flex:none;width:18px;height:18px;border:1px solid var(--stroke-strong);
+  border-radius:50%;font-size:11px;font-weight:800;font-style:normal;color:var(--link)}
+.result{font-size:12px;line-height:1.65;min-height:0;margin-top:10px}
+.result:empty{display:none}
+.micro-divider{height:1px;background:var(--stroke);margin:20px 0 16px}
+.field-hint{display:block;font-size:11px;line-height:1.55;color:var(--hint);margin-top:7px}
+.inline-tag{display:inline-block;font-size:10px;font-weight:770;letter-spacing:.04em;color:var(--hint);
+  padding:6px 9px;background:var(--subtle);border:1px solid var(--stroke);border-radius:8px}
 #confirm-intent[hidden],#model-panel[hidden]{display:none!important}
-@media(max-width:360px){.action-row,.cards{grid-template-columns:1fr}}
-
-</style></head><body><header class="hero"><div class="eyebrow">VANILLA · DETROIT / OWNER ONLY</div><h1>Ceres Control Center</h1>
-<p>模型調度、診斷、成本與權限都在同一個 Telegram 安全控制中心。</p></header>
-<nav aria-label="管理區"><a href="#overview">總覽</a><a href="#model-panel">模型</a><a href="#vault-panel">金鑰</a><a href="#intent-panel">AI 設定</a></nav>
-<section class="panel" id="overview"><h2>◈ 即時與歷史健康</h2>
-<div class="cards"><div class="metric">Telegram <b id="health-telegram">未檢查</b><span>接收／回覆分別驗證</span></div>
-<div class="metric">Agent <b id="health-agent">未檢查</b><span>配置與最近故障</span></div>
-<div class="metric">模型測試 <b id="health-models">未檢查</b><span>僅算實際生成測試</span></div>
-<div class="metric">備援 <b id="health-failover">預設關閉</b><span>僅經你批准後使用</span></div></div>
+footer{display:flex;justify-content:center;gap:10px;padding:20px 8px;color:var(--hint);font-size:11px;letter-spacing:.04em}
+@media(min-width:680px){body{padding-top:36px}.hero{padding:34px}.panel{margin:18px 0}.cards{grid-template-columns:repeat(4,minmax(0,1fr))}nav{justify-content:center}}
+@media(max-width:370px){.cards{gap:7px}.metric{padding:11px;min-height:138px}.action-row{grid-template-columns:1fr}.hero{padding:20px 16px}.access-pill{font-size:9px;padding:6px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+</style></head><body><header class="hero">
+<div class="hero__top"><div class="brand"><div class="brand__mark" aria-hidden="true">C</div>
+<div><div class="brand__name">CERES</div><span class="brand__caption">VANILLA / DETROIT</span></div></div>
+<span class="access-pill">OWNER CONSOLE</span></div>
+<div class="hero__eyebrow">PERSONAL AI INFRASTRUCTURE</div>
+<h1>一切運作，盡在掌握。</h1>
+<p>管理模型、觀測系統健康、查看用量與保護憑證。高風險操作仍由你確認後執行。</p></header>
+<nav aria-label="管理區">
+<a href="#overview" aria-current="location">總覽</a><a href="#model-panel">模型</a>
+<a href="#usage-panel">用量</a><a href="#vault-panel">金鑰</a><a href="#intent-panel">設定</a>
+</nav>
+<section class="panel" id="overview"><div class="section-head"><div><h2>系統健康</h2><span class="section-note">區分服務配置、歷史活動與實際回覆</span></div><span class="section-symbol" aria-hidden="true">◎</span></div>
+<div class="cards">
+<div class="metric" id="metric-telegram" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">Telegram</span></div><b id="health-telegram">未檢查</b><span class="metric__foot">以已確認的回覆紀錄為準</span></div>
+<div class="metric" id="metric-agent" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">AI Agent</span></div><b id="health-agent">未檢查</b><span class="metric__foot">確認模型及執行緒配置</span></div>
+<div class="metric" id="metric-models" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">模型實測</span></div><b id="health-models">未檢查</b><span class="metric__foot">僅顯示實際成功測試</span></div>
+<div class="metric" id="metric-failover" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">故障備援</span></div><b id="health-failover">未檢查</b><span class="metric__foot">預設不會自動切換</span></div></div>
 <div class="action-row"><button type="button" class="secondary" id="refresh-health">更新健康狀態</button>
 <button type="button" class="secondary" id="refresh-diagnostics">安全故障診斷</button></div>
 <button type="button" class="secondary" id="telegram-check">發送 Telegram 回覆測試（一次）</button>
-<pre id="diagnostics-result" role="status" aria-live="polite"></pre>
+<pre id="diagnostics-result" role="status" aria-live="polite" aria-atomic="true"></pre>
 <div class="notice">系統在線 ≠ Bot 已回覆；最近一次成功回覆與即時端對端測試會分開顯示。</div></section>
-<section class="panel" id="usage-panel"><h2>◈ 用量與成本</h2><div class="tiny">近 30 天 Ceres 已記錄的呼叫；不代表供應商整體帳單。</div>
+<section class="panel" id="usage-panel"><div class="section-head"><div><h2>用量與成本</h2><span class="section-note">30 日呼叫摘要 · 非供應商完整帳單</span></div><span class="section-symbol" aria-hidden="true">↗</span></div>
 <pre id="usage-result" role="status">尚未載入</pre><button type="button" class="secondary" id="refresh-usage">重新整理</button></section>
-<section class="panel" id="vault-panel"><h2>◈ API 密鑰</h2>
+<section class="panel" id="vault-panel"><div class="section-head"><div><h2>安全憑證庫</h2><span class="section-note">後端加密保管 · 不在對話中傳送金鑰</span></div><span class="section-symbol" aria-hidden="true">◇</span></div>
 <p>金鑰只儲存在 WeiGuo 加密 Vault，不會寫入 Telegram 對話或在此頁面重新顯示。</p>
 <form id="form"><label for="provider">服務供應商</label><select id="provider">
 <option value="gemini">Gemini API</option><option value="canva">Canva OAuth Access Token</option>
 <option value="deepseek">DeepSeek API</option><option value="openai">OpenAI API</option></select>
 <label for="secret">API Key / OAuth Token</label>
-<input id="secret" type="password" minlength="20" maxlength="4096" autocomplete="off" required placeholder="在此安全輸入金鑰">
+<input id="secret" type="password" minlength="20" maxlength="4096" autocomplete="off" spellcheck="false" autocapitalize="off" required placeholder="只在這裡輸入金鑰">
 <small>Canva 短期 Access Token 可能過期；正式使用建議完成 OAuth 授權及 Refresh Token 流程。管理員仍需擁有服務供應商的有效授權。</small>
-<button id="save" type="submit">安全儲存並自動偵測</button></form><div id="result" role="status" aria-live="polite"></div></section>
-<section id="model-panel" class="panel"><h2>◈ AI 模型決策</h2>
+<button id="save" type="submit">安全儲存並自動偵測</button></form><div id="result" class="result" role="status" aria-live="polite"></div></section>
+<section id="model-panel" class="panel"><div class="section-head"><div><h2>模型工作室</h2><span class="section-note">發現 · 選擇 · 實測 · 比較</span></div><span class="section-symbol" aria-hidden="true">✦</span></div>
 <p>儲存後預設自動查詢此 API 可見的模型；Canva 是設計服務，沒有 AI 模型清單。</p>
 <button type="button" id="refresh">重新偵測模型</button>
 <label for="mode">選擇策略</label><select id="mode">
@@ -78,29 +221,30 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.65 system-ui,sans-se
 <label for="model">模型版本（僅手動模式需要）</label>
 <select id="model"></select>
 <button type="button" id="apply">套用選擇</button>
-<p id="models-result" role="status"></p>
+<p id="models-result" class="result" role="status" aria-live="polite"></p>
 <small>官方清單表示 API 金鑰可見該模型，但無法保證立即可呼叫、可用額度或實際費率；自動排序是啟發式推薦，不等於確定最強或最便宜。私人模式不使用雲端模型。</small>
 <label for="task-type">分析任務型態</label><select id="task-type">
 <option value="general">日常（沿用模型設定）</option><option value="fast">快速回覆</option>
 <option value="reasoning">深度推理</option><option value="coding">程式開發</option>
 <option value="budget">成本優先（需已核對費率）</option></select>
 <div class="action-row"><button type="button" id="recommend" class="secondary">智慧選模建議</button>
-<button type="button" id="probe">實際測試選定模型（可能計費）</button></div>
+<button type="button" id="probe" class="billable">實際推論測試 · 可能計費</button></div>
 <label for="compare-model">第二個模型（比較用）</label><select id="compare-model"></select>
-<button type="button" class="secondary" id="compare">比較兩個模型（兩次付費測試）</button>
+<button type="button" class="billable" id="compare">比較兩個模型 · 可能計費</button>
 <pre id="ops-result" role="status" aria-live="polite"></pre>
-<h3>費率（選填；由 Owner 自行核對輸入）</h3>
+<div class="micro-divider"></div><h3>人工費率設定 <span class="inline-tag">選填</span></h3>
 <p>單位為 USD／百萬 Token。未設定就只紀錄 Token，不推估價格。</p>
 <div class="action-row"><div><label for="input-price">輸入 Token</label><input id="input-price" type="number" step="0.001" min="0" max="500" placeholder="USD / 1M"></div>
 <div><label for="output-price">輸出 Token</label><input id="output-price" type="number" step="0.001" min="0" max="500" placeholder="USD / 1M"></div></div>
 <button type="button" class="secondary" id="save-price">儲存已核對費率</button></section>
-<section class="panel" id="intent-panel"><h2>◈ 對話式設定</h2>
+<section class="panel" id="intent-panel"><div class="section-head"><div><h2>對話式設定</h2><span class="section-note">描述需求，預覽變更後再套用</span></div><span class="section-symbol" aria-hidden="true">⌘</span></div>
 <p>輸入：Gemini 速度優先、OpenAI 品質優先、DeepSeek 開啟備援。先預覽，再確認；不直接讓模型改權限。</p>
 <label for="owner-intent">設定需求</label><input id="owner-intent" maxlength="140" placeholder="例如：Gemini 開啟備援">
 <button type="button" id="preview-intent">預覽變更</button>
 <pre id="intent-result" role="status" aria-live="polite"></pre>
 <button type="button" id="confirm-intent" hidden>確認套用（Owner）</button>
 <div class="notice">備援預設關閉；開啟後只在同供應商選用 24 小時內通過測試的其他模型，且最多額外重試一次，可能產生第二次費用。</div></section>
+<footer>VANILLA AI <span aria-hidden="true">·</span> CERES OWNER CONSOLE</footer>
 <script nonce="__NONCE__">
 const tg=window.Telegram?.WebApp;
 tg?.ready();tg?.expand();
@@ -177,6 +321,27 @@ form.addEventListener("submit",async e=>{
  }catch(err){field.value="";result.textContent=String(err.message||err);}
  button.disabled=false;
 });
+// Presentation-only state; no settings are changed by tab navigation.
+const navLinks=[...document.querySelectorAll('nav a[href^="#"]')];
+function activateNav(href){
+ for(const link of navLinks){
+   if(link.getAttribute("href")===href)link.setAttribute("aria-current","location");
+   else link.removeAttribute("aria-current");
+ }
+}
+navLinks.forEach(link=>link.addEventListener("click",()=>activateNav(link.getAttribute("href"))));
+if("IntersectionObserver" in window){
+ const sections=navLinks.map(link=>document.querySelector(link.getAttribute("href"))).filter(Boolean);
+ const observer=new IntersectionObserver(entries=>{
+   const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio);
+   if(visible[0])activateNav("#"+visible[0].target.id);
+ },{rootMargin:"-12% 0px -62% 0px",threshold:[0,.25,.5]});
+ sections.forEach(section=>observer.observe(section));
+}
+function metricTone(id,tone){
+ const card=document.getElementById(id);
+ if(card)card.dataset.tone=tone;
+}
 let previewToken=null;
 function fmtTime(t){return t?new Date(t*1000).toLocaleString("zh-TW"):"尚無成功紀錄";}
 function safeResult(id,message){document.getElementById(id).textContent=String(message);}
@@ -186,12 +351,19 @@ async function refreshHealth(){
   safeResult("health-agent",x.agent.ready?"執行緒就緒":"未就緒");
   safeResult("health-models",x.probes.filter(p=>p.ok).length+" 次通過紀錄");
   safeResult("health-failover",Object.entries(x.failover).filter(([k,v])=>v).map(([k,v])=>k).join("、")||"未開啟");
+  metricTone("metric-telegram",x.telegram.lastVerifiedReplyAt?"ok":"muted");
+  metricTone("metric-agent",x.agent.ready?"ok":"warn");
+  metricTone("metric-models",x.probes.some(p=>p.ok)?"ok":"muted");
+  metricTone("metric-failover",Object.values(x.failover).some(Boolean)?"ok":"neutral");
   safeResult("diagnostics-result","最近接收："+fmtTime(x.telegram.lastInboundAt)+"\\n最近已發送回覆："+fmtTime(x.telegram.lastVerifiedReplyAt)+
     "\\n近 24 小時失敗任務："+(x.agent.last24hFailedJobs??"未知")+
     "\\n最近主動發送測試："+(x.telegram.lastTelegramSendCheck?
     fmtTime(x.telegram.lastTelegramSendCheck.at)+(x.telegram.lastTelegramSendCheck.apiAccepted?"（Bot API 接受）":"（失敗）"):"尚無")+
     "\\n即時端對端測試：尚未進行");
- }catch(e){safeResult("diagnostics-result",e.message||e);}
+ }catch(e){
+  ["metric-telegram","metric-agent","metric-models","metric-failover"].forEach(id=>metricTone(id,"warn"));
+  safeResult("diagnostics-result",e.message||e);
+ }
 }
 async function refreshUsage(){
  try{const x=await api("ops/usage",{});

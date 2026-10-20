@@ -30,6 +30,7 @@ jobs:
           npm run test:detroit
           npm run test:detroit-bus
           npm run test:diana
+          node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres
           npm run test:api-registry
           npm run test:merlin
@@ -78,6 +79,8 @@ jobs:
         run: python3 -m pip install --user -r services/weiguo/requirements.txt
       - name: 衞國 browser policy and identity gateway tests
         run: python3 -m unittest discover -s services/weiguo -p 'test_*.py'
+      - name: Windows Node agent policy tests (Linux simulated)
+        run: python3 -m unittest discover -s services/windows-node -p 'test_*.py'
       - name: Validate NOODLES GPU trainer syntax and sample JSONL (no GPU)
         run: |
           python3 -m py_compile training/noodles_train.py

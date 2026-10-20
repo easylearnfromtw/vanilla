@@ -1,0 +1,57 @@
+name: Windows Node installer
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/windows-node/**'
+      - 'src/nodes/**'
+      - '.github/workflows/windows-node-installer.yml'
+  push:
+    branches: [main]
+    tags: ['windows-node-v*']
+    paths:
+      - 'services/windows-node/**'
+      - '.github/workflows/windows-node-installer.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Package agent
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          pyinstaller --noconfirm --clean --onefile --windowed --name VanillaNode services/windows-node/agent.py
+      - name: Package installer
+        shell: powershell
+        run: |
+          $compiler = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $compiler)) { throw 'Inno Setup 6 missing' }
+          & $compiler 'services\windows-node\installer.iss'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: SHA256
+        shell: powershell
+        run: Get-FileHash 'dist\Vanilla-Windows-Node-Setup.exe' -Algorithm SHA256 | Format-List | Out-File 'dist\SHA256.txt'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-windows-node-installer
+          path: |
+            dist/Vanilla-Windows-Node-Setup.exe
+            dist/SHA256.txt
+      - name: Publish verified Windows build on main
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: powershell
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/windows-node-v*') {
+            $tag = $env:GITHUB_REF_NAME
+          } else {
+            $tag = 'windows-node-' + $env:GITHUB_SHA.Substring(0, 12)
+          }
+          gh release create $tag 'dist/Vanilla-Windows-Node-Setup.exe' 'dist/SHA256.txt' --target $env:GITHUB_SHA --title "Vanilla Windows Node $tag" --notes 'Unsigned Windows installer; verify SHA256 and Windows SmartScreen before installing. Built automatically from repository source.'

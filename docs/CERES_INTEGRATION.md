@@ -231,3 +231,77 @@ An always-on self-hosted model requires **another independently configured
 Ollama/llama.cpp daemon or approved remote model adapter** with a verified
 network path, model capacity and security posture; this PR does not
 pretend such a daemon exists.
+
+## Phase 5 — Real Telegram AI conversations without keeping an iPhone awake
+
+The original phone-local bridge was intentionally foreground-only. iOS suspends
+WebLLM when switching to Telegram; the Railway logs may show a successful
+Telegram webhook and **zero** `/v1/family/ceres/bridge/claim` calls. That means
+there is **no AI execution**, even though the inbox and manual replies work.
+
+WeiGuo now includes a **separate, feature-flagged server-side model worker**.
+It runs during Railway's FastAPI lifespan and polls the same signed/allowlisted
+Telegram SQLite inbox. This supports ordinary back-and-forth conversations
+without leaving the Vanilla PWA open, **after** the operator provides a
+real reachable model service.
+
+### Required Railway Variables (weiguo-browser production)
+
+| Variable | Example / meaning |
+| --- | --- |
+| `CERES_SERVER_AGENT_ENABLED` | `true` after model configuration and consent to automatic Telegram replies |
+| `CERES_SERVER_MODEL_PROVIDER` | `ollama` or `openai` (OpenAI-compatible chat completions) |
+| `CERES_SERVER_MODEL_BASE_URL` | e.g. `https://your-ollama-proxy.example.com/api` or `https://api.openai.com/v1` |
+| `CERES_SERVER_MODEL_NAME` | The actual deployed model identifier (not a display label) |
+| `CERES_SERVER_MODEL_API_KEY` | A valid server-side model API or reverse-proxy bearer key of at least 20 characters |
+| `CERES_ENABLED` / `CERES_OUTBOUND_ENABLED` | Both remain `true` |
+| `CERES_TELEGRAM_CHAT_IDS` / `CERES_FAMILY_LINKS_JSON` / `WEIGUO_FAMILY_ACL_JSON` | Existing verified allowlists and linked identities; do not change |
+
+The old `CERES_LOCAL_BRIDGE_ENABLED` may remain enabled. When a valid
+server-model configuration is active, **server-side processing takes
+priority** and the phone-local claim endpoint is disabled to avoid competing
+answers. If the server model is absent, the existing foreground bridge and
+manual reply work as before.
+
+**Self-hosted model:** Ollama itself does not require or enforce a bearer token.
+Do not publish an unauthenticated Ollama port onto the public Internet.
+Place an authenticated HTTPS reverse proxy (or equivalent access gateway)
+before Ollama and configure `CERES_SERVER_MODEL_API_KEY` to match the proxy
+credential. Railway cannot contact a model bound only to `localhost` on your
+home PC. Keeping that PC and the authenticated tunnel online makes it the
+persistent model worker. All bot and model credentials stay in Railway's
+server-only Variables; do not paste them into chat or the PWA.
+
+**Cloud model:** Instead of a persistent home device, an explicitly chosen
+OpenAI-compatible API can provide the hosted model. That sends the selected
+Telegram private-chat text and the last four successfully answered turns
+to that provider, and may incur token charges. This is an **operator choice**,
+not an implicit fallback; without provider settings, the server agent stays off.
+
+### Guardrails and evidence
+
+- Only signed Telegram **private chat** events with chat IDs on the original
+  allowlist can enqueue work. Each execution **re-verifies** the Telegram-chat
+  ↔ Google `sub` ↔ owner/member ACL linkage.
+- Untrusted Telegram text is never given generic tool or admin authority.
+  Diana can classify, CREAM executes deterministic arithmetic/statistics,
+  Scouts reads **only admin-allowlisted public HTTPS hosts**, and Merlin uses
+  the configured text model. GitHub, email, file write, billing and deployment
+  operations always require separate Vanilla approval.
+- Only the last **four successfully answered messages from the same Telegram
+  chat, within 24 hours**, become model conversation context. No other chats,
+  family documents, Tokens, or files are read or uploaded.
+- Each event uses a durable one-use outbox reservation before sending Telegram.
+  There is **no automatic retry** after ambiguous network failures. At most
+  four replies per chat per minute; new items expire after five minutes.
+- Backend agent status is visible only to the linked family account at
+  `/v1/family/ceres/agent/status`; the Ceres Studio UI shows
+  `modelConfigured`, `serverReady` and the last processing state.
+- A successful Railway build and webhook registration do not prove a model
+  answered. Look for sanitized `Ceres server agent: active` and
+  `Ceres server agent: reply verified` in runtime logs, followed by an actual
+  Telegram reply. No user text, provider URLs or keys are logged.
+
+The server agent is disabled by default and *does not* install model weights or
+create a model API key. Real model service connectivity must be verified before
+claiming always-on intelligent chat is working.

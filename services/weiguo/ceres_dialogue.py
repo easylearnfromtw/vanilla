@@ -94,7 +94,8 @@ async def status(user: FamilyIdentity = Depends(family_reader)):
     return {"enabled": _enabled(), "linked": linked,
             "outboundEnabled": _enabled() and linked and os.getenv("CERES_OUTBOUND_ENABLED", "").lower() == "true",
             "draftEnabled": _enabled() and linked and os.getenv("CERES_AI_DRAFT_ENABLED", "").lower() == "true",
-            "automaticDispatch": False, "automaticReplies": False}
+            "automaticDispatch": False,
+            "automaticReplies": linked and __import__("ceres_server_agent").ready()}
 
 
 @router.get("/events")

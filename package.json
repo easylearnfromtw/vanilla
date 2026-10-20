@@ -53,7 +53,7 @@
     "test:api-registry": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/api-registry.test.mjs",
     "test:erya": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/erya-humanize.test.mjs",
     "test:luna-advanced": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/luna-advanced.test.mjs",
-    "test:luca": "node --experimental-strip-types --test tests/luca-ui.test.mjs tests/luca-client.test.mjs",
+    "test:luca": "node --experimental-strip-types --test tests/luca-ui.test.mjs tests/luca-client.test.mjs tests/luca-feedback.test.mjs",
     "test:ceres": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/ceres.test.mjs"
   },
   "dependencies": {

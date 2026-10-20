@@ -41,6 +41,7 @@
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:victoria": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/victoria.test.mjs",
     "test:detroit-bus": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-capability-bus.test.mjs",
+    "test:detroit-conversation": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-conversation-first.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs tests/merlin-clarifier.test.mjs",
     "test:detroit-studio": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-studio.test.mjs",
     "test:detroit-factory": "node --experimental-strip-types --test tests/detroit-factory.test.mjs",

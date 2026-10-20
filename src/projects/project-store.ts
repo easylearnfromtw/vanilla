@@ -63,11 +63,14 @@ export async function importUploadedCode(files:File[],owner:string):Promise<Proj
  return {id:crypto.randomUUID(),owner,repo:"local:uploads",updatedAt:new Date().toISOString(),
   source:"upload",files:indexed,warnings:errors};
 }
-export async function projectMatches(owner:string,query:string):Promise<ProjectMatch[]>{
- return projectKnowledgeMatches(await listProjectCorpora(owner),query);
+/** Scope evidence to the explicitly named repository; never blend unrelated brands. */
+export async function projectMatches(owner:string,query:string,allowedRepos?:readonly string[]):Promise<ProjectMatch[]>{
+ const corpora=await listProjectCorpora(owner);
+ const permitted=allowedRepos?.length?new Set(allowedRepos.map(x=>x.toLowerCase())):null;
+ return projectKnowledgeMatches(permitted?corpora.filter(x=>permitted.has(x.repo.toLowerCase())):corpora,query);
 }
-export async function projectContext(owner:string,query:string):Promise<string>{
- return projectKnowledgePrompt(await projectMatches(owner,query));
+export async function projectContext(owner:string,query:string,allowedRepos?:readonly string[]):Promise<string>{
+ return projectKnowledgePrompt(await projectMatches(owner,query,allowedRepos));
 }
 type StoredAPI={id:string;owner:string;definition:APIDefinition;updatedAt:string};
 export async function listProjectAPIs(owner:string):Promise<APIDefinition[]>{

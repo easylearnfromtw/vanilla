@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.43-scouts-google-quota-fallback",
-  "description": "Scouts Google 429 quota protection, Gemini 2.5 Flash-Lite fallback, regional source retrieval and clearer diagnostics"
+  "build": "2026.10.20.44-quality-first-reliability",
+  "description": "Quality-first generation watchdog, completion checks, provider stream verification and conservative model routing"
 }

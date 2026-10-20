@@ -35,7 +35,7 @@ Each upstream project provides CLI/MCP interfaces with differing command contrac
 
 ## Canva Cloud Studio (preview, opt-in)
 
-Orchestra Studio contains an optional Canva REST API text-to-image and editable-presentation panel. Server-only OAuth access token, family owner verification and per-operation consent are required. This is not native DeckCraft execution; local LUNA/Retina output remains available. No live Canva generation is claimed without validated account scopes and credits.
+Orchestra Studio contains the optional Canva REST API image and editable-presentation panel. Server-only OAuth access token, family-owner verification and per-operation consent are mandatory. This is not native DeckCraft execution; LUNA/Retina outputs remain offline. No live Canva generation is claimed without verified scopes, credits and successful API results.
 
 Setup: [Canva integration](CANVA_INTEGRATION.md).
 
@@ -88,3 +88,14 @@ Images/text are not sent to WeiGuo for these fallback operations. The GIF encode
 ## Release verification checklist
 
 Before publicly labeling this release available: merge the CI-green branch, verify the published PWA build marker over HTTPS, exercise actual DOCX/PDF/PPTX downloads, inspect SVG/PNG/JPEG on both narrow and wide layouts, decode exported GIF animations, confirm private mode performs no upload, and test optional backend routes only with authenticated and sandboxed production workers. Upstream seven-Craft parity and MP4 remain out of scope.
+
+## Detroit AI native handoff
+
+Diana proactively sends explicit document, slide, vector and motion artifact intents to Orchestra. Zeus chooses only actual browser-local engines. A request to convert the **previous AI answer** can produce a real DOCX/PDF/PPTX from Retina or SVG/PNG/GIF from Orchestra without opening the Studio. A new requirement without authored content is a brief-only job in Orchestra Studio, never a purported completed file. The Studio can prepare a safe compose prompt back in AI chat; after drafting, the user can request export of the most recent answer.
+
+Private chats cannot send their brief to the ordinary workspace. Prior-answer local exports stay on the device. WordCraft/PdfCraft remote routes retain existing family authentication and explicit consent. Native upstream Rust executables and MP4 are not claimed deployed.
+
+
+## Autonomous local media creation
+
+In a normal AI conversation with a ready, authorized model, explicit requests for local SVG, PNG or GIF media are drafted and rendered in that same conversation. Diana routes the request to Orchestra, the model supplies completed Markdown content, and Zeus invokes the verified browser-local executor. No extra Studio button is needed. The result is a typographic vector/graphic or text animation, not AI-generated photography or native upstream Craft. If no usable model exists, Orchestra's prior brief-only Studio handoff is retained. Canva, photo retouching and cloud media remain under their own policies.

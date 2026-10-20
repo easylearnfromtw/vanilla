@@ -58,7 +58,7 @@ import {ArrowUp,Square,Sparkles,Copy,Check,ThumbsUp,ThumbsDown,ChevronDown,LockK
 import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
 import {isIOSWebLLMDevice,shouldAutoLoadCachedModel,needsMobileMemoryConfirmation} from "./mobile-safety";
-import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
+import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,clearLocalModelCache,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
 import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversations,reopenConversation} from "./chat-session";
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,settleDetroitStages,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
@@ -73,6 +73,8 @@ import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} 
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
 import type {VictoriaRecall} from "../detroit/victoria";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
+import {orchestraHandoff,canExecuteOrchestraHandoff,planOrchestraAutoDraft,bindOrchestraDraft} from "../orchestra/ai-handoff";
+
 import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
 
 // Only real implementations register callable capabilities; adapters remain catalog entries.
@@ -121,7 +123,10 @@ export default function LocalChat({onNavigate}:{onNavigate?:(section:"library"|"
 const [privateMode,setPrivateMode]=useState(restoreMode);
 const [history,setHistory]=useState<ChatTurn[]>(()=>restoreHistory(chatStorageKey(restoreMode())));
  const [merlinPending,setMerlinPending]=useState<MerlinClarification|null>(()=>restoreMerlinPending(restoreHistory(chatStorageKey(restoreMode()))));
-const [draft,setDraft]=useState(takeHumanizeDraft);
+const [draft,setDraft]=useState(()=>{
+ try{const key="vanilla.orchestra.compose-draft.v1",value=sessionStorage.getItem(key);if(value){sessionStorage.removeItem(key);return value.slice(0,8000);}}catch{}
+ return takeHumanizeDraft();
+});
 const [image,setImage]=useState<ImageInput|null>(null);
 const [imageName,setImageName]=useState("");
 const [fileContext,setFileContext]=useState("");
@@ -224,6 +229,7 @@ const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"�
 const [ready,setReady]=useState(()=>isLocalModelReady());
 const [modelCached,setModelCached]=useState<boolean|null>(null);
 const [modelError,setModelError]=useState(false);
+const [repairingCache,setRepairingCache]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
 const [compareMode,setCompareMode]=useState(()=>localStorage.getItem("vanilla.model.compare.v1")==="true");
@@ -278,7 +284,7 @@ useEffect(()=>{
  return()=>{active=false;window.clearTimeout(timer);};
 },[capabilities.webgpu,selectedLocalModel,iosDevice]);
 function selectLocalModel(model:LocalModelId){
- if(busy||loadingModel)return;
+ if(busy||loadingModel||repairingCache)return;
  setSelectedLocalModel(model);
  try{localStorage.setItem("vanilla.local.model",model);}catch{}
  const already=isLocalModelReady(model);
@@ -327,6 +333,7 @@ async function reopen(id:string){
  catch(e){setLastRoute(String(e instanceof Error?e.message:e));}
 }
 async function initialize(){
+ if(loadingModel||repairingCache)return;
  const modelEntry=LOCAL_MODELS.find(x=>x.id===selectedLocalModel);
  if(needsMobileMemoryConfirmation(iosDevice,modelEntry?.vramMB||0)&&
    !window.confirm("iPhone Safari 可能因大型 WebLLM 模型超出網頁記憶體限制而直接關閉。建議先使用 0.5B 輕量模型，或在一般模式連接雲端模型。\n\n仍要手動下載／載入「"+(modelEntry?.label||selectedLocalModel)+"」嗎？")){
@@ -339,6 +346,20 @@ async function initialize(){
   setReady(true);setModelCached(true);setStatus("本地模型已就緒");
  }catch(error){recordClientFault("model","download",error);setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
  finally{setLoadingModel(false);}
+}
+async function repairSelectedModelCache(){
+ if(loadingModel||repairingCache)return;
+ const label=LOCAL_MODELS.find(x=>x.id===selectedLocalModel)?.label||selectedLocalModel;
+ if(!window.confirm("只清除「"+label+"」的模型權重快取嗎？\n其他模型、對話紀錄與設定不受影響。清除後必須重新下載這個模型。"))return;
+ setRepairingCache(true);
+ try{
+  await clearLocalModelCache(selectedLocalModel);
+  setModelCached(false);setModelProgress(0);setModelError(false);
+  setStatus("已清除這個模型的權重快取；請按「下載」重新取得。");
+ }catch(error){
+  recordClientFault("model","download",error);
+  setStatus(error instanceof Error?error.message:"清除模型快取失敗");setModelError(true);
+ }finally{setRepairingCache(false);}
 }
 const canReply=ready||(!privateMode&&(providers.length>0||ollamaConnected));
 function changeMetered(enabled:boolean){
@@ -388,7 +409,7 @@ function toolReply(question:string,answer:string,tool:ToolKey|ToolInfo="capabili
  setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:Date.now()},{role:"assistant",content:answer,tool:info,...extra,id:crypto.randomUUID(),createdAt:Date.now()+1}]);
  setDraft("");setLastRoute("已由 Vanilla 工具執行 · 不消耗 AI API");
 }
-/** Detroit / Diana public image lookup. Only real Commons results are rendered. */
+/** Real Commons results only; never invent images or fetch in private mode. */
 async function runVenusImageLookup(request:string,originalQuestion=request):Promise<boolean>{
  const query=imageSearchQuery(request);
  if(!query)return false;
@@ -397,9 +418,9 @@ async function runVenusImageLookup(request:string,originalQuestion=request):Prom
  setBusy(true);setLastRoute("Diana → Venus：正在搜尋 Wikimedia Commons 真實公開圖片…");
  try{
   const gallery=await searchCommonsImages(query);
-  if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 沒有可顯示的圖片結果，並未製造圖片或來源。","venus");return true;}
+  if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 沒有可顯示的圖片結果，未製造圖片或來源。","venus");return true;}
   const fence=String.fromCharCode(96).repeat(3);
-  toolReply(originalQuestion,"Venus 已實際取得 "+gallery.items.length+" 張 Wikimedia Commons 縮圖及來源頁面；圖片須點擊後才載入，使用時請核對作者及授權。\n\n"+fence+"venus\n"+JSON.stringify(gallery)+"\n"+fence,"venus");
+  toolReply(originalQuestion,"Venus 已實際取得 "+gallery.items.length+" 張 Wikimedia Commons 縮圖及來源頁面；圖片請核對作者及授權。\n\n"+fence+"venus\n"+JSON.stringify(gallery)+"\n"+fence,"venus");
  }catch(error){toolReply(originalQuestion,"Venus 圖片搜尋失敗："+String(error instanceof Error?error.message:error)+"；不會改用虛構來源。","venus");}
  finally{setBusy(false);}
  return true;
@@ -642,7 +663,6 @@ async function send(value=draft):Promise<void>{
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
  const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
- // Diana proactively selects genuine external images when explicitly asked; uploads use Retina instead.
  if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;
  let inlineFileContext="";
  let webContext="";
@@ -655,7 +675,7 @@ async function send(value=draft):Promise<void>{
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.
    const previousCream=[...history].reverse().find(x=>x.cream)?.cream;
-   if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
+   if((pick.tool==="retina"||pick.tool==="orchestra")&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
     const report=composeDianaCreamDocument(route.request,previousCream);
     if(report){
      setBusy(true);
@@ -670,8 +690,8 @@ async function send(value=draft):Promise<void>{
    }
    // An explicit artifact request is fulfilled in this chat by the actual native
    // executor after model drafting. Opening an editor is the no-model fallback only.
-   if(!route.forcedTool&&canReply&&planDianaNativeArtifact(route.request)&&
-      (pick.tool==="retina"||pick.tool==="janus")){
+   if(!route.forcedTool&&canReply&&((planDianaNativeArtifact(route.request)&&
+      (pick.tool==="retina"||pick.tool==="janus"||pick.tool==="orchestra"))||(pick.tool==="orchestra"&&planOrchestraAutoDraft(route.request)))){
     setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
     break;
    }
@@ -696,6 +716,23 @@ async function send(value=draft):Promise<void>{
     return;
    }
    if(pick.kind==="open"&&pick.event){
+    if(pick.tool==="orchestra"&&pick.event==="vanilla-open-orchestra"){
+     const previous=[...history].reverse().find(t=>t.role==="assistant"&&Boolean(t.content?.trim())&&t.tool?.id!=="diana"&&!t.cream);
+     const handoff=orchestraHandoff(route.request,previous?.content||"");
+     if(canExecuteOrchestraHandoff(handoff)){
+      setBusy(true);
+      try{
+       const filename=await executeDetroitNative<string>("orchestra",handoff,{privateMode});
+       toolReply(question,"Detroit → Diana → Zeus → Orchestra 已使用上一則 AI 回答完成本機匯出："+filename+"。實際使用 Retina／瀏覽器製作器，沒有呼叫原生 Craft 或上傳。","diana");
+      }catch(error){toolReply(question,"Orchestra 本機產製失敗，沒有交付檔案："+String(error instanceof Error?error.message:error),"diana");}
+      finally{setBusy(false);}
+      return;
+     }
+     if(privateMode){toolReply(question,"私密模式只允許直接在本機匯出已產生的回答，不會把新任務移到一般 Orchestra 工作區。","diana");return;}
+     window.dispatchEvent(new CustomEvent("vanilla-open-orchestra",{detail:{handoff}}));
+     toolReply(question,"Detroit → Diana → Zeus → Orchestra 已建立 "+handoff.format.toUpperCase()+" 製作任務。這是待編寫的草稿，尚未產生檔案；可在工作室交給 AI 撰寫內容。","diana");
+     return;
+    }
     // Private conversation text must not be copied into regular non-private workspaces.
     if(privateMode&&pick.event==="vanilla-open-orchestra"&&route.request.trim()){
      toolReply(question,"私密模式不會把這段對話自動複製到一般 Orchestra 工作室；若要繼續，請在工作室自行貼入已確認可分享的內容。","diana");
@@ -989,6 +1026,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
+ const nativeOrchestra=!image&&!nativeArtifact?planOrchestraAutoDraft(question):null;
  const merlin=optimizeMerlinPrompt(question,detroit);
  const humanize=prepareHumanization(question);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
@@ -1057,7 +1095,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }
- const chosen:ModelCandidate[]=!nativeArtifact&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
+ const chosen:ModelCandidate[]=!nativeArtifact&&!nativeOrchestra&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -1130,7 +1168,8 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(!humanize?toolKnowledgeGuidance(question):"")+evidenceErya+(humanize?.guidance||"");
+ const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(!humanize?toolKnowledgeGuidance(question):"")+evidenceErya+artifactGuidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
@@ -1143,8 +1182,15 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const controller=new AbortController();abortRef.current=controller;
  // Tool output is derived from a completed model response, never from a claimed result.
  async function finishNativeArtifact(body:string):Promise<string>{
-  if(!nativeArtifact||!body.trim()||controller.signal.aborted)return "";
+  if((!nativeArtifact&&!nativeOrchestra)||!body.trim()||controller.signal.aborted)return "";
   try{
+   if(nativeOrchestra){
+    const ready=bindOrchestraDraft(nativeOrchestra,body);
+    const filename=await executeDetroitNative<string>("orchestra",ready,{privateMode,signal:controller.signal});
+    markDetroit("orchestra","done","AI 已完成內容，Orchestra 已真正產出本機 "+ready.format.toUpperCase()+" 作品");
+    return "\n\nDetroit / Orchestra 已完成 "+ready.format.toUpperCase()+" 本機匯出："+filename+"（瀏覽器製作器，非原生 Craft）。";
+   }
+   if(!nativeArtifact)return "";
    if(nativeArtifact.capability==="retina"){
     const result=await executeDetroitNative<NativeRetinaResult>("retina",{
      title:nativeArtifact.title,body,format:nativeArtifact.format,download:true
@@ -1159,7 +1205,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    return "\n\nDetroit / Janus 已產生 HTML 郵件檔案："+result.filename+"（沒有寄送郵件）。";
   }catch(error){
    const reason=error instanceof Error?error.message:String(error);
-   markDetroit(nativeArtifact.capability,"error","原生匯出失敗："+reason);
+   markDetroit(nativeOrchestra?"orchestra":nativeArtifact?.capability||"orchestra","error","本機匯出失敗："+reason);
    return "\n\nDetroit 原生匯出未完成："+reason+"。上方保留已生成的文字草稿。";
   }
  }
@@ -1345,7 +1391,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
   <button type="button" aria-pressed={!privateMode} disabled={busy} onClick={()=>{if(privateMode)switchPrivacy();}}>一般</button>
   <button type="button" aria-pressed={privateMode} disabled={busy} onClick={()=>{if(!privateMode)switchPrivacy();}}><LockKeyhole size={12}/>私密</button>
  </div> <p className="sheet-hint">{privateMode?"只用手機本地模型；不上網、不寫入雲端。":"自動挑選你已連接的模型；第一次使用雲端前會先問你。"}</p>
- <LocalModelPanel selected={selectedLocalModel} onSelect={selectLocalModel} onLoad={()=>void initialize()} status={status} progress={modelProgress} loading={loadingModel} error={modelError} webgpu={capabilities.webgpu} online={online} ready={ready&&isLocalModelReady(selectedLocalModel)} cached={modelCached}/>
+ <LocalModelPanel selected={selectedLocalModel} onSelect={selectLocalModel} onLoad={()=>void initialize()} onRepairCache={()=>void repairSelectedModelCache()} repairingCache={repairingCache} status={status} progress={modelProgress} loading={loadingModel} error={modelError} webgpu={capabilities.webgpu} online={online} ready={ready&&isLocalModelReady(selectedLocalModel)} cached={modelCached}/>
  <div className="control-toggles">
   <label className="vh-switch"><input type="checkbox" checked={deepAnalysis} disabled={busy} onChange={e=>{setDeepAnalysis(e.target.checked);try{localStorage.setItem("vanilla.detroit.deep.v1",String(e.target.checked));}catch{}}}/><span><strong>Detroit 深度分析</strong><small>複雜題增加思考預算，顯示處理階段；不公開模型內部推理</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/><span><strong>比較兩個答案</strong><small>兩個模型各答一次，選你喜歡的</small></span></label>

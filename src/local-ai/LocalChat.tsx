@@ -994,17 +994,17 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
      title:nativeArtifact.title,body,format:nativeArtifact.format,download:true
     },{privateMode,signal:controller.signal});
     markDetroit("retina","done","已由 Retina 真正建立本機 "+result.format.toUpperCase()+" 檔案");
-    return "\\n\\nDetroit / Retina 已產生檔案："+result.filename+"（已觸發本機下載）。";
+    return "\n\nDetroit / Retina 已產生檔案："+result.filename+"（已觸發本機下載）。";
    }
    const result=await executeDetroitNative<NativeJanusResult>("janus",{
     kind:nativeArtifact.kind,title:nativeArtifact.title,body,brand:nativeArtifact.brand,download:true
    },{privateMode,signal:controller.signal});
    markDetroit("janus","done","已產出 Janus 本機 HTML 電子報");
-   return "\\n\\nDetroit / Janus 已產生 HTML 郵件檔案："+result.filename+"（沒有寄送郵件）。";
+   return "\n\nDetroit / Janus 已產生 HTML 郵件檔案："+result.filename+"（沒有寄送郵件）。";
   }catch(error){
    const reason=error instanceof Error?error.message:String(error);
    markDetroit(nativeArtifact.capability,"error","原生匯出失敗："+reason);
-   return "\\n\\nDetroit 原生匯出未完成："+reason+"。上方保留已生成的文字草稿。";
+   return "\n\nDetroit 原生匯出未完成："+reason+"。上方保留已生成的文字草稿。";
   }
  }
  setDraft("");setBusy(true);setGenerating(true);

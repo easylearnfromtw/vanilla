@@ -11,6 +11,12 @@ import {lunaPNG,saveLunaFile} from "../luna/export";
 import {recallVictoria,isVictoriaEnabled,type VictoriaRecall} from "./victoria";
 import {orchestraHandoff,type OrchestraHandoff} from "../orchestra/ai-handoff";
 import {executeOrchestraHandoff} from "../orchestra/agent-executor";
+import {bardGenerate,bardSave} from "./bard";
+import {
+ getMedusaStatus,runMedusa,executeQuirinusFamilyScan,
+ getWeiGuoLucaSummary,getWeiGuoCeresStatus,getWeiGuoCeresEvents,
+ type MedusaOutput,type QuirinusFamilyRun,type LucaSnapshot
+} from "../weiguo/api";
 
 type ScoutInput={query:string};
 type CreamInput={csv:string;source?:string};
@@ -18,9 +24,19 @@ type RetinaInput={title:string;body:string;format:RetinaFormat;download:boolean}
 type JanusInput={kind:EmailTemplateKind;title:string;body:string;brand:string;download:boolean};
 type LunaInput={prompt:string;owner:string;download:boolean;save:boolean};
 type VictoriaInput={query:string;owner:string};
+type BardInput={prompt:string;download:boolean};
+type MedusaInput={source_code:string;stdin?:string};
+type QuirinusInput={approval_token:string};
+type CeresInput={operation:"status"|"events"};
+type LucaInput={operation:"summary"};
 export type NativeRetinaResult={filename:string;format:RetinaFormat;sections:number};
 export type NativeJanusResult={filename:string;format:"html";bytes:number};
 export type NativeLunaResult={filename:string;format:"png";layers:number;savedEditable:boolean};
+export type NativeBardResult={filename:string;mime:string;model:string};
+export type NativeMedusaResult=MedusaOutput;
+export type NativeQuirinusResult=QuirinusFamilyRun;
+export type NativeLucaResult=LucaSnapshot;
+export type NativeCeresResult=Awaited<ReturnType<typeof getWeiGuoCeresEvents>>|Awaited<ReturnType<typeof getWeiGuoCeresStatus>>;
 let registered=false;
 function assertObject(value:unknown):Record<string,unknown>{
  if(!value||typeof value!=="object"||Array.isArray(value))throw Error("Detroit 工具輸入不是物件");
@@ -77,6 +93,36 @@ export function registerDetroitNativeExecutors():void{
   const result:NativeJanusResult={filename:name,format:"html",bytes:new TextEncoder().encode(output.html).length};
   return result;
  });
+ detroitBus.register("bard",async(raw,ctx)=>{
+  const data=assertObject(raw),prompt=limited(data.prompt,3000);
+  const output=await bardGenerate(prompt,{privateMode:ctx.privateMode,approved:ctx.approved===true,signal:ctx.signal});
+  const suffix=output.mime==="image/jpeg"?"jpg":output.mime==="image/webp"?"webp":"png";
+  const filename="Bard-"+new Date().toISOString().slice(0,10)+"."+suffix;
+  if(data.download===true)bardSave(output);
+  const receipt:NativeBardResult={filename,mime:output.mime,model:output.model};
+  return receipt;
+ });
+ detroitBus.register("medusa",async(raw)=>{
+  const data=assertObject(raw),status=await getMedusaStatus();
+  if(!status.enabled||!status.connected)throw Error("Medusa 尚未啟用："+status.note);
+  const code=limited(data.source_code,16000);
+  const stdin=typeof data.stdin==="string"?data.stdin:"";
+  return runMedusa(code,stdin,true);
+ });
+ detroitBus.register("quirinus",async(raw)=>{
+  const data=assertObject(raw);
+  return executeQuirinusFamilyScan(limited(data.approval_token,128),true);
+ });
+ detroitBus.register("luca",async(raw)=>{
+  const data=assertObject(raw);
+  if(data.operation!=="summary")throw Error("LUCA 只允許監控摘要");
+  return getWeiGuoLucaSummary();
+ });
+ detroitBus.register("ceres",async(raw)=>{
+  const data=assertObject(raw);
+  const operation:CeresInput["operation"]=data.operation==="events"?"events":"status";
+  return operation==="events"?getWeiGuoCeresEvents():getWeiGuoCeresStatus();
+ });
  detroitBus.register("victoria",async(raw,ctx)=>{
   const data=assertObject(raw);
   const input:VictoriaInput={query:limited(data.query,16000),owner:limited(data.owner,150)};
@@ -104,8 +150,9 @@ export function registerDetroitNativeExecutors():void{
  registered=true;
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
-export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria"|"orchestra",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|OrchestraHandoff,
- context:{privateMode:boolean;signal?:AbortSignal}):Promise<T>{
+export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria"|"orchestra"|"bard"|"medusa"|"quirinus"|"luca"|"ceres",
+ input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|OrchestraHandoff|BardInput|MedusaInput|QuirinusInput|CeresInput|LucaInput,
+ context:{privateMode:boolean;approved?:boolean;signal?:AbortSignal}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);
  return receipt.result as T;

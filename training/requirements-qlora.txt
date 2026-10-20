@@ -1,0 +1,3 @@
+# Optional CUDA-only 4-bit training/inference; install after requirements-noodles.txt
+# Confirm PyTorch/CUDA driver and bitsandbytes wheel compatibility first.
+bitsandbytes>=0.45

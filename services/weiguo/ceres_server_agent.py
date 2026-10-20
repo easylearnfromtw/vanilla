@@ -86,6 +86,8 @@ def claim_next() -> dict | None:
                    "WHERE status='queued' AND event_id IN "
                    "(SELECT id FROM ceres_inbox WHERE created_at<?)",
                    (now, now - MAX_AGE))
+        # Limit model costs BEFORE calling the provider; do not lease a
+        # message that the Telegram outbox cannot send this minute.
         row = db.execute(
             "SELECT j.event_id,j.chat_id,i.text,i.created_at FROM ceres_agent_jobs j "
             "JOIN ceres_inbox i ON i.id=j.event_id "
@@ -96,6 +98,12 @@ def claim_next() -> dict | None:
         ).fetchone()
         if not row:
             return None
+        sent_recent = db.execute(
+            "SELECT COUNT(*) FROM ceres_outbox WHERE chat_id=? AND created_at>=?",
+            (row["chat_id"], now - 60)
+        ).fetchone()[0]
+        if sent_recent >= 4:
+            return None  # Keep queued while the one-minute cap is in effect.
         job = dict(row)
         db.execute("UPDATE ceres_agent_jobs SET status='server-processing',"
                    "claimed_at=?,updated_at=? WHERE event_id=? AND status='queued'",

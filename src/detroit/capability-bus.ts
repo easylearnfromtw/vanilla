@@ -12,7 +12,7 @@ export type DetroitCapability={
  id:string;label:string;owner:"detroit";kind:CapabilityKind;state:CapabilityState;
  requiresNetwork:boolean;requiresApproval:boolean;description:string;
 };
-const NETWORK=new Set(["scouts","bard","ceres","moli","persistent-jobs","hermes","quirinus","medusa","gridcraft","jensen-huang"]);
+const NETWORK=new Set(["scouts","bard","ceres","moli","persistent-jobs","hermes","quirinus","medusa","gridcraft","jensen-huang","luca"]);
 const APPROVAL=new Set(["bard","ceres","moli","persistent-jobs","hermes","quirinus","medusa","gridcraft","jensen-huang"]);
 const asCapability=(id:string,label:string,kind:CapabilityKind,state:CapabilityState,description:string):DetroitCapability=>({
  id,label,owner:"detroit",kind,state,requiresNetwork:NETWORK.has(id),requiresApproval:APPROVAL.has(id),description

@@ -14,3 +14,12 @@ coverage/
 *.p12
 *.pfx
 secrets/
+
+# Locally reviewed training data, generated outputs and private adapters
+training/data/
+training/benchmark/
+training/outputs/
+adapters/
+*.safetensors
+*.ckpt
+*.pt

@@ -36,7 +36,8 @@ export default function TeacherLearningPanel({privateMode}:{privateMode:boolean}
    <details><summary>GPU 訓練資料與進階設定</summary><div className="teacher-downloads">
     {(["sft","dpo"] as const).map(mode=>(["train","eval"] as const).map(split=><button key={mode+split} type="button" disabled={!stats.count||privateMode} onClick={()=>exportFile(mode,split)}>
       <Download size={13}/>{mode.toUpperCase()} {split}</button>))}
-    </div><p>匯出並不等於訓練；還需 GPU LoRA、模型授權檢查和獨立評估。若未經合法授權，不得把其他供應商的完整回答當作訓練資料。</p>
+    </div><p>匯出並不等於訓練；按讚紀錄也不等於已查證的教師答案。Teacher–Student 蒸餾需經人工審核內容及來源權利，再於自己的電腦執行 LoRA/QLoRA 與獨立評測；網站不會自動將對話送出或更新權重。</p>
+    <p><a href="https://github.com/easylearnfromtw/vanilla/blob/main/docs/NOODLES_TEACHER_STUDENT.md" target="_blank" rel="noopener noreferrer">查看 Teacher–Student 本機訓練與評測教學</a>。6GB 筆電顯示卡請先從 0.5B 試驗；能否完成 1.5B QLoRA 依 CUDA 與實際記憶體而定。</p>
     <button type="button" disabled={!stats.count||privateMode} onClick={()=>{if(window.confirm("確定刪除此裝置所有本地學習案例？")){clearTeacherExamples();setState(readTeacherState());}}}>清除全部學習案例</button>
    </details>
    {message&&<p role="status" className="teacher-message">{message}</p>}

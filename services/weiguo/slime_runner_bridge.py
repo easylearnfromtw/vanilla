@@ -124,6 +124,12 @@ async def dispatch(owner: str, content: dict):
     now=int(time.time())
     with _session() as db:
         _tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        count=db.execute("""SELECT COUNT(*) FROM slime_runner_jobs
+            WHERE node_id=? AND state IN ('queued','leased') AND expires_at>?""",
+            (node,now)).fetchone()[0]
+        if count>=2:
+            raise HTTPException(503,"本地模型節點已達併發／排隊上限")
         db.execute("INSERT INTO slime_runner_jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
                    (jobid,owner,node,model,json.dumps(content,ensure_ascii=False),
                     None,"queued",now,None,now+_JOB_TTL))

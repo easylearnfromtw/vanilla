@@ -1,4 +1,4 @@
-import {useEffect,useState,type ReactNode} from "react";
+import {createElement,useEffect,useState,type ReactNode} from "react";
 import type {VenusBlock} from "./presentation";
 import {parseVenusMath,type MathNode} from "./math-core";
 
@@ -8,23 +8,26 @@ type MathBlock=Extract<VenusBlock,{kind:"math"}>;
 type LiveBlock=Extract<VenusBlock,{kind:"live"}>;
 function Title({title}:{title:string}){return title?<h3 className="venus-title">{title}</h3>:null;}
 
+/** React 18's JSX intrinsic typings omit MathML tags. React.createElement safely
+ * constructs fixed, allowlisted MathML tags without HTML injection or type widening.
+ */
 function renderMath(node:MathNode,key=0):ReactNode{
  switch(node.kind){
- case "token":return node.role==="mi"?<mi key={key}>{node.text}</mi>:node.role==="mn"?<mn key={key}>{node.text}</mn>:<mo key={key}>{node.text}</mo>;
- case "row":return <mrow key={key}>{node.items.map((part,i)=>renderMath(part,i))}</mrow>;
- case "fraction":return <mfrac key={key}>{renderMath(node.numerator)}{renderMath(node.denominator)}</mfrac>;
- case "sqrt":return <msqrt key={key}>{renderMath(node.content)}</msqrt>;
+ case "token":return createElement(node.role,{key},node.text);
+ case "row":return createElement("mrow",{key},...node.items.map((part,i)=>renderMath(part,i)));
+ case "fraction":return createElement("mfrac",{key},renderMath(node.numerator),renderMath(node.denominator));
+ case "sqrt":return createElement("msqrt",{key},renderMath(node.content));
  case "script":
-  if(node.sup&&node.sub)return <msubsup key={key}>{renderMath(node.base)}{renderMath(node.sub)}{renderMath(node.sup)}</msubsup>;
-  if(node.sup)return <msup key={key}>{renderMath(node.base)}{renderMath(node.sup)}</msup>;
-  return <msub key={key}>{renderMath(node.base)}{node.sub?renderMath(node.sub):<mrow/>}</msub>;
+  if(node.sup&&node.sub)return createElement("msubsup",{key},renderMath(node.base),renderMath(node.sub),renderMath(node.sup));
+  if(node.sup)return createElement("msup",{key},renderMath(node.base),renderMath(node.sup));
+  return createElement("msub",{key},renderMath(node.base),node.sub?renderMath(node.sub):createElement("mrow"));
  }
 }
 export function VenusMath({block}:{block:MathBlock}){
  const ast=parseVenusMath(block.expression);
  return <section className="venus-widget venus-math"><Title title={block.title}/>
   {ast?<div className="venus-math-scroll" aria-label={"數學公式："+block.expression}>
-   <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">{renderMath(ast)}</math>
+   {createElement("math",{xmlns:"http://www.w3.org/1998/Math/MathML",display:"block"},renderMath(ast))}
   </div>:<p className="venus-math-fallback"><code>{block.expression}</code><small>此公式含尚未支援的符號，保留原始 LaTeX，避免顯示錯誤公式。</small></p>}
  </section>;
 }

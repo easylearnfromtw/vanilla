@@ -1,0 +1,407 @@
+{
+  "version": "0.1",
+  "language": "zh-TW",
+  "license_note": "Original summarized instructional notes; no paid CFA/SOA/IFRS source texts reproduced.",
+  "generated_for": "Sign Well / Vanilla Detroit sandbox; simulation only",
+  "sources": {
+    "CFA": "https://www.cfainstitute.org/programs/cfa-program/curriculum",
+    "SOA": "https://www.soa.org/education/",
+    "IFRS18": "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-18-presentation-and-disclosure-in-financial-statements/"
+  },
+  "modules": [
+    {
+      "id": "Elasticity",
+      "domain": "economics",
+      "topic": "micro",
+      "title": "需求價格彈性",
+      "formula": "(ΔQ/Q)/(ΔP/P)",
+      "meaning": "在其他條件不變下，價格變動對需求量的相對影響。",
+      "assumption": "需求定義、時間區間、替代品、內生性",
+      "keywords": [
+        "價格",
+        "策略",
+        "供需",
+        "彈性"
+      ]
+    },
+    {
+      "id": "GDP_deflator",
+      "domain": "economics",
+      "topic": "macro",
+      "title": "GDP 平減指數",
+      "formula": "nominal_GDP/real_GDP*100",
+      "meaning": "名目GDP與實質GDP的比值；不能將通膨或GDP單一指標當成完整福祉。",
+      "assumption": "基期、價格與產出資料一致",
+      "keywords": [
+        "名目",
+        "GDP",
+        "實質",
+        "平減",
+        "通膨"
+      ]
+    },
+    {
+      "id": "Policy_transmission",
+      "domain": "economics",
+      "topic": "macro",
+      "title": "貨幣與財政傳導",
+      "formula": "AD = C + I + G + NX",
+      "meaning": "利率、預期、銀行信用與匯率共同決定政策傳導；比較凱因斯、貨幣學派與信用週期觀點。",
+      "assumption": "不能假設乘數或央行政策效果固定不變",
+      "keywords": [
+        "貨幣",
+        "財政",
+        "利率",
+        "景氣",
+        "信用",
+        "需求"
+      ]
+    },
+    {
+      "id": "Growth_accounting",
+      "domain": "economics",
+      "topic": "growth",
+      "title": "經濟成長會計",
+      "formula": "ΔlnY≈αΔlnK+(1−α)ΔlnL+ΔlnA",
+      "meaning": "資本、勞動與全要素生產力對產出的近似分解。",
+      "assumption": "柯布道格拉斯與規模報酬等前提",
+      "keywords": [
+        "成長",
+        "生產力",
+        "資本",
+        "勞動",
+        "技術"
+      ]
+    },
+    {
+      "id": "Causal_inference",
+      "domain": "economics",
+      "topic": "econometrics",
+      "title": "計量與因果",
+      "formula": "Y = β0 + β1 X + ε",
+      "meaning": "回歸係數不是因果效果證據；需考慮混雜、工具變數、DID與自然實驗。",
+      "assumption": "可識別性、平行趨勢或排除限制",
+      "keywords": [
+        "統計",
+        "計量",
+        "回歸",
+        "因果",
+        "實驗"
+      ]
+    },
+    {
+      "id": "Unit_economics",
+      "domain": "management",
+      "topic": "operations",
+      "title": "單位經濟模型",
+      "formula": "contribution_margin=price−variable_cost",
+      "meaning": "分析各筆貢獻毛利、固定成本及損益兩平。",
+      "assumption": "單位定義、變動成本與期間",
+      "keywords": [
+        "營運",
+        "成本",
+        "獲利",
+        "利潤",
+        "轉換",
+        "客單價"
+      ]
+    },
+    {
+      "id": "Operations_queue",
+      "domain": "management",
+      "topic": "operations",
+      "title": "排隊與產能管理",
+      "formula": "L=λW",
+      "meaning": "穩態下平均系統人數等於到達率乘平均停留時間；用於節點等待與服務產能。",
+      "assumption": "穩態、流量守恆、量測期一致",
+      "keywords": [
+        "排隊",
+        "佇列",
+        "人力",
+        "產能",
+        "等待"
+      ]
+    },
+    {
+      "id": "Strategy",
+      "domain": "management",
+      "topic": "strategy",
+      "title": "策略與競爭分析",
+      "formula": "expected_value=Σ(probability×outcome)",
+      "meaning": "五力分析、資源優勢與情境決策須與假設及KPI連動。",
+      "assumption": "機率不能無資料臆測",
+      "keywords": [
+        "管理",
+        "策略",
+        "SWOT",
+        "競爭",
+        "五力",
+        "決策"
+      ]
+    },
+    {
+      "id": "Process_control",
+      "domain": "management",
+      "topic": "governance",
+      "title": "內部控制與責任分工",
+      "formula": "RACI=Responsible,Accountable,Consulted,Informed",
+      "meaning": "關鍵職責需可追溯，模型建議不能繞過最終責任人與驗證環節。",
+      "assumption": "權限分離、職責衝突、異常升級",
+      "keywords": [
+        "RACI",
+        "權限",
+        "治理",
+        "控制",
+        "流程"
+      ]
+    },
+    {
+      "id": "Project_risk",
+      "domain": "management",
+      "topic": "project",
+      "title": "專案管理",
+      "formula": "expected_delay=Σ(probability×impact)",
+      "meaning": "估算關鍵路徑、資源與失敗重試成本；使用風險緩解方案。",
+      "assumption": "依賴關係、估算不確定性",
+      "keywords": [
+        "排程",
+        "專案",
+        "甘特",
+        "時程"
+      ]
+    },
+    {
+      "id": "NPV",
+      "domain": "finance",
+      "topic": "corporate",
+      "title": "淨現值",
+      "formula": "NPV=Σ(CF_t/(1+r)^t)−I0",
+      "meaning": "給定機會成本下，預期現金流現值與投入之差。",
+      "assumption": "折現率、現金流時點、終值一致",
+      "keywords": [
+        "NPV",
+        "現值",
+        "投資",
+        "折現",
+        "資本預算"
+      ]
+    },
+    {
+      "id": "WACC",
+      "domain": "finance",
+      "topic": "corporate",
+      "title": "加權平均資本成本",
+      "formula": "WACC=E/V×Re+D/V×Rd×(1−T)",
+      "meaning": "估算資本組合的加權成本，應與現金流風險及稅務前提匹配。",
+      "assumption": "市場權重、稅、資本結構一致",
+      "keywords": [
+        "WACC",
+        "資本成本",
+        "債務",
+        "權益"
+      ]
+    },
+    {
+      "id": "Bond_duration",
+      "domain": "finance",
+      "topic": "fixed_income",
+      "title": "債券久期",
+      "formula": "ModifiedDuration=MacaulayDuration/(1+y/m)",
+      "meaning": "小幅殖利率變動下，債券價格敏感度的近似值。",
+      "assumption": "利率非線性、凸性與信用風險",
+      "keywords": [
+        "債券",
+        "利率",
+        "久期",
+        "存續期間",
+        "殖利率"
+      ]
+    },
+    {
+      "id": "Portfolio_risk",
+      "domain": "finance",
+      "topic": "portfolio",
+      "title": "投資組合變異",
+      "formula": "σp²=ΣiΣj wi wj Cov(ri,rj)",
+      "meaning": "相關性與集中度影響風險，不能用單一歷史波動推保證報酬。",
+      "assumption": "樣本誤差、結構轉變、極端市場",
+      "keywords": [
+        "投資",
+        "資產",
+        "配置",
+        "共變異",
+        "波動"
+      ]
+    },
+    {
+      "id": "CAPM",
+      "domain": "finance",
+      "topic": "asset_pricing",
+      "title": "資本資產定價模型",
+      "formula": "E(Ri)=Rf+βi(E(Rm)−Rf)",
+      "meaning": "基準模型估計市場風險補償，並非個別證券實際報酬保證。",
+      "assumption": "β估計、單因子限制、市場效率",
+      "keywords": [
+        "CAPM",
+        "Beta",
+        "報酬",
+        "股票"
+      ]
+    },
+    {
+      "id": "Accounting_equation",
+      "domain": "accounting",
+      "topic": "financial",
+      "title": "會計恆等式",
+      "formula": "Assets=Liabilities+Equity",
+      "meaning": "所有期初與期末權益變動要對照分錄與完整報表核對。",
+      "assumption": "時點一致、未入帳項目",
+      "keywords": [
+        "資產",
+        "負債",
+        "權益",
+        "資產負債表"
+      ]
+    },
+    {
+      "id": "Double_entry",
+      "domain": "accounting",
+      "topic": "bookkeeping",
+      "title": "複式簿記",
+      "formula": "Σdebits=Σcredits",
+      "meaning": "每筆交易借貸平衡，但借貸相等仍不足以證明分類或存在性正確。",
+      "assumption": "會計科目、文件憑證、控制",
+      "keywords": [
+        "借貸",
+        "分錄",
+        "試算表",
+        "總帳"
+      ]
+    },
+    {
+      "id": "Accrual_vs_cash",
+      "domain": "accounting",
+      "topic": "financial",
+      "title": "權責發生制",
+      "formula": "profit=revenue−expense",
+      "meaning": "收入費用應依適用認列原則判定，不直接等同現金流。",
+      "assumption": "適用準則、收款與交付時點",
+      "keywords": [
+        "損益",
+        "權責",
+        "現金流",
+        "收入認列"
+      ]
+    },
+    {
+      "id": "Financial_ratios",
+      "domain": "accounting",
+      "topic": "analysis",
+      "title": "財報比率",
+      "formula": "current_ratio=current_assets/current_liabilities",
+      "meaning": "流動比率與獲利、周轉率須結合產業與會計政策解讀。",
+      "assumption": "可比性與科目分類一致",
+      "keywords": [
+        "流動比率",
+        "獲利",
+        "財報",
+        "財務比率"
+      ]
+    },
+    {
+      "id": "IFRS18",
+      "domain": "accounting",
+      "topic": "standards",
+      "title": "IFRS 18 財報表達",
+      "formula": "effective_period_start≥2027-01-01",
+      "meaning": "IFRS 18 取代IAS 1，新增營業利益及籌資與所得稅前利益等定義的小計。",
+      "assumption": "國家採用時程、提早適用、法規版本",
+      "keywords": [
+        "IFRS",
+        "18",
+        "IAS",
+        "1",
+        "財報",
+        "表達",
+        "揭露"
+      ]
+    },
+    {
+      "id": "Frequency_severity",
+      "domain": "actuarial",
+      "topic": "loss",
+      "title": "事故頻率及嚴重度",
+      "formula": "E[S]=E[N]×E[X]",
+      "meaning": "在獨立及適用條件下，合計理賠期望值等於事故件數期望乘平均損失。",
+      "assumption": "事故頻率相關、通膨與截尾",
+      "keywords": [
+        "精算",
+        "理賠",
+        "頻率",
+        "嚴重度",
+        "風險"
+      ]
+    },
+    {
+      "id": "Compound_poisson",
+      "domain": "actuarial",
+      "topic": "loss",
+      "title": "複合卜瓦松損失",
+      "formula": "Var(S)=λE[X²]",
+      "meaning": "N服從卜瓦松且獨立同分配理賠金額時，合計損失變異數可用二次動差估計。",
+      "assumption": "Poisson分布假設及獨立性",
+      "keywords": [
+        "複合",
+        "Poisson",
+        "卜瓦松",
+        "損失"
+      ]
+    },
+    {
+      "id": "Reserving",
+      "domain": "actuarial",
+      "topic": "reserving",
+      "title": "未決賠款準備金",
+      "formula": "ultimate_claims=paid+outstanding+IBNR",
+      "meaning": "使用發展三角形估計最終賠款，需檢查資料發展期與業務改變。",
+      "assumption": "鏈梯法依賴發展型態穩定",
+      "keywords": [
+        "準備金",
+        "IBNR",
+        "鏈梯",
+        "精算"
+      ]
+    },
+    {
+      "id": "VaR_TVaR",
+      "domain": "actuarial",
+      "topic": "risk",
+      "title": "尾部風險",
+      "formula": "TVaRα=E[L|L≥VaRα] (continuous)",
+      "meaning": "VaR描述給定分位損失門檻；TVaR更注意尾部嚴重程度。",
+      "assumption": "離散分布公式需改寫、分位數模型不確定性",
+      "keywords": [
+        "VaR",
+        "TVaR",
+        "極端",
+        "風險",
+        "壓力測試"
+      ]
+    },
+    {
+      "id": "Annuity_PV",
+      "domain": "actuarial",
+      "topic": "life",
+      "title": "年金現值",
+      "formula": "PV=Σ(payment_t/(1+i)^t)",
+      "meaning": "給付時間、利率及存活率會影響生命年金估值。",
+      "assumption": "死亡率表、利差、提前解約",
+      "keywords": [
+        "年金",
+        "壽險",
+        "利率",
+        "現值"
+      ]
+    }
+  ]
+}

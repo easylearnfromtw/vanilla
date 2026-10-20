@@ -21,7 +21,7 @@ This migration does **not** claim that all optional backends are deployed. Activ
 | LUNA | Offline template-based PNG poster plus optional locally editable draft | Does not claim neural image generation; private mode never saves into normal workspace |
 | Victoria | Bounded same-account retrieval from local normal-mode archived chats | Off until account-specific opt-in; private chat never read; external model transmission requires separate opt-in |
 
-All other engines including GridCraft, Quirinus, Medusa, Ceres, Moli, LUCA, most native Craft engines and cross-conversation Victoria remain visible in Detroit's inventory. They need individually verified backend connectivity and/or authorization before registration as runnable tools. They cannot be silently enabled merely because they were added to the catalog.
+Additional gated executors now exist for Bard, Medusa, Quirinus, LUCA and Ceres. These are **not** evidence that the user's server is deployed, signed in or authorized. Bard requires an actual configured Gemini image API and per-generation expense consent; Medusa requires an enabled, connected, owner-only sandbox and per-run code transfer consent; Quirinus uses the owner-only fixed-scope prepare/one-time approval-token flow and reports only dispatch acceptance until its workflow finishes; LUCA retrieves owner-only backend diagnostics; Ceres reads authorized external message events as untrusted data and never auto-replies or executes message instructions. Other optional integrations (GridCraft, Moli, native Craft backends, etc.) remain unavailable without separate verified runtime integration.
 
 ## Chat execution
 
@@ -30,17 +30,20 @@ All other engines including GridCraft, Quirinus, Medusa, Ceres, Moli, LUCA, most
 - Affirmative poster requests use LUNA's existing offline renderer and offer a PNG download; in normal mode the editable project is saved to the current local account if capacity allows.
 - Public research for a requested document can gather Scouts evidence before drafting. Private mode, no-web instructions, uploaded sensitive data and quoted instructions still stop automatic web research.
 - Deterministic tools never execute model-produced JavaScript, arbitrary URLs, external services, authentication changes, mail sends or code writes.
-- Other tools keep their existing explicit UI/back-end flows while they await a verified native executor. No fake success.
+- A chat action selects and calls the matching executor directly; opening tool-specific studios is not a completion strategy. Users only need the conversation plus account/data settings. Specialist workspaces remain internal and can be explicitly opened for troubleshooting or advanced editing, not exposed as default tool navigation.
+- Optional remote connectors execute only after the required backend identity, privilege, privacy and approval checks. A registered executor is not a guaranteed working external service.
+- For code modifications, unsupported cloud integrations or unavailable tool backends, Merlin/Diana preserve the original question and state exactly which work could or could not be completed rather than claiming a deployment.
 
 ## Next integration phase
 
-Integrate verified remote adapters one at a time (e.g. Ceres message gateway, Medusa sandbox, GridCraft sheets, Quirinus scans, Moli read-only browser) with concrete authenticated `DetroitExecutor` implementations and backend health checks; gate high-impact actions by existing Athena policies and explicit approval. Do not register one as runnable merely on the basis of a server URL or an environment variable.
+Complete health-verified integration of remaining optional adapters (e.g. GridCraft sheets and Moli reader) with concrete authenticated `DetroitExecutor` implementations and backend health checks; gate high-impact actions by existing Athena policies and explicit approval. Do not register one as runnable merely on the basis of a server URL or an environment variable.
 
 ## Verification
 
 ```sh
 npm run build
 node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-capability-bus.test.mjs
+npm run test:detroit-conversation
 npm run test:victoria
 npm run test:diana
 npm run test:retina

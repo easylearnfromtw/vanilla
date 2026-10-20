@@ -22,6 +22,8 @@ test("non-tiny 7B Ollama models retain original routing context",()=>{
  assert.equal(answer.reduced,false);
  assert.equal(answer.guidance,"");
  assert.deepEqual(answer.contexts,contexts);
+ const unknown=compileSmallModelInput({...defaults,model:"llama3:latest",contexts});
+ assert.equal(unknown.reduced,false,"unknown-size models should not be treated as tiny");
 });
 
 test("a small model sees the relevant later paragraph, not just the beginning of the file",()=>{

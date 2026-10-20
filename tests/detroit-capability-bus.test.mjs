@@ -15,7 +15,8 @@ test("every installed Detroit specialist and Craft engine belongs to one capabil
  for(const name of ["jensen-huang","gridcraft","victoria","medusa","quirinus","ceres","moli"])
   assert.ok(ids.includes(name),name);
  assert.ok(DETROIT_CAPABILITIES.every(x=>x.owner==="detroit"));
- assert.equal(detroitAvailability().find(x=>x.id==="victoria")?.state,"planned");
+ assert.equal(DETROIT_CAPABILITIES.find(x=>x.id==="victoria")?.state,"local");
+ assert.equal(detroitAvailability().find(x=>x.id==="victoria")?.state,"not-connected");
 });
 
 test("a tool without a real executor can never report completion",async()=>{

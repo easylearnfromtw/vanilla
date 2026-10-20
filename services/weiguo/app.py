@@ -29,6 +29,7 @@ from quirinus_adapter import router as quirinus_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
+from canva_adapter import router as canva_router
 from pdfcraft_native import probe_sandbox
 from pdfcraft_engine import PdfCraftUnavailable, PdfCraftFailed
 from pdfcraft_remote import combine_pdfs, remote_requested, remote_ready
@@ -114,6 +115,7 @@ async def require_wordcraft_quota(sub: str) -> None:
 
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
 app.include_router(gridcraft_router)
+app.include_router(canva_router)
 async def operator(authorization: str | None = Header(default=None)):
     expected=os.environ.get("WEIGUO_ADMIN_TOKEN","")
     if len(expected) < 32: raise HTTPException(503,"未設定後端金鑰")

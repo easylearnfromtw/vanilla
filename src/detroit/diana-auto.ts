@@ -7,7 +7,7 @@ import type {CreamResult} from "../cream/core";
 import type {RetinaFormat,RetinaRequest} from "./retina";
 
 const ACTION=/(?:製作|產生|生成|建立|匯出|下載|輸出|做成|轉成|製成|幫我做|幫我製作)/i;
-const DOC=/(?:PDF|DOCX|PPTX|WORD\s*文件|Word檔|簡報檔)/i;
+const DOC=/(?:PDF|DOCX|PPTX|WORD\s*文件|Word檔|簡報|投影片|報告書|文件檔)/i;
 /** Only intercept high-confidence tool actions; questions and quotations remain conversational. */
 export function proposeProactiveDiana(question:string,ctx:DianaContext):DianaDecision|null{
  const q=question.trim();
@@ -23,7 +23,7 @@ export function proposeProactiveDiana(question:string,ctx:DianaContext):DianaDec
  const sandbox=/(?:執行|測試|跑一下).{0,35}(?:Python|程式碼|Medusa)/i.test(q);
  const scan=/(?:掃描|檢查).{0,35}(?:Vanilla|GitHub|漏洞|資安|Quirinus)/i.test(q);
  const status=/(?:查詢|查看|分析|整理).{0,35}(?:LUCA|錯誤紀錄|監控|系統健康|Telegram|Ceres)/i.test(q);
- const image=/((?:生成|製作|畫一張|設計).{0,25}(?:插畫|AI\\s*圖片|AI\\s*圖像|圖片生成|圖像生成))/i.test(q);
+ const image=/((?:生成|製作|畫一張|設計).{0,25}(?:插畫|AI\s*圖片|AI\s*圖像|圖片生成|圖像生成))/i.test(q);
  if(!(doc||visual||email||rewrite||stats||code||sandbox||scan||status||image))return null;
  const choice=chooseDianaTool(q,ctx);
  // Keep ordinary LLM chat as-is if Diana cannot identify a concrete tool.
@@ -35,9 +35,9 @@ export function proposeProactiveDiana(question:string,ctx:DianaContext):DianaDec
 /** Exporting requires explicit user intent, never simply mentioning PDF in quoted data. */
 export function requestedDianaFormat(question:string):RetinaFormat|null{
  if(!ACTION.test(question)||!DOC.test(question))return null;
- if(/\bPPTX\b|簡報檔/i.test(question))return "pptx";
- if(/\bDOCX\b|WORD\s*文件|Word檔/i.test(question))return "docx";
- return /\bPDF\b/i.test(question)?"pdf":null;
+ if(/\bPPTX\b|簡報|投影片/i.test(question))return "pptx";
+ if(/\bDOCX\b|WORD\s*文件|Word檔|文件檔/i.test(question))return "docx";
+ return /\bPDF\b|報告書/i.test(question)?"pdf":null;
 }
 /** Build a document only from data that CREAM actually computed. */
 export function composeDianaCreamDocument(question:string,result:CreamResult):RetinaRequest|null{

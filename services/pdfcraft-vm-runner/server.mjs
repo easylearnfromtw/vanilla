@@ -98,7 +98,7 @@ server.listen(port,"0.0.0.0",()=>{console.log("PdfCraft VM runner online; readin
 if(configured){
  startupPreflight(Sandbox)
   .then(()=>{admitted=true;console.log("PdfCraft VM sandbox preflight passed")})
-  .catch(()=>{admitted=false;console.error("PdfCraft VM sandbox preflight failed; all jobs denied")});
+  .catch((error)=>{admitted=false;console.error("PdfCraft VM sandbox preflight failed; all jobs denied: "+String(error?.message||"pdfcraft_preflight_unknown"))});
 }
 
 }

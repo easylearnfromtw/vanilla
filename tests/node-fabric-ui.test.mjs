@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
-test("Detroit exposes an explicit Node Fabric studio tab",()=>{
+test("Detroit exposes the Slime studio tab, while preserving existing node manager",()=>{
  const studio=read("src/detroit/DetroitStudio.tsx");
  assert.match(studio,/\['nodes','Node Fabric 節點',Network\]/);
- assert.match(studio,/tab==='nodes'/);
+ assert.match(studio,/tab==='slime'/);
  assert.match(read("src/App.tsx"),/\|"nodes"/);
 });
 test("separate downloads are local files and never advertise live 30B compute",()=>{

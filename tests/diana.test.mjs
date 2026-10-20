@@ -87,3 +87,14 @@ test("Diana never copies private conversation text into Orchestra automatically"
  const source=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
 });
+
+test("Canva images and slides are a consent-gated Orchestra handoff, not fake execution",()=>{
+ const named=parseDianaInvocation("@Canva 幫我生成簡報");
+ assert.equal(named?.forcedTool,"canva");
+ const design=chooseDianaTool("使用 Canva 製作公司簡報",normal);
+ assert.equal(design.tool,"canva");
+ assert.equal(design.event,"vanilla-open-orchestra");
+ assert.equal(chooseDianaTool("Canva 製作圖片",privateMode).kind,"report");
+ assert.equal(routeMessage("請用 Canva 生成一份簡報",normal).kind,"diana");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="canva")?.status,"adapter");
+});

@@ -30,7 +30,7 @@ test("Diana supports CREAM, Janus, Retina and Studio handoffs",()=>{
  const csv=chooseDianaTool("日期,數值\n2026-10-01,5\n2026-10-02,7",normal,"cream");
  assert.equal(csv.kind,"delegate");
  assert.equal(routeMessage(csv.command||"",{privateMode:false,hasCreamResult:false}).kind,"cream-csv");
- assert.equal(chooseDianaTool("製作PDF正式文件",normal).tab,"retina");
+ assert.equal(chooseDianaTool("製作PDF正式文件",normal).event,"vanilla-open-orchestra");
  assert.equal(chooseDianaTool("幫我設計醫美電子報",normal).event,"vanilla-open-email");
  assert.equal(chooseDianaTool("請使用 Bard 生成圖片",normal).tab,"bard");
  assert.equal(chooseDianaTool("修改 Vanilla GitHub 原始碼",normal).event,"vanilla-open-builder");
@@ -61,7 +61,7 @@ test("Diana supports Chinese, full-width and full-name @ mentions without fabric
 test("Diana creates data-first sequence rather than exporting unvalidated figures",()=>{
  const p=chooseDianaTool("分析年度 CSV 數據並製作 PDF 報告",normal);
  assert.equal(p.tool,"cream");
- assert.deepEqual(p.nextSteps,["retina"]);
+ assert.deepEqual(p.nextSteps,["orchestra"]);
  assert.equal(p.kind,"open");
  assert.equal(chooseDianaTool("整理統計圖表到電子報",normal).tool,"cream");
  assert.deepEqual(chooseDianaTool("整理統計圖表到電子報",normal).nextSteps,["janus"]);

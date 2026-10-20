@@ -61,3 +61,26 @@ export function composeDianaCreamDocument(question:string,result:CreamResult):Re
  ].join("\n");
  return {format,title:"CREAM_數據分析報告",body};
 }
+
+
+/** Native output handoff: the model drafts content; Detroit does the actual local export.
+ * Mentioning a format in a question or quotation never triggers a download.
+ */
+export type DianaNativeArtifact=
+ |{capability:"retina";format:RetinaFormat;title:string}
+ |{capability:"janus";kind:"invitation"|"newsletter"|"announcement";title:string;brand:string};
+export function planDianaNativeArtifact(request:string):DianaNativeArtifact|null{
+ const q=request.trim();
+ if(!q||q.length>1800||/^(?:什麼是|如何|怎麼|為什麼|請問|可不可以|能不能|引用：|引述：|原文如下|以下是原文|>)/.test(q))return null;
+ if(/(?:不要|不必|無需|不需要).{0,8}(?:匯出|下載|產生檔案|輸出檔案)/.test(q))return null;
+ const format=requestedDianaFormat(q);
+ if(format)return {capability:"retina",format,title:q.replace(/[\\/:*?"<>|]/g," ").slice(0,54)||"Detroit 文件"};
+ if(/(?:幫我|請|我要|製作|設計|建立|生成|產生)/.test(q)&&/(?:製作|設計|建立|生成|產生|匯出)/.test(q)&&
+   /(?:電子報|郵件模板|EDM|newsletter|HTML\s*(?:電子郵件|Email))/i.test(q)&&
+   !/(?:寄送|發送|傳送|寄給|群發|批次寄信)/.test(q)){
+  const kind=/(?:邀請函|邀請信|invitation)/i.test(q)?"invitation":/(?:公告|announcement)/i.test(q)?"announcement":"newsletter";
+  const brand=/(?:欣緯生醫|Sign Well|SignWell)/i.test(q)?"欣緯生醫":"VANILLA";
+  return {capability:"janus",kind,title:q.slice(0,80),brand};
+ }
+ return null;
+}

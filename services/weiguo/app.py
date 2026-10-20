@@ -33,6 +33,7 @@ from ceres_admin_web import router as ceres_admin_web_router
 from ceres_model_routes import router as ceres_model_router
 from ceres_model_ops_routes import router as ceres_ops_router
 from family_model_gateway import router as family_model_router
+from vanilla_public_api import router as vanilla_public_router, admin_router as vanilla_admin_router
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
 from slime import node_router as slime_router
@@ -172,6 +173,8 @@ app.include_router(ceres_admin_web_router)
 app.include_router(ceres_model_router)
 app.include_router(ceres_ops_router)
 app.include_router(family_model_router)
+app.include_router(vanilla_public_router)
+app.include_router(vanilla_admin_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)
 app.include_router(ceres_bridge_router)

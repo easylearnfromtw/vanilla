@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from fastapi import Header, HTTPException
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
+from ceres_admin_policy import check_identity, role_for_sub
 
 SESSION_SECONDS = 15 * 60
 _SUB = re.compile(r"^[0-9]{8,40}$")
@@ -42,7 +43,9 @@ def _member_for(sub: str) -> tuple[str, str] | None:
         raise HTTPException(503, "家庭權限設定格式錯誤")
     record = acl.get(sub)
     if record is None:
-        return None
+        # Telegram-owned verified Gmail invitations: immutable Google sub only.
+        invited=role_for_sub(sub)
+        return (invited[0],invited[1]) if invited else None
     if not isinstance(record, dict):
         raise HTTPException(503, "家庭權限設定格式錯誤")
     name, role = record.get("member"), record.get("role")
@@ -83,6 +86,9 @@ def google_login(credential: str) -> tuple[str, FamilyIdentity]:
         or not isinstance(email, str) or not email.strip()
         or claims.get("iss") not in ("accounts.google.com", "https://accounts.google.com")):
         raise HTTPException(401, "Google 帳號資料未通過驗證")
+    # Google has already verified email_verified + immutable subject.
+    # New invited accounts are linked to that subject exactly once.
+    check_identity(sub,email,bind=True)
     family = _member_for(sub)
     if family is None:
         raise HTTPException(403, "此 Google 帳號尚未獲得家庭權限")
@@ -117,6 +123,7 @@ def verify_family_token(raw: str) -> FamilyIdentity:
         raise
     except (ValueError, TypeError, UnicodeError, KeyError):
         raise HTTPException(401, "工作階段無效或已過期")
+    check_identity(claims["sub"],claims["email"])
     family = _member_for(claims["sub"])
     if family is None:
         raise HTTPException(403, "家庭權限已撤銷")

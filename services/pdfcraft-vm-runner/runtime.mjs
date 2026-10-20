@@ -100,8 +100,26 @@ export async function startupPreflight(Sandbox) {
   await verifyInsideVM(vm);
   return true;
  }catch(error) {
-  // Do not reveal raw Railway SDK/GraphQL failure details in application logs.
-  throw new Error("pdfcraft_preflight_"+stage+"_"+classifyVmFailure(error));
+  // A template may fail independently of Sandbox API authentication.
+  // Test one plain microVM at most once per runner boot to separate these
+  // cases. Never hand PDFs or backend credentials to the diagnostic VM.
+  let basic="not_tested";
+  if(stage==="create") {
+    let diagnostic;
+    try {
+      diagnostic=await Sandbox.create({
+        networkIsolation:"ISOLATED",idleTimeoutMinutes:1
+      });
+      const result=await diagnostic.exec("true",{timeoutSec:5});
+      basic=result.exitCode===0?"vm_ok":"vm_exec_failed";
+    }catch(diagnosticError) {
+      basic="vm_"+classifyVmFailure(diagnosticError);
+    }finally{
+      if(diagnostic)await diagnostic.destroy().catch(()=>{});
+    }
+  }
+  // Never log raw SDK / GraphQL error messages, variable values or tokens.
+  throw new Error("pdfcraft_preflight_"+stage+"_"+classifyVmFailure(error)+"_"+basic);
  }finally {
   if(vm)await vm.destroy().catch(()=>{});
  }

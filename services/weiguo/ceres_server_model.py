@@ -13,6 +13,7 @@ import re
 from urllib.parse import urlsplit
 
 import httpx
+from ceres_admin_policy import provider_enabled, provider_key
 
 _NAME = re.compile(r"^[A-Za-z0-9_.:/+\-]{1,96}$")
 _DNS = re.compile(r"^[a-z0-9.-]{4,253}$", re.I)
@@ -30,7 +31,19 @@ def model_settings() -> ModelSettings | None:
     provider = os.getenv("CERES_SERVER_MODEL_PROVIDER", "").strip().lower()
     base = os.getenv("CERES_SERVER_MODEL_BASE_URL", "").strip().rstrip("/")
     model = os.getenv("CERES_SERVER_MODEL_NAME", "").strip()
-    key = os.getenv("CERES_SERVER_MODEL_API_KEY", "").strip()
+    if provider=="gemini":
+        if provider_enabled("gemini") is False:
+            return None
+        # Fixed official Google OpenAI-compatible base; cannot be redirected.
+        base="https://generativelanguage.googleapis.com/v1beta/openai"
+        key=provider_key("gemini") or os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
+        provider="openai"
+    elif provider=="openai":
+        if provider_enabled("openai") is False:
+            return None
+        key=provider_key("openai") or os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
+    else:
+        key=os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
     if provider not in {"ollama", "openai"} or not _NAME.fullmatch(model):
         return None
     # A self-hosted Ollama endpoint must be behind authenticated HTTPS.
@@ -57,7 +70,7 @@ def model_settings() -> ModelSettings | None:
             return None
     except ValueError:
         return None
-    allowed_path = ("", "/v1") if provider == "openai" else ("", "/api")
+    allowed_path = ("", "/v1", "/v1beta/openai") if provider == "openai" else ("", "/api")
     if url.path not in allowed_path:
         return None
     if base != "https://" + hostname.lower() + (url.path or ""):

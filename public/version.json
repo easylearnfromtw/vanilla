@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.20-ceres-ai-drafts",
-  "description": "Ceres AI text reply drafts with selected Vanilla model, explicit consent, Athena checks and manual Telegram send only"
+  "build": "2026.10.20.21-luca-client-diagnostics",
+  "description": "LUCA client-side privacy-first error diagnostics: local journal, model/UI failure capture and owner-controlled export"
 }

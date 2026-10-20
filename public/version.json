@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.23-scouts-execution-fix",
-  "description": "Scouts executes planned chat research, parallelizes public page reads, and resolves waiting Detroit stages"
+  "build": "2026.10.20.24-slash-commands",
+  "description": "Slash commands recognize Chinese fullwidth input, show missing-argument guidance and dispatch before agent clarification"
 }

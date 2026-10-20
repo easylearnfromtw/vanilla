@@ -29,6 +29,42 @@ does not publish an HTTP service or need any API/Google/Drive/admin tokens.
 - GitHub Actions is ephemeral, so this runner is not an always-on private
   operator API or a PWA button. It also does not unblock Quirinus on Railway.
 
+## Autonomous Quirinus (GitHub Actions)
+
+The isolated scanner runs automatically:
+- On pull requests targeting main that change source, tests, deployment/quirinus,
+  or the scanner workflow. A PR has read-only GitHub permissions. The scanner
+  Docker image is built from the trusted base commit; the PR merge revision is
+  read as untrusted data only, in a network-disabled, non-root container.
+- On matching pushes to main (existing behavior).
+- Daily at 01:19 UTC (09:19 Taiwan), including days with no source change.
+  GitHub may delay or skip scheduled jobs; this is a best-effort schedule.
+- By manual dispatch, including the owner-approved WeiGuo two-stage flow.
+  Manual chat invocation still needs per-scan approval.
+
+The successful main/scheduled scan launches a separate alert-owner job, which
+has issue-write permission but never executes code from a PR head. Only the
+same workflow run's aggregate JSON is downloaded. The deterministic validator
+checks exact severity keys, integer counts, completeness flags, count equality,
+and the report's no-evidence/no-path/no-backlog fields. The GitHub issue body
+contains only counts and the workflow URL.
+
+A single stable GitHub Issue is opened on High/Critical findings or a truncated
+report; later changes update it only when the severity fingerprint changes.
+Identical counts do not generate repetitive notifications. The workflow does
+not automatically close tickets if later counts are zero: human review is
+needed before declaring remediation. PR reports are available in Actions
+summaries but never generate Issues or carry write authority.
+
+These are static-rule hits, not confirmed exploits. No sensitive source,
+finding locations, evidence, keys, or untrusted model prompts are public.
+No unattended code modifications, patch generation, PR creation, auto-merge,
+secret rotation, active web probing or Railway production deploy. Existing
+Athena approval and maintainer controls continue to govern those actions.
+
+Validate the normal workflow and autonomous redaction with
+python3 -m unittest discover -s services/weiguo -p 'test_quirinus_autonomous.py'.
+
 ## Validation and limits
 
 `python3 -m unittest discover -s services/weiguo -p 'test_quirinus_actions.py'`

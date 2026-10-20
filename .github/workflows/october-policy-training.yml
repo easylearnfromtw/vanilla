@@ -1,0 +1,55 @@
+name: October Policy Real Training
+
+on:
+  pull_request:
+    paths:
+      - "training/october/**"
+      - ".github/workflows/october-policy-training.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  train-cpu-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install PyTorch CPU
+        run: python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch
+      - name: Train October policy weights via gradient descent
+        run: |
+          python training/october/train_policy.py --output training/october/weights/october-policy-v0.1.json > october-training-metrics.json
+          cat october-training-metrics.json
+      - name: Verify real weights and blind synthetic accuracy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          weights=json.loads(Path("training/october/weights/october-policy-v0.1.json").read_text(encoding="utf-8"))
+          metrics=weights["metadata"]
+          assert metrics["trained_parameters"]==2600
+          assert metrics["train_examples"]==12000
+          assert metrics["blind_test_examples"]==2000
+          assert metrics["blind_test_accuracy"]>=0.97
+          assert len(weights["layers"])==3
+          print("trained policy verified", metrics["blind_test_accuracy"])
+          PY
+      - name: Verify October Node.js inference and security guards
+        run: node --test training/october/policy.test.mjs
+      - name: Publish trained weights and metrics (not private data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-policy-cpu-trained-v0.1
+          path: |
+            training/october/weights/october-policy-v0.1.json
+            october-training-metrics.json
+          if-no-files-found: error
+          retention-days: 30

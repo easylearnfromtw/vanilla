@@ -13,7 +13,9 @@ Install: pip install -r training/requirements-noodles.txt
 """
 from __future__ import annotations
 import argparse
+from hashlib import sha256
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -72,12 +74,22 @@ def main() -> int:
     parser.add_argument("--model", default="Qwen/Qwen2.5-0.5B-Instruct")
     parser.add_argument("--output", default="./adapters/noodles")
     parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--max-length", type=int, choices=(256, 512, 1024), default=512,
+                        help="Shorter sequences reduce GPU peak memory for 6 GB laptops")
+    parser.add_argument("--qlora-4bit", action="store_true",
+                        help="Explicitly request CUDA-only NF4 QLoRA; SFT only")
+    parser.add_argument("--allow-model-download", action="store_true",
+                        help="Allow Hugging Face model download on this GPU host; off by default")
+    parser.add_argument("--ack-model-license", action="store_true",
+                        help="Confirm authorization to download/use/fine-tune the base model")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check-only", action="store_true", help="Validate without GPU and without training")
     group.add_argument("--run-training", action="store_true", help="Explicitly train an adapter on GPU/MPS")
     args = parser.parse_args()
     if args.epochs < 1 or args.epochs > 3:
         parser.error("--epochs must be 1..3; incremental replay needs independent validation")
+    if args.qlora_4bit and args.mode != "sft":
+        raise ValueError("4-bit QLoRA currently supports SFT only; use separate validated DPO training")
     train = read_samples(args.train, args.mode)
     evaluation = read_samples(args.eval, args.mode)
     overlap = {x["prompt"][0]["content"].strip().lower() for x in train} & {
@@ -89,6 +101,11 @@ def main() -> int:
         return 0
     if len(train) < 10 or len(evaluation) < 3:
         raise ValueError("Real training requires ≥10 training and ≥3 evaluation cases, not a tiny anecdotal sample")
+    if not args.ack_model_license:
+        raise ValueError("Explicit --ack-model-license required for actual GPU training")
+    if not args.allow_model_download:
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
     if "/" in args.output and Path(args.output).resolve() == Path.cwd().resolve():
         raise ValueError("Output must not overwrite the repository directory")
     try:
@@ -100,6 +117,8 @@ def main() -> int:
         raise RuntimeError("Install requirements-noodles.txt in a dedicated GPU environment") from exc
     if not (torch.cuda.is_available() or getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()):
         raise RuntimeError("CUDA or Apple Silicon MPS GPU not available; browser/iPhone cannot train this adapter")
+    if args.qlora_4bit and not torch.cuda.is_available():
+        raise RuntimeError("4-bit QLoRA requires a CUDA GPU with a compatible bitsandbytes install")
     config = dict(
         output_dir=args.output, num_train_epochs=args.epochs,
         per_device_train_batch_size=1, per_device_eval_batch_size=1,
@@ -107,20 +126,41 @@ def main() -> int:
         learning_rate=2e-4 if args.mode == "sft" else 5e-6,
         logging_steps=5, eval_strategy="epoch", save_strategy="epoch",
         save_total_limit=2, push_to_hub=False, report_to="none",
-        max_grad_norm=1.0
+        max_grad_norm=1.0,
+        gradient_checkpointing=args.qlora_4bit,
+        fp16=bool(torch.cuda.is_available()),
+        bf16=False
     )
     peft_config = LoraConfig(
         r=8, lora_alpha=16, lora_dropout=0.05,
-        bias="none", task_type="CAUSAL_LM"
+        bias="none", task_type="CAUSAL_LM",
+        **({"target_modules": "all-linear"} if args.qlora_4bit else {})
     )
     training_dataset = Dataset.from_list(train)
     evaluation_dataset = Dataset.from_list(evaluation)
     if args.mode == "sft":
-        trainer = SFTTrainer(model=args.model, args=SFTConfig(**config, max_length=1024),
+        student_model = args.model
+        if args.qlora_4bit:
+            try:
+                from peft import prepare_model_for_kbit_training
+                from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+                import bitsandbytes  # noqa: F401  -- explicit opt-in CUDA requirement
+            except ImportError as exc:
+                raise RuntimeError("Install bitsandbytes and CUDA-compatible QLoRA dependencies") from exc
+            nf4 = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                                    bnb_4bit_compute_dtype=torch.float16,
+                                    bnb_4bit_use_double_quant=True)
+            student_model = AutoModelForCausalLM.from_pretrained(
+                args.model, quantization_config=nf4,
+                device_map={"": torch.cuda.current_device()},
+                local_files_only=not args.allow_model_download,
+                trust_remote_code=False)
+            student_model = prepare_model_for_kbit_training(student_model)
+        trainer = SFTTrainer(model=student_model, args=SFTConfig(**config, max_length=args.max_length),
                              train_dataset=training_dataset, eval_dataset=evaluation_dataset,
                              peft_config=peft_config)
     else:
-        trainer = DPOTrainer(model=args.model, args=DPOConfig(**config, max_length=1024),
+        trainer = DPOTrainer(model=args.model, args=DPOConfig(**config, max_length=args.max_length),
                              train_dataset=training_dataset, eval_dataset=evaluation_dataset,
                              peft_config=peft_config)
     result = trainer.train()
@@ -131,6 +171,9 @@ def main() -> int:
     (Path(args.output) / "noodles-training-manifest.json").write_text(
         json.dumps({"mode": args.mode, "base_model": args.model,
                     "train_examples": len(train), "eval_examples": len(evaluation),
+                    "max_length": args.max_length, "qlora_4bit": args.qlora_4bit,
+                    "sha256_train": sha256(args.train.read_bytes()).hexdigest(),
+                    "sha256_eval": sha256(args.eval.read_bytes()).hexdigest(),
                     "training_loss": float(result.training_loss),
                     "human_approval_required": True,
                     "deployment_status": "not_deployed"}, indent=2), encoding="utf-8")

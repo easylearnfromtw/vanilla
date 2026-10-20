@@ -14,7 +14,7 @@ const ALIASES:Record<string,readonly string[]>={
 };
 const OTHER_TOOLS=[
  {id:"noodles",label:"NOODLES",aliases:["NOODLES"],description:"本機模型回饋與路由偏好系統；記錄有界的評價、錯誤分類及模型表現，不會自動重新訓練模型權重。"},
- {id:"vanilla-sheets",label:"Vanilla Sheets",aliases:["Sheets","試算表"],description:"本機表格建立、部分公式計算與 CSV/JSON 匯入匯出；不是完整 Excel 或 Google Sheets。"},
+ {id:"vanilla-sheets",label:"Vanilla Sheets",aliases:["Vanilla表格"],description:"本機表格建立、部分公式計算與 CSV/JSON 匯入匯出；不是完整 Excel 或 Google Sheets。"},
  {id:"self-build",label:"Self-Build",aliases:["自建功能"],description:"管理宣告式本機小工具與受審核的程式改善工作；遠端 GitHub 寫入須具備另外部署的受保護 Worker 與權限。"},
  {id:"project-hub",label:"Project Hub",aliases:["專案庫"],description:"管理本機專案內容與參考資料；不代表自動擁有外部私有專案的存取權。"}
 ] as const;

@@ -17,7 +17,7 @@ from fastapi import HTTPException
 from vanilla_public_api import (
     _origin,_reserve,_finish,_key_from_header,_fetch_catalog,admin_router,
     _owner_projects,issue_key,new_project,revoke_key,owner_status,models,chat,
-    Completion,ProjectCreate,KeyCreate,KeyRevoke,Owner,_session,client_usage
+    Completion,ProjectCreate,ProjectToggle,project_toggle,KeyCreate,KeyRevoke,Owner,_session,client_usage
 )
 from vanilla_api_console import PAGE,api_console
 
@@ -118,6 +118,20 @@ class OwnedModelAPITests(unittest.IsolatedAsyncioTestCase):
                        authorization="Bearer "+self.token)
         self.assertEqual(error.exception.status_code,403)
         self.assertEqual(MockInference.generations,0)
+
+    async def test_project_emergency_switch_disables_all_client_keys(self):
+        status=await project_toggle(ProjectToggle(
+            init_data="signedtelegramdata987654321",project_id=self.project["id"],enabled=False))
+        self.assertFalse(status["enabled"])
+        with self.assertRaises(HTTPException) as blocked:
+            _key_from_header("Bearer "+self.token)
+        self.assertEqual(blocked.exception.status_code,401)
+        await project_toggle(ProjectToggle(
+            init_data="signedtelegramdata987654321",project_id=self.project["id"],enabled=True))
+        self.assertEqual(_key_from_header("Bearer "+self.token)["project_id"],self.project["id"])
+        with _session() as db:
+            rows=db.execute("SELECT operation FROM vanilla_api_audit").fetchall()
+        self.assertIn("project_disabled",[row["operation"] for row in rows])
 
     async def test_streaming_must_fail_before_invoking_runtime(self):
         with self.assertRaises(HTTPException) as err:

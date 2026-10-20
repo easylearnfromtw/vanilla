@@ -65,7 +65,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
  if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"需實際文件輸出時使用 Retina");
  if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|跨格式)/i.test(q))add("orchestra",88,"跨格式工作交給 Orchestra");
- if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張)/i.test(q))add("bard",86,"生成圖片須在 Bard 中同意雲端 API");
+ if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張|插畫|生成.{0,12}(?:圖像|圖片|插畫)|繪製.{0,12}(?:圖片|插畫))/i.test(q))add("bard",86,"Bard 生圖須有已連接 API 及本次雲端費用同意");
  if(/(?:CSV|統計|數據|趨勢|分析資料|折線圖|圓餅圖|圖表|長期追蹤|體重|血壓|心率)/i.test(q))add("cream",84,"數據分析應優先使用確定性的 CREAM");
  // Analyze source data before producing a document or sending it into a visual editor.
  if(/(?:CSV|統計|數據|趨勢|折線圖|圓餅圖|圖表|長期追蹤)/i.test(q)&&/(?:PDF|DOCX|PPTX|Word|簡報|報告書|電子報)/i.test(q))add("cream",110,"先使用 CREAM 驗證數據，再交給輸出工具；不跳過資料核對");

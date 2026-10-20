@@ -17,7 +17,7 @@ import {linkReadingIntent} from "../search/web-reader";
 import {implicitResearchQuery} from "../search/search-evidence";
 import {planAppIntent} from "./intent-router";
 
-export const SEARCH_REQUEST=/^(?:(?:請|幫我|麻煩)\s*)?(?:上網搜尋|網路搜尋|全網搜尋|Google\s*搜尋|搜尋|上網查|幫我找資料|找資料|查網站)\s*[：:]?\s*(.{2,180})$/is;
+export const SEARCH_REQUEST=/^(?:(?:請|請你|幫我|麻煩(?:你)?|可以(?:請你)?幫我)\s*)?(?:上網搜尋|網路搜尋|全網搜尋|Google\s*搜尋|搜尋(?:一下)?|上網查(?:一下)?|找資料|查網站|查一下|查詢(?:一下)?|幫我查(?:一下)?|幫我找資料|幫我找(?:一下)?|找一下)\s*[：:]?\s*(.{2,180})$/is;
 export const CODE_BUILDER=/^(?:(?:請|幫我|我要|讓\s*Vanilla|你可以|可以)\s*)?(?:自主迭代|自我優化|改進\s*(?:Vanilla|自己|你的)?\s*(?:的)?\s*(?:程式碼|原始碼)|修復\s*(?:Vanilla|自己的)?\s*(?:的)?\s*(?:bug|程式碼)|修改\s*(?:Vanilla|自己|你的)\s*(?:的)?\s*(?:程式碼|原始碼)|Self[- ]?Build\s*CODE|幫我改程式碼|改程式碼|程式碼自主開發)(?:\s*[：:]?\s*([\s\S]{0,1600}))?$/i;
 export const SAVED_FILE_READ=/^(?:請|幫我)?(?:讀取|查看|分析|摘要|檢查|整理)(?:一下)?(?:我)?(?:已儲存的|本機的|附件庫的|對話儲存的)(?:檔案|文件)?[：:\s]*(.{1,150})$/i;
 export const BUILD_REQUEST=/^(?:新增功能|製作功能|建立功能|功能需求)\s*[：:]\s*(.{3,1800})$/s;

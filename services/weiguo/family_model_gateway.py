@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from auth import FamilyIdentity, family_reader
 from ceres_admin_policy import provider_key, provider_enabled, check_identity, enforce
+from ceres_model_catalog import selected_model
 
 router=APIRouter(prefix="/v1/family/models",tags=["family-ai"])
 _MODEL=re.compile(r"^gemini-[A-Za-z0-9.-]{3,64}$")
@@ -29,7 +30,7 @@ def _key():
     return key
 
 def _model():
-    model=os.getenv("WEIGUO_GEMINI_MODEL","gemini-2.5-flash").strip()
+    model=selected_model("gemini") or os.getenv("WEIGUO_GEMINI_MODEL","gemini-2.5-flash").strip()
     return model if _MODEL.fullmatch(model) else None
 
 def _access(user: FamilyIdentity):

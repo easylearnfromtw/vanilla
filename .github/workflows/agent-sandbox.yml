@@ -1,0 +1,40 @@
+name: Sign Well Agent Sandbox
+
+on:
+  pull_request:
+    paths:
+      - "training/agent_sandbox/**"
+      - ".github/workflows/agent-sandbox.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run synthetic-case self-tests
+        run: node training/agent_sandbox/sandbox.mjs --test
+      - name: Generate held-out datasets
+        run: node training/agent_sandbox/sandbox.mjs
+      - name: Verify generated counts
+        run: |
+          node --input-type=module -e '
+          import {readFileSync} from "node:fs";
+          const read = f => readFileSync("training/agent_sandbox/generated/"+f,"utf8").trim().split("\n").map(JSON.parse);
+          const tr=read("train.jsonl"), ev=read("eval.jsonl");
+          if(tr.length!==320 || ev.length!==80) process.exit(1);
+          const trIds=new Set(tr.map(x=>x.metadata.id));
+          if(ev.some(x=>trIds.has(x.id))) process.exit(2);
+          console.log("PASS: 320 train, 80 eval, disjoint IDs");
+          '
+      - name: Exercise offline knowledge retrieval
+        run: |
+          node training/agent_sandbox/retrieve.mjs "GDP 平減指數"
+          node training/agent_sandbox/retrieve.mjs "NPV 投資"

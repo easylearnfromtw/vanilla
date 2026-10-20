@@ -377,3 +377,41 @@ export async function getCeresServerAgentStatus():Promise<CeresServerAgentStatus
  ceresGuard();
  return request<CeresServerAgentStatus>("/v1/family/ceres/agent/status",undefined,true);
 }
+
+/** Slime coordinator — owner-only commands reuse the existing WeiGuo OIDC session.
+ * No secret/API key is persisted in the PWA, and no prompt text is uploaded.
+ */
+export type SlimeNode={
+ id:string;label:string;role:"owner"|"friend";os:string;cpu:number;ram_gb:number;gpu:string;
+ online:boolean;last_seen:number;share_enabled:boolean;owner_enabled:boolean;schedulable:boolean;
+};
+export type SlimeNodes={nodes:SlimeNode[];inference_enabled:false};
+export type SlimeStatus={ready:boolean;service:string;runtime:string;inference_enabled:boolean;power_control_enabled:boolean;heartbeat_seconds:number};
+export async function getSlimeStatus():Promise<SlimeStatus>{
+ if(currentChatMode()==="private")throw Error("私人模式不連接共享裝置");
+ return request<SlimeStatus>("/v1/family/slime/status",undefined,true);
+}
+export async function getSlimeNodes():Promise<SlimeNodes>{
+ if(currentChatMode()==="private")throw Error("私人模式不連接共享裝置");
+ return request<SlimeNodes>("/v1/family/slime/nodes",undefined,true);
+}
+export async function createSlimeInvite():Promise<{link:string;expires_seconds:number;single_use:boolean}>{
+ if(currentChatMode()==="private")throw Error("私人模式不能建立共享邀請");
+ return request("/v1/family/slime/invite",{},true);
+}
+export async function setSlimeNodeEnabled(id:string,enabled:boolean):Promise<{ok:boolean}>{
+ if(!/^[a-f0-9]{24}$/.test(id))throw Error("節點識別碼不正確");
+ if(currentChatMode()==="private")throw Error("私人模式不能操作節點");
+ return request("/v1/family/slime/nodes/"+id+"/policy",{enabled},true);
+}
+export async function revokeSlimeNode(id:string):Promise<{ok:boolean}>{
+ if(!/^[a-f0-9]{24}$/.test(id))throw Error("節點識別碼不正確");
+ if(currentChatMode()==="private")throw Error("私人模式不能操作節點");
+ return request("/v1/family/slime/nodes/"+id+"/revoke",{},true);
+}
+export async function previewSlimeRoute(workload:"model-shard"|"tools"|"independent-inference",minRam=0):Promise<{
+ workload:string;candidate_nodes:Array<{id:string;label:string;ram_gb:number;gpu:string}>;executed:false;reason:string
+}>{
+ if(currentChatMode()==="private")throw Error("私人模式不會使用朋友的裝置");
+ return request("/v1/family/slime/route",{workload,min_ram_gb:minRam},true);
+}

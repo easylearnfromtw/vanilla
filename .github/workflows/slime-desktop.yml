@@ -1,0 +1,89 @@
+name: Slime desktop builds (opt-in)
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "slime-v*"
+permissions:
+  contents: read
+jobs:
+  package:
+    name: Build Slime / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Linux desktop Tk prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+      - name: Package standalone user interface
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'pyinstaller>=6.10,<7'
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            TYPE="--onedir"
+          else
+            TYPE="--onefile"
+          fi
+          for ROLE in Owner Friend; do
+            python -m PyInstaller --noconfirm --clean "${TYPE}" --windowed \
+              --name "Slime-${ROLE}" services/slime/desktop.py
+          done
+      - name: Archive executable(s)
+        shell: bash
+        run: |
+          mkdir -p release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp dist/Slime-Owner.exe release/Slime-Owner.exe
+            cp dist/Slime-Friend.exe release/Slime-Friend.exe
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            ditto -c -k --sequesterRsrc --keepParent dist/Slime-Owner.app release/Slime-Owner-macos.zip
+            ditto -c -k --sequesterRsrc --keepParent dist/Slime-Friend.app release/Slime-Friend-macos.zip
+          else
+            tar czf release/Slime-Owner-linux.tar.gz -C dist Slime-Owner
+            tar czf release/Slime-Friend-linux.tar.gz -C dist Slime-Friend
+          fi
+      - name: Hash artifacts
+        shell: bash
+        run: |
+          cd release
+          if command -v sha256sum >/dev/null; then sha256sum Slime-* > SHA256SUMS.txt; else shasum -a 256 Slime-* > SHA256SUMS.txt; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slime-${{ matrix.os }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/slime-v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slime-*
+          path: release
+          merge-multiple: false
+      - name: Prepare release files
+        run: |
+          mkdir -p out
+          find release -type f -name 'Slime-*' -exec cp '{}' out/ \;
+          sha256sum out/* > out/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          files: out/*
+          body: |
+            Slime 預覽版：下載後可配對並回報裝置狀態，不會執行遠端指令或模型推論。
+            目前尚未提供程式碼簽章／公證；安裝前請核對 SHA256。
+            分散式推論、遠端開關機與螢幕控制均未啟用。

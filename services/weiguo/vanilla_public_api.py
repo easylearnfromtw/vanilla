@@ -322,8 +322,9 @@ async def chat(body:Completion,authorization: str|None=Header(default=None)):
         if isinstance(usage,dict):
             total=usage.get("prompt_tokens",0)+usage.get("completion_tokens",0) if (
                 type(usage.get("prompt_tokens")) is int and type(usage.get("completion_tokens")) is int) else None
-            if total is not None and total>reservation:
-                raise HTTPException(502,"模型超出已核准的輸出 Token 預算")
+            if (total is not None and (total>reservation
+                or usage["completion_tokens"]>content["max_tokens"])):
+                raise HTTPException(502,"模型超出已核准的 Token 預算")
         status="success"
         reply={"id":"chatcmpl-"+secrets.token_hex(12),"object":"chat.completion",
                "created":int(time.time()),"model":requested,

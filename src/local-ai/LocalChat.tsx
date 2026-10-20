@@ -6,6 +6,7 @@ import {recordTeacherSample,readTeacherState} from "../noodles/teacher-store";
 import {teacherStyleHint} from "../noodles/teacher-core";
 import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
+import {recordClientFault} from "../luca/client-diagnostics";
 import ChatMarkdown from "./ChatMarkdown";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
@@ -252,7 +253,7 @@ useEffect(()=>{
    void loadLocalModel((message,progress)=>{if(active){setStatus(message);setModelProgress(Math.round(progress*100));}},selectedLocalModel).then(()=>{
     if(active){setReady(true);setStatus("本地模型已就緒");setLoadingModel(false);}
    }).catch(error=>{
-    if(active){setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);setLoadingModel(false);}
+    if(active){recordClientFault("model","download",error);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);setLoadingModel(false);}
    });
   });
  },900);
@@ -318,7 +319,7 @@ async function initialize(){
  try{
   await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},selectedLocalModel);
   setReady(true);setModelCached(true);setStatus("本地模型已就緒");
- }catch(error){setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
+ }catch(error){recordClientFault("model","download",error);setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
  finally{setLoadingModel(false);}
 }
 const canReply=ready||(!privateMode&&(providers.length>0||ollamaConnected));
@@ -604,7 +605,7 @@ async function send(value=draft):Promise<void>{
     setHistory(prev=>[...prev,{role:"user",content:question,id:crypto.randomUUID(),createdAt:now},
       {role:"assistant",content:note+"\n\n"+summarizeCream(result),cream:result,tool:{...TOOL.cream,status:"ok",detail:parsedText.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
     setDraft("");setLastRoute("CREAM 已依真實文字自動分析。");
-   }catch(e){toolReply(question,"CREAM 文字分析失敗："+String(e),"cream");}
+   }catch(e){recordClientFault("cream","analysis",e);toolReply(question,"CREAM 文字分析失敗："+String(e),"cream");}
    return;
   }
   case "cream-csv":{
@@ -736,7 +737,7 @@ async function send(value=draft):Promise<void>{
      return;
     }
     setLastRoute("已讀取 "+file.name+" 真實內容，正在交由模型分析。");
-   }catch(e){toolReply(question,"實際讀檔失敗："+String(e)+"。請核對檔案是否仍存在、格式及讀取權限。","files");return;}
+   }catch(e){recordClientFault("files","read",e);toolReply(question,"實際讀檔失敗："+String(e)+"。請核對檔案是否仍存在、格式及讀取權限。","files");return;}
    finally{setBusy(false);}
    break;
   }
@@ -986,6 +987,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    setHistory([...next,{role:"assistant",content:partial||"（已停止）",source:primary.source,model:primary.model,...base,notice:"已手動停止生成",id:assistantId,createdAt:assistantTime}]);
    setLastRoute("已停止生成");return;
   }
+  recordClientFault("model","generation",error);
   // Fail over only to an on-device model, or another model on the already approved Ollama host.
   // Never silently introduce a new remote cloud provider or incur an additional paid API request.
   const alternative=automatic?ranked.find(candidate=>candidate.id!==primary.id&&
@@ -1002,6 +1004,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     if(detroit.depth!=="quick")markDetroit("dionysus","done","備援推論已完成");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){
+    recordClientFault("model","fallback",fallbackError);
     const msg=fallbackError instanceof Error?fallbackError.message:String(fallbackError);
     setHistory([...next,{role:"assistant",content:"生成失敗：模型與備援均無法回答——"+msg,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);
     setLastRoute("主模型及備援模型皆失敗，請檢查連線與模型");

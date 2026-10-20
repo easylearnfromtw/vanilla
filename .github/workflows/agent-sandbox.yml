@@ -34,6 +34,24 @@ jobs:
           if(ev.some(x=>trIds.has(x.id))) process.exit(2);
           console.log("PASS: 320 train, 80 eval, disjoint IDs");
           '
+      - name: Verify integrated A/B/C workflow sandbox
+        run: node --test training/agent_sandbox/integrated.test.mjs training/agent_sandbox/integrated-dataset.test.mjs
+      - name: Generate integrated curriculum and held-out tasks
+        run: |
+          node training/agent_sandbox/integrated-dataset.mjs
+          node training/agent_sandbox/integrated.mjs --demo
+      - name: Check integrated dataset counts
+        run: |
+          node --input-type=module -e '
+          import {readFileSync} from "node:fs";
+          const root="training/agent_sandbox/generated/";
+          const read = x => readFileSync(root+x,"utf8").trim().split("\n").map(JSON.parse);
+          const train=read("integrated-train.jsonl"), evals=read("integrated-eval.jsonl");
+          if(train.length!==320||evals.length!==128)process.exit(1);
+          const ids=new Set(train.map(x=>x.metadata.id));
+          if(evals.some(x=>ids.has(x.id)))process.exit(2);
+          console.log("PASS: 320 integrated train, 128 integrated eval, disjoint");
+          '
       - name: Exercise offline knowledge retrieval
         run: |
           node training/agent_sandbox/retrieve.mjs "GDP 平減指數"

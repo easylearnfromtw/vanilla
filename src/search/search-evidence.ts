@@ -41,7 +41,12 @@ export function hasOfficialExamScheduleEvidence(question:string,pages:IndexedPag
   try{host=new URL(page.url).hostname.toLowerCase();}catch{return false;}
   if(host!==domain&&!host.endsWith("."+domain))return false;
   const text=(page.title+" "+page.excerpt).slice(0,9000);
-  return exam.test(text)&&yearSignal.test(text)&&/\d{1,2}\s*月\s*\d{1,2}\s*日/.test(text);
+  // Dates in unrelated navigation, publication stamps or adjacent exams
+  // are not adequate schedule evidence. Demand explicit exam/schedule context
+  // in the excerpt itself (not merely its result title).
+  const excerpt=page.excerpt.slice(0,8500);
+  const scheduleContext=exam.test(excerpt)||/(?:考試日期|考試期間|考試日程|應試日程|正式考程)/.test(excerpt);
+  return exam.test(text)&&yearSignal.test(text)&&scheduleContext&&/\d{1,2}\s*月\s*\d{1,2}\s*日/.test(excerpt);
  });
 }
 

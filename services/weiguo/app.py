@@ -28,6 +28,7 @@ from ceres_agent_bridge import router as ceres_bridge_router
 from ceres_agent_delivery import router as ceres_delivery_router
 from ceres_server_agent import router as ceres_server_router, worker_loop as ceres_server_loop, enabled as ceres_server_enabled, ready as ceres_server_ready
 from ceres_telegram_registration import register_telegram_webhook
+from ceres_admin_web import router as ceres_admin_web_router
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
 from scouts_search import router as scouts_router
@@ -152,6 +153,7 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 # Ceres public ingress has independent webhook authentication; operator inbox uses the
 # server-only administrator dependency and is hidden on public-family-only deployments.
 app.include_router(ceres_telegram_router)
+app.include_router(ceres_admin_web_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)
 app.include_router(ceres_bridge_router)

@@ -137,11 +137,23 @@ export default function CeresPanel(){
   {ready&&info?.linked&&<>
    <h3>Ceres · Telegram 智慧聊天狀態</h3>
    <p>{serverAgent?.serverReady
-     ?"常駐 AI 已設定完成：可以不開啟 Vanilla，也能由 Railway 接收訊息並交給你連接的模型回覆。"
+     ?serverAgent.modelVerified
+       ?"常駐模型已成功推論過。現在可由 Railway 接收訊息，不必保持 iPhone 開啟 Vanilla。"
+       :"模型設定格式已通過，但尚未證明模型能成功回答。請在 Telegram 發送新訊息再檢查。"
      :serverAgent?.enabled
        ?"常駐回覆開關已開啟，但模型端點或金鑰尚未通過設定檢查。請到 Railway → weiguo-browser → Variables 配置 CERES_SERVER_MODEL_*。"
        :"目前只有手機前景橋接；直接切換到 Telegram 會讓 iPhone 暫停本地 WebLLM，因此無法全天候智慧聊天。要常駐聊天需設定 Railway 的 CERES_SERVER_MODEL_* 並啟用 CERES_SERVER_AGENT_ENABLED。"
    }</p>
+   {!!serverAgent?.missingModelVariables.length&&<p>Railway 缺少：{serverAgent.missingModelVariables.join("、")}</p>}
+   {serverAgent?.invalidModelConfiguration&&<p>模型設定欄位雖已建立，但網址、金鑰或模型名稱格式不符合要求。</p>}
+   {serverAgent?.enabled&&serverAgent.modelResponseState!=="unverified"&&<p>最近模型推論：{({
+     success:"成功",
+     "provider-status":"API 回傳錯誤，請確認金鑰、模型名稱與帳戶額度",
+     "provider-unreachable":"模型服務無法連線",
+     "provider-invalid":"模型 API 格式不正確",
+     "provider-empty":"模型沒有回傳文字",
+     "message-invalid":"訊息格式不正確"
+   } as Record<string,string>)[serverAgent.modelResponseState]||"未確認"}</p>}
    {serverAgent?.latestState&&<p>最近一則 Telegram 任務：{({
       queued:"待處理", "server-processing":"模型處理中", completed:"已回覆",
       model_unavailable:"模型連線或推論失敗", model_not_configured:"未連接模型",

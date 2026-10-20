@@ -67,6 +67,14 @@ class TestCeresServerAgent(unittest.TestCase):
         }):
             self.assertTrue(ready())
             self.assertIsNotNone(model_settings())
+            with patch.dict(os.environ, {
+                "CERES_SERVER_MODEL_BASE_URL": "https://generativelanguage.googleapis.com/v1beta/openai"
+            }):
+                self.assertIsNotNone(model_settings())
+            with patch.dict(os.environ, {
+                "CERES_SERVER_MODEL_BASE_URL": "https://example-provider.com/v1beta/openai"
+            }):
+                self.assertIsNone(model_settings())
             with patch.dict(os.environ, {"CERES_SERVER_MODEL_BASE_URL": "http://127.0.0.1:11434"}):
                 self.assertIsNone(model_settings())
             with patch.dict(os.environ, {"CERES_SERVER_MODEL_BASE_URL": "https://localhost/v1"}):
@@ -87,6 +95,8 @@ class TestCeresServerAgent(unittest.TestCase):
             status=self.call("GET","/v1/family/ceres/agent/status")
             self.assertEqual(status.status_code,200)
             self.assertTrue(status.json()["serverReady"])
+            self.assertTrue(status.json()["modelVerified"])
+            self.assertEqual(status.json()["modelResponseState"], "success")
             self.assertEqual(status.json()["latestState"],"completed")
             self.assertTrue(self.webhook(101,"剛剛我說什麼？").json()["accepted"])
             self.assertTrue(asyncio.run(process_one()))
@@ -105,6 +115,7 @@ class TestCeresServerAgent(unittest.TestCase):
             self.assertFalse(asyncio.run(process_one()))
             gen.assert_awaited_once()
             sent.assert_not_awaited()
+            self.assertEqual(self.call("GET","/v1/family/ceres/agent/status").json()["modelResponseState"], "provider-status")
             self.assertEqual(self.call("GET","/v1/family/ceres/agent/status").json()["latestState"],
                              "model_unavailable")
 

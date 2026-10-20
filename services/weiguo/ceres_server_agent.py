@@ -27,6 +27,18 @@ router = APIRouter(prefix="/v1/family/ceres/agent", tags=["ceres-server-agent"])
 _HISTORY_AGE = 24 * 3600
 _LIVE_STATES = {"queued", "server-processing", "sending"}
 _SUB = re.compile(r"^[0-9]{8,40}$")
+_MODEL_ERRORS = frozenset(("provider-status", "provider-unreachable",
+                           "provider-invalid", "provider-empty", "message-invalid"))
+_model_response_state = "unverified"
+_model_attempt_at: int | None = None
+
+
+def record_model_attempt(state: str) -> None:
+    global _model_response_state, _model_attempt_at
+    # The model's actual HTTP details, keys, URLs and prompts stay private.
+    _model_response_state = state if state == "success" or state in _MODEL_ERRORS else "provider-invalid"
+    _model_attempt_at = int(time.time())
+
 
 
 def enabled() -> bool:
@@ -178,7 +190,9 @@ async def process_one() -> bool:
             reply, tool, page = ("此工具操作不符合安全規則，請改在 Vanilla 工作台確認。", "diana", "")
         if reply is None:
             reply = await generate_reply(settings, source, history_for(chat), page)
-    except (ModelUnavailable, ValueError, TypeError):
+            record_model_attempt("success")
+    except (ModelUnavailable, ValueError, TypeError) as exc:
+        record_model_attempt(str(exc) if isinstance(exc, ModelUnavailable) else "provider-invalid")
         set_job_state(event_id, "model_unavailable")
         print("Ceres server agent: model response unavailable", flush=True)
         return True
@@ -244,8 +258,19 @@ async def agent_status(user: FamilyIdentity = Depends(family_reader)):
             "SELECT status FROM ceres_agent_jobs WHERE chat_id=? "
             "ORDER BY event_id DESC LIMIT 1", (chat,)
         ).fetchone()
+    variable_names = (
+        "CERES_SERVER_MODEL_PROVIDER", "CERES_SERVER_MODEL_BASE_URL",
+        "CERES_SERVER_MODEL_NAME", "CERES_SERVER_MODEL_API_KEY",
+    )
+    missing = [name for name in variable_names if not os.getenv(name, "").strip()]
+    configured = model_settings() is not None
     return {
-        "enabled": enabled(), "modelConfigured": model_settings() is not None,
+        "enabled": enabled(), "modelConfigured": configured,
+        "modelVerified": configured and _model_response_state == "success",
+        "modelResponseState": _model_response_state,
+        "lastModelAttemptAt": _model_attempt_at,
+        "missingModelVariables": missing,
+        "invalidModelConfiguration": bool(not missing and not configured),
         "serverReady": ready(), "runtime": "railway-server",
         "foregroundPhoneRequired": False,
         "states": {row["status"]: row["n"] for row in rows},

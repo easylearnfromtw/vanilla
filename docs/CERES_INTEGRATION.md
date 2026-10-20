@@ -305,3 +305,29 @@ not an implicit fallback; without provider settings, the server agent stays off.
 The server agent is disabled by default and *does not* install model weights or
 create a model API key. Real model service connectivity must be verified before
 claiming always-on intelligent chat is working.
+
+### Diagnosing real server AI connectivity
+
+Ceres distinguishes configured credentials from **verified model inference**.
+The authenticated Ceres Studio displays missing server model variable **names**
+(no values), whether the provider settings pass validation, the last sanitized
+provider outcome, and whether a model actually returned a usable answer during
+this backend process. Telegram webhook `200` only proves message delivery to
+WeiGuo, not that a model generated or sent a reply.
+
+The official Google Gemini OpenAI-compatible base URL is now accepted as an
+additional `openai` provider base, only for Google's documented hostname:
+
+```text
+CERES_SERVER_MODEL_PROVIDER=openai
+CERES_SERVER_MODEL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+CERES_SERVER_MODEL_NAME=<the exact Gemini model ID available on your account>
+CERES_SERVER_MODEL_API_KEY=<your own Gemini API key, stored in Railway Variables>
+CERES_SERVER_AGENT_ENABLED=true
+```
+
+The key must never be pasted into a Telegram chat or a Vanilla message.
+The server sends the Telegram user's text and same-chat history to the chosen
+model provider, which may incur charges. When using Ollama from a home PC,
+provide a separately authenticated HTTPS reverse proxy: Railway cannot reach
+your PC's localhost or wake an iPhone WebLLM engine.

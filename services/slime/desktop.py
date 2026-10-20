@@ -148,7 +148,7 @@ class SlimeApp(tk.Tk):
         self.summary.pack(anchor="w", pady=(0, 12))
         self.pair = ttk.Frame(frame)
         self.pair.pack(fill="x")
-        ttk.Label(self.pair, text="從 Vanilla → Detroit → Slime 複製邀請連結").pack(anchor="w")
+        ttk.Label(self.pair, text="請向邀請你的管理員私下取得 Telegram 邀請連結").pack(anchor="w")
         ttk.Entry(self.pair, textvariable=self.invite, width=54).pack(fill="x", pady=8)
         ttk.Checkbutton(self.pair, text="我同意將裝置規格與連線狀態提供給邀請者",
                         variable=self.consent).pack(anchor="w", pady=6)

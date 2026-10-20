@@ -28,6 +28,7 @@ jobs:
           npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:detroit-bus
+          npm run test:detroit-conversation
           npm run test:diana
           npm run test:ceres
           npm run test:api-registry

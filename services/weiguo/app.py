@@ -155,6 +155,7 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 # server-only administrator dependency and is hidden on public-family-only deployments.
 app.include_router(ceres_telegram_router)
 app.include_router(ceres_admin_web_router)
+app.include_router(family_model_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)
 app.include_router(ceres_bridge_router)

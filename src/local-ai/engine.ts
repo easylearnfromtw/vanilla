@@ -234,10 +234,11 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   const snapshot=requestMessages.map(message=>({...message}));
   validateWebLLMMessages(snapshot,mode);
   const stream=await currentEngine!.chat.completions.create({...request,messages:snapshot,stream:true});
-  let answer="",last=0;
+  let answer="",last=0,truncated=false;
   const interval=streamDisplayInterval(navigator.hardwareConcurrency);
   for await(const chunk of stream){
    answer+=chunk.choices[0]?.delta?.content??"";
+   if(chunk.choices[0]?.finish_reason==="length")truncated=true;
    const now=Date.now();
    // Reduce expensive React updates while WebGPU is streaming token chunks.
    if(shouldPublishStream(now,last,interval)){
@@ -247,6 +248,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
     onText((structured?view.text:toTaiwanese(view.text))||(view.thinking?"（正在思考…）":""));last=now;
    }
   }
+  if(truncated)throw new Error("手機模型輸出已達 token 上限，不能將截斷內容當成完整答案。");
   const final=structured?stripThinking(answer).text.trim():toTaiwanese(cleanModelOutput(answer));
   onText(final); // Never drop final tokens after throttling.
   return final;

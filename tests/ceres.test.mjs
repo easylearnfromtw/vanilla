@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {CERES_CHANNELS,validateCeresManifest} from "../src/ceres/registry.ts";
 import {DETROIT_ENGINES} from "../src/detroit/core.ts";
 import {DETROIT_FACTORY_TOOLS} from "../src/detroit/factory.ts";
@@ -36,4 +37,16 @@ test("Manifest is declarative and cannot include a URL, code, or execution permi
  assert.throws(()=>validateCeresManifest({...valid,enabled:true}),/disabled/);
  assert.throws(()=>validateCeresManifest({...valid,permissions:["execute"]}),/Permissions/);
  assert.throws(()=>validateCeresManifest({...valid,id:"ceres-telegram"}),/reserved/);
+});
+
+
+test("Ceres PWA exposes family-only, opt-in reply and draft UI without bot credentials",()=>{
+ const source=readFileSync(new URL("../src/ceres/CeresPanel.tsx",import.meta.url),"utf8");
+ const api=readFileSync(new URL("../src/weiguo/api.ts",import.meta.url),"utf8");
+ assert.match(source,/replyApproved/);
+ assert.match(source,/draftApproved/);
+ assert.match(source,/sendWeiGuoCeresReply/);
+ assert.match(source,/whiteSpace:"pre-wrap"/);
+ assert.match(api,/\/v1\/family\/ceres\/events/);
+ assert.doesNotMatch(source,/CERES_TELEGRAM_BOT_TOKEN/);
 });

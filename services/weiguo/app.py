@@ -23,6 +23,7 @@ from medusa_adapter import router as medusa_router
 from medusa_family import router as medusa_family_router
 from quirinus_family_actions import router as quirinus_family_router
 from ceres_gateway import telegram_router as ceres_telegram_router, operator_router as ceres_operator_router
+from ceres_dialogue import router as ceres_family_router
 from quirinus_adapter import router as quirinus_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
@@ -117,6 +118,7 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 # server-only administrator dependency and is hidden on public-family-only deployments.
 app.include_router(ceres_telegram_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
+app.include_router(ceres_family_router)
 
 @app.get("/v1/health")
 @app.get("/health")

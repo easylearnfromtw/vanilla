@@ -57,7 +57,7 @@ import {ArrowUp,Square,Sparkles,Copy,Check,ThumbsUp,ThumbsDown,ChevronDown,LockK
 import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
 import {isIOSWebLLMDevice,shouldAutoLoadCachedModel,needsMobileMemoryConfirmation} from "./mobile-safety";
-import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
+import {getLoadedLocalModel,isLocalModelReady,loadLocalModel,isLocalModelSupported,isLocalModelCached,clearLocalModelCache,preferredLocalModel,LOCAL_MODELS,type LocalModelId,type ChatTurn,type ToolInfo,type WebCitation,LOCAL_MODEL} from "./engine";
 import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversations,reopenConversation} from "./chat-session";
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,settleDetroitStages,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
@@ -228,6 +228,7 @@ const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"�
 const [ready,setReady]=useState(()=>isLocalModelReady());
 const [modelCached,setModelCached]=useState<boolean|null>(null);
 const [modelError,setModelError]=useState(false);
+const [repairingCache,setRepairingCache]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
 const [compareMode,setCompareMode]=useState(()=>localStorage.getItem("vanilla.model.compare.v1")==="true");
@@ -282,7 +283,7 @@ useEffect(()=>{
  return()=>{active=false;window.clearTimeout(timer);};
 },[capabilities.webgpu,selectedLocalModel,iosDevice]);
 function selectLocalModel(model:LocalModelId){
- if(busy||loadingModel)return;
+ if(busy||loadingModel||repairingCache)return;
  setSelectedLocalModel(model);
  try{localStorage.setItem("vanilla.local.model",model);}catch{}
  const already=isLocalModelReady(model);
@@ -331,6 +332,7 @@ async function reopen(id:string){
  catch(e){setLastRoute(String(e instanceof Error?e.message:e));}
 }
 async function initialize(){
+ if(loadingModel||repairingCache)return;
  const modelEntry=LOCAL_MODELS.find(x=>x.id===selectedLocalModel);
  if(needsMobileMemoryConfirmation(iosDevice,modelEntry?.vramMB||0)&&
    !window.confirm("iPhone Safari 可能因大型 WebLLM 模型超出網頁記憶體限制而直接關閉。建議先使用 0.5B 輕量模型，或在一般模式連接雲端模型。\n\n仍要手動下載／載入「"+(modelEntry?.label||selectedLocalModel)+"」嗎？")){
@@ -343,6 +345,20 @@ async function initialize(){
   setReady(true);setModelCached(true);setStatus("本地模型已就緒");
  }catch(error){recordClientFault("model","download",error);setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
  finally{setLoadingModel(false);}
+}
+async function repairSelectedModelCache(){
+ if(loadingModel||repairingCache)return;
+ const label=LOCAL_MODELS.find(x=>x.id===selectedLocalModel)?.label||selectedLocalModel;
+ if(!window.confirm("只清除「"+label+"」的模型權重快取嗎？\n其他模型、對話紀錄與設定不受影響。清除後必須重新下載這個模型。"))return;
+ setRepairingCache(true);
+ try{
+  await clearLocalModelCache(selectedLocalModel);
+  setModelCached(false);setModelProgress(0);setModelError(false);
+  setStatus("已清除這個模型的權重快取；請按「下載」重新取得。");
+ }catch(error){
+  recordClientFault("model","download",error);
+  setStatus(error instanceof Error?error.message:"清除模型快取失敗");setModelError(true);
+ }finally{setRepairingCache(false);}
 }
 const canReply=ready||(!privateMode&&(providers.length>0||ollamaConnected));
 function changeMetered(enabled:boolean){
@@ -1361,7 +1377,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
   <button type="button" aria-pressed={!privateMode} disabled={busy} onClick={()=>{if(privateMode)switchPrivacy();}}>一般</button>
   <button type="button" aria-pressed={privateMode} disabled={busy} onClick={()=>{if(!privateMode)switchPrivacy();}}><LockKeyhole size={12}/>私密</button>
  </div> <p className="sheet-hint">{privateMode?"只用手機本地模型；不上網、不寫入雲端。":"自動挑選你已連接的模型；第一次使用雲端前會先問你。"}</p>
- <LocalModelPanel selected={selectedLocalModel} onSelect={selectLocalModel} onLoad={()=>void initialize()} status={status} progress={modelProgress} loading={loadingModel} error={modelError} webgpu={capabilities.webgpu} online={online} ready={ready&&isLocalModelReady(selectedLocalModel)} cached={modelCached}/>
+ <LocalModelPanel selected={selectedLocalModel} onSelect={selectLocalModel} onLoad={()=>void initialize()} onRepairCache={()=>void repairSelectedModelCache()} repairingCache={repairingCache} status={status} progress={modelProgress} loading={loadingModel} error={modelError} webgpu={capabilities.webgpu} online={online} ready={ready&&isLocalModelReady(selectedLocalModel)} cached={modelCached}/>
  <div className="control-toggles">
   <label className="vh-switch"><input type="checkbox" checked={deepAnalysis} disabled={busy} onChange={e=>{setDeepAnalysis(e.target.checked);try{localStorage.setItem("vanilla.detroit.deep.v1",String(e.target.checked));}catch{}}}/><span><strong>Detroit 深度分析</strong><small>複雜題增加思考預算，顯示處理階段；不公開模型內部推理</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/><span><strong>比較兩個答案</strong><small>兩個模型各答一次，選你喜歡的</small></span></label>

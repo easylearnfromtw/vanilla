@@ -7,6 +7,8 @@ type Props={
  selected:LocalModelId;
  onSelect:(model:LocalModelId)=>void;
  onLoad:()=>void;
+ onRepairCache:()=>void;
+ repairingCache:boolean;
  status:string;
  progress:number;
  loading:boolean;
@@ -35,11 +37,13 @@ export default function LocalModelPanel(props:Props){
     <select id="local-model-choice" value={props.selected} disabled={props.loading} onChange={e=>props.onSelect(e.target.value as LocalModelId)}>
      {LOCAL_MODELS.map(m=><option key={m.id} value={m.id} disabled={!isLocalModelSupported(m.id)}>{m.label}{m.recommended?"（推薦）":""}{!isLocalModelSupported(m.id)?"（此版本不支援）":""}</option>)}
     </select>
-    <button type="button" disabled={!props.webgpu||props.loading||props.ready} onClick={props.onLoad}><Download size={15}/>{props.loading?"載入中":props.ready?"已載入":props.cached?"載入":"下載"}</button>
+    <button type="button" disabled={!props.webgpu||props.loading||props.repairingCache||props.ready} onClick={props.onLoad}><Download size={15}/>{props.loading?"載入中":props.ready?"已載入":props.cached?"載入":"下載"}</button>
    </div>
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}
    <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>
+   {(props.error||props.cached)&&!props.ready&&<button type="button" className="local-cache-repair" disabled={props.loading||props.repairingCache} onClick={props.onRepairCache}>{props.repairingCache?"正在清除本模型快取…":"清除這個模型的快取後重試"}</button>}
+   {props.error&&<p className="local-model-note">只處理所選模型，不刪除聊天紀錄或其他已下載模型。建議先確認 Wi-Fi 可以開啟 Hugging Face。</p>}
    {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有 WebGPU（iPhone 需 iOS 26 以上 Safari），本地推論不可用；一般模式仍可使用已連接的雲端模型或 Ollama。</p>}
    {iosDevice&&<p className="local-model-note">iPhone 安全模式：不在開啟網頁時自動啟動快取模型；請手動載入。優先選擇 0.5B。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"目前選擇的模型記憶體需求較高，載入前會再次確認。":""}背景執行緒失敗時不會自動改在主畫面運算，以避免整頁崩潰。</p>}
    <label className="vh-switch compact"><input type="checkbox" checked={worker==="auto"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>

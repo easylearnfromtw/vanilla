@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.47-scouts-independent-search",
-  "description": "Scouts independent Brave/Tavily search using WeiGuo family auth; local models and Erya evidence synthesis, Google fallback"
+  "build": "2026.10.20.48-scouts-provider-check",
+  "description": "Scouts real independent search provider readiness, signed test search, and helpful Brave/Tavily configuration diagnostics"
 }

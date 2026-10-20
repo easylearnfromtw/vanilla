@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.44-prose41-reading-ui",
-  "description": "Vanilla Prose 4.1 refined AI-generated text, reading typography, semantic tables, source-safe fenced code copy and mobile accessibility"
+  "build": "2026.10.20.45-cloud-detroit-grounding",
+  "description": "Cloud Gemini DeepSeek and Ollama grounded answers to Detroit registered capabilities and execution status"
 }

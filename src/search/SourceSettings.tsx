@@ -1,13 +1,14 @@
 import {useState} from "react";
 import {Search,Plus,Trash2,ExternalLink,BookOpen} from "lucide-react";
 import {getSources,setSources,addSource,searchLinks,type PreferredSource} from "./source-preferences";
-import {getSearchBridge,setSearchBridge,getWebReaderToken,setWebReaderToken} from "./search-bridge";
+import {getSearchBridge,setSearchBridge,getWebReaderToken,setWebReaderToken,fetchSearchBridge} from "./search-bridge";
 export default function SourceSettings(){
  const [sources,setList]=useState<PreferredSource[]>(getSources);
  const [domain,setDomain]=useState(""),[label,setLabel]=useState("");
  const [query,setQuery]=useState(""),[status,setStatus]=useState("");
  const [bridge,setBridge]=useState(getSearchBridge);
  const [readerToken,setReaderToken]=useState("");
+ const [testing,setTesting]=useState(false);
  function update(list:PreferredSource[]){
   try{setSources(list);setList(getSources());setStatus("已更新網站偏好（本裝置設定）");}catch(e){setStatus(e instanceof Error?e.message:String(e));}
  }
@@ -25,13 +26,21 @@ export default function SourceSettings(){
   <div className="source-test"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="試搜尋：例如糖尿病診療指引"/></label>{query.trim()&&<div>{searchLinks(query).map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/>{item.label}</a>)}</div>}</div>
   <div className="source-add" style={{display:"grid",gap:8,marginTop:12}}>
    <strong>進階：自訂全網搜尋後端（選用）</strong>
-   <p>Wikipedia 與 Crossref 可直接在 Safari 查詢。若要整合 Google、Brave 或自有搜尋服務的正式搜尋結果，請在你自己的安全後端設定該服務，並填入提供 <code>GET /search?q=...</code>、回傳標題／網址／摘要 JSON 的 HTTPS API。不要將搜尋服務金鑰放在這裡。</p>
+   <p>一般網站、新聞與政府資料需要真正的全網搜尋服務。Wikipedia 只搜尋百科，Crossref 只搜尋文獻；Google 等搜尋連結不等於實際擷取。請先部署具備 <code>GET /search</code> 和 <code>GET /read</code> 的 HTTPS Worker，並填入完整 <code>https://你的網域/search</code>。存取權杖保留在本次分頁，不要在這裡填入 Brave 或 Google 的 API 金鑰。</p>
    <input aria-label="HTTPS 搜尋後端網址" type="url" value={bridge} placeholder="https://your-search.example/search" onChange={e=>setBridge(e.target.value)} />
    <label>後端存取權杖（僅本次分頁保存）
     <input type="password" autoComplete="off" placeholder={getWebReaderToken()?"已設定（留白不更動）":"與 Worker 的 WEB_READER_TOKEN 一致"} value={readerToken} onChange={e=>setReaderToken(e.target.value)}/>
    </label>
    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
     <button type="button" onClick={()=>{try{setSearchBridge(bridge);if(readerToken.trim()){setWebReaderToken(readerToken);setReaderToken("");}setStatus(bridge.trim()?"已儲存搜尋後端，下一次搜尋會嘗試連線；尚未驗證 API。":"已停用額外搜尋後端");}catch(e){setStatus(String(e));}}}>儲存搜尋設定</button>
+    <button type="button" disabled={!getSearchBridge()||testing} onClick={async()=>{
+     setTesting(true);setStatus("正在驗證後端是否能回傳真實搜尋結果…");
+     try{
+      const hits=await fetchSearchBridge(query.trim()||"臺灣衛生福利部");
+      setStatus(hits.length?"搜尋測試成功：實際取得 "+hits.length+" 筆結果，第一筆為「"+hits[0].title+"」。":"後端有正常回應，但沒有搜尋結果；請檢查搜尋服務配額或查詢內容。");
+     }catch(error){setStatus("Scouts 後端測試失敗："+(error instanceof Error?error.message:String(error))+"。HTTP 401 請確認存取權杖；403 請確認 CORS 允許的 Vanilla 網域。");}
+     finally{setTesting(false);}
+    }}>{testing?"測試中…":"實測搜尋後端"}</button>
     <button type="button" onClick={()=>{setBridge("");setSearchBridge("");setWebReaderToken("");setReaderToken("");setStatus("已移除自訂搜尋後端與權杖");}}>停用</button>
    </div>
   </div>

@@ -554,7 +554,7 @@ async function send(value=draft):Promise<void>{
  recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
  // Preserve explicit /建立 and /改程式 intent before Diana's proactive routing.
  const slashTail=slashCommand?routeTail(question):null;
- const route=slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
+ const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
  let inlineFileContext="";
  let detroitToolNote="";
  let webContext="";
@@ -622,7 +622,7 @@ async function send(value=draft):Promise<void>{
    }
    // Browser-generated images are native Detroit calls, with explicit
    // consent for potentially billed cloud requests (never an editor switch).
-   if(pick.tool==="bard"&&/(?:生圖|生成圖片|AI\\s*圖片|AI\\s*圖像|畫一張|插畫|生成.*圖)/i.test(route.request)){
+   if(pick.tool==="bard"&&/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張|插畫|生成.*圖)/i.test(route.request)){
     if(privateMode){toolReply(question,"私密模式不可使用雲端生圖；可在對話中請 Detroit 使用 LUNA 本機海報模板。","diana");return;}
     if(!window.confirm("Detroit 將把這次生圖描述傳送到你已連接的 Gemini 圖片服務。這可能使用 API 額度或產生費用；同意本次生成嗎？")){
      toolReply(question,"已取消雲端圖片生成，沒有傳送資料或使用 API 額度。","diana");return;
@@ -1046,7 +1046,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(victoriaExtra)contexts.push({id:"victoria",label:"Victoria 本機舊對話",priority:2,text:victoriaExtra});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"")+(found.detroitToolNote?"\\n[Detroit 真實執行狀態] "+found.detroitToolNote:"");
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"")+(found.detroitToolNote?"\n[Detroit 真實執行狀態] "+found.detroitToolNote:"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
@@ -1135,7 +1135,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   recordClientFault("model","generation",error);
   // Fail over only to an on-device model, or another model on the already approved Ollama host.
   // Never silently introduce a new remote cloud provider or incur an additional paid API request.
-  const alternative=automatic?ranked.find(candidate=>candidate.id!==primary.id&&
+  const alternative=!image&&automatic?ranked.find(candidate=>candidate.id!==primary.id&&
    (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama"))):undefined;
   if(alternative){
    setLastRoute(primary.label+" 無法回答，正在改用 "+alternative.label);

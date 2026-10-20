@@ -7,8 +7,8 @@ import {bridgePreference,setBridgePreference} from "./bridge-settings";
 import {CERES_RUNTIME_STATUS_EVENT} from "./CeresForegroundBridge";
 import {ceresDraftDestination,type CeresDraftTone} from "./draft-policy";
 import {
- getWeiGuoCeresEvents,getWeiGuoCeresStatus,getCeresBridgeStatus,
- type CeresBridgeStatus,
+ getWeiGuoCeresEvents,getWeiGuoCeresStatus,getCeresBridgeStatus,getCeresServerAgentStatus,
+ type CeresBridgeStatus,type CeresServerAgentStatus,
  sendWeiGuoCeresReply,weiGuoApiBase,weiGuoIdentity,
  type CeresFamilyEvent,type CeresFamilyStatus
 } from "../weiguo/api";
@@ -17,6 +17,7 @@ import {
 export default function CeresPanel(){
  const [info,setInfo]=useState<CeresFamilyStatus|null>(null);
  const [bridgeStatus,setBridgeStatus]=useState<CeresBridgeStatus|null>(null);
+ const [serverAgent,setServerAgent]=useState<CeresServerAgentStatus|null>(null);
  const [bridgeOn,setBridgeOn]=useState(()=>{const person=weiGuoIdentity();return person?bridgePreference(person.email):false;});
  const [runtimeStatus,setRuntimeStatus]=useState("尚未啟動本地 Telegram 前景工作階段");
  const [items,setItems]=useState<CeresFamilyEvent[]>([]);
@@ -56,6 +57,7 @@ export default function CeresPanel(){
    const state=await getWeiGuoCeresStatus();
    setInfo(state);
    setBridgeStatus(state.linked?await getCeresBridgeStatus().catch(()=>null):null);
+   setServerAgent(state.linked?await getCeresServerAgentStatus().catch(()=>null):null);
    const result=state.linked?await getWeiGuoCeresEvents():{events:[]};
    setItems(result.events);
    setChosen(previous=>result.events.some(x=>x.id===previous)?previous:(result.events[0]?.id??null));
@@ -133,6 +135,19 @@ export default function CeresPanel(){
   <p role="status" aria-live="polite">{notice}</p>
   {info&&<p>Ceres：{info.enabled?"後端啟用":"尚未啟用"} · 帳號：{info.linked?"已綁定":"未綁定"} · Telegram 人工回覆：{info.outboundEnabled?"已啟用":"未啟用"} · Vanilla AI 草稿：選擇下方模型後使用</p>}
   {ready&&info?.linked&&<>
+   <h3>Ceres · Telegram 智慧聊天狀態</h3>
+   <p>{serverAgent?.serverReady
+     ?"常駐 AI 已設定完成：可以不開啟 Vanilla，也能由 Railway 接收訊息並交給你連接的模型回覆。"
+     :serverAgent?.enabled
+       ?"常駐回覆開關已開啟，但模型端點或金鑰尚未通過設定檢查。請到 Railway → weiguo-browser → Variables 配置 CERES_SERVER_MODEL_*。"
+       :"目前只有手機前景橋接；直接切換到 Telegram 會讓 iPhone 暫停本地 WebLLM，因此無法全天候智慧聊天。要常駐聊天需設定 Railway 的 CERES_SERVER_MODEL_* 並啟用 CERES_SERVER_AGENT_ENABLED。"
+   }</p>
+   {serverAgent?.latestState&&<p>最近一則 Telegram 任務：{({
+      queued:"待處理", "server-processing":"模型處理中", completed:"已回覆",
+      model_unavailable:"模型連線或推論失敗", model_not_configured:"未連接模型",
+      delivery_unknown:"Telegram 傳送結果未確認",access_revoked:"家庭權限已撤銷",
+      rate_or_age_blocked:"訊息已過期或超出頻率限制",expired:"訊息逾時",
+    } as Record<string,string>)[serverAgent.latestState]||"待人工檢查"}</p>}
    <h3>Detroit × Ceres · Telegram 第二對話入口</h3>
    <p>可在本機使用 Merlin、Diana、Zeus 與受控唯讀工具。只在目前裝置的 Vanilla PWA 處於前景且本地模型已載入時運作；關閉或背景化手機後不會繼續推論。</p>
    <p>{bridgeStatus?.enabled?"Railway 本地橋接已啟用":"Railway 尚未啟用前景橋接"} · {runtimeStatus}</p>
@@ -177,6 +192,6 @@ export default function CeresPanel(){
     </>}
    </>}
   </>}
-  <p>手動草稿仍須逐次確認。前景自動回覆必須另外啟用，只使用已載入的本地模型；沒有全天候背景執行、跨家庭資料存取或管理員權限。</p>
+  <p>手動草稿仍須逐次確認。手機前景模式依賴本地模型；Railway 常駐模式則需另外連接經過驗證的模型端點。兩種模式都不會授予 Telegram 管理員權限。</p>
  </section>;
 }

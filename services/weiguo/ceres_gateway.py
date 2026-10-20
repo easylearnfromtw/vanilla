@@ -93,7 +93,8 @@ def _store(update_id: int, chat_id: int, user_id: int, text: str) -> bool:
         )
         # In the opt-in Detroit bridge, enqueue the same event atomically.
         # If this transaction fails, Telegram may retry the signed update.
-        if os.getenv("CERES_LOCAL_BRIDGE_ENABLED", "").lower() == "true":
+        if (os.getenv("CERES_LOCAL_BRIDGE_ENABLED", "").lower() == "true"
+            or os.getenv("CERES_SERVER_AGENT_ENABLED", "").lower() == "true"):
             from ceres_agent_bridge import setup
             setup(db)
             item = db.execute(

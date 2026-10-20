@@ -14,7 +14,7 @@ const ALIASES:Record<string,readonly string[]>={
 };
 const NOTE="資料來自目前版本的程式登錄；工具存在不代表遠端後端已部署、權限已核准或操作已成功。";
 const QUESTION=/(?:是什麼|什麼是|有什麼|有哪些|清單|列表|功能|用途|介紹|負責|作用|用來|做什麼|在做什麼|怎麼用|如何使用|怎麼使用|可以做|能做|現況|狀態|進度|上線|可用|完成了嗎|支援|差別|比較|區別|架構|怎麼運作|有何不同)/i;
-const ACTION=/^(?:開啟|打開|前往|執行|啟動|使用|開始|新增|修改|刪除|建立|製作|生成|產生|下載|分析|寄送|發送|把|請執行|請建立|幫我(?:執行|建立|新增|修改|做|製作|修復|寄送|刪除))/i;
+const ACTION=/^(?:幫我(?:寫|潤稿|改寫|翻譯|整理成)|請(?:寫|潤稿|改寫|翻譯)|開啟|打開|前往|執行|啟動|使用|開始|新增|修改|刪除|建立|製作|生成|產生|下載|分析|寄送|發送|把|請執行|請建立|幫我(?:執行|建立|新增|修改|做|製作|修復|寄送|刪除))/i;
 const QUOTED=/^(?:【待潤稿原文】|原文如下|以下是原文|引用：|引述：|>|\x60\x60\x60)/;
 function matchesName(question:string,name:string):boolean{
  const n=name.trim();if(!n)return false;
@@ -41,7 +41,7 @@ export function toolKnowledgeIntent(question:string):ToolKnowledgeIntent|null{
  if(weiguoMention(q))ids.push("weiguo");
  if(!ids.length||!QUESTION.test(q))return null;
  // Troubleshooting and change requests need the normal model, backed by facts.
- if(/(?:為什麼|無法|失敗|錯誤|異常|修復|改善|優化|如何整合|怎麼整合|加入|設計|規劃)/i.test(q))return null;
+ if(/(?:為什麼|無法|失敗|錯誤|異常|修復|改善|優化|如何整合|怎麼整合|加入|設計|規劃|差別|比較|區別|有何不同)/i.test(q))return null;
  return {scope:"named",ids:[...new Set(ids)].slice(0,5)};
 }
 function stateSummary(c:DetroitCapability):string{

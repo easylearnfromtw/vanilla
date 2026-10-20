@@ -78,12 +78,12 @@ export function victoriaConsentKey(owner:string):string{
  return "vanilla.victoria.cross-chat.v1."+encodeURIComponent(owner);
 }
 export function isVictoriaEnabled(owner:string):boolean{
- try{return localStorage.getItem(victoriaConsentKey(owner))==="true";}catch{return false;}
+ try{return localStorage.getItem(victoriaConsentKey(owner))!=="false";}catch{return true;}
 }
 export function setVictoriaEnabled(owner:string,enabled:boolean):boolean{
  try{localStorage.setItem(victoriaConsentKey(owner),String(enabled));return true;}catch{return false;}
 }
-/** No query is made to IndexedDB before opt-in. Never read private archives from normal mode. */
+/** Automatic by default; explicit opt-out prevents any IndexedDB read. Never read private archives from normal mode. */
 export async function recallVictoria(
  question:string,
  options:{owner:string;enabled:boolean;privateMode:boolean;store?:ArchiveStore}

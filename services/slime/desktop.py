@@ -126,6 +126,7 @@ class SlimeApp(tk.Tk):
         self.profile = load()
         self.hardware = specs()
         self.running = False
+        self.heartbeat_job = None
         self.busy = False
         self.consent = tk.BooleanVar(value=False)
         self.sharing = tk.BooleanVar(value=True)
@@ -224,6 +225,9 @@ class SlimeApp(tk.Tk):
         self.async_call(action, done)
 
     def beat(self):
+        if self.heartbeat_job is not None:
+            self.after_cancel(self.heartbeat_job)
+            self.heartbeat_job = None
         if not self.profile:
             return
         if getattr(sys, "frozen", False) and not Path(sys.executable).exists():
@@ -239,7 +243,7 @@ class SlimeApp(tk.Tk):
                             " · 目前未啟用分散式模型運算")
         if not self.busy:
             self.async_call(action, done)
-        self.after(HEARTBEAT_MS, self.beat)
+        self.heartbeat_job = self.after(HEARTBEAT_MS, self.beat)
 
     def leave(self):
         if not self.profile or self.busy:

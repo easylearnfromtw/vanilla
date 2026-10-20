@@ -84,3 +84,4 @@ export default function NodeFabricPanel(){
    <p>公開 PWA 不會保存 owner 金鑰、邀請碼或朋友的裝置識別資料。節點名單目前透過管理端命令查看，無法在這裡直接啟用 30B 模型。</p>
   </div>
  </section>;
+}

@@ -10,7 +10,7 @@ const context={privateMode:false,hasCreamResult:false,online:true,hasModel:true}
 
 test("Detroit proactively chooses verified or guarded tools from ordinary chat, without @ or slash commands",()=>{
  for(const [message,tool] of [
-  ["幫我製作簡報","retina"],
+  ["幫我製作簡報","orchestra"],
   ["請生成一張插畫","bard"],
   ["請設計醫美品牌海報","luna"],
   ["請幫我製作電子報","janus"],

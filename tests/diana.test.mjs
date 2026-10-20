@@ -87,3 +87,12 @@ test("Diana never copies private conversation text into Orchestra automatically"
  const source=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
 });
+
+test("Diana delegates genuine visual presentation requests to Venus without triggering external embeds",()=>{
+ const options={privateMode:false,hasCreamResult:false,hasModel:true};
+ const map=chooseDianaTool("請做一張互動地圖",options);
+ assert.equal(map.tool,"venus");
+ assert.equal(map.kind,"delegate");
+ assert.equal(chooseDianaTool("請做一張互動地圖",{...options,hasModel:false}).kind,"report");
+ assert.equal(chooseDianaTool("任何任務",options,"venus").kind,"report");
+});

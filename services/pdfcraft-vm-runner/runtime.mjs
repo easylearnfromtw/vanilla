@@ -55,7 +55,7 @@ export async function mergeInEphemeralVM(Sandbox, inputs) {
  }
  let vm;
  try {
-  vm=await Sandbox.create(templateFor(Sandbox)); // default ISOLATED microVM; no inherited env/secrets
+  vm=await Sandbox.create(templateFor(Sandbox), { networkIsolation:"ISOLATED", idleTimeoutMinutes:1 }); // no inherited env/secrets
   await verifyInsideVM(vm);
   await vm.files.mkdir("/work");
   for(let i=0;i<inputs.length;i++)
@@ -82,7 +82,7 @@ export function validPdf(data) {
 export async function startupPreflight(Sandbox) {
  let vm;
  try {
-  vm=await Sandbox.create(templateFor(Sandbox));
+  vm=await Sandbox.create(templateFor(Sandbox), { networkIsolation:"ISOLATED", idleTimeoutMinutes:1 });
   await verifyInsideVM(vm);
   return true;
  }finally {

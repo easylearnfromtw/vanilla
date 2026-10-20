@@ -175,15 +175,15 @@ async def process_one() -> bool:
         return True
     settings = model_settings()
     source = job["text"]
-    # Non-Slime messages still require the configured model or an existing
-    # deterministic read-only tool. This never grants extra privileges.
-    if settings is None and handle_slime(chat, subject, source) is None:
+    # Call at most once: invitation creation is a side-effecting operation.
+    slime_reply = handle_slime(chat, subject, source)
+    # Non-Slime messages still require the configured model.
+    if settings is None and slime_reply is None:
         set_job_state(event_id, "model_not_configured")
         return True
     try:
         # Slime actions are executed by a deterministic, ACL-checked controller.
         # No model-generated SQL or privileged tool instruction is trusted.
-        slime_reply = handle_slime(chat, subject, source)
         if slime_reply is not None:
             reply, tool, page = slime_reply, "slime", ""
         else:

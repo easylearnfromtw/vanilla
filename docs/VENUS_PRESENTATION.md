@@ -37,3 +37,18 @@ chart 必須帶有來源標籤，但標籤仍可能是模型提供的資訊，�
 ## 驗證
 
 運行 npm run test:chat-ui 和 npm run build。合併 main、更新 PWA 版本與 GitHub Pages 實際上線是不同階段，應分別確認。
+
+
+## Venus 3.0 追加元件
+
+Venus 3.0 依自然語言自動判斷輸出種類（chooseVenusIntent），接上原有對話 Markdown。仍是前端呈現協議，不是新的 AI 模型或地理／影片搜尋 API；Diana 和其他工具需要先取得真實資料，再由 Venus 呈現。
+
+- map：1–8 個已知經緯度點，切換地點後按鈕載入 OpenStreetMap 地圖。座標由回答提供，UI 不會假裝已反查地址。
+- video：經 ID 格式驗證的 YouTube／Vimeo 播放器，點擊才載入受 sandbox 限制的 iframe。合法 ID 不保證真實影片存在。
+- math：基本 LaTeX 轉離線 MathML（分數、開根號、上下標、希臘字母等），禁止 eval 和任意巨集，不支援的式子保留原文。
+- live：裝置端時鐘和 ISO 8601 帶明確時區的倒數計時，不是網路即時數據。
+- gallery：圖片集合額外顯示來源連結；每張外站圖片仍由使用者決定是否載入。
+
+安全原則：座標／影片／圖片不得虛構，真實圖片搜尋及地理編碼需要額外合法 API／Diana 適配器；本次只增加確定性渲染與互動介面，外部內容僅於點擊後載入。
+
+驗證：執行 npm run test:chat-ui 和 npm run build、GitHub CI 與 Quirinus 安全檢查；上線版本需分別確認 main 合併、PWA 標記同步及實際部署。

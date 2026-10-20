@@ -331,7 +331,7 @@ async def watch_tick(chat: int) -> list[str]:
     with _session() as db:
         _tables(db)
         db.execute("BEGIN IMMEDIATE")
-        active=db.execute("SELECT code,last_sent_at,active FROM ceres_maint_events "
+        active=db.execute("SELECT code,seen_at,last_sent_at,active FROM ceres_maint_events "
                           "WHERE owner=?",(chat,)).fetchall()
         known={v["code"]:v for v in active}
         for code in sorted(current):

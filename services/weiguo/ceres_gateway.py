@@ -73,7 +73,7 @@ def _session():
         db.close()
 
 
-def _store(update_id: int, chat_id: int, user_id: int, text: str) -> bool:
+def _store(update_id: int, chat_id: int, user_id: int, text: str, enqueue: bool = True) -> bool:
     now = int(time.time())
     with _session() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -93,7 +93,7 @@ def _store(update_id: int, chat_id: int, user_id: int, text: str) -> bool:
         )
         # In the opt-in Detroit bridge, enqueue the same event atomically.
         # If this transaction fails, Telegram may retry the signed update.
-        if (os.getenv("CERES_LOCAL_BRIDGE_ENABLED", "").lower() == "true"
+        if enqueue and (os.getenv("CERES_LOCAL_BRIDGE_ENABLED", "").lower() == "true"
             or os.getenv("CERES_SERVER_AGENT_ENABLED", "").lower() == "true"):
             from ceres_agent_bridge import setup
             setup(db)
@@ -136,6 +136,27 @@ async def telegram_webhook(request: Request,
         raise HTTPException(400, "Invalid JSON") from None
     if not isinstance(payload, dict) or type(payload.get("update_id")) is not int:
         raise HTTPException(400, "Invalid update identifier")
+    # Never route administrator callbacks into AI text execution.
+    callback=payload.get("callback_query")
+    if isinstance(callback,dict):
+        sender=callback.get("from")
+        message_cb=callback.get("message")
+        chat_cb=message_cb.get("chat") if isinstance(message_cb,dict) else None
+        chat_id=chat_cb.get("id") if isinstance(chat_cb,dict) else None
+        if (isinstance(sender,dict) and isinstance(chat_cb,dict)
+                and chat_cb.get("type")=="private" and type(chat_id) is int
+                and sender.get("id")==chat_id and chat_id in allowed
+                and isinstance(callback.get("id"),str)
+                and isinstance(callback.get("data"),str)):
+            from ceres_admin_bot import callback as handle_admin_callback, owner_subject
+            if owner_subject(chat_id):
+                with _session() as db:
+                    db.execute("CREATE TABLE IF NOT EXISTS ceres_admin_callback_updates (update_id INTEGER PRIMARY KEY)")
+                    cur=db.execute("INSERT OR IGNORE INTO ceres_admin_callback_updates VALUES(?)",(payload["update_id"],))
+                if cur.rowcount:
+                    await handle_admin_callback(chat_id,callback["id"],callback["data"])
+                return {"ok":True,"accepted":bool(cur.rowcount)}
+        return {"ok":True,"accepted":False}
     message = payload.get("message")
     if not isinstance(message, dict):
         return {"ok": True, "accepted": False}
@@ -152,7 +173,14 @@ async def telegram_webhook(request: Request,
     body = message.get("text")
     if not isinstance(body, str) or not 1 <= len(body.strip()) <= MAX_TEXT:
         return {"ok": True, "accepted": False}
-    accepted = _store(payload["update_id"], chat_id, user_id, body.strip())
+    from ceres_admin_bot import command as admin_command, owner_subject
+    text=body.strip()
+    admin=text.split()[0].split("@")[0].lower() in ("/admin","/manage")
+    verified_admin=admin and bool(owner_subject(chat_id))
+    # No admin command enters the automatic Ceres answer queue.
+    accepted = _store(payload["update_id"], chat_id, user_id, text, enqueue=not admin)
+    if accepted and verified_admin:
+        await admin_command(chat_id,text)
     return {"ok": True, "accepted": accepted}
 
 

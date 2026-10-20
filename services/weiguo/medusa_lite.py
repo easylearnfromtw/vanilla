@@ -27,6 +27,8 @@ MAX_ITERATIONS = 256
 MAX_OUTPUT = 4096
 MAX_TEXT = 2048
 MAX_ABS_NUMBER = 10 ** 12
+# None before ASGI startup, True after successful boot smoke, False blocks execution.
+_BOOT_SELFTEST_OK: bool | None = None
 
 
 class LiteError(Exception):
@@ -38,7 +40,8 @@ class LimitExceeded(LiteError):
 
 
 def enabled() -> bool:
-    return (os.environ.get("MEDUSA_ENGINE") == "lite"
+    return (_BOOT_SELFTEST_OK is not False
+            and os.environ.get("MEDUSA_ENGINE") == "lite"
             and os.environ.get("MEDUSA_ENABLED") == "true"
             and os.environ.get("MEDUSA_LITE_ENABLED") == "true")
 
@@ -65,8 +68,11 @@ def checked(value, depth=0):
             raise LiteError("文字超出限制")
         return value
     if type(value) is range:
-        if len(value) > MAX_ITERATIONS:
-            raise LiteError("range 迴圈超出限制")
+        try:
+            if len(value) > MAX_ITERATIONS:
+                raise LiteError("range 迴圈超出限制")
+        except OverflowError:
+            raise LiteError("range 迴圈超出限制") from None
         return value
     if type(value) in (tuple, list):
         if len(value) > MAX_ITERATIONS:
@@ -352,6 +358,25 @@ async def execute_lite(request) -> dict:
     if "\x00" in request.source_code or "\x00" in request.stdin:
         raise HTTPException(400, "不允許 NUL 字元")
     return await asyncio.to_thread(run_subset, request.source_code, request.stdin)
+
+
+
+def production_selftest() -> bool:
+    """Prove arithmetic, loops, and denial at process startup; fail closed."""
+    global _BOOT_SELFTEST_OK
+    _BOOT_SELFTEST_OK = False
+    try:
+        arithmetic = run_subset("print(40 + 2)")
+        loop = run_subset("n=0\nfor i in range(5):\n    n+=i\nprint(n)")
+        denied = run_subset("import os")
+        ok = (arithmetic["accepted"] and arithmetic["stdout"] == "42\n"
+              and loop["accepted"] and loop["stdout"] == "10\n"
+              and not denied["accepted"] and denied["status"] == "Unsupported Syntax")
+    except Exception:
+        ok = False
+    _BOOT_SELFTEST_OK = ok
+    return ok
+
 
 
 def lite_status() -> dict:

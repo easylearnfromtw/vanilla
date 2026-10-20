@@ -71,6 +71,10 @@ async def lifespan(app: FastAPI):
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":
         print("Orchestra PdfCraft kernel sandbox: " + ("supported" if probe_sandbox() else "unavailable; native PDF execution denied"))
+    if os.environ.get("MEDUSA_ENGINE") == "lite" and os.environ.get("MEDUSA_ENABLED") == "true":
+        from medusa_lite import production_selftest
+        passed = production_selftest()
+        print("Medusa Lite startup execution proof: " + ("PASS" if passed else "FAIL (Lite execution blocked)"), flush=True)
     yield
 
 TASK_LOCK = asyncio.Semaphore(1)  # Keep one browser worker per service process.

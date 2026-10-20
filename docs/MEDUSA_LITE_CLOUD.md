@@ -81,3 +81,23 @@ print(total)
 
 切換 \`MEDUSA_ENGINE=judge0\` 或 \`cloudrun\` 仍使用既有隔離後端
 及其既有驗證條件。Lite 不會直接替代完整 Python 執行環境。
+
+
+## 正式部署驗收 / production acceptance
+
+當 \`MEDUSA_ENGINE=lite\` 且 \`MEDUSA_ENABLED=true\`，
+WeiGuo 後端啟動會在自己的程序內執行固定測試：
+\`print(40 + 2)\`、\`for i in range(5)\` 累加以及 \`import os\` 拒絕測試。
+成功後，Railway 啟動日誌記錄
+\`Medusa Lite startup execution proof: PASS\`。
+若測試失敗會記錄 \`FAIL (Lite execution blocked)\`，
+本程序會拒絕所有新的 Lite 執行請求（HTTP 503）。
+
+這是**真正部署程序中的固定運算驗證**，
+與 GitHub CI 的 Python/ASGI 模擬驗證不同。
+但是，啟動測試不代表已用使用者實際 Google 帳號，
+從手機通過登入、勾選與結果顯示等所有 UI 操作；
+最後這段仍需本人在 PWA 驗收。
+
+運行紀錄中絕不可印出使用者原始碼、Google OIDC sub、
+存取金鑰或標準輸入。

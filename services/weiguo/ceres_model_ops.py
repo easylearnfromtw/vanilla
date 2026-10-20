@@ -147,7 +147,7 @@ def _probe_snapshot(provider=None):
     return [dict(x) for x in rows]
 
 
-async def probe(provider: str, model: str, actor: int) -> dict:
+async def probe(provider: str, model: str, actor: int, objective: bool=False) -> dict:
     """A single bounded, billable provider-native generation probe."""
     _validated(provider,model)
     _limit(actor, "probe", 6, 600)
@@ -166,9 +166,15 @@ async def probe(provider: str, model: str, actor: int) -> dict:
         # o-series models may reject temperature/max_tokens, so omit both.
         cap={"max_completion_tokens":_MAX_TEST_TOKENS} if provider=="openai" else {"max_tokens":_MAX_TEST_TOKENS}
         body={"model":model,"messages":[{"role":"user","content":"Reply with OK."}],**cap}
+    challenge="What is 17 multiplied by 19? Reply with the integer only." if objective else "Reply with OK."
+    if provider=="gemini":
+        body["contents"][0]["parts"][0]["text"]=challenge
+    else:
+        body["messages"][0]["content"]=challenge
     start=time.monotonic()
     code="provider_error"
     ok=False
+    correctness=None
     input_tokens=output_tokens=None
     try:
         async with httpx.AsyncClient(timeout=18.0,follow_redirects=False,trust_env=False) as client:
@@ -182,14 +188,20 @@ async def probe(provider: str, model: str, actor: int) -> dict:
             if provider=="gemini":
                 candidates=payload.get("candidates",[]) if isinstance(payload,dict) else []
                 parts=candidates[0].get("content",{}).get("parts",[]) if candidates and isinstance(candidates[0],dict) else []
-                ok=any(isinstance(p,dict) and isinstance(p.get("text"),str) and p["text"].strip() for p in parts)
+                outputs=[p["text"] for p in parts if isinstance(p,dict) and isinstance(p.get("text"),str) and p["text"].strip()]
+                ok=bool(outputs)
+                if objective:
+                    correctness=bool(outputs and outputs[0].strip().strip(".。 ")=="323")
                 usage=payload.get("usageMetadata",{})
                 input_tokens=usage.get("promptTokenCount")
                 output_tokens=usage.get("candidatesTokenCount")
             else:
                 choices=payload.get("choices",[]) if isinstance(payload,dict) else []
                 msg=choices[0].get("message",{}) if choices and isinstance(choices[0],dict) else {}
-                ok=isinstance(msg.get("content"),str) and bool(msg["content"].strip())
+                output=msg.get("content") if isinstance(msg,dict) else None
+                ok=isinstance(output,str) and bool(output.strip())
+                if objective:
+                    correctness=bool(ok and output.strip().strip(".。 ")=="323")
                 usage=payload.get("usage",{})
                 input_tokens=usage.get("prompt_tokens")
                 output_tokens=usage.get("completion_tokens")
@@ -202,10 +214,19 @@ async def probe(provider: str, model: str, actor: int) -> dict:
     _record_probe(provider,model,ok,elapsed,code)
     record_usage(provider,model,"explicit_probe",input_tokens,output_tokens,
                  "success" if ok else "failed")
+    with _session() as db:
+        _setup(db)
+        rate=db.execute("SELECT input_per_m,output_per_m FROM ceres_ops_prices "
+                        "WHERE provider=? AND model=?",(provider,model)).fetchone()
+    a=input_tokens if type(input_tokens) is int and 0<=input_tokens<=10**8 else None
+    b=output_tokens if type(output_tokens) is int and 0<=output_tokens<=10**8 else None
+    estimate=round((a*rate["input_per_m"]+b*rate["output_per_m"])/1000000,8) if rate and a is not None and b is not None else None
     return {"provider":provider,"model":model,"ok":ok,"latencyMs":elapsed,
-            "code":code,"checkedAt":int(time.time()),"inputTokens":input_tokens,
-            "outputTokens":output_tokens,"testWasBillable":True,
-            "note":"驗證這次文字生成，不保證速度、配額或其他 API 路徑始終可用。"}
+            "code":code,"checkedAt":int(time.time()),"inputTokens":a,
+            "outputTokens":b,"estimatedUsd":estimate,"testWasBillable":True,
+            "objectiveMathCorrect":correctness if objective else None,
+            "note":"單次固定提示測試；17×19 正確性僅代表一題，不等於綜合品質評測。" if objective
+                   else "驗證這次文字生成，不保證速度、配額或其他 API 路徑始終可用。"}
 
 
 async def compare(provider: str, first: str, second: str, actor: int) -> dict:
@@ -213,10 +234,10 @@ async def compare(provider: str, first: str, second: str, actor: int) -> dict:
         raise HTTPException(422,"請選擇兩個不同模型")
     _validated(provider,first);_validated(provider,second)
     _limit(actor,"compare",2,900)
-    a=await probe(provider,first,actor)
-    b=await probe(provider,second,actor)
-    return {"results":[a,b],"qualityAssessed":False,
-            "note":"同一固定短提示的兩次單次測試；不判定回答品質，延遲並非基準測試。"}
+    a=await probe(provider,first,actor,objective=True)
+    b=await probe(provider,second,actor,objective=True)
+    return {"results":[a,b],"qualityAssessed":"single_arithmetic_only",
+            "note":"兩次固定題目 17×19 的生成測試，比較正確性／延遲／已知費率下的估算；不代表廣泛能力或正式帳單。"}
 
 
 async def telegram_check(actor: int) -> dict:

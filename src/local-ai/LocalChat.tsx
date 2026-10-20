@@ -7,6 +7,7 @@ import {teacherStyleHint} from "../noodles/teacher-core";
 import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
+import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
 import {venusPresentationGuidance} from "../venus/presentation";
 import MessageArtifacts from "./MessageArtifacts";
@@ -356,7 +357,8 @@ function chooseAnswer(id:string){
  if(!comparison||busy)return;
  const chosen=comparison.options.find(x=>x.candidate.id===id&&x.status==="done");
  if(!chosen)return;
- saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
+ if(!privateMode)saveModelChoice(comparison.task,chosen.candidate,comparison.options.filter(x=>x.status==="done").map(x=>x.candidate));
+ recordLucaFeedback("chosen",comparison.task,chosen.candidate.source,privateMode);
  recordNoodles({kind:"rating",at:Date.now(),task:comparison.task,model:chosen.candidate.id,liked:true},privateMode);
  // Only a human-selected win can become a teacher preference example.
  // Original prompts/answers are never persisted without separate opt-in.
@@ -1179,7 +1181,8 @@ function rateAnswer(index:number,liked:boolean){
  if(!answer||answer.role!=="assistant"||!answer.source||!answer.model||answer.rating||answer.content.startsWith("生成失敗："))return;
  const question=history.slice(0,index).reverse().find(x=>x.role==="user")?.content||"";
  const task=classifyTask(question);
- saveAnswerRating(task,answer.source+":"+answer.model,liked);
+ if(!privateMode)saveAnswerRating(task,answer.source+":"+answer.model,liked);
+ recordLucaFeedback(liked?"up":"down",task,answer.source,privateMode);
  recordNoodles({kind:"rating",at:Date.now(),task,model:answer.source+":"+answer.model,liked},privateMode);
  if(liked)recordTeacherSample({task,prompt:question,chosen:answer.content,
   provider:answer.source,model:answer.model,selectedBy:"thumbs-up"},privateMode);

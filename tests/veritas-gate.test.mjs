@@ -17,6 +17,8 @@ test("private/offline and creative requests are never turned into background res
  for(const q of ["學測時間","目前健保給付規定"])
   assert.equal(routeMessage(q,{...context,privateMode:true}).kind,"continue",q);
  assert.equal(implicitResearchQuery("今年學測時間 不要上網"),null);
+ assert.equal(implicitResearchQuery("我的病歷今年有什麼更新"),null);
+ assert.equal(implicitResearchQuery("我家今年股票多少錢"),null);
  for(const q of ["幫我寫一篇學測勵志文章","請幫我改寫今年新聞的文案","原文如下：今年學測時間","幫我想三個週末親子活動","你好"])
   assert.equal(classifyFactRequest(q).needsLiveSources,false,q);
 });

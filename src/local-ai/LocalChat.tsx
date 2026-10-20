@@ -540,7 +540,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    // Google-first route: official Gemini Google Search grounding with real
    // citation URLs. No Google SERP scraping and no invented source metadata.
    let googleResolved=false;
-   if(googleGroundingAvailable()&&!googleGroundingCooldownSeconds()){
+   if(googleGroundingAvailable()){
     const consentKey="vanilla.scouts.google-grounding-consent.v1";
     const accepted=localStorage.getItem(consentKey)==="yes"||
       window.confirm("Scouts 將使用已連接的 Gemini API 呼叫 Google Search Grounding（最多兩次：一般搜尋與必要的地區補充）。搜尋請求會送到 Google，可能消耗 API 額度或產生費用；不會將本機附件傳送到搜尋。允許嗎？");

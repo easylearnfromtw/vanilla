@@ -139,7 +139,10 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source)
             or source.lower().startswith(("/slime", "/nodes", "/node "))
             or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
-            or _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)):
+            or _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
+            or "slime" in source.lower()
+            or ("節點" in source and any(x in source for x in ("管理", "設定", "GPU", "RAM", "上限", "查看", "查詢", "邀請", "移除")))
+            or ("電腦" in source and any(x in source for x in ("加入", "連線", "離線", "管理", "邀請", "停用", "恢復")))):
         return None
     if not _owner_subject(chat, sub):
         return "只有已驗證的 Telegram 擁有者能管理 Slime。"

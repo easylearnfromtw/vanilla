@@ -27,7 +27,7 @@ import {toRows} from "../workspace/sheets-model";
 import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner,listChatAttachments} from "../library/attachment-vault";
 import {signedChatAccount,chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
-import {searchLiveWeb,searchWebSummary} from "../search/live-search";
+import {searchWebSummary,type LiveSearchReport} from "../search/live-search";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
@@ -63,7 +63,8 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
-import {composeDianaCreamDocument,requestedDianaFormat} from "../detroit/diana-auto";
+import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
+import {executeDetroitNative,type NativeRetinaResult,type NativeJanusResult} from "../detroit/native-executors";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 
 const BASE=import.meta.env.BASE_URL;
@@ -403,7 +404,7 @@ async function executeIntent(question:string):Promise<boolean>{
   if(privateMode){toolReply(question,"私密模式不會連上網路搜尋。請切換一般模式再試。","privacy");return true;}
   setBusy(true);setLastRoute("正在從公開來源取得真正的搜尋結果…");
   try{
-   const report=await searchLiveWeb(intent.query);
+   const report=await executeDetroitNative<LiveSearchReport>("scouts",{query:intent.query},{privateMode});
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(intent.query)]);
    toolReply(question,searchWebSummary(report,intent.query),"search");
   }catch(error){
@@ -474,7 +475,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    index.push({title:page.title,url:page.url,kind:"full",excerpt:page.text});
    context="[1] "+page.title+"\n來源："+page.url+"\n已讀取正文：\n"+wrapExternalText(page.text,"web");
   }else{
-   const report=await searchLiveWeb(target);
+   const report=await executeDetroitNative<LiveSearchReport>("scouts",{query:target},{privateMode});
    searchDiagnostics=report.errors.join("；");
    setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(target)]);
    // Parallel independent page reads: three unreachable URLs should not each
@@ -576,6 +577,13 @@ async function send(value=draft):Promise<void>{
      finally{setBusy(false);}
      return;
     }
+   }
+   // An explicit artifact request is fulfilled in this chat by the actual native
+   // executor after model drafting. Opening an editor is the no-model fallback only.
+   if(!route.forcedTool&&canReply&&planDianaNativeArtifact(route.request)&&
+      (pick.tool==="retina"||pick.tool==="janus")){
+    setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
+    break;
    }
    if(pick.kind==="delegate"&&pick.command){
     if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
@@ -850,6 +858,7 @@ async function send(value=draft):Promise<void>{
 async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]},visibleQuestion?:string){
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
+ const nativeArtifact=planDianaNativeArtifact(question);
  const merlin=optimizeMerlinPrompt(question,detroit);
  const humanize=prepareHumanization(question);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
@@ -906,7 +915,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }
- const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
+ const chosen:ModelCandidate[]=!nativeArtifact&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -976,6 +985,28 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   return {history:[...history,{role:"user" as const,content:composed.content}],labels,notice:notes.join("；")};
  };
  const controller=new AbortController();abortRef.current=controller;
+ // Tool output is derived from a completed model response, never from a claimed result.
+ async function finishNativeArtifact(body:string):Promise<string>{
+  if(!nativeArtifact||!body.trim()||controller.signal.aborted)return "";
+  try{
+   if(nativeArtifact.capability==="retina"){
+    const result=await executeDetroitNative<NativeRetinaResult>("retina",{
+     title:nativeArtifact.title,body,format:nativeArtifact.format,download:true
+    },{privateMode,signal:controller.signal});
+    markDetroit("retina","done","已由 Retina 真正建立本機 "+result.format.toUpperCase()+" 檔案");
+    return "\\n\\nDetroit / Retina 已產生檔案："+result.filename+"（已觸發本機下載）。";
+   }
+   const result=await executeDetroitNative<NativeJanusResult>("janus",{
+    kind:nativeArtifact.kind,title:nativeArtifact.title,body,brand:nativeArtifact.brand,download:true
+   },{privateMode,signal:controller.signal});
+   markDetroit("janus","done","已產出 Janus 本機 HTML 電子報");
+   return "\\n\\nDetroit / Janus 已產生 HTML 郵件檔案："+result.filename+"（沒有寄送郵件）。";
+  }catch(error){
+   const reason=error instanceof Error?error.message:String(error);
+   markDetroit(nativeArtifact.capability,"error","原生匯出失敗："+reason);
+   return "\\n\\nDetroit 原生匯出未完成："+reason+"。上方保留已生成的文字草稿。";
+  }
+ }
  setDraft("");setBusy(true);setGenerating(true);
  if(detroit.depth!=="quick")markDetroit("dionysus","running","推論排隊或執行中，單一本地模型");
  const started=Date.now();
@@ -1017,8 +1048,10 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    partial=text;
    if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-  setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,result||""),source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
-  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
+  const drafted=finalizeHumanizedText(humanize,result||"");
+  const artifactNote=await finishNativeArtifact(drafted);
+  setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
+  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact&&!nativeArtifact)markDetroit("retina","skipped","本題沒有符合條件的本機匯出格式");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
  }catch(error){
@@ -1040,7 +1073,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     const recovered=await generateCandidate(alternative,altPrompt.history,undefined,text=>{
      if(!humanize)setHistory([...next,{role:"assistant",content:text,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);
     },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
-    setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,recovered||""),source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
+    const drafted=finalizeHumanizedText(humanize,recovered||"");
+    const artifactNote=await finishNativeArtifact(drafted);
+    setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     if(detroit.depth!=="quick")markDetroit("dionysus","done","備援推論已完成");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){

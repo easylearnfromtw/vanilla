@@ -32,3 +32,24 @@
 - 配置 Worker 後以「實測搜尋後端」驗證，確認搜尋結果有來源網址，再檢查模型是否顯示 `full`/ `snippet` 標記。
 
 相關測試：`npm run test:chat-router`、`npm run test:web-workflows`，以及 `npm run build`。
+
+
+## Detroit 原生獨立搜尋（Brave／Tavily，取代 Gemini 單點依賴）
+
+已接入現有 Railway「衞國」後端，而不是把 Brave／Tavily 金鑰放進公開 PWA：
+
+- 後端：`services/weiguo/scouts_search.py`，由 FastAPI `app.py` 掛載於
+  `GET /v1/family/scouts/status` 與 `POST /v1/family/scouts/search`。
+- 使用衞國既有 Google OIDC 家庭簽章登入，僅 owner/member 可以查詢；viewer 和未登入者不可使用。最多每人每分鐘 6 次，單次最多兩家通用搜尋供應商及一次地區補充；不保存查詢與內容。
+- **在 Railway 服務環境變數**（不是 GitHub Actions 公開 Variable）設定 `WEIGUO_SCOUTS_BRAVE_API_KEY`（Brave Search API）或 `WEIGUO_SCOUTS_TAVILY_API_KEY`（Tavily Search API）。至少其中一個必須有有效金鑰；可兩個皆配置。不要傳到聊天視窗或提交 Git。
+- `src/weiguo/api.ts` 透過現有記憶體內家庭 Bearer 送查詢；`src/search/live-search.ts` 排第一順位。`LocalChat.gatherWeb` 一旦拿到 Brave／Tavily 的可核對網址，會略過 Gemini Google Grounding，並將最多三筆一般資料加一筆地區來源直接交給選擇的本地 Ollama／WebLLM 模型，再讓爾雅協助整合。
+- Brave 提供真正通用網頁搜尋索引與摘要；Tavily 可提供搜索與由供應商擷取的正文。若只有搜尋摘要就標 `snippet`，正文可實際取得時才標 `full`。
+- **如果 Railway 沒有上述任一金鑰：本功能尚未就緒。** 系統會誠實維持既有 Google／Wikipedia／Crossref 備援。成功部署 API 程式，不等於供應商購買、設定或真實搜尋已驗證。
+
+提供者官方文件：
+- https://api-dashboard.search.brave.com/app/documentation/web-search/get-started
+- https://docs.tavily.com/documentation/api-reference/endpoint/search
+
+驗收：以已登入的 owner/member 呼叫 `/v1/family/scouts/status`，須顯示 `ready:true` 及可用提供者；用正常對話輸入「請幫我查 2027 年 PGY 招募官方資訊」，在搜尋結果看到 Brave／Tavily 的實際網址及來源標籤，然後才確認本地模型有依資料引用回答。
+
+安全界線：只呼叫固定的已審核供應商 API 域名；不提供泛用 HTTP 代理；不將管理者金鑰、Google Drive Token 或供應商金鑰發往 PWA；不從使用者輸入構造任意抓取 URL。服務端仍需要對第三方搜尋費用做配額監控。

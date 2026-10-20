@@ -84,9 +84,17 @@ def _origin() -> tuple[str,str]:
     return raw+("/v1" if not u.path else ""), key
 
 
-async def _fetch_catalog(force=False):
+async def _fetch_catalog(force=False, owner_sub=None):
     if not enabled():
         raise HTTPException(503,"Vanilla 模型 API 尚未開放")
+    if os.getenv("VANILLA_INFERENCE_MODE","https")=="slime_pull":
+        if not owner_sub:
+            raise HTTPException(403,"自有模型必須有已驗證的 Owner")
+        from slime_runner_bridge import catalog as runner_catalog
+        current=runner_catalog(owner_sub)  # only online, individually approved runners
+        preferred=os.getenv("VANILLA_INFERENCE_DEFAULT_MODEL","")
+        primary=preferred if preferred in current else current[0]
+        return current,primary,int(time.time())
     now=int(time.time())
     with _session() as db:
         _db_tables(db)
@@ -215,7 +223,8 @@ class Completion(BaseModel):
 @router.get("/v1/models")
 async def models(authorization: str|None=Header(default=None)):
     key=_key_from_header(authorization)
-    available,primary,refreshed=await _fetch_catalog()
+    from ceres_admin_bot import owner_subject
+    available,primary,refreshed=await _fetch_catalog(owner_sub=owner_subject(key["owner_chat"]))
     published=[name for name in available if _allowed(key,name,name)]
     if _DEFAULT_ALIAS in json.loads(key["models_json"]) or "*" in json.loads(key["models_json"]):
         if primary in available:
@@ -255,7 +264,9 @@ async def client_usage(authorization: str|None=Header(default=None)):
 @router.post("/v1/chat/completions")
 async def chat(body:Completion,authorization: str|None=Header(default=None)):
     key=_key_from_header(authorization)
-    available,primary,_=await _fetch_catalog()
+    from ceres_admin_bot import owner_subject
+    owner_sub=owner_subject(key["owner_chat"])
+    available,primary,_=await _fetch_catalog(owner_sub=owner_sub)
     if body.stream:
         raise HTTPException(422,"目前僅支援 stream=false；串流支援完成前不會假裝回傳 SSE")
     requested=body.model
@@ -272,21 +283,35 @@ async def chat(body:Completion,authorization: str|None=Header(default=None)):
     reservation=prompt_bytes+content["max_tokens"]
     if reservation>key["daily_limit"] or reservation>key["monthly_limit"]:
         raise HTTPException(429,"此請求的 Token 保留額度超過金鑰上限")
-    # Refuse misconfigured runtimes before debiting the consumer token budget.
-    url,secret=_origin()
+    # No arbitrary external endpoints: either trusted HTTPS runtime or owner-approved
+    # outbound-polling Slime runner. Slime requires explicit Owner node consent.
+    mode=os.getenv("VANILLA_INFERENCE_MODE","https")
+    if mode=="slime_pull":
+        if not owner_sub:
+            raise HTTPException(403,"未驗證的 Slime Owner")
+        from slime_runner_bridge import _select
+        _select(owner_sub,actual)
+    elif mode=="https":
+        url,secret=_origin()
+    else:
+        raise HTTPException(503,"不支援的模型執行模式")
     job=_reserve(key,actual,reservation)
     began=time.monotonic()
     status="failed"
     usage=None
     try:
-        async with httpx.AsyncClient(timeout=45,follow_redirects=False,trust_env=False) as client:
-            response=await client.post(url+"/chat/completions",json=content,
-                    headers={"Authorization":"Bearer "+secret})
-        if response.status_code==429:
-            raise HTTPException(503,"自有模型節點忙碌")
-        if response.status_code!=200 or len(response.content)>450000:
-            raise HTTPException(502,"自有模型節點推論失敗")
-        payload=response.json()
+        if mode=="slime_pull":
+            from slime_runner_bridge import dispatch
+            payload=await dispatch(owner_sub,content)
+        else:
+            async with httpx.AsyncClient(timeout=45,follow_redirects=False,trust_env=False) as client:
+                response=await client.post(url+"/chat/completions",json=content,
+                        headers={"Authorization":"Bearer "+secret})
+            if response.status_code==429:
+                raise HTTPException(503,"自有模型節點忙碌")
+            if response.status_code!=200 or len(response.content)>450000:
+                raise HTTPException(502,"自有模型節點推論失敗")
+            payload=response.json()
         choices=payload.get("choices") if isinstance(payload,dict) else None
         first=choices[0] if isinstance(choices,list) and choices else None
         message=first.get("message") if isinstance(first,dict) else None
@@ -297,8 +322,9 @@ async def chat(body:Completion,authorization: str|None=Header(default=None)):
         if isinstance(usage,dict):
             total=usage.get("prompt_tokens",0)+usage.get("completion_tokens",0) if (
                 type(usage.get("prompt_tokens")) is int and type(usage.get("completion_tokens")) is int) else None
-            if total is not None and total>reservation:
-                raise HTTPException(502,"模型超出已核准的輸出 Token 預算")
+            if (total is not None and (total>reservation
+                or usage["completion_tokens"]>content["max_tokens"])):
+                raise HTTPException(502,"模型超出已核准的 Token 預算")
         status="success"
         reply={"id":"chatcmpl-"+secrets.token_hex(12),"object":"chat.completion",
                "created":int(time.time()),"model":requested,
@@ -358,7 +384,11 @@ async def owner_status(body:Owner):
     chat=_verify(body.init_data)
     configured=enabled()
     try:
-        if configured:
+        if configured and os.getenv("VANILLA_INFERENCE_MODE","https")=="slime_pull":
+            from slime_runner_bridge import catalog as runner_catalog
+            from ceres_admin_bot import owner_subject
+            runner_catalog(owner_subject(chat))
+        elif configured:
             _origin()
     except HTTPException:
         configured=False
@@ -491,7 +521,8 @@ async def usage(body:Owner):
 
 @admin_router.post("/models/refresh")
 async def owner_refresh(body:Owner):
-    _verify(body.init_data)
-    models,default,at=await _fetch_catalog(force=True)
+    chat=_verify(body.init_data)
+    from ceres_admin_bot import owner_subject
+    models,default,at=await _fetch_catalog(force=True,owner_sub=owner_subject(chat))
     return {"models":models,"alias":_DEFAULT_ALIAS,"defaultResolvesTo":default,
             "refreshedAt":at}

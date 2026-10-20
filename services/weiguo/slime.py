@@ -59,6 +59,10 @@ def _db():
           gpu TEXT NOT NULL DEFAULT '', os TEXT NOT NULL DEFAULT '',
           share_enabled INTEGER NOT NULL DEFAULT 1,
           owner_enabled INTEGER NOT NULL DEFAULT 1)""")
+        # Existing registries are migrated safely; every node starts with inference OFF.
+        cols={row["name"] for row in c.execute("PRAGMA table_info(nodes)").fetchall()}
+        if "inference_enabled" not in cols:
+            c.execute("ALTER TABLE nodes ADD COLUMN inference_enabled INTEGER NOT NULL DEFAULT 0")
         yield c
     finally:
         c.close()
@@ -144,6 +148,7 @@ def list_nodes(user: FamilyIdentity = Depends(_owner)):
         "online": now - r["last_seen"] <= ONLINE_SECONDS,
         "last_seen": r["last_seen"], "share_enabled": bool(r["share_enabled"]),
         "owner_enabled": bool(r["owner_enabled"]),
+        "inference_enabled": bool(r["inference_enabled"]),
         "schedulable": now - r["last_seen"] <= ONLINE_SECONDS and
              bool(r["share_enabled"]) and bool(r["owner_enabled"])
     } for r in records], "inference_enabled": False}
@@ -158,6 +163,20 @@ def policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(_owner)):
         if not cursor.rowcount:
             raise HTTPException(404, "找不到節點")
     return {"ok": True, "owner_enabled": body.enabled}
+
+@router.post("/v1/family/slime/nodes/{node_id}/inference")
+def inference_policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(_owner)):
+    """Explicit Owner approval is mandatory even for nodes claiming role=owner."""
+    if not 8<=len(node_id)<=48:
+        raise HTTPException(404,"找不到節點")
+    with _db() as c:
+        result=c.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
+                         (int(body.enabled),node_id,user.sub))
+        if not result.rowcount:
+            raise HTTPException(404,"找不到節點")
+    return {"ok":True,"inference_enabled":body.enabled,
+            "notice":"啟用後，外部使用者的模型提示可能傳送至這個受信任的節點。"}
+
 
 @router.post("/v1/family/slime/nodes/{node_id}/revoke")
 def revoke(node_id: str, user: FamilyIdentity = Depends(_owner)):
@@ -217,7 +236,8 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None))
                             body.capabilities.ram_gb, body.capabilities.gpu, body.capabilities.os,
                             int(body.share_enabled), r["id"]))
         owner_allowed = bool(r["owner_enabled"])
-    return {"ok": True, "owner_enabled": owner_allowed, "inference_enabled": False,
+    return {"ok": True, "owner_enabled": owner_allowed,
+            "inference_enabled": bool(r["inference_enabled"]) and owner_allowed and body.share_enabled,
             "commands": []}
 
 @node_router.post("/v1/slime/node/leave")

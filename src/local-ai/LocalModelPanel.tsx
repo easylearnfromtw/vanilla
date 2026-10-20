@@ -1,6 +1,7 @@
 import {useState} from "react";
 import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-react";
-import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,type LocalModelId} from "./engine";
+import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,diagnoseLocalModelDownload,type LocalModelId} from "./engine";
+import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
 
 type Props={
@@ -21,6 +22,18 @@ type Props={
 /** On-device model picker: honest size, cache state, and where inference runs. */
 export default function LocalModelPanel(props:Props){
  const [worker,setWorker]=useState(localWorkerMode());
+ const [diagnosing,setDiagnosing]=useState(false);
+ const [diagnosis,setDiagnosis]=useState<DownloadDiagnostic[]>([]);
+ const [diagnosedModel,setDiagnosedModel]=useState<string|null>(null);
+ const visibleDiagnosis=diagnosedModel===props.selected?diagnosis:[];
+ async function checkDownload(){
+  if(diagnosing||props.loading)return;
+  const selected=props.selected;
+  setDiagnosing(true);setDiagnosis([]);setDiagnosedModel(selected);
+  try{setDiagnosis(await diagnoseLocalModelDownload(selected));}
+  catch{setDiagnosis([{kind:"error",name:"診斷無法執行",detail:"此模型的下載設定無法讀取。請先使用 WebLLM 支援的模型或重新載入網站。"}]);}
+  finally{setDiagnosing(false);}
+ }
  const iosDevice=isIOSWebLLMDevice(navigator.userAgent,navigator.platform,navigator.maxTouchPoints);
  const current=getLoadedLocalModel();
  const entry=LOCAL_MODELS.find(x=>x.id===props.selected);
@@ -44,6 +57,11 @@ export default function LocalModelPanel(props:Props){
    <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>
    {(props.error||props.cached)&&!props.ready&&<button type="button" className="local-cache-repair" disabled={props.loading||props.repairingCache} onClick={props.onRepairCache}>{props.repairingCache?"正在清除本模型快取…":"清除這個模型的快取後重試"}</button>}
    {props.error&&<p className="local-model-note">只處理所選模型，不刪除聊天紀錄或其他已下載模型。建議先確認 Wi-Fi 可以開啟 Hugging Face。</p>}
+   <button type="button" className="local-cache-repair" disabled={props.loading||props.repairingCache||diagnosing} onClick={()=>void checkDownload()}>{diagnosing?"正在檢查手機、模型來源及儲存空間…":"檢查此 iPhone 的模型下載環境"}</button>
+   {visibleDiagnosis.length>0&&<div className="local-model-diagnostics" role="status" aria-live="polite">
+    {visibleDiagnosis.map((item,index)=><p key={index} className={item.kind==="error"?"local-model-error":"local-model-note"}><strong>{item.kind==="ok"?"✓":item.kind==="warning"?"!":"×"} {item.name}：</strong>{item.detail}</p>)}
+    <p className="local-model-note">連線測試僅檢查設定檔和權重檔的起始回應，不會下載完整模型，也不代表推論已通過實機驗證。</p>
+   </div>}
    {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有 WebGPU（iPhone 需 iOS 26 以上 Safari），本地推論不可用；一般模式仍可使用已連接的雲端模型或 Ollama。</p>}
    {iosDevice&&<p className="local-model-note">iPhone 安全模式：不在開啟網頁時自動啟動快取模型；請手動載入。優先選擇 0.5B。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"目前選擇的模型記憶體需求較高，載入前會再次確認。":""}背景執行緒失敗時不會自動改在主畫面運算，以避免整頁崩潰。</p>}
    <label className="vh-switch compact"><input type="checkbox" checked={worker==="auto"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>

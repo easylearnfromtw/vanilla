@@ -16,6 +16,7 @@ import {localInferenceQueue} from "../detroit/zeus";
 import {isPinnedWebLLMModelSupported,isDisposedWebLLMFailure} from "./webllm-compat";
 import {isIOSWebLLMDevice,mayFallbackToMainThread} from "./mobile-safety";
 import {firstDownloadProgress,noteDownloadProgress,downloadHasStalled,downloadNeedsNotice,isDownloadStallError,stalledDownloadError} from "./model-download-watchdog";
+import {inspectBrowserModelDownload,type DownloadDiagnostic} from "./model-download-diagnostics";
 import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../ai/prompts";
 import {classifyTask,type TaskKind} from "../ai/task-kind";
 import {fitHistory,estimateTokens} from "../ai/context-budget";
@@ -74,6 +75,18 @@ export async function isLocalModelCached(model:LocalModelId):Promise<boolean>{
  try{if(!isLocalModelSupported(model))return false;const mod=await webllm();return typeof mod.hasModelInCache==="function"?await mod.hasModelInCache(model):false;}catch{return false;}
 }
 /** Clear only this model's parameter shards/tokenizer, not conversations or other models. */
+/** Read-only checks of the actual source in the pinned WebLLM catalog.
+ * Passing these probes does NOT prove full-weight download or WebGPU inference works.
+ */
+export async function diagnoseLocalModelDownload(model:LocalModelId):Promise<DownloadDiagnostic[]>{
+ const mod=await webllm();
+ const record=mod.prebuiltAppConfig.model_list.find(x=>x.model_id===model);
+ if(!record)throw new Error("所選模型不在目前 WebLLM 版本的支援清單。");
+ const gpu=(navigator as Navigator&{gpu?:{requestAdapter:()=>Promise<unknown>}}).gpu;
+ return inspectBrowserModelDownload(record.model,{
+  gpu,storage:navigator.storage,online:navigator.onLine,fetchFn:fetch,
+ });
+}
 export async function clearLocalModelCache(model:LocalModelId):Promise<void>{
  if(loading||loadingModel)throw new Error("模型仍在下載中，請等下載結束後再清除快取。");
  if(engine&&loadedModel===model)throw new Error("這個模型正在使用中。請重新開啟 Vanilla 後、載入模型前清除快取。");

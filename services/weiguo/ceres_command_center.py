@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import os
 import re
+from html import escape
 import time
 
 import httpx
 
-from ceres_admin_bot import owner_subject, say, _telegram
+from ceres_admin_bot import owner_subject, say, _telegram, _edit_target
 from ceres_gateway import _session
 
 _COMMAND = re.compile(r"^/(?:hub|center|centre)(?:@SignWell_bot)?(?:\s+(.*))?$", re.I | re.S)
@@ -30,28 +31,36 @@ def _button(label: str, item: str) -> dict:
 
 
 def _menu() -> list[list[dict]]:
-    """Telegram-native compact entry points; callback identities stay stable."""
+    """A native Telegram control panel. Callback identities are stable."""
     return [
-        [_button("📊 系統概覽", "status"), _button("🩺 模型診斷", "diagnostics")],
-        [_button("🧠 Detroit 工具", "tools"), _button("🖥 Slime 節點", "nodes")],
-        [_button("🔌 API 與模型", "providers"), _button("👥 Gmail 權限", "accounts")],
-        [_button("📈 使用成本", "usage"), _button("🔎 GitHub 探索", "sources")],
+        [_button("◉ 系統狀態", "status"), _button("▣ 模型診斷", "diagnostics")],
+        [_button("◇ Detroit 工具", "tools"), _button("◎ Slime 節點", "nodes")],
+        [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
+        [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
     ]
+
+
+def _title(page: str) -> str:
+    return ("✦ <b>Ceres</b>  <code>VANILLA / DETROIT</code>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "<b>"+escape(page)+"</b>\n\n")
+
+
+def _page_buttons(action: str) -> list[list[dict]]:
+    return [[_button("↻ 重新整理",action),_button("← 控制中心","home")]]
+
 
 async def _home(chat: int) -> None:
     await say(chat,
-        "CERES  /  VANILLA AI\n"
-        "────────────────────\n"
-        "Detroit · Owner 控制中心\n\n"
-        "選擇下方功能，或直接和 Ceres 對話。\n"
-        "系統狀態分為配置、歷史紀錄與實際測試；不會把「服務在線」當成已成功回覆。\n\n"
-        "快速指令\n"
-        "• /hub diagnostics — 模型實測與故障碼\n"
-        "• /hub usage — 30 日用量\n"
-        "• /hub plan Gemini 速度優先 — 預覽設定\n"
-        "• /admin — 安全憑證與詳細設定\n\n"
-        "權限與付費設定都需要經過後端授權。",
-        _menu())
+        _title("OWNER · 私人 AI 控制中心")
+        +"<b>你的系統，集中管理。</b>\n"
+        +"不必記住指令，直接點選下方功能。\n\n"
+        +"<b>系統管理</b>  ·  狀態、模型、節點\n"
+        +"<b>存取控制</b>  ·  API、Gmail、成本\n\n"
+        +"<i>狀態為配置或歷史紀錄，不能代表目前已成功回覆。所有敏感操作均需 Owner 授權。</i>\n\n"
+        +"輸入 <code>/admin</code> 可進入詳細管理。",
+        _menu(),html=True)
+
 
 def _status_text() -> str:
     from ceres_server_agent import enabled, ready

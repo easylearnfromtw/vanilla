@@ -91,6 +91,18 @@ def _store(update_id: int, chat_id: int, user_id: int, text: str) -> bool:
             "INSERT INTO ceres_inbox(provider,update_id,chat_id,user_id,text,created_at) VALUES(?,?,?,?,?,?)",
             ("telegram", update_id, chat_id, user_id, text, now)
         )
+        # In the opt-in Detroit bridge, enqueue the same event atomically.
+        # If this transaction fails, Telegram may retry the signed update.
+        if os.getenv("CERES_LOCAL_BRIDGE_ENABLED", "").lower() == "true":
+            from ceres_agent_bridge import setup
+            setup(db)
+            item = db.execute(
+                "SELECT id FROM ceres_inbox WHERE provider='telegram' AND update_id=?",
+                (update_id,)
+            ).fetchone()
+            db.execute(
+                "INSERT OR IGNORE INTO ceres_agent_jobs(event_id,chat_id,status,updated_at) "
+                "VALUES(?,?,'queued',?)", (item["id"],chat_id,now))
         # Seven-day retention, including the message content.
         db.execute("DELETE FROM ceres_inbox WHERE created_at < ?", (now - _RETENTION_SECONDS,))
     return True

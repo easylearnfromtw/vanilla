@@ -23,7 +23,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=gridcraft-builder /gridcraft/target/release/gridcraft-cli /usr/local/bin/gridcraft-cli
 RUN test "$(gridcraft-cli version)" = "gridcraft-cli 0.8.0"
-COPY policy.py app.py tasks.py server.py security.py auth.py moli_engine.py wordcraft_engine.py pdfcraft_engine.py pdfcraft_native.py pdfcraft_wire.py pdfcraft_remote.py orchestra_capabilities.py gridcraft_adapter.py medusa_adapter.py medusa_cloudrun_adapter.py medusa_lite.py medusa_family.py quirinus_family_actions.py ceres_gateway.py quirinus_adapter.py detroit_quirinus_dispatcher.py ceres_dialogue.py ceres_telegram_registration.py ./
+COPY policy.py app.py tasks.py server.py security.py auth.py moli_engine.py wordcraft_engine.py pdfcraft_engine.py pdfcraft_native.py pdfcraft_wire.py pdfcraft_remote.py orchestra_capabilities.py gridcraft_adapter.py medusa_adapter.py medusa_cloudrun_adapter.py medusa_lite.py medusa_family.py quirinus_family_actions.py ceres_gateway.py quirinus_adapter.py detroit_quirinus_dispatcher.py ceres_dialogue.py ceres_telegram_registration.py ceres_agent_bridge.py ceres_agent_delivery.py ./
 COPY luca.py ./
 COPY gridcraft-smoke.py ./gridcraft-smoke.py
 RUN python3 gridcraft-smoke.py && rm gridcraft-smoke.py

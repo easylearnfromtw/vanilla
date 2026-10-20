@@ -175,7 +175,7 @@ export async function exportCreamGridCraftReport(payload:import("../cream/gridcr
 
 
 /** Detroit Factory: Judge0 results are returned only after a real backend execution. */
-export type MedusaStatus={enabled:boolean;connected:boolean;language?:string;backend?:"judge0"|"cloudrun-sandbox";note:string};
+export type MedusaStatus={enabled:boolean;connected:boolean;language?:string;backend?:"judge0"|"cloudrun-sandbox"|"medusa-lite";note:string};
 export type MedusaOutput={
  engine:"medusa";backend:"judge0"|"cloudrun-sandbox";language:string;finished:boolean;accepted:boolean;
  status_id:number;status:string;stdout:string;stderr:string;compile_output:string;

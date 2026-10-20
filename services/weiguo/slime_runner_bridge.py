@@ -148,6 +148,10 @@ async def dispatch(owner: str, content: dict):
         raise HTTPException(504,"本地模型執行逾時")
     finally:
         with _session() as db:
+            # Consume response once and scrub both prompt and full answer from
+            # the persistent broker. Only non-content job status remains.
+            db.execute("UPDATE slime_runner_jobs SET result_json=NULL,request_json='{}' "
+                       "WHERE id=? AND state IN ('done','failed')",(jobid,))
             db.execute("UPDATE slime_runner_jobs SET state='expired',request_json='{}' "
                        "WHERE id=? AND state IN ('queued','leased')",(jobid,))
 

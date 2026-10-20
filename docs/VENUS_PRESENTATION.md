@@ -52,3 +52,32 @@ Venus 3.0 依自然語言自動判斷輸出種類（chooseVenusIntent），接�
 安全原則：座標／影片／圖片不得虛構，真實圖片搜尋及地理編碼需要額外合法 API／Diana 適配器；本次只增加確定性渲染與互動介面，外部內容僅於點擊後載入。
 
 驗證：執行 npm run test:chat-ui 和 npm run build、GitHub CI 與 Quirinus 安全檢查；上線版本需分別確認 main 合併、PWA 標記同步及實際部署。
+
+## Venus 3.0 — multimodal / dynamic presentation
+
+新增 schema 驗證後的原生互動元件：
+
+- **map**：最多 8 個已提供的真實座標；本機切換地點，點按才載入 OpenStreetMap 互動地圖。不執行地理編碼、不聲稱行車時間或導航結果。
+- **video**：YouTube 11 碼 ID 或 Vimeo 6–12 碼數字 ID；只允許兩種提供者的固定 HTTPS iframe，需點按才載入。Video ID 存在性不能僅靠格式驗證。
+- **math**：常用 LaTeX 字母、上下標、分數、根號、希臘字母與算子轉成本機 MathML。無支援的指令將保留原文，不執行 HTML/JavaScript，也不是完整 TeX 引擎。
+- **live**：用裝置時間更新 Asia/Taipei 或 UTC 時鐘，或帶時區的 ISO 8601 倒數。非行情／氣象／運輸的即時後端資料。
+- **gallery**：在原本的 HTTPS 圖片卡新增圖片出處連結。請求「搜尋／找 XX 照片」時，非私密模式可直接以 Wikimedia Commons 公開 API 查詢，使用 API 回傳的 upload.wikimedia.org 縮圖與 commons.wikimedia.org 原始出處頁。搜尋只傳遞使用者的查詢文字，不傳附件，不提前載入圖片位元組，並在每張圖片另需人工點按。搜尋結果可能為零，不回填虛構照片。
+- **Diana 路由**：明確的地圖、影片、數學、時鐘、圖庫需求優先由 Venus 呈現；原有 CREAM 數據驗證、Scouts 網頁引用與 Athena 隱私權限照舊。Venus 負責呈現，不取代已授權工具或直接宣稱完成外站操作。
+
+手動結構化內容範例：
+
+    三個反引號 venus
+    {"kind":"map","title":"臺北地點","points":[{"label":"臺北101","lat":25.0339,"lon":121.5645,"description":"示例座標，正式使用需核對"}]}
+    三個反引號
+
+    三個反引號 venus
+    {"kind":"math","title":"二次公式","expression":"\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}"}
+    三個反引號
+
+    三個反引號 venus
+    {"kind":"live","title":"台北時間","mode":"clock","timezone":"Asia/Taipei"}
+    三個反引號
+
+校驗：npm run test:chat-ui、npm run test:diana、npm run build，並確認 Quirinus CI、安全提示和 Safari 實際播放器／地圖服務的可用性。**第三方圖片與影片始終保留來源與手動同意條件。**
+
+仍未提供 ChatGPT 的全套媒體服務、地點搜尋／路徑規劃、全球圖片索引或任何未整合的即時外部資料。

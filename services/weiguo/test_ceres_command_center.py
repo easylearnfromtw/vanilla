@@ -115,9 +115,14 @@ class HubTests(unittest.TestCase):
                 self.assertTrue(
                     any("ceres_command_center.py" in line.split() for line in copy_lines),
                     f"{dockerfile}: Telegram /hub module must ship inside the image")
-                self.assertIn(
-                    'RUN python3 -c "import ceres_command_center"', lines,
-                    f"{dockerfile}: module import must be validated at image build time")
+                for required in ("ceres_command_center.py", "ceres_model_ops.py", "ceres_model_ops_routes.py"):
+                    self.assertTrue(any(required in line.split() for line in copy_lines),
+                                    f"{dockerfile}: missing runtime module {required}")
+                self.assertTrue(any(
+                    line.startswith('RUN python3 -c "import ') and
+                    all(name in line for name in ("ceres_command_center", "ceres_model_ops", "ceres_model_ops_routes"))
+                    for line in lines),
+                    f"{dockerfile}: all modules must import successfully at build time")
 
 if __name__ == "__main__":
     unittest.main()

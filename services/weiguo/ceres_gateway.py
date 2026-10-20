@@ -215,6 +215,14 @@ async def telegram_webhook(request: Request,
         hub_text = "/hub status"
     elif text in ("有哪些功能", "功能清單", "查看工具能力"):
         hub_text = "/hub tools"
+    if hub_text is None:
+        # Read-only natural-language GitHub lookup, not remote installation.
+        search = re.fullmatch(
+            r"(?:幫我)?(?:找|搜尋|尋找)\\s*github\\s*(?:上的|上|的)?\\s*"
+            r"(?:開源|專案|項目)?\\s*(.{2,80})",
+            text, re.I)
+        if search:
+            hub_text = "/hub github " + search.group(1).strip()
     if hub_text is not None:
         from ceres_admin_bot import owner_subject
         from ceres_command_center import command as hub_command

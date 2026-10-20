@@ -72,7 +72,7 @@ import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaRes
 import type {VictoriaRecall} from "../detroit/victoria";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 import {orchestraHandoff,canExecuteOrchestraHandoff} from "../orchestra/ai-handoff";
-import {executeOrchestraHandoff} from "../orchestra/agent-executor";
+
 import {isRetinaImageFile,readRetinaVisionImage,retinaUnavailableMessage} from "../detroit/retina-vision";
 
 // Only real implementations register callable capabilities; adapters remain catalog entries.
@@ -686,7 +686,7 @@ async function send(value=draft):Promise<void>{
      if(canExecuteOrchestraHandoff(handoff)){
       setBusy(true);
       try{
-       const filename=await executeOrchestraHandoff(handoff);
+       const filename=await executeDetroitNative<string>("orchestra",handoff,{privateMode});
        toolReply(question,"Detroit → Diana → Zeus → Orchestra 已使用上一則 AI 回答完成本機匯出："+filename+"。實際使用 Retina／瀏覽器製作器，沒有呼叫原生 Craft 或上傳。","diana");
       }catch(error){toolReply(question,"Orchestra 本機產製失敗，沒有交付檔案："+String(error instanceof Error?error.message:error),"diana");}
       finally{setBusy(false);}

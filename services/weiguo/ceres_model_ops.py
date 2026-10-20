@@ -275,7 +275,9 @@ def diagnostics():
             "note":"僅保留安全錯誤代碼；API Token、提示與回答不寫入診斷。"}
 
 
-def recommendations(provider: str):
+def recommendations(provider: str, task: str="general"):
+    if provider not in _PROVIDERS or task not in {"general","fast","coding","reasoning","budget"}:
+        raise HTTPException(422,"不支援的供應商或任務類型")
     c=catalog(provider)
     checked={x["model"]:x for x in _probe_snapshot(provider)}
     options=[]
@@ -285,11 +287,28 @@ def recommendations(provider: str):
                         "verified":bool(row and row["ok"] and int(time.time())-row["checked_at"]<86400)})
     verified=[x for x in options if x["verified"]]
     fast=min(verified,key=lambda x:x["latencyMs"])["id"] if verified else None
-    heur=c["selected"]
-    return {"provider":provider,"selected":heur,"observedFastest":fast,
-            "mode":c["mode"],"tests":options,
+    heuristic_quality=max(c["models"],key=lambda m:_rank(m,"quality"))["id"] if c["models"] else None
+    heuristic_speed=max(c["models"],key=lambda m:_rank(m,"speed"))["id"] if c["models"] else None
+    with _session() as db:
+        _setup(db)
+        price_rows=db.execute("SELECT model,input_per_m,output_per_m FROM ceres_ops_prices WHERE provider=?",
+                              (provider,)).fetchall()
+    current={m["id"] for m in c["models"]}
+    cheapest=min((x for x in price_rows if x["model"] in current),
+                 key=lambda x:(x["input_per_m"]+x["output_per_m"],x["model"]),default=None)
+    if task=="fast":
+        proposal,basis=fast or heuristic_speed,("observed_single_probe" if fast else "name_heuristic")
+    elif task in ("coding","reasoning"):
+        proposal,basis=heuristic_quality,"name_heuristic_not_evaluated"
+    elif task=="budget":
+        proposal,basis=(cheapest["model"] if cheapest else None),("owner_price_only" if cheapest else "no_verified_price")
+    else:
+        proposal,basis=c["selected"],"configured_preference"
+    return {"provider":provider,"selected":c["selected"],"task":task,
+            "taskRecommended":proposal,"recommendationBasis":basis,
+            "observedFastest":fast,"mode":c["mode"],"tests":options,
             "qualityMeasured":False,"pricingSource":"owner_configured_only",
-            "note":"速度僅比較近期各一次小型探測；品質選擇為名稱規則，不是客觀模型評測。"}
+            "note":"實測延遲為單次短測試；品質／程式能力未經評測，價格僅由 Owner 填寫，建議不會自動更改模型。"}
 
 
 def failover_status():

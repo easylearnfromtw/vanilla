@@ -8,7 +8,7 @@ const LegacyWindowsNodes=lazy(()=>import("../nodes/NodesPage"));
 type OS="windows"|"macos"|"linux";
 type Role="owner"|"friend";
 type BuildAsset={name:string;browser_download_url:string};
-const RELEASE_API="https://api.github.com/repos/easylearnfromtw/vanilla/releases/latest";
+const RELEASE_API="https://api.github.com/repos/easylearnfromtw/vanilla/releases?per_page=20";
 const RELEASES="https://github.com/easylearnfromtw/vanilla/releases";
 function detectOS():OS{
  const ua=typeof navigator==="undefined"?"":navigator.userAgent.toLowerCase();
@@ -46,8 +46,8 @@ export default function SlimePanel(){
  useEffect(()=>{
    void fetch(RELEASE_API,{headers:{Accept:"application/vnd.github+json"}}).then(async r=>{
      if(!r.ok)return;
-     const data=await r.json() as {assets?:BuildAsset[]};
-     setAssets(Array.isArray(data.assets)?data.assets:[]);
+     const data=await r.json() as Array<{assets?:BuildAsset[]}>;
+     setAssets(Array.isArray(data)?data.flatMap(release=>Array.isArray(release.assets)?release.assets:[]):[]);
    }).catch(()=>{}).finally(()=>setReleaseChecked(true));
  },[]);
  useEffect(()=>{

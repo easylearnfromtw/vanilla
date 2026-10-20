@@ -1,0 +1,24 @@
+#cloud-config
+# Provider-neutral Ubuntu 24.04 VPS preparation; NO secrets, admin keys,
+# user-supplied code, Docker privilege escalation or automatic service enable.
+# Inject your SSH public key using the VPS provider's account controls.
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - python3-venv
+  - bubblewrap
+  - apparmor
+  - apparmor-utils
+  - apparmor-profiles
+  - openssl
+  - ufw
+ssh_pwauth: false
+disable_root: true
+final_message: >
+  Vanilla VPS OS dependencies installed. Log in with SSH key, review the
+  repo at a pinned commit, then run the controlled install and preflight.
+# Firewall rules, domain DNS, TLS and worker secret must be configured
+# manually to avoid disrupting the operator's SSH access.

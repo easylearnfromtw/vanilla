@@ -1,43 +1,45 @@
-import {useState,useEffect} from "react";
-import {loadProviderConfigs,queueProviderSync,stopProviderSync} from "./provider-sync";
-import {setProvider,removeProvider,availableProviders,getConfigs,type Provider} from "./providers";
+/** Personal Google Drive backup only.
+ * Shared model API credentials are managed exclusively by Ceres on the server.
+ */
+import {useState} from "react";
 import {revokeDrive} from "./google-auth";
 import {connectWorkspaceDrive} from "../workspace/cloud-drive";
 import {chatStorageKey,unbindChatAccount} from "./chat-sync";
 import {listVaultFiles,downloadVault,uploadVaultSnapshot} from "./drive";
 import {encryptVault,decryptVault} from "./crypto";
-import {DEFAULT_GEMINI_MODEL,DEFAULT_DEEPSEEK_MODEL,GEMINI_SUGGESTIONS,DEEPSEEK_SUGGESTIONS} from "../ai/model-profiles";
 
 const SESSION_KEY="vanilla.drive.session.v1";
 type DriveSession={token:string;expiresAt:number;email:string};
-function readSession():DriveSession|null{try{const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;const v=JSON.parse(raw) as DriveSession;if(typeof v.token==="string"&&typeof v.expiresAt==="number"&&v.expiresAt>Date.now()+60000)return v;sessionStorage.removeItem(SESSION_KEY);}catch{}return null;}
-function saveSession(v:DriveSession){try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(v));}catch{}}
-function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch{}}
 type Turn={role:"user"|"assistant";content:string};
-function readLocal():Turn[]{try{const v:unknown=JSON.parse(localStorage.getItem(chatStorageKey(false))||"[]");return Array.isArray(v)?v.filter((x):x is Turn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];}catch{return [];}}
+function readSession():DriveSession|null{
+ try{
+  const raw=sessionStorage.getItem(SESSION_KEY);
+  if(!raw)return null;
+  const v=JSON.parse(raw) as DriveSession;
+  if(typeof v.token==="string"&&typeof v.expiresAt==="number"&&v.expiresAt>Date.now()+60000)return v;
+  sessionStorage.removeItem(SESSION_KEY);
+ }catch{/* Browser storage can be unavailable. */}
+ return null;
+}
+function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch{}}
+function readLocal():Turn[]{
+ try{
+  const data:unknown=JSON.parse(localStorage.getItem(chatStorageKey(false))||"[]");
+  return Array.isArray(data)?data.filter((x):x is Turn=>Boolean(x&&typeof x==="object"&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string")):[];
+ }catch{return [];}
+}
 export default function DriveConnection(){
  const [token,setToken]=useState(()=>readSession()?.token||"");
  const [email,setEmail]=useState(()=>readSession()?.email||"");
  const [secret,setSecret]=useState("");
  const [status,setStatus]=useState("尚未連線");
  const [busy,setBusy]=useState(false);
- const [provider,setSelectedProvider]=useState<Provider>("gemini");
- const [apiKey,setApiKey]=useState("");
- const [keyFeedback,setKeyFeedback]=useState("");
- const [model,setModel]=useState(DEFAULT_GEMINI_MODEL);
- const [connected,setConnected]=useState<Provider[]>(availableProviders());
- const [syncStatus,setSyncStatus]=useState("未連接 Google Drive");
- useEffect(()=>{const session=readSession();if(!session)return;let alive=true;void loadProviderConfigs(session.token).then(n=>{if(alive){setConnected(availableProviders());setSyncStatus("已從 Drive 載入 "+n+" 組 API 設定");}}).catch(e=>{if(alive)setSyncStatus("同步失敗："+String(e instanceof Error?e.message:e));});return()=>{alive=false;};},[]);
- async function persistProviders(){const session=readSession();if(!session){setSyncStatus("請先連接 Google Drive，才能跨裝置同步");return;}setSyncStatus("正在同步 API 設定…");try{await queueProviderSync(session.token);setSyncStatus("API 設定已同步到 Google Drive");}catch(e){setSyncStatus("同步失敗："+String(e instanceof Error?e.message:e));}}
  async function connect(){
   setBusy(true);
   try{
    const session=await connectWorkspaceDrive();
    setToken(session.token);setEmail(session.email);
-   const count=await loadProviderConfigs(session.token);
-   setConnected(availableProviders());
-   setSyncStatus("登入成功，Drive 已載入 "+count+" 組 API 設定");
-   setStatus("已使用 "+session.email+" 連接個人 Google Drive");
+   setStatus("已連接個人 Google Drive："+session.email);
   }catch(e){setStatus(e instanceof Error?e.message:"連線失敗");}
   finally{setBusy(false);}
  }
@@ -46,57 +48,47 @@ export default function DriveConnection(){
   setBusy(true);
   try{
    const turns=readLocal();
-   const envelope=await encryptVault("zekai",secret,{kind:"vanilla-family-chat-v1",turns,providers:getConfigs(),exportedAt:new Date().toISOString()});
+   // Deliberately NEVER serialize provider credentials or backend-managed keys.
+   const envelope=await encryptVault("zekai",secret,{kind:"vanilla-family-chat-v1",turns,exportedAt:new Date().toISOString()});
    await uploadVaultSnapshot(token,envelope);
-   setStatus("已加密備份 "+turns.length+" 則一般模式訊息到 Google Drive。私密模式不會備份。");
-  }catch(e){setStatus(e instanceof Error?e.message:"備份失敗");}finally{setBusy(false);}
+   setStatus("已加密備份 "+turns.length+" 則一般模式訊息，未包含 API Key。");
+  }catch(e){setStatus(e instanceof Error?e.message:"備份失敗");}
+  finally{setBusy(false);}
  }
  async function restore(){
   if(!token||secret.length<12)return;
   setBusy(true);
   try{
-   const files=(await listVaultFiles(token)).filter(x=>x.name.startsWith("vanilla-v1-zekai.encrypted.json.")).sort((a,b)=>(b.modifiedTime||"").localeCompare(a.modifiedTime||""));
-   if(!files.length)throw new Error("Google Drive 找不到家庭備份");
-   const data=await decryptVault<{kind:string;turns:Turn[];providers?:Array<{provider:Provider;key:string;model:string}>}>("zekai",secret,await downloadVault(token,files[0].id));
-   if(data.kind!=="vanilla-family-chat-v1"||!Array.isArray(data.turns))throw new Error("備份資料格式不符");
-   const incoming=data.turns.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string");
-   if(!window.confirm("即將以 Google Drive 備份取代本機一般對話（"+readLocal().length+" 則）。私密對話不受影響。確定繼續？"))return;
-   localStorage.setItem(chatStorageKey(false),JSON.stringify(incoming));
-   for(const config of data.providers||[]){if((config.provider==="gemini"||config.provider==="deepseek")&&typeof config.key==="string"&&typeof config.model==="string")setProvider(config);}
-   setConnected(availableProviders());
-   await persistProviders();
-   setStatus("已還原 "+incoming.length+" 則一般模式訊息。請重新整理頁面查看。");
-  }catch(e){setStatus(e instanceof Error?e.message:"還原失敗，請確認加密密語");}finally{setBusy(false);}
+   const files=(await listVaultFiles(token)).filter(x=>x.name.startsWith("vanilla-v1-zekai.encrypted.json."))
+    .sort((a,b)=>(b.modifiedTime||"").localeCompare(a.modifiedTime||""));
+   if(!files.length)throw Error("找不到對話備份");
+   const data=await decryptVault<{kind:string;turns:Turn[]}>("zekai",secret,await downloadVault(token,files[0].id));
+   if(data.kind!=="vanilla-family-chat-v1"||!Array.isArray(data.turns))throw Error("備份格式不正確");
+   const turns=data.turns.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string");
+   if(!window.confirm("以備份覆蓋本裝置 "+readLocal().length+" 則一般模式對話？私密模式不受影響。"))return;
+   localStorage.setItem(chatStorageKey(false),JSON.stringify(turns));
+   // Ignore legacy provider objects in previous backups to avoid reinjecting keys.
+   setStatus("已還原 "+turns.length+" 則對話，未還原舊版 API Key。");
+  }catch(e){setStatus(e instanceof Error?e.message:"還原失敗");}
+  finally{setBusy(false);}
  }
  return <div style={{marginTop:24,padding:20,border:"1px solid #d1d5db",borderRadius:14}}>
-  <h3 id="vanilla-model-settings">AI 模型與 API 管理</h3>
-  <p style={{fontSize:12}}>Gemini / DeepSeek · 設定版本 2026.10.18</p>
-  <p>登入相同 Google 帳號後，會自動讀取 Gemini／DeepSeek API 設定。新增或移除模型後會自動寫入 Google Drive 應用程式資料夾，無須另設密語。</p>
-  <p role="alert" style={{fontSize:13,color:"#a33"}}><strong>安全提醒：</strong>方案 A 不使用端對端加密。API Key 會以可讀 JSON 儲存在 Google Drive 私有 appDataFolder，擁有該 Google 帳號及本應用程式適當授權的存取者可能取得金鑰；裝置執行時金鑰也會存在記憶體中。請只使用可限制額度、可隨時撤銷的金鑰，避免在共用裝置登入。</p>
-  <label>供應商 <select value={provider} onChange={e=>{const p=e.target.value as Provider;setSelectedProvider(p);setModel(p==="gemini"?DEFAULT_GEMINI_MODEL:DEFAULT_DEEPSEEK_MODEL);setApiKey("");setKeyFeedback("");}}><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option></select></label>
-  <label style={{display:"block",marginTop:10}}>模型名稱 <input value={model} list={"vanilla-model-suggestions-"+provider} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={e=>setModel(e.target.value)}/></label>
-  <datalist id={"vanilla-model-suggestions-"+provider}>{(provider==="gemini"?GEMINI_SUGGESTIONS:DEEPSEEK_SUGGESTIONS).map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</datalist>
-  <div className="model-suggestions">{(provider==="gemini"?GEMINI_SUGGESTIONS:DEEPSEEK_SUGGESTIONS).slice(0,3).map(x=><button key={x.id} type="button" aria-pressed={model===x.id} onClick={()=>setModel(x.id)}>{x.label}</button>)}</div>
-  <small style={{display:"block",color:"#6b6b6b"}}>2026 年 10 月建議：Gemini 3.8 Flash（品質）或 3.5 Flash-Lite（快速）；DeepSeek Flash。已設定的舊模型（如 gemini-2.5-flash）仍會照用，但 Google 只開放給近期使用過的帳號。</small>
-  <label style={{display:"block",marginTop:10}}>API Key <input type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={apiKey} onChange={e=>{setApiKey(e.target.value);setKeyFeedback(e.target.value.trim()?"已接收 "+e.target.value.trim().length+" 個字元，請按「加入模型」完成設定。":"");}} placeholder="在此貼上 API Key" style={{display:"block",width:"100%",maxWidth:440,minHeight:44,fontSize:16,padding:"10px 12px",border:"1px solid #cbd5e1",borderRadius:9}}/></label>
-  <p role="status" aria-live="polite" style={{fontSize:13,margin:"7px 0",color:"#256347"}}>{keyFeedback||"貼上後會顯示接收字數；只有按「加入模型」才會儲存設定。請勿截圖或分享金鑰。"}</p>
-  <div style={{display:"flex",gap:10,marginTop:10}}><button type="button" disabled={!apiKey.trim()||!model.trim()} onClick={()=>{setProvider({provider,key:apiKey.trim(),model:model.trim()});setConnected(availableProviders());setKeyFeedback("已加入 "+provider+"（金鑰已接收；尚未驗證 API 可用性）。");setStatus("已加入 "+provider+"，聊天時可自動路由。尚未驗證金鑰是否有效。");void persistProviders();}}>加入模型</button><button type="button" onClick={()=>{removeProvider(provider);setConnected(availableProviders());setKeyFeedback("已移除 "+provider+"。");void persistProviders();}}>移除模型</button></div>
-  <p>目前已連接：{connected.length?connected.join("、"):"尚無"}</p>
-  <p role="status" aria-live="polite">{syncStatus}</p>
-  <small>這是直接從瀏覽器呼叫供應商 API 的初版，金鑰會在呼叫時傳送至該供應商，且無後端金鑰代理。不要在不信任的裝置使用；雲端模型可能產生費用。</small>
-  <h3>家庭 Google Drive 保險庫</h3>
-  <p>Google 授權在目前分頁工作階段內保留，重新整理無須再次登入；授權到期、關閉分頁或 Safari 清除工作階段後仍需重新授權。</p>
-  <p>家庭成員請各自連接自己的 Google 帳號；同一帳號只能看到自己的 appDataFolder。家庭共享資料仍需另行授權，私密模式紀錄不會上傳。</p>
-  <p>API Key 設定採獨立 Drive 自動同步（不加密）；一般聊天仍採手動端對端加密快照備份，私密模式不會上傳。對話自動同步、衝突合併與長期記憶尚未完成。</p>
-  {email&&<p>Google 帳號：{email}</p>}
-  <button type="button" disabled={busy} onClick={()=>{if(token){stopProviderSync();removeProvider("gemini");removeProvider("deepseek");setConnected([]);revokeDrive(token);clearSession();unbindChatAccount();window.dispatchEvent(new Event("vanilla-drive-disconnected"));setSyncStatus("已中斷 Google Drive 同步");setToken("");setEmail("");setStatus("已中斷連線");}else void connect();}}>{token?"中斷連線":"連接 Google Drive"}</button>
-  <label style={{display:"block",marginTop:16}}>家庭加密密語（至少 12 字元）</label>
-  <input type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="每台裝置輸入相同密語" style={{width:"100%",maxWidth:320,padding:10}}/>
+  <h3>Google Drive · 帳號與備份</h3>
+  <p>Google Drive 僅用於個人檔案及加密對話備份。共用 Gemini、Canva 等 API 由 Telegram Ceres 管理中心安全配置，不在網站輸入或同步憑證。</p>
+  {email&&<p>目前帳號：{email}</p>}
+  <button type="button" disabled={busy} onClick={()=>{if(token){
+   revokeDrive(token);clearSession();unbindChatAccount();
+   window.dispatchEvent(new Event("vanilla-drive-disconnected"));
+   setToken("");setEmail("");setStatus("已中斷 Google Drive 連線");
+  }else void connect();}}>{token?"中斷 Google Drive":"連接 Google Drive"}</button>
+  <label style={{display:"block",marginTop:16}}>對話備份加密密語（至少 12 字元）</label>
+  <input type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)}
+   placeholder="此密語不會同步" style={{width:"100%",maxWidth:320,padding:10}}/>
   <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>
-   <button type="button" disabled={!token||secret.length<12||busy} onClick={()=>void backup()}>加密備份至 Drive</button>
-   <button type="button" disabled={!token||secret.length<12||busy} onClick={()=>void restore()}>從 Drive 還原</button>
+   <button type="button" disabled={!token||secret.length<12||busy} onClick={()=>void backup()}>加密備份</button>
+   <button type="button" disabled={!token||secret.length<12||busy} onClick={()=>void restore()}>還原對話</button>
   </div>
   <p role="status">{busy?"處理中…":status}</p>
-  <small>密語不會傳送到 Google 或儲存在瀏覽器。忘記密語將無法解密備份。備份採快照方式，還原會取代一般對話；請勿在不同裝置交替備份，以免覆蓋新內容。</small>
+  <small>已存在 Google Drive 的舊版明文 API 設定不會因本次更新自動刪除；管理員應自行撤銷舊金鑰並清理舊備份。</small>
  </div>;
 }

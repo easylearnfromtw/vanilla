@@ -7,6 +7,7 @@ Feature disabled by default until the owner provisions a trusted runtime.
 """
 from __future__ import annotations
 
+import calendar
 import hashlib
 import hmac
 import json
@@ -140,8 +141,7 @@ def _key_from_header(authorization: str|None):
 
 def _allowed(key,actual_model,requested):
     allowed=json.loads(key["models_json"])
-    return ("*" in allowed or requested in allowed or actual_model in allowed
-            and requested==_DEFAULT_ALIAS and _DEFAULT_ALIAS in allowed)
+    return "*" in allowed or requested in allowed
 
 
 def _reserve(key,model:str,budget:int,*,kind:str="inference"):
@@ -149,7 +149,7 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
     and max two active requests across processes, even under concurrent load."""
     now=int(time.time())
     d0=now-now%86400
-    m0=time.mktime(time.strptime(time.strftime("%Y-%m-01",time.gmtime(now)),"%Y-%m-%d"))
+    m0=calendar.timegm(time.strptime(time.strftime("%Y-%m-01",time.gmtime(now)),"%Y-%m-%d"))
     request_id=secrets.token_hex(12)
     with _session() as db:
         _db_tables(db)
@@ -224,6 +224,8 @@ async def models(authorization: str|None=Header(default=None)):
 async def chat(body:Completion,authorization: str|None=Header(default=None)):
     key=_key_from_header(authorization)
     available,primary,_=await _fetch_catalog()
+    if body.stream:
+        raise HTTPException(422,"目前僅支援 stream=false；串流支援完成前不會假裝回傳 SSE")
     requested=body.model
     actual=primary if requested==_DEFAULT_ALIAS else requested
     if actual not in available or not _allowed(key,actual,requested):

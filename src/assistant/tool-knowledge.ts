@@ -81,12 +81,18 @@ export function toolKnowledgeAnswer(question:string):string{
 export function toolKnowledgeGuidance(question:string):string{
  const q=question.trim();
  if(!q||q.length>2200||QUOTED.test(q))return "";
- const named=referencedTools(q).slice(0,4);
+ const overview=toolKnowledgeIntent(q)?.scope==="overview"||
+  /(?:Detroit|底特律|Vanilla|我的|我有|我還有|我們的|其他).{0,20}(?:工具|模組|引擎|架構|能力)/i.test(q)||
+  /(?:所有|全部|各個|整個).{0,12}(?:工具|模組|引擎)/.test(q);
+ const named=overview?[...DETROIT_CAPABILITIES]:referencedTools(q).slice(0,5);
  if(!named.length&&/(?:Detroit|底特律)/i.test(q))named.push(...DETROIT_CAPABILITIES.filter(c=>["merlin","diana","zeus","athena"].includes(c.id)));
- const others=OTHER_TOOLS.filter(x=>[x.label,...x.aliases].some(n=>matchesName(q,n))).slice(0,3);
+ const others=overview?[...OTHER_TOOLS]:OTHER_TOOLS.filter(x=>[x.label,...x.aliases].some(n=>matchesName(q,n))).slice(0,4);
  if(!named.length&&!others.length&&!weiguoMention(q))return "";
- return "\n[Vanilla 程式自身的工具登錄資訊（不是即時網頁）]\n"+named.map(oneTool).join("\n")+
+ return "\n[Vanilla 應用程式可信任的內部工具登錄資料｜非外部搜尋結果]\n"+
+  "Detroit 是單一 AI 使用的能力與執行架構，內部角色不是獨立雲端模型。\n"+
+  named.map(oneTool).join("\n")+
   (others.length?"\n"+others.map(x=>otherDescription(x.id)).join("\n"):"")+
-  (weiguoMention(q)?"\n"+weiGuoDescription():"")+
-  "\n回答工具問題時應根據上述功能與限制，而不是說不知道此工具；尚未有實際執行回執時，不可聲稱已完成操作。登錄狀態不等於後端部署；沒有獨立按鈕不代表工具不存在。\n";
+  (overview||weiguoMention(q)?"\n"+weiGuoDescription():"")+
+  "\n"+NOTE+
+  "\n只就這份登錄資料說明已知功能。狀態是目前此裝置的登錄／執行器狀態，不是遠端後端的健康檢查；缺乏實際執行回執，不得聲稱已部署、已連線、已執行或已完成操作。可解釋工具如何協作，但不得捏造不存在的能力、權限、資料或結果。\n";
 }

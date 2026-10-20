@@ -36,3 +36,4 @@ export default function NodeFabricPanel(){
    <p>目前 Slime 提供安全註冊與狀態回報，**沒有**真正的 30B 模型切分或遠端 GPU 派工。後續需要節點執行器及效能驗證。</p>
   </div>
  </section>;
+}

@@ -6,7 +6,8 @@ import {mergeInEphemeralVM,startupPreflight,validPdf,MAX_INPUT,MAX_OUTPUT} from 
 
 const SECRET=process.env.WEIGUO_PDFCRAFT_WORKER_SECRET||"";
 const ENABLED=process.env.PDFCRAFT_VM_RUNNER_ENABLED==="true";
-const credential=process.env.RAILWAY_TOKEN||process.env.RAILWAY_API_TOKEN;
+// The Railway Sandbox SDK only reads RAILWAY_API_TOKEN by default.
+const credential=process.env.RAILWAY_API_TOKEN;
 const configured=ENABLED && /^[0-9a-f]{64}$/i.test(SECRET) &&
   Boolean(credential && process.env.RAILWAY_ENVIRONMENT_ID);
 const MAX_BODY=8_500_000;

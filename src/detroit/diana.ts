@@ -20,7 +20,7 @@ const LABELS:Record<DianaTarget,string>={
  gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs",luca:"LUCA",quirinus:"Quirinus",
  "er-ya":"爾雅 Erya",weiguo:"衞國系統",venus:"Venus",veritas:"Veritas",mnemosyne:"Mnemosyne",hermes:"Hermes",chronos:"Chronos",dionysus:"Dionysus","holy-roman-empire":"Holy Roman Empire"
 };
-const DISABLED=new Set<DianaTarget>(["gridcraft","moli","persistent-jobs","quirinus","chronos"]);
+const DISABLED=new Set<DianaTarget>(["gridcraft","moli","persistent-jobs","chronos"]);
 export type DianaContext={privateMode:boolean;hasCreamResult:boolean;online?:boolean;hasModel?:boolean};
 export function parseDianaInvocation(message:string):{request:string;forcedTool:DianaTarget|null}|null{
  const raw=message.trim();
@@ -89,6 +89,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  if(DISABLED.has(tool))return report(tool,LABELS[tool]+" 未確認已部署並啟用執行後端；Diana 不能代替管理員安裝或執行。","適配器未就緒");
  if(ctx.privateMode&&tool==="scouts")return report(tool,"私密模式禁止網路存取。Diana 不會自行切換模式。","隱私限制");
  if(ctx.online===false&&tool==="scouts")return report(tool,"目前裝置離線，Scouts 無法執行網頁搜尋或閱讀。","工具不可用");
+ if(ctx.privateMode&&tool==="quirinus")return report(tool,"私密模式禁止 Quirinus 遠端掃描派工。","隱私限制");
  if(ctx.privateMode&&tool==="medusa")return report(tool,"私密模式禁止向 Judge0 後端傳送程式碼。","隱私限制");
  if(ctx.privateMode&&tool==="jensen-huang")return report(tool,"私密模式不會將工作內容轉交 GitHub 程式工作台。","隱私限制");
  if(["zeus","athena","venus","veritas","mnemosyne","hermes","dionysus","holy-roman-empire"].includes(tool))return report(tool,LABELS[tool]+" 是內部協作或治理角色，不能繞過原本的資料與權限流程直接啟動。","內部工具");
@@ -100,7 +101,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
  }
  if(tool==="janus")return choose({kind:"open",event:"vanilla-open-email"});
  if(tool==="ceres")return choose({kind:"open",event:"vanilla-open-detroit",tab:"ceres"});
- if(tool==="medusa"||tool==="luca")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
+ if(tool==="medusa"||tool==="luca"||tool==="quirinus")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
  if(tool==="luna")return choose({kind:"open",event:"vanilla-open-luna"});
  if(tool==="retina"||tool==="bard")return choose({kind:"open",event:"vanilla-open-detroit",tab:tool});
  if(tool==="orchestra")return choose({kind:"open",event:"vanilla-open-orchestra"});

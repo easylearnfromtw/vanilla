@@ -200,6 +200,33 @@ export async function runMedusa(source_code:string,stdin:string,approved:boolean
  return request<MedusaOutput>("/v1/family/medusa/run",{source_code,stdin,approved:true},true);
 }
 
+// Quirinus: only the server holds the narrowly scoped GitHub Actions secret.
+export type QuirinusFamilyStatus={enabled:boolean;note:string;scope?:string;runner?:string;workflow?:string;autoPatch?:boolean};
+export type QuirinusFamilyPlan={status:"awaiting-explicit-approval";approvalToken:string;expiresIn:number;repo:string;ref:"main";scope:string;execution:string;networkScanning:false;exploitation:false;autoPatch:false};
+export type QuirinusFamilyRun={status:string;requestId:string;conclusion:string|null;url:string|null;runId:number|null;note?:string};
+export async function getQuirinusFamilyStatus():Promise<QuirinusFamilyStatus>{
+ const owner=weiGuoIdentity();
+ if(!owner||owner.role!=="owner"||currentChatMode()==="private")throw Error("Quirinus 需要非私密模式及家庭管理者登入");
+ return request<QuirinusFamilyStatus>("/v1/family/quirinus/status",undefined,true);
+}
+export async function prepareQuirinusFamilyScan():Promise<QuirinusFamilyPlan>{
+ const owner=weiGuoIdentity();
+ if(!owner||owner.role!=="owner"||currentChatMode()==="private")throw Error("只有家庭管理者可以提出 Quirinus 遠端派工");
+ return request<QuirinusFamilyPlan>("/v1/family/quirinus/prepare",{},true);
+}
+export async function executeQuirinusFamilyScan(approval_token:string,approved:boolean):Promise<QuirinusFamilyRun>{
+ const owner=weiGuoIdentity();
+ if(!owner||owner.role!=="owner"||currentChatMode()==="private"||!approved||!/^[-A-Za-z0-9_]{32,128}$/.test(approval_token))
+  throw Error("Quirinus 缺少安全的使用者核准");
+ return request<QuirinusFamilyRun>("/v1/family/quirinus/execute",{approval_token,approved:true},true);
+}
+export async function getQuirinusFamilyRun(requestId:string):Promise<QuirinusFamilyRun>{
+ const owner=weiGuoIdentity();
+ if(!owner||owner.role!=="owner"||currentChatMode()==="private"||!/^[a-f0-9]{24}$/.test(requestId))
+  throw Error("Quirinus 沒有可查詢的合法任務");
+ return request<QuirinusFamilyRun>("/v1/family/quirinus/runs/"+encodeURIComponent(requestId),undefined,true);
+}
+
 // LUCA owner-only monitoring snapshot from WeiGuo backend.
 export type LucaSnapshot={
  enabled:boolean;scope:"backend-only";count:number;failures:number;

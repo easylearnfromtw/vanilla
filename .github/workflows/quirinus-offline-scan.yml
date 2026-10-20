@@ -1,6 +1,12 @@
 name: Quirinus Offline Source Scan
+run-name: Quirinus approved ${{ inputs.request_id || 'manual' }}
 on:
   workflow_dispatch:
+    inputs:
+      request_id:
+        description: "Opaque approval correlation ID; do not enter secrets"
+        required: false
+        type: string
   push:
     branches: [main]
     paths:

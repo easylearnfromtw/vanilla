@@ -156,4 +156,18 @@ async def generate_reply(
     final = text.strip()[:1200]
     if "\x00" in final:
         raise ModelUnavailable("provider-invalid")
+    # Aggregate usage only. Never persist prompts, answers or credentials.
+    try:
+        from ceres_model_ops import record_usage
+        provider=("gemini" if "generativelanguage.googleapis.com" in settings.base
+                  else "deepseek" if "api.deepseek.com" in settings.base
+                  else "openai" if "api.openai.com" in settings.base else None)
+        usage=data.get("usage") if isinstance(data,dict) else None
+        usage=usage if isinstance(usage,dict) else {}
+        if provider:
+            record_usage(provider,settings.model,"telegram_reply",
+                         usage.get("prompt_tokens"),usage.get("completion_tokens"))
+    except (Exception,):
+        # Telemetry failures must not block successful Telegram answers.
+        pass
     return final

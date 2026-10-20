@@ -48,6 +48,9 @@ def _setup(db):
     db.execute("""CREATE TABLE IF NOT EXISTS ceres_ops_pending(
       token TEXT PRIMARY KEY, actor INTEGER NOT NULL, operation TEXT NOT NULL,
       provider TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS ceres_ops_telegram_checks(
+      id INTEGER PRIMARY KEY, checked_at INTEGER NOT NULL,
+      accepted INTEGER NOT NULL)""")
 
 
 def _validated(provider, model):
@@ -216,6 +219,22 @@ async def compare(provider: str, first: str, second: str, actor: int) -> dict:
             "note":"同一固定短提示的兩次單次測試；不判定回答品質，延遲並非基準測試。"}
 
 
+async def telegram_check(actor: int) -> dict:
+    """Explicit check: Telegram Bot API acceptance, not proof of phone delivery."""
+    _limit(actor,"telegram_check",3,300)
+    from ceres_admin_bot import _telegram
+    ok=await _telegram("sendMessage",{"chat_id":actor,"text":
+        "Ceres · 回覆測試\n這則訊息代表 Telegram Bot API 已接受本次發送。"})
+    with _session() as db:
+        _setup(db)
+        db.execute("INSERT INTO ceres_ops_telegram_checks(checked_at,accepted) VALUES(?,?)",
+                   (int(time.time()),int(ok is True)))
+        db.execute("DELETE FROM ceres_ops_telegram_checks WHERE checked_at<?",
+                   (int(time.time())-14*86400,))
+    return {"apiAccepted":ok is True,"checkedAt":int(time.time()),
+            "note":"僅證明 Telegram API 已確認發送；不能證明裝置通知或使用者已讀。"}
+
+
 def dashboard():
     from ceres_server_agent import enabled,ready
     from ceres_server_model import model_settings
@@ -232,10 +251,13 @@ def dashboard():
                             (now-86400,)).fetchone()[0]
         except Exception:
             inbound=delivered=None; lost=None
+        latest=db.execute("SELECT checked_at,accepted FROM ceres_ops_telegram_checks "
+                          "ORDER BY checked_at DESC LIMIT 1").fetchone()
+        last_ping={"at":latest["checked_at"],"apiAccepted":bool(latest["accepted"])} if latest else None
     return {
         "telegram":{"webhookConfigured":_enabled() and bool(os.getenv("CERES_TELEGRAM_WEBHOOK_SECRET")),
                     "lastInboundAt":inbound,"lastVerifiedReplyAt":delivered,
-                    "liveEndToEndNow":"not_tested"},
+                    "lastTelegramSendCheck":last_ping,"liveEndToEndNow":"not_tested"},
         "agent":{"enabled":enabled(),"ready":ready(),"modelConfigured":model_settings() is not None,
                  "last24hFailedJobs":lost},
         "providers":provider_status(),"probes":_probe_snapshot(),

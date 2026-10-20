@@ -9,7 +9,7 @@ export type FactRisk="none"|"stable"|"fresh"|"official";
 export type FactRequest={risk:FactRisk;needsLiveSources:boolean;restrictTinyModel:boolean;reason:string};
 export type FactEvidence={status:"official"|"index"|"missing";pages:IndexedPage[];reason:string};
 
-const EXAMS=/(?:學測|學科能力測驗|分科測驗|統測|四技二專|國中(?:教育)?會考)/i;
+const EXAMS=/(?:學測|學科能力測驗|分科測驗|統測|四技二專|(?:國中(?:教育)?)?會考)/i;
 const EXAM_DATE=/(?:日期|時間|考期|考程|時程|日程|哪天|哪一天|何時|什麼時候|幾月|幾號|何日|開始|舉行|開考|考幾天|考試時間)/;
 const FACT_REQUEST=/(?:什麼是|是什麼|是誰|誰是|幾月|幾號|何時|幾點|多少|哪一年|哪一天|哪天|何日|哪裡|何處|在哪|何時|為何|為什麼|日期|時間|時程|幾%|幾趴|費用|價格|排名|利率|股價|考試|公告|招生|資格|規定|法律|法規|比較|介紹|解釋|查詢|查一下|有沒有|有哪些|告訴我|請問|多久|最新|目前|今天|今年|明年|近期|最近)/i;
 const LIVE_WORDS=/(?:今天|今日|現在|目前|最新|最近|近期|本週|本月|今年|明年|本季|現行|即時|最新消息|時事|202[5-9]\s*年)/;

@@ -3,7 +3,7 @@ import {Search,Plus,Trash2,ExternalLink,BookOpen} from "lucide-react";
 import {getSources,setSources,addSource,searchLinks,type PreferredSource} from "./source-preferences";
 import {getSearchBridge,setSearchBridge,getWebReaderToken,setWebReaderToken,fetchSearchBridge} from "./search-bridge";
 import {getScoutsRegion,setScoutsRegion} from "./scouts-region";
-import {googleGroundingAvailable} from "./google-grounding";
+import {googleGroundingAvailable,googleGroundingQuotaMessage} from "./google-grounding";
 export default function SourceSettings(){
  const [sources,setList]=useState<PreferredSource[]>(getSources);
  const [domain,setDomain]=useState(""),[label,setLabel]=useState("");
@@ -22,15 +22,16 @@ export default function SourceSettings(){
   <header><BookOpen size={20}/><div><h3>偏好網站與搜尋權重</h3><p>設定常用的資料來源，讓 Vanilla 在需要搜尋時優先顯示指定網站的查詢入口。</p></div></header>
   <div className="source-add" style={{display:"grid",gap:8,marginTop:12}}>
    <strong>Scouts · Google 搜尋與地區來源</strong>
-   <p>有連接 Gemini 時，Scouts 會優先使用官方 Google Search Grounding，取得最多 3 個主要引用來源，再尋找 1 個地區相關來源。每個連結會嘗試讀取正文；只能取得 Google 引用的項目會如實標示。使用前會先詢問同意 Google API 可能產生的用量費用。</p>
+   <p>有可用 Gemini 額度時，Scouts 優先使用官方 Google Search Grounding，取得最多 3 個主要來源及 1 個地區相關來源。若 Google 回傳 HTTP 429，將在短期內停止重試，改查已授權的其他搜尋來源；Google API 配額限制不能靠程式強制解除。網站正文只有實際讀到才標成全文。</p>
    <label>預設搜尋地區（國家／地區，不需要精確定位）
     <input aria-label="Scouts 預設地區" type="text" value={region} maxLength={40} onChange={e=>setRegion(e.target.value)} placeholder="台灣"/>
    </label>
    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
     <button type="button" onClick={()=>{try{setScoutsRegion(region);setStatus("Scouts 地區已設定為："+getScoutsRegion());}catch(e){setStatus(String(e));}}}>保存預設地區</button>
-    <small>{googleGroundingAvailable()?"已連接 Gemini，可呼叫 Google Search Grounding":"尚未連接 Gemini：仍可使用其他已連接的網路搜尋來源"}</small>
+    <small>{googleGroundingQuotaMessage()|| (googleGroundingAvailable()?"Gemini 已連接，但是否有 Google 搜尋額度仍以實際 API 回應為準":"尚未連接 Gemini：可使用其他已連接的網路搜尋來源")}</small>
    </div>
   </div>
+  <p>若出現 HTTP 429，請開啟 <a href="https://aistudio.google.com/usage" target="_blank" rel="noreferrer">Google AI Studio 使用量與限制</a> 查看目前模型配額。若你希望在 Google 配額用完時仍能搜尋一般網站，需要設定另一個獨立且合法的搜尋服務；免費的 Wikipedia／Crossref 不等同全網搜尋。</p>
   <div className="source-list">{sources.map(source=><div key={source.host}>
    <label className="source-enabled"><input type="checkbox" checked={source.enabled} onChange={e=>update(sources.map(x=>x.host===source.host?{...x,enabled:e.target.checked}:x))}/><span><strong>{source.label}</strong><small>{source.host}</small></span></label>
    <label className="source-weight"><span>權重</span><select value={source.weight} aria-label={source.label+" 的搜尋權重"} onChange={e=>update(sources.map(x=>x.host===source.host?{...x,weight:Number(e.target.value)}:x))}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
@@ -40,7 +41,7 @@ export default function SourceSettings(){
   <div className="source-test"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="試搜尋：例如糖尿病診療指引"/></label>{query.trim()&&<div>{searchLinks(query).map(item=><a key={item.url} href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/>{item.label}</a>)}</div>}</div>
   <div className="source-add" style={{display:"grid",gap:8,marginTop:12}}>
    <strong>進階：其他搜尋後端（備援，選用）</strong>
-   <p>已連接 Gemini 的情況不需要另外設置搜尋 Worker。只有希望使用自行管理的 Brave／其他搜尋後端或代理抓取正文時才需填此欄，格式為 <code>https://你的網域/search</code>，另提供配對的 <code>/read</code>。API 金鑰應由後端保存。</p>
+   <p>Google 有可用搜尋配額時，不需要另外設置 Worker。若要在 HTTP 429 時繼續一般網站搜尋，可用獨立的 Brave 等供應商在你的 HTTPS 後端提供 <code>/search</code> 和 <code>/read</code>。API 金鑰只能留在後端。沒有已部署且有權限的後端時，系統不會假稱成功搜尋。</p>
    <input aria-label="HTTPS 搜尋後端網址" type="url" value={bridge} placeholder="https://your-search.example/search" onChange={e=>setBridge(e.target.value)} />
    <label>後端存取權杖（僅本次分頁保存）
     <input type="password" autoComplete="off" placeholder={getWebReaderToken()?"已設定（留白不更動）":"與 Worker 的 WEB_READER_TOKEN 一致"} value={readerToken} onChange={e=>setReaderToken(e.target.value)}/>

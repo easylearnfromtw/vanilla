@@ -10,6 +10,10 @@ LUCA = **Local Unified Context & Analytics**。以 Pydantic Logfire SDK 作為�
 - `GET /v1/family/luca/summary` 使用現有短期 Google 家庭身分工作階段，**僅 owner** 可讀；設定 `Cache-Control: private, no-store`。
 - Detroit Studio 的「LUCA 監控」顯示真實後端統計、CREAM 可分析的 14 日日趨勢、診斷提示。私人模式不連線，未啟用時明確標示狀態。
 
+## 手機端異常監控（獨立擴充）
+
+手機端可由 [LUCA 手機端錯誤紀錄](LUCA_CLIENT_DIAGNOSTICS.md) 獨立開啟：無需部署或啟用後端 LUCA，依帳戶在瀏覽器留存經白名單限制的分類異常，供人工診斷、手動匯出／清除。不會把原始錯誤內容送往後端，也不能宣稱能觀測所有 Detroit 子系統。
+
 ## 設定方式
 
 ```env
@@ -33,7 +37,7 @@ LUCA_DB=/data/luca.sqlite3
 
 ## 範圍與局限
 
-- 本版僅監控 FastAPI 衞國服務的既有路由和 browser background jobs。**不會**因為列入 Detroit 模組清單，就自動觀察 iPhone 本地模型、CREAM 前端計算、Medusa 沙盒、Cloudflare Worker 或其他獨立部署的 Agent。
+- 後端 LUCA 只監控 FastAPI 衞國服務的既有路由與 browser background jobs。手機端獨立紀錄僅接線已列出的 UI / 模型 / 檔案 / CREAM 異常邊界；**不會**因為列入 Detroit 模組清單就觀察 Medusa 沙盒、Cloudflare Worker 或其他獨立部署 Agent。
 - 目前還沒有跨服務分散式 Trace ID、長期 p95 存檔、Token 成本與模型效能資料（後端沒有收到這些資料，不能假造）。
 - 即時計數與 p95 限最近 300 筆，後端重啟會清空；SQLite 僅存日彙總，無法還原請求個資或任務內容。
 - UI 的診斷為簡單閾值判定；高錯誤率可能包含 401/403 使用者權限拒絕，不能自動推論模型故障。

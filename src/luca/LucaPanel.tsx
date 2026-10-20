@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {RefreshCw,ShieldCheck,Activity} from 'lucide-react';
 import {currentChatMode} from '../local-ai/chat-session';
+import {CLIENT_FAULT_EVENT,readClientFaults,downloadClientFaults,clearClientFaults} from './client-diagnostics';
 import {weiGuoApiBase,weiGuoIdentity,getWeiGuoLucaSummary,type LucaSnapshot} from '../weiguo/api';
 import './luca.css';
 
@@ -8,6 +9,11 @@ export default function LucaPanel(){
  const [report,setReport]=useState<LucaSnapshot|null>(null);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
+ const [localEvents,setLocalEvents]=useState(()=>readClientFaults());
+ useEffect(()=>{const refreshLocal=()=>setLocalEvents(readClientFaults());
+  window.addEventListener(CLIENT_FAULT_EVENT,refreshLocal);window.addEventListener('storage',refreshLocal);
+  return()=>{window.removeEventListener(CLIENT_FAULT_EVENT,refreshLocal);window.removeEventListener('storage',refreshLocal);};
+ },[]);
  const connected=Boolean(weiGuoApiBase()&&weiGuoIdentity()?.role==='owner');
  const privateMode=currentChatMode()==='private';
  async function refresh(){
@@ -24,7 +30,21 @@ export default function LucaPanel(){
   <div className="luca-heading"><div><h2>LUCA <small>/ SYSTEM OBSERVABILITY</small></h2>
    <p>Detroit 後端的錯誤率、耗時與執行軌跡摘要，提供 CREAM 可分析的結構化資料。</p></div>
    <button type="button" onClick={()=>void refresh()} disabled={busy||privateMode||!connected}><RefreshCw size={16}/>{busy?'讀取中':'重新整理'}</button></div>
-  <p className="luca-privacy"><ShieldCheck size={17}/>只記錄後端事件的固定名稱、狀態與耗時；不讀取對話內容、登入資訊或原始網址。</p>
+  <p className="luca-privacy"><ShieldCheck size={17}/>後端事件與手機端異常分開儲存；僅保存固定錯誤類別，不記錄對話、原始錯誤訊息、帳號資訊或網址，也不自動上傳。</p>
+  <section className="luca-local" aria-label="本機異常紀錄">
+   <div className="luca-local-heading"><h3>本機異常 · 手機與瀏覽器</h3><div className="luca-local-actions">
+    <button type="button" onClick={()=>setLocalEvents(readClientFaults())} disabled={privateMode}>重新整理</button>
+    <button type="button" onClick={()=>downloadClientFaults()} disabled={privateMode||!localEvents.length}>匯出 JSON</button>
+    <button type="button" onClick={()=>{if(window.confirm("確定刪除目前帳號在這台裝置的 LUCA 異常紀錄？")){clearClientFaults();setLocalEvents(readClientFaults());}}} disabled={privateMode||!localEvents.length}>清除紀錄</button>
+   </div></div>
+   {privateMode?<p>私人模式不記錄、讀取或匯出本機異常。</p>:<>
+    <p>最近 {localEvents.length} 筆 · 每個帳號獨立保留最多 120 筆／30 天；未登入時僅暫存在目前分頁。</p>
+    {localEvents.length?<div className="luca-table-wrap"><table><thead><tr><th>時間 (UTC)</th><th>事件 ID</th><th>元件</th><th>操作</th><th>錯誤代碼</th></tr></thead><tbody>
+     {[...localEvents].reverse().slice(0,30).map(e=><tr key={e.id}><td>{e.at}</td><td>{e.id}</td><td>{e.component}</td><td>{e.operation}</td><td>{e.code}</td></tr>)}
+    </tbody></table></div>:<p>目前尚無已接入錯誤邊界的異常紀錄。</p>}
+    <p className="luca-footnote">此區由瀏覽器本機儲存，與衞國的 LUCA_ENABLED 設定無關。匯出不會自動送到 GitHub 或後端。</p>
+   </>}
+  </section>
   {privateMode&&<p role="status">私人模式：LUCA 遠端總覽已停用。</p>}
   {!connected&&!privateMode&&<p role="status">目前無法讀取 LUCA。請先於衞國登入家庭 owner，並確認已設定安全 HTTPS 後端。</p>}
   {error&&<p role="alert">{error}</p>}

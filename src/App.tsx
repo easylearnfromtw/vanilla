@@ -3,6 +3,8 @@ import type {OrchestraChart} from "./orchestra/cream-chart";
 import {orchestraComposePrompt,type OrchestraHandoff} from "./orchestra/ai-handoff";
 import {makeHumanizeRequest} from "./erya/humanize";
 import LocalChat from "./local-ai/LocalChat";
+// Eager load the small offline schedule panel with the app shell; no first-visit network required.
+import NotionSchedulePanel from "./notion/NotionSchedulePanel";
 import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
@@ -189,7 +191,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
-section==="detroit"?<div className="workspace-page"><DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/></div>:
+section==="detroit"?<div className="workspace-page">{detroitStartTab==="notion"?<NotionSchedulePanel/>:<DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/>}</div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart} handoff={orchestraAI}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:
 section==="builder"?<div className="workspace-page"><BuildStudio onOpen={openFeature} editingId={editFeatureId} onEditingChange={editFeature}/></div>:

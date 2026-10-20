@@ -588,10 +588,12 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    // launch a second paid Google call; one optional regional bridge lookup is
    // allowed only if the primary bridge actually returned public sources.
    const region=getScoutsRegion();
+   const providers=new Map(report.results.map(hit=>[hit.url,hit.provider]));
    let hits:GroundedSource[]=report.results.map(x=>({title:x.title,url:x.url,snippet:x.snippet}));
    if(getSearchBridge()&&hits.length&&!hasRegionalSource(hits,region)){
     try{
      const regional=await fetchSearchBridge(target.slice(0,130)+" "+region);
+     for(const hit of regional)providers.set(hit.url,"自訂搜尋");
      hits=[...hits,...regional.map(x=>({title:x.title,url:x.url,snippet:x.snippet}))];
     }catch(error){
      searchDiagnostics+="；地區備援："+String(error instanceof Error?error.message:error).slice(0,95);
@@ -600,7 +602,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    const selected=selectScoutsSources(hits,region);
    // Provider names must remain truthful: backup sources are not Google
    // grounding citations.
-   setSearchResults([...selected.map(hit=>({label:hit.title,url:hit.url,snippet:hit.snippet,provider:hit.regionSpecific?"其他來源 · "+region:"備援搜尋"})),...searchLinks(target)]);
+   setSearchResults([...selected.map(hit=>({label:hit.title,url:hit.url,snippet:hit.snippet,provider:hit.regionSpecific?(providers.get(hit.url)||"備援搜尋")+" · "+region:(providers.get(hit.url)||"備援搜尋")})),...searchLinks(target)]);
    // Parallel independent page reads: three unreachable URLs should not each
    // consume a separate ten-second Safari/CORS timeout.
    const pages=await Promise.all(selected.map(async hit=>{

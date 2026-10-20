@@ -1,6 +1,7 @@
 import {useState} from "react";
 import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-react";
 import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,type LocalModelId} from "./engine";
+import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
 
 type Props={
  selected:LocalModelId;
@@ -18,6 +19,7 @@ type Props={
 /** On-device model picker: honest size, cache state, and where inference runs. */
 export default function LocalModelPanel(props:Props){
  const [worker,setWorker]=useState(localWorkerMode());
+ const iosDevice=isIOSWebLLMDevice(navigator.userAgent,navigator.platform,navigator.maxTouchPoints);
  const current=getLoadedLocalModel();
  const entry=LOCAL_MODELS.find(x=>x.id===props.selected);
  const state=props.ready?"已就緒":props.loading?"下載／初始化中 "+props.progress+"%":!props.webgpu?"無法使用 WebGPU":props.error?"載入失敗":props.cached?"已快取，可離線載入":"尚未下載";
@@ -39,9 +41,10 @@ export default function LocalModelPanel(props:Props){
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}
    <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>
    {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有 WebGPU（iPhone 需 iOS 26 以上 Safari），本地推論不可用；一般模式仍可使用已連接的雲端模型或 Ollama。</p>}
-   <label className="vh-switch compact"><input type="checkbox" checked={worker!=="off"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>
-    <span><strong>背景執行緒推論</strong><small>{worker==="broken"?"此裝置背景執行緒不可用，已改在主執行緒；勾選後下次載入會重試":isLocalWorkerActive()?"使用中：生成時捲動與輸入更順":"下次載入模型時生效"}</small></span></label>
-   <p className="local-model-note">本地推論不會傳送對話到任何雲端。模型首次需下載，之後由瀏覽器快取；iOS 長期未使用可能清除快取。</p>
+   {iosDevice&&<p className="local-model-note">iPhone 安全模式：不在開啟網頁時自動啟動快取模型；請手動載入。優先選擇 0.5B。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"目前選擇的模型記憶體需求較高，載入前會再次確認。":""}背景執行緒失敗時不會自動改在主畫面運算，以避免整頁崩潰。</p>}
+   <label className="vh-switch compact"><input type="checkbox" checked={worker==="auto"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>
+    <span><strong>背景執行緒推論</strong><small>{worker==="broken"?"上次背景執行緒失敗，已停止自動備援；勾選即可重試":isLocalWorkerActive()?"使用中：生成時捲動與輸入更順":"下次載入模型時生效"}</small></span></label>
+   <p className="local-model-note">本地推論不會傳送對話到任何雲端。模型首次需下載，之後由瀏覽器快取；iOS 長期未使用可能清除快取。iPhone 關閉背景執行緒代表您明確選用高風險的主執行緒相容模式，可能導致 Safari 整頁重新載入。</p>
   </div>
  </div>;
 }

@@ -2,6 +2,8 @@
 from __future__ import annotations
 import json
 import os
+from contextvars import ContextVar
+from html import escape
 import re
 import secrets
 import time
@@ -54,11 +56,28 @@ async def _telegram(method: str, data: dict) -> None:
         print("Ceres Telegram send: network_failure",flush=True)
         return False
 
-async def say(chat: int, text: str, buttons: list[list[dict]]|None=None):
+_edit_target: ContextVar[int | None] = ContextVar("ceres_native_edit", default=None)
+
+async def say(chat: int, text: str, buttons: list[list[dict]]|None=None, *, html: bool=False):
     data={"chat_id":chat,"text":text[:3500],"disable_web_page_preview":True}
+    if html:
+        data["parse_mode"]="HTML"
     if buttons:
         data["reply_markup"]={"inline_keyboard":buttons}
-    await _telegram("sendMessage",data)
+    mid=_edit_target.get()
+    if type(mid) is int and mid>0:
+        if await _telegram("editMessageText",{**data,"message_id":mid}):
+            return True
+    return bool(await _telegram("sendMessage",data))
+
+def _title(name: str) -> str:
+    return "✦ <b>C E R E S</b>\n<code>VANILLA / DETROIT</code>\n━━━━━━━━━━━━━━━━\n<b>"+escape(name)+"</b>\n\n"
+
+def _back(action: str="menu", refresh: str | None=None):
+    row=[]
+    if refresh: row.append(_btn("↻ 更新",refresh))
+    row.append(_btn("← 返回",action))
+    return [row]
 
 def _btn(label: str, action: str):
     return {"text":label,"callback_data":"adm:"+action}

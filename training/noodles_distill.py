@@ -182,12 +182,17 @@ def prepare(args: argparse.Namespace) -> int:
         "weights_trained": False, "deployment_authorized": False,
         "private_content_uploaded": False
     }
+    created: list[Path] = []
     try:
-        write_exclusive(args.train, train_text)
-        write_exclusive(args.eval, eval_text)
-        write_exclusive(args.manifest, json.dumps(manifest, indent=2) + "\n")
+        for path, data in (
+            (args.train, train_text), (args.eval, eval_text),
+            (args.manifest, json.dumps(manifest, indent=2) + "\n")
+        ):
+            write_exclusive(path, data)
+            created.append(path)
     except BaseException:
-        for path in paths:
+        # Never delete a path another process created after the preflight.
+        for path in created:
             path.unlink(missing_ok=True)
         raise
     print(f"Prepared SFT: train={len(training)} eval={len(evaluation)}. No model was trained.")

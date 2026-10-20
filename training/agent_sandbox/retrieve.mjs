@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 const here=dirname(fileURLToPath(import.meta.url));
 const corpus=JSON.parse(readFileSync(join(here,'knowledge.json'),'utf8'));
 const args=process.argv.slice(2);
-const query=args.filter(x=>!x.startsWith('--') && !/^\d+$/.test(x)).join(' ').trim();
+const query=args.filter((x,i)=>!x.startsWith('--') && !(i>0 && args[i-1]==='--model')).join(' ').trim();
 const chat=args.includes('--chat');
 const modelAt=args.indexOf('--model');
 const model=modelAt>=0?args[modelAt+1]:'signwell-agent:0.1';

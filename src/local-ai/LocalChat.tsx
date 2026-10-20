@@ -1012,7 +1012,8 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(recalled)contexts.push({id:"memory",label:"Drive 記憶",priority:2,text:"使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
- const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";\n const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+(humanize?.guidance||"");
+ const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));

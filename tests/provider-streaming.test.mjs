@@ -95,3 +95,41 @@ test("Ollama JSON mode for structured output and plain retry on HTTP 400",async(
   assert.equal(m.calls[1].body.think,undefined);
  }finally{m.restore();}
 });
+
+test("Gemini receives real Detroit tool descriptions as trusted system context",async()=>{
+ setProvider({provider:"gemini",key:"test-key",model:"gemini-3.8-flash"});
+ const m=mockFetch(()=>streamed(['data: {"candidates":[{"content":{"parts":[{"text":"Diana 負責路由。"}]}}]}\n\n']));
+ try{
+  const grounding=(await import("../src/assistant/tool-knowledge.ts")).toolKnowledgeGuidance("比較 Diana 和 Zeus 的差別");
+  await generateCloudReply("gemini",[{role:"user",content:"比較 Diana 和 Zeus 的差別"}],undefined,undefined,{toolGrounding:grounding});
+  const system=m.calls[0].body.systemInstruction.parts[0].text;
+  assert.match(system,/Diana/);
+  assert.match(system,/Zeus/);
+  assert.match(system,/後端已部署/);
+  assert.match(system,/可信任工具事實/);
+  assert.ok(!m.calls[0].body.contents[0].parts[0].text.includes("內部工具登錄資料"));
+ }finally{m.restore();}
+});
+
+test("DeepSeek and remote Ollama receive tool facts in system role; structured modes do not",async()=>{
+ const grounding=(await import("../src/assistant/tool-knowledge.ts")).toolKnowledgeGuidance("Quirinus 失敗要怎麼處理");
+ setProvider({provider:"deepseek",key:"test-key",model:"deepseek-chat"});
+ let m=mockFetch(()=>streamed(['data: {"choices":[{"delta":{"content":"無法確認後端狀態"}}]}\n\n']));
+ try{
+  await generateCloudReply("deepseek",[{role:"user",content:"Quirinus 失敗要怎麼處理"}],undefined,undefined,{toolGrounding:grounding});
+  assert.match(m.calls[0].body.messages[0].content,/Quirinus/);
+  assert.match(m.calls[0].body.messages[0].content,/執行回執/);
+ }finally{m.restore();}
+ setOllamaConfig({endpoint:"https://ollama.example.test",model:"qwen3:14b",models:[]});
+ m=mockFetch(()=>streamed(['{"message":{"content":"請檢查部署。"},"done":true}\n']));
+ try{
+  await generateOllamaReply([{role:"user",content:"Quirinus 失敗要怎麼處理"}],undefined,{toolGrounding:grounding});
+  assert.match(m.calls[0].body.messages[0].content,/Quirinus/);
+  assert.match(m.calls[0].body.messages[0].content,/內部工具登錄資料/);
+ }finally{m.restore();}
+ m=mockFetch(()=>streamed(['data: {"choices":[{"delta":{"content":"{}"}}]}\n\n']));
+ try{
+  await generateCloudReply("deepseek",[{role:"user",content:"JSON"}],undefined,undefined,{purpose:"structured",toolGrounding:grounding});
+  assert.doesNotMatch(m.calls[0].body.messages[0].content,/Quirinus/);
+ }finally{m.restore();}
+});

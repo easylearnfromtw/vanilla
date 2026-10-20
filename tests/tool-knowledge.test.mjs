@@ -58,3 +58,16 @@ test("Actual actions, source text and troubleshooting remain on their real route
  assert.equal(referencedTools("醫療資料的真實性如何判斷").length,0);
  assert.equal(toolKnowledgeGuidance("普通膝關節骨折要如何處理"),"");
 });
+
+test("Complex questions about all Detroit tools produce complete registry grounding",()=>{
+ const all=toolKnowledgeGuidance("比較我所有底特律工具是如何協作的");
+ for(const label of ["Diana","Zeus","Athena","Merlin","Quirinus","Ceres","Orchestra","NOODLES","Vanilla Sheets","衞國"]){
+  assert.ok(all.includes(label),"Missing grounded tool: "+label);
+ }
+ assert.match(all,/非遠端|不是遠端|不是即時|後端已部署/);
+ assert.match(all,/不能.*聲稱|不得聲稱/);
+ const comparison=toolKnowledgeGuidance("Diana 和 Zeus 的差別在哪裡");
+ assert.match(comparison,/Diana/);
+ assert.match(comparison,/Zeus/);
+ assert.equal(toolKnowledgeGuidance("膝關節疼痛鑑別診斷"),"");
+});

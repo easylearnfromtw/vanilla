@@ -100,7 +100,7 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
   throw e;
  }finally{clearTimeout(timeout);}
 }
-export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured";deep?:boolean};
+export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured";deep?:boolean;toolGrounding?:string};
 /** Streams from Ollama /api/chat (NDJSON). Tuned per model: num_ctx large enough for web/file
  * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the
  * model every question, and thinking only where it pays off. */
@@ -112,7 +112,9 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  const task=options.task??(structured?"code":classifyTask(latest));
  const profile=profileFor("ollama",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
- const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest});
+ const system=structured?STRUCTURED_SYSTEM_PROMPT:
+  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest})+
+  (options.toolGrounding?"\n\n[Vanilla 應用程式提供的可信任工具事實；僅用於解釋功能，非操作授權]\n"+options.toolGrounding:"");
  const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
  const send=async(withThink:boolean)=>{
   const extras=ollamaRequestExtras(model,task,Boolean(options.deep));

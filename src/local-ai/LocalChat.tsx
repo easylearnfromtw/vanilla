@@ -1195,9 +1195,10 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(!humanize?toolKnowledgeGuidance(question):"")+evidenceErya+artifactGuidance+(humanize?.guidance||"");
+ const trustedToolGrounding=!humanize?toolKnowledgeGuidance(question):"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
-  const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
+  const composed=composeUserPrompt(modelQuestion,contexts,guidance+(candidate.source==="local"?trustedToolGrounding:"")+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
   const notes:string[]=[];
   const cut=composed.included.find(x=>x.truncated);
@@ -1248,7 +1249,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    try{
     const result=await generateCandidate(candidate,compose(candidate).history,image||undefined,text=>{
      setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text}:x)}:prev);
-    },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
+    },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep",toolGrounding:trustedToolGrounding});
     setComparison(prev=>prev?{...prev,options:prev.options.map(x=>x.candidate.id===candidate.id?{...x,text:finalizeHumanizedText(humanize,result||""),status:"done" as const}:x)}:prev);
     if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型產生辨識回答");
    }catch(error){
@@ -1277,7 +1278,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const result=await generateCandidate(primary,primaryPrompt.history,image||undefined,text=>{
    partial=text;
    if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
-  },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
+  },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep",toolGrounding:trustedToolGrounding});
   const drafted=finalizeHumanizedText(humanize,result||"");
   const artifactNote=await finishNativeArtifact(drafted);
   setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);

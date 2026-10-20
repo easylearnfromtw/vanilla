@@ -119,7 +119,7 @@ export function promptBudgetFor(candidate:ModelCandidate,task:TaskKind):number{
  if(candidate.source==="ollama")return Math.max(1200,profile.contextTokens-profile.maxOutput[task]-900-1200);
  return 24000;
 }
-export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal;deep?:boolean};
+export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal;deep?:boolean;toolGrounding?:string};
 export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onText?:(text:string)=>void,optimization?:GenerateOptions):Promise<string>{
  const start=Date.now();
  const task=optimization?.task;
@@ -133,8 +133,8 @@ export async function generateCandidate(candidate:ModelCandidate,history:ChatTur
    ()=>onText?.(""),
    signal
   );
-  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal,deep:optimization?.deep});
-  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal,deep:optimization?.deep});
+  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText,signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding});
+  else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText,signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding});
   const duration=Date.now()-start;
   recordModelRun(candidate.id,true,duration);
   if(optimization)recordNoodles({kind:"run",at:Date.now(),model:candidate.id,task:optimization.task,ok:true,durationMs:duration},optimization.privateMode);

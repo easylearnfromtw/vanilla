@@ -195,7 +195,7 @@ async function attachFile(file?:File){
      localSaved?"已自動保存於本機附件庫；目前未連線 Google Drive，尚無雲端副本。":
      "附件未能保存到本機："+localError+"；目前也沒有 Google Drive 連線。");
   }
-  }catch(e){setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
+  }catch(e){setImage(null);setImageName("");setFileName("");setFileContext("");setFileStatus("附件處理失敗："+(e instanceof Error?e.message:String(e)));}
  finally{setAssetBusy(false);}
 }
 const [busy,setBusy]=useState(false);
@@ -533,7 +533,7 @@ async function send(value=draft):Promise<void>{
   question=response.prompt;
   setMerlinPending(null);
  }else{
-  const clarification=detectMerlinClarification(question,{hasContext:history.some(x=>x.role==="user"),hasAttachment:Boolean(image||fileName||fileContext)});
+  const clarification=image?null:detectMerlinClarification(question,{hasContext:history.some(x=>x.role==="user"),hasAttachment:Boolean(image||fileName||fileContext)});
   if(clarification){
    const at=Date.now(),originId=crypto.randomUUID();
    setMerlinPending({...clarification,originId});

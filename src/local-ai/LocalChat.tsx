@@ -8,6 +8,7 @@ import {NOODLES_ISSUES,noodlesGuidance,type NoodlesIssue} from "../noodles/core"
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
 import ChatMarkdown from "./ChatMarkdown";
+import {venusPresentationGuidance} from "../venus/presentation";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
@@ -504,10 +505,16 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
 }
 async function send(value=draft):Promise<void>{
  let raw=value.trim();
- if(raw.startsWith("/")){
+ const slashCommand=/^[\/／]/.test(raw);
+ if(slashCommand){
   const expanded=expandSlashCommand(raw);
-  if(!expanded){setLastRoute("不認得這個指令；輸入「/」可以看到全部指令。");return;}
+  if(!expanded){setLastRoute("尚未支援此指令；輸入「/」可以查看指令清單。");return;}
   setDraft("");
+  if(expanded.ui==="prompt"){
+   setLastRoute(expanded.hint||"請補充指令內容。");
+   prefill(expanded.prefill||raw+" ");
+   return;
+  }
   if(expanded.ui==="attach"){fileRef.current?.click();return;}
   if(expanded.ui==="private"){switchPrivacy();return;}
   if(expanded.ui==="new-chat"){await newConversation();return;}
@@ -517,7 +524,9 @@ async function send(value=draft):Promise<void>{
  if(!question||busy||comparison||assetBusy)return;
  setDetroitPlan(null);
  let visibleClarificationAnswer:string|undefined;
- if(merlinPending){
+ // Explicit slash commands take priority over pending Merlin clarifications.
+ if((slashCommand||image)&&merlinPending)setMerlinPending(null);
+ if(!slashCommand&&!image&&merlinPending){
   const response=resolveMerlinClarification(merlinPending,question);
   if(response.kind==="cancel"){
    setMerlinPending(null);toolReply(question,"已取消上一項需求；可以直接提出新問題。","merlin");return;
@@ -532,7 +541,7 @@ async function send(value=draft):Promise<void>{
   visibleClarificationAnswer=question;
   question=response.prompt;
   setMerlinPending(null);
- }else{
+ }else if(!slashCommand){
   const clarification=image?null:detectMerlinClarification(question,{hasContext:history.some(x=>x.role==="user"),hasAttachment:Boolean(image||fileName||fileContext)});
   if(clarification){
    const at=Date.now(),originId=crypto.randomUUID();
@@ -543,8 +552,10 @@ async function send(value=draft):Promise<void>{
   }
  }
  recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
- // An attached image must reach the visual model, not be consumed by a text-only intent tool.
- const route=image?({kind:"continue"} as const):routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
+ // Preserve explicit /建立 and /改程式 intent before Diana's proactive routing.
+ const slashTail=slashCommand?routeTail(question):null;
+ // Image attachments take the image-capable path; preserve slash handling for text commands.
+ const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
  let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
@@ -961,7 +972,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
-  const composed=composeUserPrompt(modelQuestion,contexts,guidance,promptBudgetFor(candidate,task));
+  const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
   const notes:string[]=[];
   const cut=composed.included.find(x=>x.truncated);
@@ -1015,7 +1026,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
   setHistory([...next,{role:"assistant",content:finalizeHumanizedText(humanize,result||""),source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
   if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
-  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","回答已由現有 Markdown／圖表元件呈現");}
+  if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact)markDetroit("retina","skipped","檔案產出需明確使用匯出工具");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
  }catch(error){

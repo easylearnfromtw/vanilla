@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 13 題
+狀態：進行中 · 共 50 題 · 目前已確定 14 題
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -389,8 +389,38 @@
 - Ceres 管理員拒絕、權限撤銷或插件遭停用後，Detroit 不得繼續執行其 Adapter 或調用原有令牌。
 - 比較固定模板配備核准 Adapter 與小模型自由選擇所有工具：衡量正確工具調用率、未授權執行率、平均延遲、記憶體、失敗率及人工核准負擔。
 
+## Q14 / 50 — 統一資料契約＋成果交換系統（Typed Contracts & Artifact Exchange）
+
+**決策：D — 統一資料契約加成果交換系統。使用者於 2026-10-20 正式確認。**
+
+使用者原始決策：「小型結構化資料使用 JSON Schema，大檔案以 Artifact Store 參照傳遞，包含來源追溯、版本管理、權限驗證與 Detroit 工作檢查點。」
+
+### 架構與資料交換契約
+
+1. **Typed Data Contract**：Scout、CREAM、Orchestra、WordCraft 及其他受核准的 Detroit 工具，必須公開明確版本的輸入／輸出 JSON Schema；資料欄位包含語意型別、必要性、單位、貨幣、時區、統計口徑、來源引用與錯誤型別。由可信後端在執行前後驗證；LLM 不能自行宣稱 schema 合格。
+2. **小型結構化訊息**：以受限大小的 JSON 傳遞數值、文字摘要、引用、結構化圖表資料、步驟狀態與 artifacts 參照；使用標準 Envelope（contract_version、job_id、step_id、producer、tenant_id、schema_id、data_classification、timestamp、payload、artifact_refs、status、evidence_refs）。大型原始資料不得無限制灌入小模型上下文。
+3. **Artifact Store**：文件、簡報、試算表、圖片、影像、大型資料表、原始抓取內容等以受保護物件儲存方式管理，由 artifact_id／內容雜湊／mime_type／size／version／tenant／classification 等 metadata 參照，而不是在 JSON 內嵌整份二進位內容。對來源讀取與下游工具交接提供時間受限、scope 受限的存取方法。
+4. **Provenance 與可驗證性**：每份成果記錄原始來源與取得時間、處理工具／版本、輸入 artifact refs、計算參數、輸出 hash、job／step 身分、驗證狀態。統計與財務輸出應保留必要的原始單位、轉換方法及計算假設；下游不得將無法核對的文字摘要當作唯一數據依據。
+5. **版本與 schema 相容性**：schema、工具與 artifacts 各自版本化。不同工具契約不相容時，先透過經測試、已授權的轉換 Adapter 執行顯式 migration，通過資料完整性檢查才可續行；不能依賴小模型臨時猜欄位或默默丟棄重要資料。
+6. **Detroit 流程與 checkpoint**：所有交換由 Q11 核准模板與 Q12 受控擴充工作流管理。持久化記錄 job_id、step_id、input_ref、output_ref、contract_version、artifact_hash、verified_status、checkpoint、attempt_count、idempotency_key；重新啟動只重做尚未確認完成且可安全重試的步驟。
+7. **授權、租戶與資料所在地**：每次工具讀取、轉換、寫入與節點傳輸皆由後端核對租戶、身份、用途、資料分類、來源、預算及 Q02 運算／雲端授權。共用 Artifact Store 的基礎設施不表示跨租戶共享內容；私人模式與敏感內容遵守其獨立保留／外送政策。
+8. **交易性寫入與生命週期**：artifact 先寫入暫存區、驗證完整性及 hash 後才標記可供下游使用。設置防篡改、加密、保留期限、存取撤銷、刪除及垃圾回收政策；引用失效、驗證不通過、資料損壞或權限遭撤銷後不得繼續當作有效成果。
+9. **工具錯誤契約**：統一區分 schema_invalid、missing_artifact、permission_denied、source_unverified、tool_timeout、transient_failure、unsupported_format、budget_exceeded 等錯誤，讓 Q07 Planner 能在模板核准的路徑內安全重試、降級或依 Q08 回問，而非虛構工具已成功。
+10. **輕量模型與跨設備支援**：October Core 只接收當前步驟所需摘要、schema 核心欄位和可取回的 artifacts handles；高負載轉換工作交給 Q01／Q05 規範的適當節點。跨節點分配要受 Q02 授權、資料本地性及成本限制。
+11. **真實執行證據**：工具返回內容、文件實際存在、產物完整性、版本與 schema 驗證結果，必須由 Detroit Executor／Verifier 確認。未實際完成轉換、未核對來源或 Artifact Store 寫入失敗，不可報告為已生成成功。
+12. **狀態界線**：本題是 50 題架構決策，並不表示正式環境已經部署 Artifact Store、跨工具 schema 轉換器或分散式 checkpoint。上述項目仍需程式實作與端對端驗收。
+
+### 驗收測試（尚未完成正式實作）
+
+- 在 Scout 網頁來源 → CREAM 財金計算 → Orchestra／WordCraft 文件成果 → Verifier 的合成鏈中，驗證每一步標準資料契約、單位、來源、版本、artifact refs 及結果可追溯。
+- 傳入缺少必要欄位、數值改成字串、時區／貨幣錯誤、schema version 不相容、mime_type 不符或檔案內容與 hash 不一致時，應被明確阻擋，不可默默接受。
+- 大型 PDF、試算表及圖片必須以 Artifact Store 參照交接；在小型本地模型環境測量記憶體峰值與上下文 token 消耗，確認沒有將整個檔案塞入 Prompt。
+- 模擬不同租戶、私人檔案、過期 artifact 權限、撤銷同意、未經授權雲端節點和跨裝置存取：不得洩漏資料，並在後端留下權限拒絕證據。
+- 模擬工具掉線、物件儲存寫入中斷、checkpoint 恢復及重複事件：驗證完整性、有效恢復、安全冪等和不重複產生有副作用的輸出。
+- 由 LUCA 記錄端對端交換成功率、schema 驗證失敗率、artifact 遺失／過期率、跨工具數值一致性、延遲、成本與使用者端 RAM／VRAM。
+
 ### 待決事項
 
-**Q14 / 50：October 如何讓 Scout、CREAM、Orchestra、WordCraft 等 Detroit 工具可靠交換資料與接續執行，不因資料格式不同而失敗？** 尚待使用者答覆。
+**Q15 / 50：當多個 Detroit 工具需要共同完成任務時，October 應如何控制平行執行、依賴順序、資源競爭與跨節點調度？** 尚待使用者答覆。
 
 ---

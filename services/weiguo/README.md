@@ -4,6 +4,8 @@ Canonical FastAPI application: app:app. The older server:app module is now an im
 
 Deployment status: Source and tests exist, including a family login gateway and per-person task ownership. A verified production HTTPS deployment, operator-managed Google identity allowlist, and 24/7 scheduler are not supplied by this repository. Never put server tokens in GitHub Pages, the PWA or chat content.
 
+Notion task and schedule board (opt-in): see [NOTION_SCHEDULE_BOARD.md](../../docs/NOTION_SCHEDULE_BOARD.md). Notion stores scheduled dates but does NOT run recurring jobs, background notifications, or AI executions.
+
 ## Setup
 
 1. On a trusted Docker host, copy docker-compose.example.yml into a private deployment configuration.

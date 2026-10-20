@@ -43,13 +43,14 @@ function fakeVM({output=pdf,network=true}={}){
   async destroy(){destroyed=true;}
  };
  const Sandbox={template(){return{withPackages(){return this},run(){return this}}},
-               async create(){return vm}};
+               async create(_template,options){records.push({sandboxOptions:options});return vm}};
  return{Sandbox,records,written,wasDestroyed:()=>destroyed};
 }
 test("one VM per merge, verified network namespace, bounded data and guaranteed destroy",async()=>{
  const m=fakeVM();
  const merged=await mergeInEphemeralVM(m.Sandbox,[pdf,pdf]);
  assert.deepEqual(Buffer.from(merged),pdf);
+ assert.deepEqual(m.records[0].sandboxOptions,{networkIsolation:"ISOLATED",idleTimeoutMinutes:1});
  assert.equal(m.records.some(x=>x.includes("--unshare-net")),true);
  assert.equal(m.records.some(x=>x.includes("--unshare-user")),true);
  assert.deepEqual(m.written["/work/source-1.pdf"],pdf);

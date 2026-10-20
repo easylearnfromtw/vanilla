@@ -124,3 +124,33 @@ Run the full existing GitHub CI, plus the targeted tests:
 Telegram registration, verified family enrollment, token provisioning and production deployment require a trusted operator. LINE, Discord, unattended AI replies, persistent model conversations and privileged Zeus/Diana/CREAM task execution are **not shipped in Phase 2** and require separate security reviews.
 
 Ceres is newly authored Vanilla code. No mandatory AstrBot watermark is added, but third-party legal notices and platform terms still apply.
+
+## Production Telegram webhook registration (opt-in)
+
+The FastAPI service can now register the webhook **from the Railway backend at startup**.
+The registration step is disabled unless both `CERES_ENABLED=true` and
+`CERES_TELEGRAM_REGISTER_WEBHOOK=true` are set. This keeps the BotFather token
+and `secret_token` server-only. The service does not require a user to copy
+either secret into ChatGPT or a browser console.
+
+In addition to the Phase 2 variables, set the following in Railway:
+
+| Variable | Value |
+|---|---|
+| `CERES_TELEGRAM_EXPECTED_USERNAME` | `SignWell_bot` (must match Telegram getMe) |
+| `CERES_TELEGRAM_WEBHOOK_URL` | `https://weiguo-browser-production.up.railway.app/v1/ceres/telegram/webhook` |
+| `CERES_TELEGRAM_REGISTER_WEBHOOK` | `true` |
+| `CERES_ENABLED` | `true` only after validating your private-chat allowlist and family binding |
+
+Startup checks the token format, private-chat allowlist, linked numeric Google
+sub against `WEIGUO_FAMILY_ACL_JSON`, HTTPS Railway URL and BotFather username.
+If Telegram already has a **different** webhook, startup refuses to replace
+it. It does not discard pending messages, and only subscribes to message
+updates. Telegram getWebhookInfo is used to verify the registered URL; logs
+show only sanitized status, never a token or chat ID.
+
+A Railway SUCCESS deployment means the service started, **not** necessarily
+that Telegram accepted the webhook. Check runtime logs for
+`Ceres Telegram: webhook registration verified`. If the configuration
+is invalid, the bot username is wrong, or Telegram is unreachable, the
+registration fails closed and the normal service remains available.

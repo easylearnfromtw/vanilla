@@ -24,6 +24,7 @@ from medusa_family import router as medusa_family_router
 from quirinus_family_actions import router as quirinus_family_router
 from ceres_gateway import telegram_router as ceres_telegram_router, operator_router as ceres_operator_router
 from ceres_dialogue import router as ceres_family_router
+from ceres_telegram_registration import register_telegram_webhook
 from quirinus_adapter import router as quirinus_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
@@ -67,6 +68,7 @@ class ToolsRequest(BaseModel):
 async def lifespan(app: FastAPI):
     init_tasks()
     luca_initialize()
+    await register_telegram_webhook()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":

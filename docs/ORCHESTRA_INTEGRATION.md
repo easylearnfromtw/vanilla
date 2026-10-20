@@ -1,6 +1,6 @@
 # Orchestra — Detroit + Craft Suite + CREAM
 
-> **Staged implementation**. The capability registry, Orchestra workspace, Detroit tab, and CREAM handoff are implemented in Vanilla. The seven Rust executables are not bundled or deployed. Current functional outputs are local Retina DOCX/PDF/PPTX and an optional server-side WordCraft converter **only if** an operator separately installs and isolates its CLI.
+> **Staged implementation**. The capability registry, Orchestra workspace, Detroit tab, and CREAM handoff are implemented in Vanilla. The seven upstream Rust executables are not bundled or deployed. Working browser outputs are Retina DOCX/PDF/PPTX, CREAM SVG, and standalone Orchestra graphic SVG/PNG/JPEG/GIF fallbacks. These browser renderers are not equivalent to native Craft binaries. Optional WordCraft and PdfCraft backends require independent operator installation.
 
 ## Why a separate skill
 
@@ -24,12 +24,12 @@ User / Vanilla chat / CREAM
 | Tool | Task | Formats & role | Status in Vanilla |
 |---|---|---|---|
 | WordCraft | Document editing/typesetting | DOCX, PDF | Optional gated CLI conversion adapter; not installed by default |
-| DeckCraft | Slides, charts and animations | PPTX, PDF, slides | Adapter contract only |
-| VectorCraft | Vector illustrations/icons | SVG, PDF, PNG | Adapter contract only |
-| PhotoCraft | Image layers, masking, retouching | PNG, JPEG | Adapter contract only |
+| DeckCraft | Slides, charts and animations | PPTX, PDF, slides | Retina PPTX/PDF and browser slide PNG/JPEG/GIF fallback; native adapter not installed |
+| VectorCraft | Vector illustrations/icons | SVG, PDF, PNG | Browser vector SVG/PNG fallback and Retina PDF; native adapter not installed |
+| PhotoCraft | Image layers, masking, retouching | PNG, JPEG | Local photo brightness/contrast/saturation and export, LUNA layers separately; native adapter not installed |
 | PdfCraft | PDF inspection, editing and operations | PDF | Optional fixed-argument native PDF combine adapter, off by default; no Rust binary bundled |
-| EffectCraft | Motion graphics and video composition | MP4, GIF | Adapter contract only |
-| DesignCraft | Page layout and publication | PDF, PNG | Adapter contract only |
+| EffectCraft | Motion graphics and video composition | MP4, GIF | Browser animated GIF fallback; MP4 and native compositing unavailable |
+| DesignCraft | Page layout and publication | PDF, PNG | Browser PNG publication layout and Retina PDF; edit layers in LUNA; native adapter not installed |
 
 Each upstream project provides CLI/MCP interfaces with differing command contracts. Tool names, formats and UX descriptions are **planning metadata**, not claims that an adapter is installed or a particular round-trip is production-ready.
 
@@ -65,3 +65,20 @@ WordCraft-specific deployment instructions: `docs/WORDCRAFT_INTEGRATION.md` (to 
 - https://github.com/storytold/pdfcraft
 - https://github.com/storytold/effectcraft
 - https://github.com/storytold/designcraft
+
+## Browser fallback release (2026-10-20)
+
+All seven tool categories now have at least one **real, local output route**, without relying on cloud or pretending the upstream Craft executable was called:
+
+- WordCraft → Retina DOCX/PDF; opt-in native converter if configured.
+- DeckCraft → Retina PPTX/PDF; browser slide PNG/JPEG/animated GIF.
+- VectorCraft → escaped standalone SVG or rasterized PNG; CREAM charts remain distinct.
+- PhotoCraft → uploaded local PNG/JPEG/WebP is decoded on-device; bounded brightness, contrast, saturation; PNG/JPEG export. Files do not leave the browser.
+- PdfCraft → Retina PDF; optional isolated PdfCraft native merge after authenticated consent.
+- EffectCraft → real GIF89a animation from text. MP4 is **not supported**; not mislabeled.
+- DesignCraft → PNG typography poster, Retina PDF, shortcut to existing LUNA layer editor.
+
+Images/text are not sent to WeiGuo for these fallback operations. The GIF encoder bounds canvas dimensions and frame count; SVG output encodes text as XML data. The site requires an HTTPS origin for service worker caching, but export logic itself is offline. The native Craft sandbox, licensing review, comprehensive fidelity validation, remote execution and production smoke tests remain separate gates.
+## Release verification checklist
+
+Before publicly labeling this release available: merge the CI-green branch, verify the published PWA build marker over HTTPS, exercise actual DOCX/PDF/PPTX downloads, inspect SVG/PNG/JPEG on both narrow and wide layouts, decode exported GIF animations, confirm private mode performs no upload, and test optional backend routes only with authenticated and sandboxed production workers. Upstream seven-Craft parity and MP4 remain out of scope.

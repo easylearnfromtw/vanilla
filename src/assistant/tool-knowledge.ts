@@ -30,7 +30,7 @@ const weiguoMention=(q:string)=>["衛國","衞國","WeiGuo"].some(n=>matchesName
 export function toolKnowledgeIntent(question:string):ToolKnowledgeIntent|null{
  const q=question.trim().replace(/[？！!?。．\s]+$/g,"");
  if(!q||q.length>200||QUOTED.test(q)||ACTION.test(q))return null;
- if(/^(?:(?:請問|介紹|說明|解釋|我想知道)\s*)?(?:Detroit|底特律|Orchestra)(?:是什麼|有什麼功能|能做什麼|怎麼運作|有哪些工具|的工具有哪些|的架構)?$/i.test(q)||
+ if(/^(?:(?:請問|介紹|說明|解釋|我想知道)\s*)?(?:Detroit|底特律|Orchestra)(?:是什麼|有什麼功能|能做什麼|怎麼運作|有哪些工具|的工具有哪些|的架構)$/i.test(q)||
   /^(?:我有哪些(?:其他)?工具|我的其他工具有哪些|Vanilla有哪些工具|你有哪些工具)$/i.test(q))
   return {scope:"overview",ids:[]};
  const overview=/^(?:(?:請問|想知道|我想知道|我想了解|請介紹|介紹|列出|整理|說明|告訴我|幫我整理|幫我列出)\s*)?(?:Detroit|底特律|Orchestra|Vanilla|我(?:的)?|你(?:的)?|目前|現有|全部|所有|其他|自建)?(?:的)?(?:工具|模組|引擎)(?:們)?(?:有哪些|是什麼|介紹|列表|清單|功能|架構|有哪些功能|有哪些工具|有什麼|現況|狀態)?$/i;

@@ -132,8 +132,8 @@ export function classifyVmFailure(error) {
  if(m.includes("guest architecture"))return "architecture";
  if(m.includes("bubblewrap guest install"))return "bubblewrap_install";
  if(m.includes("isolated native cli")||m.includes("output pdf"))return "native_merge";
- if(/\\b401\\b|\\b403\\b|unauthori[sz]ed|forbidden|permission denied/.test(m))return "auth_denied";
- if(/\\b429\\b|quota|sandbox limit|too many/.test(m))return "quota";
+ if(/\b401\b|\b403\b|unauthori[sz]ed|forbidden|permission denied/.test(m))return "auth_denied";
+ if(/\b429\b|quota|sandbox limit|too many/.test(m))return "quota";
  if(/timeout|timed out|deadline/.test(m))return "timeout";
  if(/template|build failed|apt-get|curl|sha256sum/.test(m))return "template_build";
  return "unknown";

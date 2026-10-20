@@ -96,6 +96,7 @@ def _menu_buttons():
         [_btn("◉ 管理狀態","status"),_btn("▣ AI 模型","models")],
         [_btn("◎ Gmail 帳號","users"),_btn("◇ API 服務","providers")],
         [_btn("🔐 安全憑證","vault")],
+        [_btn("◈ 自有模型 API","myapi")],
         [_btn("啟用白名單","on"),_btn("停用白名單","off")],
     ]
 
@@ -193,6 +194,21 @@ def _consume_pending(chat: int, token: str):
         db.execute("DELETE FROM ceres_admin_pending WHERE token=?",(token,))
         return (row["op"],row["target"]) if row else None
 
+async def _myapi(chat: int):
+    url=os.getenv("CERES_ADMIN_WEBAPP_URL","").strip()
+    parts=urlsplit(url)
+    if (parts.scheme!="https" or not parts.hostname or parts.username or parts.password
+            or parts.query or parts.fragment or parts.path!="/v1/ceres/admin/webapp"):
+        await say(chat,"安全 API 服務頁尚未配置。請先設定 Ceres HTTPS WebApp 網址。")
+        return
+    target="https://"+parts.netloc+"/v1/ceres/admin/api-console"
+    await say(chat,_title("MY API / Vanilla 自有模型")
+              +"每個應用可擁有獨立金鑰、Token 上限、服務紀錄與動態模型清單。\n"
+              +"<i>上游憑證不會分享給 API 使用者；尚未配置推論節點時，API 會回報不可用。</i>",
+              [[{"text":"◈ 開啟我的模型 API 服務台","web_app":{"url":target}}],
+               [_btn("← 返回管理中心","menu")]],html=True)
+
+
 async def _vault(chat: int):
     url=os.getenv("CERES_ADMIN_WEBAPP_URL","").strip()
     parts=urlsplit(url)
@@ -221,6 +237,7 @@ async def command(chat: int, body: str):
         elif action=="users": await _users(chat)
         elif action=="providers": await _providers(chat)
         elif action=="models": await _models(chat)
+        elif action=="myapi": await _myapi(chat)
         elif action=="vault": await _vault(chat)
         elif action=="allow" and len(args)==4:
             grant(args[1],args[2],args[3].lower().split(","),chat)
@@ -257,12 +274,13 @@ async def callback(chat: int, callback_id: str, data: str, message_id: int | Non
 
 
 async def _handle_callback(chat: int, action: str):
-    if action in ("menu","status","users","providers","models","vault"):
+    if action in ("menu","status","users","providers","models","vault","myapi"):
         if action=="menu": await say(chat,_guide(),_menu_buttons(),html=True)
         elif action=="status": await _status(chat)
         elif action=="users": await _users(chat)
         elif action=="providers": await _providers(chat)
         elif action=="models": await _models(chat)
+        elif action=="myapi": await _myapi(chat)
         else: await _vault(chat)
     elif action in ("on","off"):
         await command(chat,"/admin enforce "+action)

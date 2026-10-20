@@ -8,3 +8,6 @@ requests>=2.32,<3
 # LUCA: opt-in observability, never enabled by installing package.
 logfire==5.2.0
 opentelemetry-exporter-otlp-proto-http>=1.40,<2
+
+# Ceres encrypted persistent provider vault
+cryptography>=44,<47

@@ -6,7 +6,7 @@ All modules installed for Vanilla AI are **owned by Detroit**, not independent c
 
 ## Authoritative inventory
 
-`src/detroit/capability-bus.ts` combines `DETROIT_ENGINES`, `DETROIT_FACTORY_TOOLS`, `ORCHESTRA_TOOLS` and JENSEN HUANG/Victoria. Every descriptor has `owner:"detroit"`, `state`, `requiresNetwork`, and `requiresApproval`. Each tool executes only after a concrete process-local executor has been registered. `detroitAvailability()` differentiates `runnable`, `not-connected` and `planned`.
+`src/detroit/capability-bus.ts` combines `DETROIT_ENGINES`, `DETROIT_FACTORY_TOOLS`, `ORCHESTRA_TOOLS` and JENSEN HUANG. Victoria is registered from the active Detroit core. Every descriptor has `owner:"detroit"`, `state`, `requiresNetwork`, and `requiresApproval`. Each tool executes only after a concrete process-local executor has been registered. `detroitAvailability()` differentiates `runnable`, `not-connected` and `planned`.
 
 This migration does **not** claim that all optional backends are deployed. Active local AI roles (Merlin, Erya, Venus etc.) are existing chat/model operations, not separate network models. Their ownership is registered; only callable deterministic actions have new bus adapters.
 
@@ -19,6 +19,7 @@ This migration does **not** claim that all optional backends are deployed. Activ
 | Retina | Local PDF, DOCX, PPTX artifact export | Triggered only after explicit output intent; the file is actually built before completion is reported |
 | Janus | Local HTML email template | Actual HTML file; **no sending**, no hosted-editor activation, no recipient access |
 | LUNA | Offline template-based PNG poster plus optional locally editable draft | Does not claim neural image generation; private mode never saves into normal workspace |
+| Victoria | Bounded same-account retrieval from local normal-mode archived chats | Off until account-specific opt-in; private chat never read; external model transmission requires separate opt-in |
 
 All other engines including GridCraft, Quirinus, Medusa, Ceres, Moli, LUCA, most native Craft engines and cross-conversation Victoria remain visible in Detroit's inventory. They need individually verified backend connectivity and/or authorization before registration as runnable tools. They cannot be silently enabled merely because they were added to the catalog.
 
@@ -40,6 +41,7 @@ Integrate verified remote adapters one at a time (e.g. Ceres message gateway, Me
 ```sh
 npm run build
 node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-capability-bus.test.mjs
+npm run test:victoria
 npm run test:diana
 npm run test:retina
 npm run test:luna

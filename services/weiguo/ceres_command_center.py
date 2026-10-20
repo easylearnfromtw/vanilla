@@ -108,7 +108,7 @@ def _tools_text() -> str:
         "• GitHub：/hub github 關鍵字（只讀搜尋、授權提示）\n"
         "• Retina、Janus、LUNA、Quirinus、Medusa："
         "Vanilla 具有相關模組，但尚未授予 Telegram 直接執行權。\n"
-        "• Mini App：目前提供安全 API 設定 WebApp；完整儀表板尚未上線。\n\n"
+        "• Mini App：提供經 Telegram 身分驗證的安全設定與健康儀表板。\n\n"
         "不會因為列出工具就宣稱已執行；寫入、部署、安裝須另行授權。"
     )
 
@@ -116,7 +116,9 @@ def _tools_text() -> str:
 async def _nodes(chat: int, sub: str) -> None:
     from slime_telegram import handle_slime
     result = handle_slime(chat, sub, "目前有哪些電腦")
-    await say(chat, result or "Slime 節點控制尚未設定。", [[_button("返回", "home")]])
+    await say(chat,_title("NODES / Slime 節點")
+              +"<pre>"+escape(result or "Slime 節點控制尚未設定。")+"</pre>",
+              _page_buttons("nodes"),html=True)
 
 
 async def _sources(chat: int) -> None:
@@ -128,7 +130,9 @@ async def _sources(chat: int) -> None:
         " AGPL、GPL 或特殊商業授權不得直接複製進專有產品；"
         "任何下載或安裝需完成授權、依賴與安全審查。"
     )
-    await say(chat, "\n".join(lines), [[_button("返回", "home")]])
+    await say(chat,_title("SOURCES / GitHub 開源框架")
+              +"<pre>"+escape("\n".join(lines))+"</pre>",
+              [[_button("⌕ GitHub 查詢說明","github"),_button("← 返回","home")]],html=True)
 
 
 def _limit_search(chat: int) -> bool:

@@ -80,6 +80,8 @@ jobs:
           python3 -m py_compile training/noodles_train.py
           python3 training/noodles_train.py --mode sft --train tests/fixtures/noodles-sft-train.jsonl --eval tests/fixtures/noodles-sft-eval.jsonl --check-only
           python3 training/noodles_train.py --mode dpo --train tests/fixtures/noodles-dpo-train.jsonl --eval tests/fixtures/noodles-dpo-eval.jsonl --check-only
+          python3 -m py_compile training/noodles_distill.py training/noodles_benchmark.py training/noodles_infer.py
+          python3 -m unittest discover -s tests -p 'test_noodles_*.py'
       - name: Typecheck and build
         run: npm run build
         env:

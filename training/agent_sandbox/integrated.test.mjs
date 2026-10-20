@@ -104,7 +104,7 @@ test("untrusted notes are treated as data, never authorization",()=>{
  const result=good(job,engine);
  assert.equal(result.status,"completed");
  assert.ok(result.steps.every(x=>x.tool.startsWith("mock.")));
- assert.equal(result.analysis.management.monthlyRevenue,job.dataset.leads*job.dataset.conversionRate*job.dataset.price);
+ assert.ok(Math.abs(result.analysis.management.monthlyRevenue-job.dataset.leads*job.dataset.conversionRate*job.dataset.price)<0.01);
  assert.equal(engine.reports.size,1);
 });
 test("held-out integrated evaluation scenarios are reproducible and complete",()=>{

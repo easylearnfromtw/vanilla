@@ -115,6 +115,7 @@ def slime_status(user: FamilyIdentity = Depends(_owner)):
 
 @router.post("/v1/family/slime/invite")
 def issue_invite(user: FamilyIdentity = Depends(_owner)):
+    _enabled()
     base = _safe_origin()
     raw = secrets.token_urlsafe(32)
     now = time.time()

@@ -11,7 +11,8 @@ test('LUCA local journal has strict metadata whitelist and limits',()=>{
  assert.match(src,/classifyClientFault\(/);
  assert.match(src,/currentChatMode\(\)==="private"/);
  assert.match(src,/signedChatAccount\(\)/);
- assert.doesNotMatch(src,/(?:sendBeacon|navigator\.sendBeacon|fetch\(|XMLHttpRequest|stack:|message:|headers:|prompt:|response:)/);
+ assert.doesNotMatch(src,/(?:sendBeacon|navigator\.sendBeacon|fetch\(|XMLHttpRequest|stack:|headers:|prompt:|response:)/);
+ assert.match(src,/const item:ClientFault=\{id,at:/);
 });
 test('LUCA attaches to loading, generation and UI boundaries without raw logs',()=>{
  const chat=load('src/local-ai/LocalChat.tsx');

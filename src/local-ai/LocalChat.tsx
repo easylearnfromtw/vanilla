@@ -30,7 +30,9 @@ import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner,listChatAttachments} from "../library/attachment-vault";
 import {signedChatAccount,chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
 import {searchWebSummary,type LiveSearchReport} from "../search/live-search";
-import {googleGroundingAvailable,searchGroundedGoogle} from "../search/google-grounding";
+import {googleGroundingAvailable,searchGroundedGoogle,googleGroundingCooldownSeconds,googleGroundingQuotaMessage} from "../search/google-grounding";
+import {getScoutsRegion,selectScoutsSources,hasRegionalSource,type GroundedSource} from "../search/scouts-region";
+import {getSearchBridge,fetchSearchBridge} from "../search/search-bridge";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels} from "../detroit/veritas-gate";
@@ -542,7 +544,7 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
    if(googleGroundingAvailable()){
     const consentKey="vanilla.scouts.google-grounding-consent.v1";
     const accepted=localStorage.getItem(consentKey)==="yes"||
-      window.confirm("Scouts 將使用已連接的 Gemini API 呼叫 Google Search Grounding（最多兩次：一般搜尋與必要的地區補充）。搜尋請求會送到 Google，可能消耗 API 額度或產生費用；不會將本機附件傳送到搜尋。允許嗎？");
+      window.confirm("Scouts 將使用已連接的 Gemini API 執行 Google Search Grounding（單題最多兩次，必要時切換 Gemini 2.5 Flash-Lite 額度或補充地區查詢）。搜尋請求會送到 Google，可能消耗 API 額度或產生費用；不會將本機附件傳送到搜尋。允許嗎？");
     if(!accepted){
      toolReply(originalQuestion,"已取消 Google 搜尋。Scouts 不會在未授權的情況下呼叫可能計費的 Google API。","search");
      return null;
@@ -579,32 +581,56 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
     }
    }
    if(!googleResolved){
+   setLastRoute(searchDiagnostics.includes("429")||googleGroundingCooldownSeconds()?
+    "Google 搜尋暫時受限，正在改用已授權的其他公開搜尋來源…":"正在查詢備援搜尋來源…");
    const report=await executeDetroitNative<LiveSearchReport>("scouts",{query:target},{privateMode});
-   searchDiagnostics=[searchDiagnostics,...report.errors].filter(Boolean).join("；");
-   setSearchResults([...report.results.map(x=>({label:x.title,url:x.url,snippet:x.snippet,provider:x.provider})),...searchLinks(target)]);
+   searchDiagnostics=[searchDiagnostics||googleGroundingQuotaMessage(),...report.errors].filter(Boolean).join("；");
+   // Reuse the existing authorized general-web bridge when available. Do not
+   // launch a second paid Google call; one optional regional bridge lookup is
+   // allowed only if the primary bridge actually returned public sources.
+   const region=getScoutsRegion();
+   const providers=new Map(report.results.map(hit=>[hit.url,hit.provider]));
+   let hits:GroundedSource[]=report.results.map(x=>({title:x.title,url:x.url,snippet:x.snippet}));
+   if(getSearchBridge()&&hits.length&&!hasRegionalSource(hits,region)){
+    try{
+     const regional=await fetchSearchBridge(target.slice(0,130)+" "+region);
+     for(const hit of regional)providers.set(hit.url,"自訂搜尋");
+     hits=[...hits,...regional.map(x=>({title:x.title,url:x.url,snippet:x.snippet}))];
+    }catch(error){
+     searchDiagnostics+="；地區備援："+String(error instanceof Error?error.message:error).slice(0,95);
+    }
+   }
+   const selected=selectScoutsSources(hits,region);
+   // Provider names must remain truthful: backup sources are not Google
+   // grounding citations.
+   setSearchResults([...selected.map(hit=>({label:hit.title,url:hit.url,snippet:hit.snippet,provider:hit.regionSpecific?(providers.get(hit.url)||"備援搜尋")+" · "+region:(providers.get(hit.url)||"備援搜尋")})),...searchLinks(target)]);
    // Parallel independent page reads: three unreachable URLs should not each
    // consume a separate ten-second Safari/CORS timeout.
-   const pages=await Promise.all(report.results.slice(0,3).map(async hit=>{
+   const pages=await Promise.all(selected.map(async hit=>{
     try{
      const article=await readPublicPage(hit.url);
-     return {title:article.title,url:article.url,kind:"full" as const,excerpt:article.text};
+     return {title:article.title,url:article.url,kind:"full" as const,excerpt:article.text,regionSpecific:hit.regionSpecific};
     }catch{
      // Search hit alone is not a verified full article.
-     return {title:hit.title,url:hit.url,kind:"snippet" as const,excerpt:hit.snippet};
+     return {title:hit.title,url:hit.url,kind:"snippet" as const,excerpt:hit.snippet,regionSpecific:hit.regionSpecific};
     }
    }));
    for(const page of pages){
     sources.push({title:page.title,url:page.url,kind:page.kind});
     index.push(page);
     context+="\n["+sources.length+"] "+page.title+"\n來源："+page.url+
+      (page.regionSpecific?"\n地區相關來源："+region:"")+
       (page.kind==="full"?"\n已讀取正文：\n":"\n僅取得搜尋摘要：")+
       wrapExternalText(page.excerpt.slice(0,7500),"web")+"\n";
    }
    }
   }
-  if(!context){toolReply(originalQuestion,"Scouts 尚未取得可核對的搜尋來源。"+(searchDiagnostics?"服務診斷："+searchDiagnostics+"。":"")+
-   (googleGroundingAvailable()?"請確認 Gemini Google 搜尋權限、模型及額度。":"可在模型設定連接 Gemini，讓 Scouts 使用官方 Google Search Grounding，免另設自架 /search 服務。")+
-   "下方保留 Google 搜尋入口，並未假稱已讀取網站。",kind==="read"?"web":"search");setSearchResults(searchLinks(target));return null;}
+  if(!context){toolReply(originalQuestion,"Scouts 已嘗試 Google 與目前可使用的備援來源，但沒有取得可核對的網頁。"+
+   (searchDiagnostics?"診斷："+searchDiagnostics+"。":"")+
+   (searchDiagnostics.includes("429")||googleGroundingCooldownSeconds()?
+     "這是 Google API 配額限制，無法由程式繞過。可在 Google AI Studio 的使用量頁面確認額度，或啟用另一個獨立的合法搜尋提供者。":
+     "目前沒有可用的即時全網搜尋後端。")+
+   "搜尋入口只供手動開啟，不代表已取得內容。",kind==="read"?"web":"search");setSearchResults(searchLinks(target));return null;}
   setLastRoute("已取得 "+sources.length+" 筆來源，正在依證據統整；正文與搜尋摘要會分別標示。");
   return {context,sources,index};
  }catch(error){toolReply(originalQuestion,"Scouts 網頁擷取失敗，沒有產生未經驗證的內容："+String(error),kind==="read"?"web":"search");return null;}

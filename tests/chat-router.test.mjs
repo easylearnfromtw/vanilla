@@ -295,3 +295,81 @@ test("Orchestra slash keeps task arguments",()=>{
  assert.equal(kind("@Orchestra 製作 PDF"),"diana");
  assert.equal(expandSlashCommand("/Orchestra")?.text,"開啟 Orchestra Studio");
 });
+
+
+test("Google Search Grounding 429 enters cooldown and never hammers the quota on the next search",async()=>{
+ const {setProvider,removeProvider,getConfigs}=await import("../src/vault/providers.ts");
+ const {searchGroundedGoogle,googleGroundingCooldownSeconds,googleGroundingQuotaMessage}=await import("../src/search/google-grounding.ts");
+ const originalFetch=globalThis.fetch,originalStorage=globalThis.localStorage,originalWindow=globalThis.window;
+ globalThis.window={dispatchEvent:()=>true};
+ globalThis.localStorage={getItem:()=>null};
+ const original=getConfigs().find(x=>x.provider==="gemini");
+ let calls=0;
+ setProvider({provider:"gemini",key:"quota-test-key",model:"gemini-3.8-flash"});
+ globalThis.fetch=async (input)=>{
+  calls++;
+  // Both Google models exhausted: stop after at most one alternate attempt.
+  if(calls===2)assert.match(String(input),/gemini-2\.5-flash-lite:generateContent/);
+  return new Response(JSON.stringify({error:{code:429,status:"RESOURCE_EXHAUSTED",message:"quota exhausted"}}),{
+   status:429,headers:{"content-type":"application/json","retry-after":"120"}
+  });
+ };
+ try{
+  await assert.rejects(searchGroundedGoogle("台灣 PGY 招募"),/429/);
+  assert.equal(calls,2,"One primary and one Google 2.5 Flash-Lite call maximum");
+  assert.ok(googleGroundingCooldownSeconds()>=110);
+  assert.match(googleGroundingQuotaMessage(),/429/);
+  await assert.rejects(searchGroundedGoogle("不同的台灣醫療查詢"),/429/);
+  assert.equal(calls,2,"Later queries must stop before another charged API request");
+  setProvider({provider:"gemini",key:"replacement-key",model:"gemini-3.8-flash"});
+  assert.equal(googleGroundingCooldownSeconds(),0,"An explicitly replaced API key may be attempted independently");
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=originalStorage;
+  if(original)setProvider(original);else removeProvider("gemini");
+  if(originalWindow===undefined)delete globalThis.window;else globalThis.window=originalWindow;
+ }
+});
+
+
+test("Gemini 3 Google 429 can recover from independent 2.5 Flash-Lite grounding citations",async()=>{
+ const {setProvider,removeProvider,getConfigs}=await import("../src/vault/providers.ts");
+ const {searchGroundedGoogle}=await import("../src/search/google-grounding.ts");
+ const previousFetch=globalThis.fetch,previousStorage=globalThis.localStorage,previousWindow=globalThis.window;
+ const initial=getConfigs().find(x=>x.provider==="gemini");
+ globalThis.window={dispatchEvent:()=>true};
+ globalThis.localStorage={getItem:()=>null};
+ setProvider({provider:"gemini",key:"separate-google-quota-test",model:"gemini-3.8-flash"});
+ let calls=0;
+ globalThis.fetch=async (input,options)=>{
+  calls++;
+  if(calls===1){
+   assert.match(String(input),/\/interactions/);
+   return new Response("limit",{status:429,headers:{"retry-after":"60"}});
+  }
+  assert.match(String(input),/gemini-2\.5-flash-lite:generateContent/);
+  const body=JSON.parse(options.body);
+  assert.deepEqual(body.tools,[{google_search:{}}]);
+  return new Response(JSON.stringify({candidates:[{
+   content:{parts:[{text:"官方來源指出有最新消息。"}]},
+   groundingMetadata:{
+    groundingChunks:[{web:{uri:"https://www.mohw.gov.tw/news",title:"臺灣衛福部"}}],
+    groundingSupports:[{segment:{text:"官方來源指出有最新消息"},groundingChunkIndices:[0]}]
+   }
+  }]}),{status:200,headers:{"content-type":"application/json"}});
+ };
+ try{
+  const result=await searchGroundedGoogle("2027 台灣醫療招募");
+  assert.equal(calls,2);
+  assert.equal(result.queries,2);
+  assert.equal(result.sources.length,1);
+  assert.equal(result.sources[0].url,"https://www.mohw.gov.tw/news");
+  assert.ok(result.sources[0].regionSpecific);
+  assert.match(result.notes,/Flash-Lite/);
+ }finally{
+  globalThis.fetch=previousFetch;
+  if(previousStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=previousStorage;
+  if(initial)setProvider(initial);else removeProvider("gemini");
+  if(previousWindow===undefined)delete globalThis.window;else globalThis.window=previousWindow;
+ }
+});

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.22-scouts-web-retrieval",
-  "description": "Scouts conversational web search routing, backend-first website reading and real connectivity diagnostics"
+  "build": "2026.10.20.23-scouts-execution-fix",
+  "description": "Scouts executes planned chat research, parallelizes public page reads, and resolves waiting Detroit stages"
 }

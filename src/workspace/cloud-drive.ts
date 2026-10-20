@@ -22,6 +22,9 @@ export async function connectWorkspaceDrive():Promise<Session>{
  sessionStorage.setItem(SESSION_KEY,JSON.stringify(session));
  sessionStorage.setItem("vanilla.chat.active.account.v1",session.email.trim().toLowerCase());
  window.dispatchEvent(new Event("vanilla-drive-connected"));
+ // Complete WeiGuo identity verification in the background using the same Google account.
+ // A browser-blocked identity prompt does not block the Drive login.
+ void import("../weiguo/auto-login").then(module=>module.autoSignInWeiGuo()).catch(()=>{});
  return session;
 }
 function bearer(token:string):HeadersInit{return {Authorization:"Bearer "+token};}

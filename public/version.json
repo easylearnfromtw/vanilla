@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.16-ceres-family",
-  "description": "Ceres verified Telegram family inbox and explicitly approved replies; preserves Quirinus, Diana and iPhone WebLLM recovery"
+  "build": "2026.10.20.17-quirinus-autonomous",
+  "description": "Quirinus PR, main and daily offline scans with redacted issue alerts; preserves family approval, Ceres and iPhone stability"
 }

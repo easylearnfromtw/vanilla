@@ -1,6 +1,17 @@
 name: Quirinus Offline Source Scan
-run-name: Quirinus approved ${{ inputs.request_id || 'manual' }}
+run-name: Quirinus ${{ github.event_name == 'workflow_dispatch' && format('approved {0}', inputs.request_id || 'manual') || github.event_name }}
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'services/**'
+      - 'tests/**'
+      - 'deployment/quirinus/**'
+      - '.github/workflows/quirinus-offline-scan.yml'
+  schedule:
+    # UTC 01:19 = Taiwan 09:19 daily; GitHub scheduling may be delayed.
+    - cron: '19 1 * * *'
   workflow_dispatch:
     inputs:
       request_id:
@@ -20,22 +31,28 @@ permissions:
   contents: read
 
 concurrency:
-  group: quirinus-offline-${{ github.ref }}
+  group: quirinus-offline-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
   offline-code-scan:
-    # No PR event: never grant an untrusted fork source code / workflow authority.
-    if: github.ref == 'refs/heads/main'
+    # PRs have read-only token permissions. Scanner image uses only trusted base SHA.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout only the approved repository revision
+      - name: Checkout target revision as untrusted data
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Build pinned VulnClaw scanner image
-        run: docker build --pull -f deployment/quirinus/Dockerfile -t vanilla-quirinus:v0.4.1 .
+          path: target-source
+      - name: Checkout trusted scanner from main base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+          path: trusted-scanner
+      - name: Build pinned scanner image from trusted base only
+        run: docker build --pull -f trusted-scanner/deployment/quirinus/Dockerfile -t vanilla-quirinus:v0.4.1 trusted-scanner
       - name: Run sealed offline source scan
         shell: bash
         run: |
@@ -52,9 +69,9 @@ jobs:
             --memory 768m \
             --cpus 1 \
             --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
-            --mount "type=bind,source=$PWD/src,target=/scan-src/src,readonly" \
-            --mount "type=bind,source=$PWD/services,target=/scan-src/services,readonly" \
-            --mount "type=bind,source=$PWD/tests,target=/scan-src/tests,readonly" \
+            --mount "type=bind,source=$PWD/target-source/src,target=/scan-src/src,readonly" \
+            --mount "type=bind,source=$PWD/target-source/services,target=/scan-src/services,readonly" \
+            --mount "type=bind,source=$PWD/target-source/tests,target=/scan-src/tests,readonly" \
             --mount "type=bind,source=$RUNNER_TEMP/quirinus-output,target=/output" \
             --env QUIRINUS_ENABLED=true \
             --env QUIRINUS_ISOLATED=true \
@@ -73,3 +90,86 @@ jobs:
             ${{ runner.temp }}/quirinus-output/quirinus-summary.md
           retention-days: 7
           if-no-files-found: error
+
+  # Only validated aggregate scan results cross this job boundary.
+  # Pull requests NEVER receive issue-write privileges or execute this job.
+  alert-owner:
+    name: Quirinus aggregate alert
+    needs: [offline-code-scan]
+    if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.offline-code-scan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Checkout trusted alert code without saved credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download sanitized aggregate from this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: quirinus-safe-summary
+          path: quirinus-safe
+      - name: Validate CREAM counts with strict redaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 deployment/quirinus/autonomous_alert.py quirinus-safe/quirinus-summary.json > "$RUNNER_TEMP/quirinus-alert.json"
+      - name: Open or update one aggregate review issue if elevated risk
+        uses: actions/github-script@v7
+        env:
+          QUIRINUS_SAFE_ALERT: ${{ runner.temp }}/quirinus-alert.json
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync(process.env.QUIRINUS_SAFE_ALERT, 'utf8'));
+            if (!summary.alert) {
+              core.info('No elevated risk; never auto-close an existing review issue.');
+              return;
+            }
+            const count = summary.severityCounts;
+            const marker = '<!-- vanilla-quirinus-autonomous-v1 -->';
+            const stamp = '<!-- quirinus-fingerprint:' + summary.fingerprint + ' -->';
+            const title = 'Quirinus · automated security review (aggregate only)';
+            const actionsUrl = 'https://github.com/' + context.repo.owner + '/' + context.repo.repo
+              + '/actions/runs/' + context.runId;
+            const body = [
+              marker, stamp, '### Automatic Quirinus review',
+              '',
+              'This issue tracks static-rule findings, NOT confirmed exploitable vulnerabilities.',
+              '',
+              '| Metric | Aggregate |', '| --- | ---: |',
+              '| Source files | ' + summary.filesScanned + ' |',
+              '| Total rule findings | ' + summary.totalFindings + ' |',
+              '| Critical | ' + count.Critical + ' |',
+              '| High | ' + count.High + ' |',
+              '| Medium | ' + count.Medium + ' |',
+              '| Low | ' + count.Low + ' |',
+              '| Info | ' + count.Info + ' |',
+              '| Truncated results | ' + summary.truncated + ' |',
+              '',
+              'Aggregate last changed: ' + actionsUrl,
+              '',
+              'Source, evidence, paths, secret values and repair backlogs are intentionally omitted.',
+              'Please confirm findings privately. No automatic code edits, merges or deploys.'
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100
+            });
+            const issue = open.find(i => !i.pull_request && i.title === title
+              && (i.body || '').includes(marker));
+            if (issue) {
+              if ((issue.body || '').includes(stamp)) {
+                core.info('Already reported identical aggregate; no duplicate notification.');
+                return;
+              }
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, body });
+              core.info('Updated aggregate review issue #' + issue.number);
+            } else {
+              const created = await github.rest.issues.create({ owner, repo, title, body });
+              core.info('Opened sanitized review issue #' + created.data.number);
+            }

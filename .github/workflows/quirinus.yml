@@ -26,6 +26,8 @@ jobs:
           python-version: "3.12"
       - name: Install only existing WeiGuo Python test requirements
         run: python -m pip install -r services/weiguo/requirements.txt
+      - name: Verify proactive issue alert redaction and schema
+        run: python -m unittest discover -s services/weiguo -p 'test_quirinus_autonomous.py'
       - name: Verify Quirinus secure adapter without external VulnClaw
         run: python -m unittest discover -s services/weiguo -p 'test_quirinus_adapter.py'
       - name: Verify owner-approved Quirinus family gateway

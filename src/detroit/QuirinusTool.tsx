@@ -54,6 +54,8 @@ export default function QuirinusTool(){
   <h2><ShieldCheck size={21} aria-hidden="true"/> Quirinus · 資安掃描派工</h2>
   <p>由 Athena 審核後才向 GitHub Actions 要求執行。真正的 VulnClaw L1/L2 掃描在停用網路的容器中執行；Railway 不執行掃描程式。</p>
   <p role="status">{message}</p>
+  <p><strong>主動巡檢：</strong>GitHub PR、主分支更新及每日例行掃描均會自動執行。高風險警示只公布統計，不會擅自修補或部署。</p>
+  <p><a href="https://github.com/easylearnfromtw/vanilla/actions/workflows/quirinus-offline-scan.yml" target="_blank" rel="noreferrer noopener">查看 Quirinus 自動巡檢紀錄 <ExternalLink size={15}/></a></p>
   {!person&&<button type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-weiguo'))}>至衞國登入</button>}
   <button type="button" disabled={busy||!eligible} onClick={()=>void refresh()}><RefreshCw size={15}/>檢查授權狀態</button>
   {status?.enabled&&eligible&&<>

@@ -34,13 +34,25 @@ def owner_subject(chat_id: int) -> str|None:
 async def _telegram(method: str, data: dict) -> None:
     token=os.getenv("CERES_TELEGRAM_BOT_TOKEN","")
     if not re.fullmatch(r"[0-9]{5,15}:[A-Za-z0-9_-]{30,80}",token):
-        return
-    # HTTP client errors must never leak token-containing URL into logs.
+        print("Ceres Telegram send: unconfigured",flush=True)
+        return False
+    # Never log the token-bearing URL, payload, chat ID, response body or exception.
     try:
         async with httpx.AsyncClient(timeout=8,follow_redirects=False,trust_env=False) as client:
-            await client.post("https://api.telegram.org/bot"+token+"/"+method,json=data)
+            response=await client.post("https://api.telegram.org/bot"+token+"/"+method,json=data)
+        if response.status_code!=200:
+            print("Ceres Telegram send: provider_http_"+str(response.status_code),flush=True)
+            return False
+        try:
+            accepted=response.json().get("ok") is True
+        except (ValueError,AttributeError,TypeError):
+            accepted=False
+        if not accepted:
+            print("Ceres Telegram send: provider_rejected",flush=True)
+        return accepted
     except httpx.HTTPError:
-        return
+        print("Ceres Telegram send: network_failure",flush=True)
+        return False
 
 async def say(chat: int, text: str, buttons: list[list[dict]]|None=None):
     data={"chat_id":chat,"text":text[:3500],"disable_web_page_preview":True}

@@ -34,6 +34,7 @@ def _menu() -> list[list[dict]]:
         [_button("📊 系統狀態", "status"), _button("🧰 工具能力", "tools")],
         [_button("🖥 Slime 節點", "nodes"), _button("🔌 API 管理", "providers")],
         [_button("👥 Gmail 權限", "accounts"), _button("🔎 GitHub 開源", "sources")],
+        [_button("🩺 模型診斷", "diagnostics"), _button("📈 成本報告", "usage")],
     ]
 
 
@@ -46,6 +47,9 @@ async def _home(chat: int) -> None:
         "/hub nodes — 現有 Slime 節點\n"
         "/hub github telegram agent — 搜尋 GitHub 公開開源專案\n"
         "/hub sources — 值得研究的開源框架\n"
+        "/hub diagnostics — 最近模型探測／故障碼\n"
+        "/hub usage — 30 日已記錄 API 使用摘要\n"
+        "/hub plan Gemini 速度優先 — 設定預覽、確認後套用\n"
         "/admin — API 憑證與 Gmail 管理\n\n"
         "GitHub 搜尋只讀取中繼資料，不安裝、執行或自動合併外部程式。",
         _menu())
@@ -217,6 +221,38 @@ async def command(chat: int, body: str) -> None:
         await _sources(chat)
     elif action in ("github", "search"):
         await _search_github(chat, tail)
+    elif action in ("diagnostics", "diag"):
+        from ceres_model_ops import diagnostics
+        report=diagnostics()
+        records=report["modelChecks"][-8:]
+        await say(chat, "Ceres · 模型診斷\n"+
+                  ("\n".join(x["provider"]+"/"+x["model"]+" · "+
+                             ("OK" if x["ok"] else x["code"]) for x in records)
+                   if records else "尚無實測結果")+
+                  "\n詳細健康與模型比較請使用 /admin 的安全設定頁。",_menu())
+    elif action in ("usage", "cost"):
+        from ceres_model_ops import summary
+        report=summary()
+        rows=report["providers"]
+        message="\n".join(x["provider"]+" · "+str(x["calls"])+" 次 · "+
+                           ("$"+str(round(x["estimated_usd"],5)) if x["estimated_usd"] is not None
+                            and not x["unpriced"] else "費用部分未知")
+                           for x in rows)
+        await say(chat,"Ceres · 最近 30 日已記錄的模型用量\n"+
+                  (message or "尚無紀錄")+"\n非供應商完整帳單。",_menu())
+    elif action in ("plan", "設定"):
+        from ceres_model_ops import preview
+        from fastapi import HTTPException
+        try:
+            proposal=preview(tail,chat)
+        except HTTPException as exc:
+            await say(chat,str(exc.detail)+"\n例如 /hub plan Gemini 速度優先",_menu())
+            return
+        message=("Ceres · 設定預覽（尚未執行）\n"+
+                 proposal["provider"]+" · "+proposal["operation"]+" → "+proposal["value"]+
+                 "\n"+proposal["warning"]+"\n120 秒內可確認。")
+        await say(chat,message,[[_button("✅ 確認套用","confirmplan:"+proposal["token"]),
+                                _button("取消","home")]])
     elif action in ("accounts", "gmail", "providers", "api", "admin"):
         from ceres_admin_bot import command as admin_command
         await admin_command(chat, "/admin " + ("users" if action in ("accounts", "gmail")
@@ -236,3 +272,13 @@ async def callback(chat: int, callback_id: str, data: str) -> None:
         await command(chat, "/hub " + action)
     elif action == "github":
         await say(chat, "輸入 /hub github 關鍵字，例如 /hub github telegram AI agent。")
+    elif action in ("diagnostics","usage"):
+        await command(chat,"/hub "+action)
+    elif action.startswith("confirmplan:"):
+        from ceres_model_ops import approve
+        from fastapi import HTTPException
+        try:
+            result=approve(action[12:],chat)
+            await say(chat,"已套用 Owner 確認的設定："+result["provider"],_menu())
+        except HTTPException as exc:
+            await say(chat,str(exc.detail),_menu())

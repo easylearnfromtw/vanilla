@@ -30,6 +30,7 @@ from ceres_server_agent import router as ceres_server_router, worker_loop as cer
 from ceres_telegram_registration import register_telegram_webhook
 from ceres_admin_web import router as ceres_admin_web_router
 from ceres_model_routes import router as ceres_model_router
+from ceres_model_ops_routes import router as ceres_ops_router
 from family_model_gateway import router as family_model_router
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
@@ -159,6 +160,7 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 app.include_router(ceres_telegram_router)
 app.include_router(ceres_admin_web_router)
 app.include_router(ceres_model_router)
+app.include_router(ceres_ops_router)
 app.include_router(family_model_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)

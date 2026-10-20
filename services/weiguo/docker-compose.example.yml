@@ -45,6 +45,9 @@ services:
       MEDUSA_ENABLED: "false"
       MEDUSA_SANDBOX_EGRESS_BLOCKED: "false"
       MEDUSA_FAMILY_ENABLED: "false"
+      # Medusa Lite: restricted Python subset on this WeiGuo server; no separate cloud
+      MEDUSA_LITE_ENABLED: "false"
+      # Set MEDUSA_ENGINE: "lite" only after testing and authorizing family owner
       # MEDUSA_FAMILY_OWNER_SUBS: "verified Google sub"
       # MEDUSA_JUDGE0_URL: "http://judge0:2358"
       # MEDUSA_PYTHON_LANGUAGE_ID: "109" # Verify the deployment language ID first.

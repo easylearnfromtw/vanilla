@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.17-quirinus-autonomous",
-  "description": "Quirinus PR, main and daily offline scans with redacted issue alerts; preserves family approval, Ceres and iPhone stability"
+  "build": "2026.10.20.18-iphone-webllm-stability",
+  "description": "iPhone WebLLM crash protection: manual cached model load, prevent silent GPU main-thread fallback, terminate retired workers, show memory warnings"
 }

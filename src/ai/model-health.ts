@@ -20,7 +20,7 @@ export function recordModelRun(modelId:string,ok:boolean,durationMs:number){
  data[modelId]=[...(data[modelId]||[]),{ok,durationMs:Math.round(durationMs),at:Date.now()}].slice(-12);
  try{localStorage.setItem(KEY,JSON.stringify(Object.fromEntries(Object.entries(data).slice(-40))));}catch{}
 }
-export function getHealthAdjustment(modelId:string):number{
+export function getHealthAdjustment(modelId:string,includeLatency=true):number{
  const items=load()[modelId]||[];
  if(items.length===0)return 0;
  const recent=items.slice(-6);
@@ -29,6 +29,7 @@ export function getHealthAdjustment(modelId:string):number{
  const successes=recent.filter(x=>x.ok);
  const average=successes.length?successes.reduce((n,x)=>n+x.durationMs,0)/successes.length:0;
  const latencyPenalty=average>90000?-9:average>40000?-5:average>15000?-2:0;
- return -Math.min(20,failures*4+recentFailures*3)+latencyPenalty;
+ // Quality-first selection still penalizes failures, but never demotes a good model solely for being slower.
+ return -Math.min(20,failures*4+recentFailures*3)+(includeLatency?latencyPenalty:0);
 }
 export function clearModelHealth(){try{localStorage.removeItem(KEY);}catch{}}

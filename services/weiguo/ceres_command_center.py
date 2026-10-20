@@ -219,9 +219,9 @@ async def command(chat: int, body: str) -> None:
     if not arg or action in ("home", "menu", "help"):
         await _home(chat)
     elif action in ("status", "狀態"):
-        await say(chat, _status_text(), _menu())
+        await say(chat, _title("SYSTEM / 系統配置")+"<pre>"+escape(_status_text())+"</pre>\n<i>配置快照並非端對端回覆測試。</i>", _page_buttons("status"),html=True)
     elif action in ("tools", "skills", "功能", "工具"):
-        await say(chat, _tools_text(), _menu())
+        await say(chat, _title("TOOLS / Detroit 工具")+"<pre>"+escape(_tools_text())+"</pre>", _page_buttons("tools"),html=True)
     elif action in ("nodes", "slime", "節點"):
         await _nodes(chat, sub)
     elif action in ("sources", "projects", "開源"):
@@ -232,21 +232,29 @@ async def command(chat: int, body: str) -> None:
         from ceres_model_ops import diagnostics
         report=diagnostics()
         records=report["modelChecks"][-8:]
-        await say(chat, "Ceres · 模型診斷\n"+
-                  ("\n".join(x["provider"]+"/"+x["model"]+" · "+
-                             ("OK" if x["ok"] else x["code"]) for x in records)
-                   if records else "尚無實測結果")+
-                  "\n詳細健康與模型比較請使用 /admin 的安全設定頁。",_menu())
+        entries=("\n".join(
+            ("● " if x["ok"] else "○ ")
+            +"<b>"+escape(x["provider"])+"</b> / <code>"+escape(x["model"])+"</code>"
+            +" · "+escape("OK" if x["ok"] else x["code"])
+            for x in records) if records else "尚無模型實測結果")
+        await say(chat,_title("MODELS / 實際推論診斷")
+                  +entries
+                  +"\n\n<i>歷史探測紀錄；最新測試可從 /admin 安全設定頁啟動。</i>",
+                  _page_buttons("diagnostics"),html=True)
     elif action in ("usage", "cost"):
         from ceres_model_ops import summary
         report=summary()
         rows=report["providers"]
-        message="\n".join(x["provider"]+" · "+str(x["calls"])+" 次 · "+
-                           ("$"+str(round(x["estimated_usd"],5)) if x["estimated_usd"] is not None
-                            and not x["unpriced"] else "費用部分未知")
-                           for x in rows)
-        await say(chat,"Ceres · 最近 30 日已記錄的模型用量\n"+
-                  (message or "尚無紀錄")+"\n非供應商完整帳單。",_menu())
+        lines=[]
+        for item in rows:
+            priced=(item["estimated_usd"] is not None and not item["unpriced"])
+            cost=("$"+str(round(item["estimated_usd"],5)) if priced else "價格資料不足")
+            lines.append("<b>"+escape(item["provider"].title())+"</b>\n"
+                         +"  呼叫 "+str(item["calls"])+" 次 · "+escape(cost))
+        await say(chat,_title("COST / 最近 30 日")
+                  +("\n\n".join(lines) if lines else "尚無已記錄的用量")
+                  +"\n\n<i>非供應商完整帳單；未計價呼叫不會估算。</i>",
+                  _page_buttons("usage"),html=True)
     elif action in ("plan", "設定"):
         from ceres_model_ops import preview
         from fastapi import HTTPException
@@ -255,11 +263,14 @@ async def command(chat: int, body: str) -> None:
         except HTTPException as exc:
             await say(chat,str(exc.detail)+"\n例如 /hub plan Gemini 速度優先",_menu())
             return
-        message=("Ceres · 設定預覽（尚未執行）\n"+
-                 proposal["provider"]+" · "+proposal["operation"]+" → "+proposal["value"]+
-                 "\n"+proposal["warning"]+"\n120 秒內可確認。")
-        await say(chat,message,[[_button("✅ 確認套用","confirmplan:"+proposal["token"]),
-                                _button("取消","home")]])
+        message=(_title("REVIEW / 待確認設定")
+                 +"<b>供應商</b>  "+escape(proposal["provider"])+"\n"
+                 +"<b>操作</b>  "+escape(proposal["operation"])+"\n"
+                 +"<b>預定值</b>  <code>"+escape(proposal["value"])+"</code>\n\n"
+                 +escape(proposal["warning"])+"\n\n"
+                 +"<i>尚未執行 · 請於 120 秒內確認</i>")
+        await say(chat,message,[[_button("✓ 確認套用","confirmplan:"+proposal["token"]),
+                                _button("× 取消","home")]],html=True)
     elif action in ("accounts", "gmail", "providers", "api", "admin"):
         from ceres_admin_bot import command as admin_command
         await admin_command(chat, "/admin " + ("users" if action in ("accounts", "gmail")

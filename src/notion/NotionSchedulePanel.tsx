@@ -106,6 +106,7 @@ export default function NotionSchedulePanel(){
     remote=await notionFamilyRequest<RemoteTask>('/v1/family/notion/tasks',{
      title:task.title,when:task.when,details:task.details
     });
+    if(task.done)remote=await notionFamilyRequest<RemoteTask>('/v1/family/notion/tasks/'+remote.id+'/complete',{});
    }else{
     // Existing linked page: sync the local deadline, then completion. No silent cloud writes.
     remote=await notionFamilyRequest<RemoteTask>('/v1/family/notion/tasks/'+task.notionPageId+'/reschedule',{when:task.when});

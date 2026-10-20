@@ -680,7 +680,7 @@ async function send(value=draft):Promise<void>{
     return;
    }
    if(pick.kind==="open"&&pick.event){
-    if(pick.event==="vanilla-open-orchestra"){
+    if(pick.tool==="orchestra"&&pick.event==="vanilla-open-orchestra"){
      const previous=[...history].reverse().find(t=>t.role==="assistant"&&Boolean(t.content?.trim())&&t.tool?.id!=="diana"&&!t.cream);
      const handoff=orchestraHandoff(route.request,previous?.content||"");
      if(canExecuteOrchestraHandoff(handoff)){

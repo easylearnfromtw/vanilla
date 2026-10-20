@@ -390,7 +390,7 @@ async function handleVenusImageSearch(request:string,originalQuestion=request):P
  try{
   const gallery=await searchCommonsImages(query);
   if(!gallery){toolReply(originalQuestion,"Wikimedia Commons 未找到可展示的圖片；沒有產生假照片或網址。","venus");return true;}
-  toolReply(originalQuestion,"Venus 已取得 "+gallery.items.length+" 張 Wikimedia Commons 公開圖片的真實縮圖與原始頁面。點擊圖片卡片才會下載圖片；使用前請在出處核對授權及作者。\n\n"+`\`\`\`venus\n`+JSON.stringify(gallery)+`\n\`\`\``,"venus");
+  toolReply(originalQuestion,"Venus 已取得 "+gallery.items.length+" 張 Wikimedia Commons 公開圖片的真實縮圖與原始頁面。點擊圖片卡片才會下載圖片；使用前請在出處核對授權及作者。\n\n"+String.fromCharCode(96).repeat(3)+"venus\n"+JSON.stringify(gallery)+"\n"+String.fromCharCode(96).repeat(3),"venus");
  }catch(error){toolReply(originalQuestion,"Venus 公開圖片搜尋失敗："+String(error instanceof Error?error.message:error)+"。未展示任何未驗證的圖片。","venus");}
  finally{setBusy(false);}
  return true;

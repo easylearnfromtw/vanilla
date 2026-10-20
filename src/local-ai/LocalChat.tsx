@@ -28,7 +28,7 @@ import {stripRenderedTable} from "./smart-output";
 import {saveChatAttachment,attachmentOwner,listChatAttachments} from "../library/attachment-vault";
 import {signedChatAccount,chatStorageKey,scheduleChatSync} from "../vault/chat-sync";
 import {searchLiveWeb,searchWebSummary} from "../search/live-search";
-import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
+import {formatIndexedPages,requiresVerifiedExamSchedule,hasOfficialExamScheduleEvidence,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
@@ -843,6 +843,26 @@ async function send(value=draft):Promise<void>{
       f.excerpt.slice(0,850)).join("\n\n"),"project");return;}
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
+ }
+ // Do not let a tiny model invent an exam date or treat a search hit as verified.
+ // Private mode / network opt-outs must never trigger hidden web requests.
+ if(requiresVerifiedExamSchedule(question)&&!fileContext&&!inlineFileContext){
+  const officialPages=webIndex.filter(page=>hasOfficialExamScheduleEvidence(question,[page]));
+  if(!officialPages.length){
+   const reason=privateMode?"目前是私密模式，未連線查詢":
+    !contextPrefs.web?"自動網路查證已關閉":
+    webIndex.length?"本次搜尋未取得符合年份、考試與日期的官方資料":"本次沒有取得官方考程";
+   toolReply(question,"這題涉及可驗證的考試日期，不能直接用本地模型猜測。"+
+    reason+"，因此暫時無法確認正確日期。可在一般模式開啟自動查證，並設定「來源設定」的 HTTPS 搜尋／閱讀後端；學測與分科請以主管考試機構公告為準。",
+    {...TOOL.search,status:"partial",detail:"考試日期尚無足夠官方證據"},{webSources});
+   return;
+  }
+  // This answer is deterministic source evidence, not a tiny-model paraphrase:
+  // three exam DAYS must never be hallucinated into three exam ROUNDS.
+  toolReply(question,"已取得符合考試名稱與年份的官方考程資料。以下直接呈現來源摘錄，日期未經本地模型改寫：\n\n"+
+   formatIndexedPages(officialPages),{...TOOL.search,status:"ok",detail:"官方考程 "+officialPages.length+" 筆"},
+   {webSources:officialPages.map(page=>({title:page.title,url:page.url,kind:page.kind}))});
+  return;
  }
  await answerWithModel(question,{inlineFileContext,webContext,webSources},visibleClarificationAnswer);
 }

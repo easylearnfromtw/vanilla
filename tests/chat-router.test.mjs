@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {routeMessage,routeTail,expandSlashCommand,matchSlashCommands,SEARCH_REQUEST,CODE_BUILDER,SAVED_FILE_READ} from "../src/assistant/chat-router.ts";
+import {requiresVerifiedExamSchedule,hasOfficialExamScheduleEvidence} from "../src/search/search-evidence.ts";
 
 const ctx={privateMode:false,hasCreamResult:false};
 const kind=(q,c=ctx)=>routeMessage(q,c).kind;
@@ -196,4 +197,30 @@ test("Scouts uses the configured reader backend first on Safari and keeps its pr
   if(previousStorage===undefined)delete globalThis.localStorage;
   else globalThis.localStorage=previousStorage;
  }
+});
+
+
+test("short Taiwan entrance-exam date questions never bypass Scouts",()=>{
+ for(const q of ["今年學測時間","學測時間","2026學測日期","明年學科能力測驗何時開始","今年統測時間","國中會考日期"]){
+  assert.equal(requiresVerifiedExamSchedule(q),true,q);
+  const result=routeMessage(q,ctx);
+  assert.equal(result.kind,"web-search",q);
+  assert.equal(result.explicit,false,q);
+ }
+ assert.equal(routeMessage("學測時間",{privateMode:true,hasCreamResult:false}).kind,"continue");
+ assert.equal(routeMessage("今年學測時間 不要上網",ctx).kind,"continue");
+ assert.equal(requiresVerifiedExamSchedule("幫我寫一篇學測勵志文"),false);
+});
+
+test("exam schedule facts require official year-specific dates, not wiki or today's date",()=>{
+ const today=new Date("2026-10-20T05:00:00.000Z");
+ const official={title:"115學年度學科能力測驗日程表",url:"https://www.ceec.edu.tw/files/115-schedule",kind:"snippet",
+  excerpt:"115學年度學科能力測驗於1月17日至1月19日舉行"};
+ assert.equal(hasOfficialExamScheduleEvidence("今年學測時間",[official],today),true);
+ assert.equal(hasOfficialExamScheduleEvidence("2026學測日期",[official],today),true);
+ assert.equal(hasOfficialExamScheduleEvidence("明年學測時間",[official],today),false);
+ assert.equal(hasOfficialExamScheduleEvidence("今年學測時間",[],today),false);
+ assert.equal(hasOfficialExamScheduleEvidence("今年學測時間",[{...official,url:"https://zh.wikipedia.org/wiki/X"}],today),false);
+ assert.equal(hasOfficialExamScheduleEvidence("今年學測時間",[{...official,excerpt:"115學年度即將舉行"}],today),false);
+ assert.equal(hasOfficialExamScheduleEvidence("今年學測時間",[{...official,excerpt:"10月20日",title:"無關學科能力測驗"}],today),false);
 });

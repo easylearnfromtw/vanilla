@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.51-windows-node",
-  "description": "Detroit Node Manager: paired Windows inference nodes and installer"
+  "build": "2026.10.20.52-noodles-distillation",
+  "description": "NOODLES offline teacher-student distillation, local QLoRA training, human-scored benchmark, retained Windows Node Manager"
 }

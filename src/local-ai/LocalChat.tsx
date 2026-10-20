@@ -746,7 +746,7 @@ async function send(value=draft):Promise<void>{
    if(pick.tool==="luca"&&/(?:查看|查詢|分析|統計|監控|狀態|報告)/.test(route.request)){
     setBusy(true);
     try{
-     const out=await executeDetroitNative<NativeLucaResult>("luca",{}, {privateMode});
+     const out=await executeDetroitNative<NativeLucaResult>("luca",{operation:"summary"}, {privateMode});
      toolReply(question,"LUCA 真實後端觀測："+out.count+" 筆事件、"+out.failures+" 筆失敗；平均耗時 "+
       out.averageMs.toFixed(1)+" ms，P95 "+out.p95Ms.toFixed(1)+" ms。"+
       (out.recommendations.length?"\n建議：\n"+out.recommendations.slice(0,6).map(x=>"- "+x).join("\n"):""),"diana");

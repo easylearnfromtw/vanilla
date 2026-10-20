@@ -27,7 +27,6 @@ for(const e of DETROIT_ENGINES)include(asCapability(e.id,e.label,"core",e.status
 for(const e of DETROIT_FACTORY_TOOLS)include(asCapability(e.id,e.label,"factory",e.status,e.description));
 for(const e of ORCHESTRA_TOOLS)include(asCapability(e.id,e.name,"craft","adapter",e.summary));
 include(asCapability("jensen-huang","JENSEN HUANG / Self-Build CODE","factory","adapter","GitHub code changes require explicit branch and review authorization"));
-include(asCapability("victoria","Victoria","planned","planned","Cross-conversation continuity and consistency: requires an authorized context connector and runtime"));
 export const DETROIT_CAPABILITIES:readonly DetroitCapability[]=Object.freeze(list);
 export function findDetroitCapability(id:string):DetroitCapability|undefined{
  return DETROIT_CAPABILITIES.find(c=>c.id===id);

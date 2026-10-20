@@ -2,10 +2,12 @@
 import asyncio
 import json
 import os
+import shutil
+import subprocess
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,AsyncMock
 
 from cryptography.fernet import Fernet
 from fastapi import HTTPException
@@ -13,7 +15,7 @@ from ceres_admin_policy import store_provider_key
 from ceres_model_catalog import discover, catalog
 from ceres_model_ops import (probe,compare,record_usage,summary,diagnostics,dashboard,
                              preview,approve,failover_status,recommendations,
-                             set_price,_limit,generate_with_failover)
+                             set_price,_limit,generate_with_failover,telegram_check)
 from ceres_server_model import ModelSettings,ModelUnavailable
 
 
@@ -121,6 +123,21 @@ class OwnerOperationsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(r["results"]),2)
         self.assertFalse(r["qualityAssessed"])
         self.assertEqual(summary()["providers"][0]["calls"],2)
+
+    async def test_telegram_check_requires_explicit_action(self):
+        with patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as sender:
+            x=await telegram_check(123)
+        self.assertTrue(x["apiAccepted"])
+        sender.assert_awaited_once()
+        self.assertTrue(dashboard()["telegram"]["lastTelegramSendCheck"]["apiAccepted"])
+
+    async def test_webapp_embedded_javascript_parses(self):
+        if not shutil.which("node"):
+            self.skipTest("Node.js is not installed")
+        from ceres_admin_web import _PAGE
+        script=_PAGE.split('<script nonce="__NONCE__">',1)[1].split('</script>',1)[0]
+        p=subprocess.run(["node","--check"],input=script,text=True,capture_output=True)
+        self.assertEqual(p.returncode,0,p.stderr[:1000])
 
     async def test_no_background_probe_or_silent_failover(self):
         # No provider requests are issued merely by loading the dashboard.

@@ -90,3 +90,4 @@ export default function CeresPanel(){
   </>}
   <p>此版本沒有 AI 自動回覆、背景代理執行或讀取其他家庭成員資料的權限；詳細部署要求見 docs/CERES_INTEGRATION.md。</p>
  </section>;
+}

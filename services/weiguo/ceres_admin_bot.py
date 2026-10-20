@@ -83,23 +83,22 @@ def _btn(label: str, action: str):
     return {"text":label,"callback_data":"adm:"+action}
 
 def _menu_buttons():
-    return [[_btn("👥 Gmail 白名單","users"),_btn("🔌 API 服務","providers")],
-            [_btn("🧠 AI 模型偵測與選擇","models")],
-            [_btn("🔒 開啟白名單限制","on"),_btn("🔓 停用限制","off")],
-            [_btn("🛡️ 管理狀態","status"),_btn("🔑 安全設定 API","vault")]]
+    return [
+        [_btn("◉ 管理狀態","status"),_btn("▣ AI 模型","models")],
+        [_btn("◎ Gmail 帳號","users"),_btn("◇ API 服務","providers")],
+        [_btn("🔐 安全憑證","vault")],
+        [_btn("啟用白名單","on"),_btn("停用白名單","off")],
+    ]
 
 def _guide():
-    return ("Ceres 管理中心\n"
-            "此處僅接受已綁定 Google Owner 的 Telegram 私聊。\n\n"
-            "/admin users — 已授權 Gmail\n"
-            "/admin allow email@gmail.com member chat,files — 授權帳號及功能\n"
-            "/admin revoke email@gmail.com — 撤銷（需要按鈕確認）\n"
-            "/admin providers — API 狀態\n"
-            "/admin models — 已偵測模型、目前策略與所選版本\n"
-            "/admin enable gemini — 啟用服務\n"
-            "/admin disable canva — 停用服務\n"
-            "/admin enforce on — 開啟 Gmail 白名單模式\n"
-            "API Key 不可直接貼在 Telegram 聊天，請使用安全設定按鈕。")
+    return (_title("OWNER / 管理中心")
+            +"所有管理都在 Telegram 私聊內進行。\n"
+            +"從下方選擇功能，檢視狀態或調整設定。\n\n"
+            +"<b>快速指令</b>\n"
+            +"<code>/admin allow email@gmail.com member chat,files</code>\n"
+            +"<code>/admin revoke email@gmail.com</code>\n\n"
+            +"🔐 API 金鑰請透過加密表單輸入，勿貼在聊天訊息。\n"
+            +"<i>僅供已綁定 Google Owner 使用。</i>")
 
 async def _status(chat: int):
     users=accounts()
@@ -179,7 +178,7 @@ async def command(chat: int, body: str):
         return
     args=parts[1:]
     if not args or args[0] in ("menu","help"):
-        await say(chat,_guide(),_menu_buttons());return
+        await say(chat,_guide(),_menu_buttons(),html=True);return
     action=args[0].lower()
     try:
         if action=="status": await _status(chat)
@@ -206,7 +205,7 @@ async def command(chat: int, body: str):
             toggle_provider(args[1].lower(),action=="enable",chat)
             await _providers(chat)
         else:
-            await say(chat,"指令格式不正確。\n\n"+_guide(),_menu_buttons())
+            await say(chat,"指令格式不正確。\n\n"+_guide(),_menu_buttons(),html=True)
     except ValueError:
         await say(chat,"輸入格式不合法；請檢查 Email、角色或功能範圍。")
 
@@ -218,7 +217,7 @@ async def callback(chat: int, callback_id: str, data: str):
     await _telegram("answerCallbackQuery",{"callback_query_id":callback_id})
     action=data[4:]
     if action in ("menu","status","users","providers","models","vault"):
-        if action=="menu": await say(chat,_guide(),_menu_buttons())
+        if action=="menu": await say(chat,_guide(),_menu_buttons(),html=True)
         elif action=="status": await _status(chat)
         elif action=="users": await _users(chat)
         elif action=="providers": await _providers(chat)

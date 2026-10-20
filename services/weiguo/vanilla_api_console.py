@@ -166,7 +166,18 @@ async function loadProjects(){
  for(const p of x.projects){
   const o=document.createElement("option");o.value=p.id;o.textContent=p.label;options.append(o);
   const div=document.createElement("div");div.className="row";div.textContent=p.label;
-  const sub=document.createElement("span");sub.className="sub";sub.textContent=p.enabled?"已啟用":"已停用";div.append(sub);wrap.append(div);
+  const toggle=document.createElement("button");toggle.type="button";toggle.className="secondary";
+  toggle.style.width="auto";toggle.style.marginTop="0";
+  toggle.textContent=p.enabled?"停用":"啟用";
+  toggle.addEventListener("click",async()=>{
+   const decision=p.enabled?"停用":"啟用";
+   if(!window.confirm("確定"+decision+"此應用？所有所屬金鑰會"+(p.enabled?"立即停止":"恢復")+"新請求。"))return;
+   toggle.disabled=true;
+   try{await api("projects/toggle",{project_id:p.id,enabled:!p.enabled});await loadProjects();}
+   catch(e){message("projectMessage",e.message);toggle.disabled=false;}
+  });
+  const sub=document.createElement("span");sub.className="sub";sub.textContent=p.enabled?"已啟用":"已停用";
+  const controls=document.createElement("div");controls.append(sub,toggle);div.append(controls);wrap.append(div);
  }
 }
 $("projectForm").addEventListener("submit",async e=>{
@@ -232,9 +243,15 @@ async function loadUsage(){
  try{const x=await api("usage"),root=$("usageList");root.replaceChildren();
   if(!x.items.length)root.textContent="尚無 API 呼叫紀錄。";
   for(const k of x.items){const d=document.createElement("div");d.className="row";
-   d.textContent=k.label+" · "+k.requests+" 次 · "+k.reserved_or_charged_tokens+" Token";
+   const info=document.createElement("div");
+   const title=document.createElement("strong");title.textContent=k.label;
+   const meta=document.createElement("div");meta.className="sub";
+   meta.textContent=k.requests+" 次呼叫 · "+k.reserved_or_charged_tokens+" Token";
+   info.append(title,meta);d.append(info);
    const detail=document.createElement("span");detail.className="sub";detail.textContent=
-    (k.successes||0)+" 成功 / "+(k.failures||0)+" 失敗";d.append(detail);root.append(d);}
+    (k.successes||0)+" 成功 / "+(k.failures||0)+" 失敗 · "+
+    (k.average_latency_ms==null?"延遲未知":k.average_latency_ms+"ms");
+   d.append(detail);root.append(d);}
  }catch(e){message("usageList",e.message);}
 }
 $("reloadUsage").addEventListener("click",()=>void loadUsage());

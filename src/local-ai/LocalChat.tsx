@@ -892,6 +892,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
   setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或在模型面板開啟「允許計費 API」。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在模型面板載入本地模型，或到設定連接 Ollama／Gemini");
+  setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }
  const chosen:ModelCandidate[]=compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
@@ -905,7 +906,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    if(allowed)continue;
    const models=cloud.filter(x=>x.source===provider).map(x=>x.label).join("、");
    const service=provider==="gemini"?"Google Gemini":"DeepSeek";
-   if(!window.confirm("準備使用 "+service+"（"+models+"）。\n\n會傳送：本次問題、最近最多 20 則對話；與問題相關時也會自動附上：附件內容、網頁擷取、Google Drive 記憶節錄、PROJECT HUB 程式碼、CREAM 歷史數據，以及你附加的圖片。\n\n記憶／CREAM／專案的自動附加可以在「模型與工具」面板逐項關閉。比較模式可能增加用量與費用。\n\n同意傳送至這個供應商嗎？"))return;
+   if(!window.confirm("準備使用 "+service+"（"+models+"）。\n\n會傳送：本次問題、最近最多 20 則對話；與問題相關時也會自動附上：附件內容、網頁擷取、Google Drive 記憶節錄、PROJECT HUB 程式碼、CREAM 歷史數據，以及你附加的圖片。\n\n記憶／CREAM／專案的自動附加可以在「模型與工具」面板逐項關閉。比較模式可能增加用量與費用。\n\n同意傳送至這個供應商嗎？")){setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
    try{localStorage.setItem(key,"yes");}catch{}
   }
  }
@@ -914,7 +915,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const key="vanilla.ollama.consent."+endpoint;
   let allowed=false;try{allowed=localStorage.getItem(key)==="yes";}catch{}
   if(!allowed){
-   if(!window.confirm("這次將把問題、近期聊天與相關的附件／記憶內容傳送到你設定的 Ollama 主機："+endpoint+"。它不是 iPhone 裝置端推論；端點可能是你的主機或 Ollama 官方雲端，後者可能使用免費點數或產生費用。是否繼續？"))return;
+   if(!window.confirm("這次將把問題、近期聊天與相關的附件／記憶內容傳送到你設定的 Ollama 主機："+endpoint+"。它不是 iPhone 裝置端推論；端點可能是你的主機或 Ollama 官方雲端，後者可能使用免費點數或產生費用。是否繼續？")){setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
    try{localStorage.setItem(key,"yes");}catch{}
   }
  }

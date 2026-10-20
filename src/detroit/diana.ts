@@ -58,15 +58,18 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  const out:Candidate[]=[];
  const add=(tool:DianaTarget,score:number,reason:string)=>out.push({tool,score,reason});
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
+ if(/(?:漏洞|弱點|資安掃描|Quirinus|VulnClaw).{0,32}(?:掃描|檢查|稽核|GitHub|vanilla)|(?:掃描|檢查).{0,32}(?:漏洞|資安|Quirinus)/i.test(q))add("quirinus",105,"Quirinus 限固定核准範圍唯讀掃描");
+ if(/(?:執行|跑一下|測試).{0,35}(?:Python|程式碼|Medusa)|(?:Medusa).{0,25}(?:執行|測試)/i.test(q))add("medusa",102,"Medusa 使用隔離程式執行器與單次核准");
+ if(/(?:LUCA|監控報告|故障紀錄|錯誤統計|延遲指標|系統健康).{0,25}(?:查看|查詢|分析|摘要|報告|統計|狀態)|(?:查看|查詢|分析).{0,30}(?:LUCA|故障紀錄|系統健康)/i.test(q))add("luca",100,"LUCA 使用授權後端觀測資料");
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
  if(/Canva/i.test(q))add("canva",105,"指定 Canva 預覽雲端生成，須通過授權與單次同意");
- if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
+ if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",95,"視覺版面優先使用 LUNA");
  if(/(?:製作|產生|生成|建立|匯出|下載|輸出|做成|轉成|製成|存成).{0,45}(?:PDF|DOCX|PPTX|Word|簡報|文件|報告|海報|圖卡|資訊圖|SVG|PNG|JPG|JPEG|GIF)|(?:PDF|DOCX|PPTX|Word|簡報|報告|SVG|PNG|JPEG|GIF).{0,35}(?:製作|產生|匯出|下載|輸出|轉成|做成)/i.test(q))add("orchestra",93,"Detroit Orchestra 選擇已實作本機製作引擎，只有產生真實作品後才能聲稱完成");
- if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"Retina 是本機文件輸出引擎");
+ if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",94,"Retina 是本機文件輸出引擎");
  if(/(?:Orchestra|WordCraft|DeckCraft|VectorCraft|PhotoCraft|PdfCraft|DesignCraft|EffectCraft|跨格式)/i.test(q))add("orchestra",98,"Craft 工作由 Orchestra 統一選擇已驗證可用的引擎");
  if(chooseVenusIntent(q)!=="standard")add("venus",92,"Venus 選擇經驗證的地圖、影片、MathML、圖庫或時間元件");
- if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張)/i.test(q))add("bard",86,"生成圖片須在 Bard 中同意雲端 API");
+ if(/(?:生圖|生成圖片|AI\s*圖片|AI\s*圖像|畫一張|插畫|生成.{0,12}(?:圖像|圖片|插畫)|繪製.{0,12}(?:圖片|插畫))/i.test(q))add("bard",96,"生成圖片須在 Bard 中同意雲端 API");
  if(/(?:CSV|統計|數據|趨勢|分析資料|折線圖|圓餅圖|圖表|長期追蹤|體重|血壓|心率)/i.test(q))add("cream",84,"數據分析應優先使用確定性的 CREAM");
  // Analyze source data before producing a document or sending it into a visual editor.
  if(/(?:CSV|統計|數據|趨勢|折線圖|圓餅圖|圖表|長期追蹤)/i.test(q)&&/(?:PDF|DOCX|PPTX|Word|簡報|報告書|電子報)/i.test(q))add("cream",110,"先使用 CREAM 驗證數據，再交給輸出工具；不跳過資料核對");

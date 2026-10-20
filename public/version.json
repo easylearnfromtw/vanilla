@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.21-luca-client-diagnostics",
-  "description": "LUCA client-side privacy-first error diagnostics: local journal, model/UI failure capture and owner-controlled export"
+  "build": "2026.10.20.22-scouts-web-retrieval",
+  "description": "Scouts conversational web search routing, backend-first website reading and real connectivity diagnostics"
 }

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.47-scouts-independent-search",
-  "description": "Scouts independent Brave/Tavily search using WeiGuo family auth; local models and Erya evidence synthesis, Google fallback"
+  "build": "2026.10.20.50-small-model-scaffold",
+  "description": "Merlin compact task cards and evidence-ranked local 0.5B-3B contexts; preserves strong-model and privacy policies"
 }

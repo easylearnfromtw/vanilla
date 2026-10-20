@@ -4,6 +4,7 @@ import {notionFamilyRequest,weiGuoApiBase,weiGuoIdentity} from '../weiguo/api';
 import {currentChatMode} from '../local-ai/chat-session';
 import {signedChatAccount} from '../vault/chat-sync';
 import {attachmentOwner} from '../library/attachment-vault';
+import {notionPageDraft,notionTasksCsv,NOTION_BROWSER_URL,NOTION_CSV_FILENAME} from './browser-handoff';
 import {addLocalSchedule,changeLocalSchedule,createMemorySchedule,listLocalSchedule,
  markLocalScheduleSynced,needsNotionSync,type LocalScheduleTask} from './local-schedule';
 
@@ -84,6 +85,27 @@ export default function NotionSchedulePanel(){
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }
+ async function copyForNotionWeb(task:LocalScheduleTask){
+  if(privateMode)return setNotice('私人模式不允許將任務複製到外部服務');
+  try{
+   if(!navigator.clipboard?.writeText)throw Error('目前瀏覽器不支援剪貼簿寫入');
+   await navigator.clipboard.writeText(notionPageDraft(task));
+   setNotice('已複製這筆任務的非憑證資料。桌面 Chrome／Edge 可在已登入的 Notion 頁使用選用橋接擴充功能；這尚不是 Notion 同步成功。');
+  }catch(e){setNotice('無法複製任務：'+String(e instanceof Error?e.message:e));}
+ }
+ function downloadForNotionWeb(){
+  if(privateMode)return setNotice('私人模式不允許匯出至外部服務');
+  try{
+   const csv=notionTasksCsv(tasks);
+   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+   const link=document.createElement('a');
+   link.href=url;link.download=NOTION_CSV_FILENAME;
+   document.body.appendChild(link);link.click();link.remove();
+   // Revoke on the next task to let mobile browsers begin the download.
+   window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+   setNotice('已產生可供 Notion 網頁匯入的 CSV。請在 Notion 進行匯入與欄位核對；此操作不等同自動同步。');
+  }catch(e){setNotice('匯出失敗：'+String(e instanceof Error?e.message:e));}
+ }
  async function readNotion(){
   if(!cloudAllowed||!approveSync)return;
   setBusy(true);setNotice('');
@@ -137,11 +159,22 @@ export default function NotionSchedulePanel(){
      {rescheduleId===task.id&&<span><input type="datetime-local" aria-label="新日期與時間" value={rescheduleWhen} onChange={e=>setRescheduleWhen(e.target.value)}/><button type="button" disabled={busy||!rescheduleWhen} onClick={()=>void localChange(task.id,{when:rescheduleWhen})}>儲存</button></span>}
     </>}
     {!privateMode&&task.done&&<small> · 完成狀態保存在裝置上</small>}
+    {!privateMode&&<button type="button" disabled={busy} onClick={()=>void copyForNotionWeb(task)}>複製到 Notion 網頁橋接</button>}
     {cloudAllowed&&approveSync&&needsNotionSync(task)&&<button type="button" disabled={busy} onClick={()=>void pushNotion(task)}>手動同步這項至 Notion</button>}
    </li>)}
   </ul>}
   <details>
-   <summary>Notion 輔助同步（選用，需要網路）</summary>
+   <summary>免 API Key · Notion 網頁匯入／桌面輔助</summary>
+   <p>無需申請 Notion API：你可以將本機任務匯出成 CSV，再到已登入的 Notion 網頁手動匯入。桌面版 Chrome／Edge 另有實驗性擴充功能，可依你確認後填入已開啟空白頁的標題；不能直接繼承 iPhone 登入，也不會自動標記為同步成功。</p>
+   {!privateMode&&<>
+    <button type="button" disabled={busy||tasks.length===0} onClick={downloadForNotionWeb}>匯出 {tasks.length} 筆本機任務為 Notion CSV</button>
+    <a href={NOTION_BROWSER_URL} target="_blank" rel="noopener noreferrer">在瀏覽器開啟 Notion</a>
+   </>}
+   {privateMode&&<p>私人模式不提供對外任務匯出。</p>}
+   <p>電腦版擴充功能原始碼：<a href="https://github.com/easylearnfromtw/vanilla/tree/main/integrations/notion-browser-bridge" target="_blank" rel="noopener noreferrer">Notion Browser Bridge</a>。使用者需自行安裝、登入 Notion 並確認操作；iPhone 不支援此 Chrome 擴充功能。</p>
+  </details>
+  <details>
+   <summary>Notion API 輔助同步（選用，需要網路）</summary>
    <p>Notion 只提供外部備份與跨工具檢視。未連線、無金鑰或 Notion 故障時，本地排程與 AI 模型皆不受影響；不會在恢復網路時自動上傳。</p>
    {privateMode?<p>私人模式不允許外部同步。</p>:!weiGuoApiBase()?<p>目前未配置 Notion 後端，不需要為本地使用而設定。</p>:!weiGuoIdentity()?<p>要使用 Notion，請先至衞國以 Google 身分登入。<button type="button" onClick={()=>window.dispatchEvent(new Event('vanilla-open-weiguo'))}>開啟衞國</button></p>:weiGuoIdentity()?.role==='viewer'?<p>此帳號目前只有檢視身分，無法寫入 Notion。</p>:<>
     <label className="detroit-consent"><input type="checkbox" checked={approveSync} onChange={e=>setApproveSync(e.target.checked)}/> 我了解只有主動點擊同步，才會把所選任務內容送至 Notion。</label>

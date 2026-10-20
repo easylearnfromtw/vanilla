@@ -1,6 +1,12 @@
 name: Windows Node installer
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/windows-node/**'
+      - 'src/nodes/**'
+      - '.github/workflows/windows-node-installer.yml'
   push:
     tags: ['windows-node-v*']
 permissions:

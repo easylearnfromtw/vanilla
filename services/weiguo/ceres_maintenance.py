@@ -165,11 +165,8 @@ def model_call_allowed(chat: int) -> bool:
     """
     if not _owner(chat):
         return True
-    try:
-        st=budget_state(chat)
-        return not st["overLimit"]
-    except (ValueError,TypeError,KeyError):
-        return True
+    st=budget_state(chat)
+    return not st["overLimit"]
 
 
 def overview(chat: int) -> dict:
@@ -186,6 +183,8 @@ def overview(chat: int) -> dict:
         issues.append("reply_not_verified")
     with _session() as db:
         _tables(db)
+        from ceres_agent_bridge import setup as setup_jobs
+        setup_jobs(db)
         recent=db.execute("SELECT status,COUNT(*) n FROM ceres_agent_jobs "
                           "WHERE updated_at>? GROUP BY status",
                           (int(time.time())-86400,)).fetchall()

@@ -44,34 +44,51 @@ export function readBridgeURL(searchEndpoint:string,pageURL:string):string{
 }
 export async function readPublicPage(input:string):Promise<ReadPage>{
  const url=validatePublicPageURL(input);
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
- try{
+ const backend=getSearchBridge();
+ const readDirect=async():Promise<ReadPage>=>{
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),9000);
   try{
    const res=await fetch(url,{credentials:"omit",mode:"cors",redirect:"error",signal:controller.signal});
-   const body=await limitedText(res);
-   const parsed=extractReadableText(body);
-   const check=inspectExternalText(parsed.text,"web");
-   if(check.blocked)throw Error("網頁含疑似提示詞注入，文字已隔離");
+   const parsed=extractReadableText(await limitedText(res));
+   if(inspectExternalText(parsed.text,"web").blocked)throw Error("網頁含疑似提示詞注入，文字已隔離");
    if(parsed.text.length<120)throw Error("網站沒有可讀的正文");
    return {url,title:parsed.title,text:parsed.text,readMethod:"browser"};
-  }catch(directError){
-   const backend=getSearchBridge();
-   if(!backend)throw Error("此網站無法由 iPhone 直接讀取（CORS 或網站限制），且尚未設定網頁擷取後端。"+String(directError));
-   const path=readBridgeURL(backend,url);
-   const res=await fetch(path,{mode:"cors",credentials:"omit",headers:webReaderHeaders(),signal:controller.signal});
-   if(!res.ok)throw Error("網頁擷取後端回應 HTTP "+res.status);
+  }finally{clearTimeout(timeout);}
+ };
+ const readBackend=async():Promise<ReadPage>=>{
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
+  try{
+   const res=await fetch(readBridgeURL(backend,url),{mode:"cors",credentials:"omit",headers:webReaderHeaders(),redirect:"error",signal:controller.signal});
+   if(!res.ok)throw Error("HTTP "+res.status);
    const raw=await res.json() as Partial<ReadPage>;
-   if(typeof raw.text!=="string"||raw.text.length<120||typeof raw.url!=="string")throw Error("網頁擷取服務沒有回傳足夠正文");
+   if(typeof raw.text!=="string"||raw.text.length<120||typeof raw.url!=="string")throw Error("擷取服務沒有回傳足夠正文");
    if(validatePublicPageURL(raw.url)!==url)throw Error("服務回傳的網頁來源不一致");
    if(inspectExternalText(raw.text,"web").blocked)throw Error("擷取內容含疑似提示詞注入，已隔離");
    return {url,title:String(raw.title||url).slice(0,180),text:raw.text.slice(0,17000),readMethod:"bridge"};
-  }
- }finally{clearTimeout(timeout);}
+  }finally{clearTimeout(timeout);}
+ };
+ // Safari cannot normally read third-party sites because of CORS. If the user
+ // configured a backend, call it first instead of wasting the entire timeout on
+ // the cross-origin browser attempt. Each method gets an independent timeout.
+ let backendError:unknown;
+ if(backend){
+  try{return await readBackend();}catch(error){backendError=error;}
+ }
+ try{return await readDirect();}
+ catch(directError){
+  if(!backend)throw Error("網站無法由目前瀏覽器直接讀取（可能為 CORS 或網站限制）；尚未設定 HTTPS 網頁擷取後端。"+String(directError));
+  throw Error("網頁擷取後端與瀏覽器直接讀取均失敗。後端："+String(backendError)+"；瀏覽器："+String(directError));
+ }
 }
 export function linkReadingIntent(text:string):string|null{
  const q=text.trim();
- // Pasting a single HTTPS link is itself a read-and-summarize request.
  if(/^https:\/\/\S{4,2000}$/.test(q))return q;
- const m=/^(?:(?:請|幫我|麻煩你)?\s*)?(?:閱讀|讀取|打開|開啟|摘要|總結|統整|整理|分析|研究|幫我看|看一下|幫我讀|讀一下)\s*(?:這個|這篇|以下|該)?\s*(?:網站|網頁|連結|網址|文章|內容)?\s*[：:\s]*((?:https:\/\/)[^\s]+)(?:\s*(?:並|然後)?(?:統整|摘要|重點整理|分析|解釋|講重點|告訴我重點).*)?$/i.exec(q);
- return m?m[1].replace(/[，。！!）)]+$/,""):null;
+ // A natural-language URL request may include a follow-up clause. Do not
+ // require the link to be the very last token of the user's message.
+ const lead=/^(?:(?:請|幫我|麻煩(?:你)?)\s*)?(?:閱讀|讀取|打開|開啟|摘要|總結|統整|整理|分析|研究|解讀|幫我看|看一下|幫我讀|讀一下|看看|幫我分析)\s*(?:這個|這篇|以下|該)?\s*(?:網站|網頁|連結|網址|文章|內容|頁面)?\s*[：:\s]*/i;
+ if(!lead.test(q))return null;
+ const found=/https:\/\/[^\s<>"'，。！？；、]+/i.exec(q);
+ if(!found)return null;
+ const target=found[0].replace(/[!！）);]+$/,"");
+ try{return validatePublicPageURL(target);}catch{return null;}
 }

@@ -42,6 +42,7 @@ jobs:
       - run: npm run test:weiguo
       - run: npm run test:weiguo-auth-ui
       - run: npm run test:ceres
+      - run: npm run test:luca
       - run: npm run test:detroit
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio

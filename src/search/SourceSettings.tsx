@@ -22,7 +22,7 @@ export default function SourceSettings(){
   <header><BookOpen size={20}/><div><h3>偏好網站與搜尋權重</h3><p>設定常用的資料來源，讓 Vanilla 在需要搜尋時優先顯示指定網站的查詢入口。</p></div></header>
   <div className="source-add" style={{display:"grid",gap:8,marginTop:12}}>
    <strong>Scouts · Google 搜尋與地區來源</strong>
-   <p>有可用 Gemini 額度時，Scouts 優先使用官方 Google Search Grounding，取得最多 3 個主要來源及 1 個地區相關來源。若 Google 回傳 HTTP 429，最多嘗試一次 Gemini 2.5 Flash-Lite 的獨立 Google 搜尋額度；仍受限時，將短暫停止重試並改查已授權的其他搜尋來源；Google API 配額限制不能靠程式強制解除。網站正文只有實際讀到才標成全文。</p>
+   <p>Scouts 優先使用已登入衞國所連接的獨立 Brave／Tavily 網路搜尋，再以 Google Search Grounding 與百科／學術來源備援。將真實查得的 3 個主要來源及最多 1 個地區來源送入你選擇的本地或雲端模型，由爾雅整理引用；搜尋摘要不冒稱已讀全文。Brave／Tavily 金鑰僅放衞國 Railway 後端，不放在 iPhone 設定或聊天中。若供應商尚未設定則無法保證全網搜尋。</p>
    <label>預設搜尋地區（國家／地區，不需要精確定位）
     <input aria-label="Scouts 預設地區" type="text" value={region} maxLength={40} onChange={e=>setRegion(e.target.value)} placeholder="台灣"/>
    </label>

@@ -125,6 +125,21 @@ class FamilyGatewayEndpointTests(unittest.TestCase):
         bob = self.token_for(SUB_B)
         self.assertEqual(self.client.post("/v1/family/tasks", json=self.job, headers=bob).status_code, 202)
 
+    def test_scouts_family_search_requires_verified_identity_and_configured_provider(self):
+        # A family session is not the operator token; ACL continues to gate the route.
+        with patch.dict(os.environ, {"WEIGUO_SCOUTS_BRAVE_API_KEY":"",
+                                      "WEIGUO_SCOUTS_TAVILY_API_KEY":""}):
+            query={"query":"2027 PGY 甄選公告","region":"台灣"}
+            self.assertEqual(self.client.post("/v1/family/scouts/search",json=query).status_code,401)
+            alice=self.token_for(SUB_A)
+            viewer=self.token_for(SUB_VIEW)
+            status=self.client.get("/v1/family/scouts/status",headers=alice)
+            self.assertEqual(status.status_code,200)
+            self.assertFalse(status.json()["ready"])
+            self.assertEqual(self.client.post("/v1/family/scouts/search",json=query,headers=alice).status_code,503)
+            self.assertEqual(self.client.post("/v1/family/scouts/search",json=query,headers=viewer).status_code,403)
+            self.assertEqual(self.client.post("/v1/execute",json=self.job,headers=alice).status_code,401)
+
     def test_cors_source_validation(self):
         with patch.dict(os.environ, {"WEIGUO_CORS_ORIGINS": "https://easylearnfromtw.github.io"}):
             self.assertEqual(gateway.allowed_origins(), ["https://easylearnfromtw.github.io"])

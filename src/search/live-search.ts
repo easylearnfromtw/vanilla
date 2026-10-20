@@ -1,6 +1,8 @@
 import {inspectExternalText} from "../security/trust-boundary";
 import {getSearchBridge,fetchSearchBridge} from "./search-bridge";
-export type LiveSearchResult={title:string;url:string;snippet:string;provider:"Wikipedia"|"Crossref"|"自訂搜尋"};
+import {getScoutsRegion} from "./scouts-region";
+import {canSearchViaWeiGuo,getWeiGuoScoutsStatus,searchWeiGuoScouts} from "../weiguo/api";
+export type LiveSearchResult={title:string;url:string;snippet:string;provider:"Wikipedia"|"Crossref"|"自訂搜尋"|"Brave"|"Tavily";excerpt?:string;regionSpecific?:boolean;kind?:"full"|"snippet"};
 export type LiveSearchReport={results:LiveSearchResult[];errors:string[]};
 const safe=(value:unknown,max=450):string=>{
  const txt=String(value??"").replace(/<[^>]*>/g," ").replace(/&(?:quot|amp|lt|gt|nbsp|#39);/gi," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -22,6 +24,19 @@ export async function searchLiveWeb(query:string):Promise<LiveSearchReport>{
  if(q.length<2)throw Error("搜尋需要至少兩個字");
  const errors:string[]=[];
  const jobs:Array<{name:string;run:()=>Promise<LiveSearchResult[]>}>=[];
+ // Independent authenticated family search comes first; its providers and
+ // quotas are entirely separate from Gemini / Google grounding.
+ if(canSearchViaWeiGuo())jobs.push({name:"衞國 Scouts",run:async()=>{
+  const state=await getWeiGuoScoutsStatus();
+  if(!state.ready)return [];
+  const report=await searchWeiGuoScouts(q,getScoutsRegion());
+  errors.push(...report.errors.map(e=>"獨立搜尋："+e.slice(0,110)));
+  return report.results.map(hit=>({
+   title:safe(hit.title,160),url:hit.url,snippet:safe(hit.snippet),
+   provider:hit.provider,regionSpecific:hit.regionSpecific,kind:hit.kind,
+   excerpt:hit.kind==="full"?safe(hit.excerpt,6000):undefined
+  }));
+ }});
  // Keep the general-purpose backend FIRST. Previously its results were appended
  // after Wikipedia/Crossref and could be silently dropped by the nine-hit limit.
  if(getSearchBridge())jobs.push({name:"自訂搜尋後端",run:async()=>{

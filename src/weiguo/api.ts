@@ -57,6 +57,30 @@ export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIde
   member:reply.member,role:reply.role,email:reply.email.trim().toLowerCase()};
  return {member:auth.member,role:auth.role,email:auth.email};
 }
+/** Scouts public research uses the already verified family identity.
+ * No Google Drive OAuth bearer, Gemini credential or API provider key is sent.
+ */
+export type ScoutsFamilyHit={
+ title:string;url:string;snippet:string;provider:"Brave"|"Tavily";
+ excerpt:string;kind:"snippet"|"full";regionSpecific:boolean;
+};
+export type ScoutsFamilyStatus={ready:boolean;providers:string[];regionDefault:string;note:string};
+export type ScoutsFamilyReport={
+ results:ScoutsFamilyHit[];providers:string[];errors:string[];region:string;complete:boolean;
+};
+export function canSearchViaWeiGuo():boolean{
+ return currentChatMode()!=="private"&&Boolean(weiGuoIdentity())&&Boolean(weiGuoApiBase());
+}
+export async function getWeiGuoScoutsStatus():Promise<ScoutsFamilyStatus>{
+ if(!canSearchViaWeiGuo())throw Error("衞國 Scouts 需要既有的 Google 家庭登入與已部署 HTTPS 後端");
+ return request<ScoutsFamilyStatus>("/v1/family/scouts/status",undefined,true);
+}
+export async function searchWeiGuoScouts(query:string,region:string):Promise<ScoutsFamilyReport>{
+ if(!canSearchViaWeiGuo())throw Error("私人模式或未驗證衞國登入，不會將查詢送至搜尋後端");
+ if(query.trim().length<2||query.length>180||region.length>40)throw Error("搜尋主題或地區格式不正確");
+ return request<ScoutsFamilyReport>("/v1/family/scouts/search",{query:query.trim(),region},true);
+}
+
 export async function startWeiGuoTask(start_url:string,steps:Array<{action:"extract"|"navigate"|"scroll";url?:string;pixels?:number}>):Promise<WeiGuoTask>{
  return request<WeiGuoTask>("/v1/family/tasks",{start_url,steps},true);
 }

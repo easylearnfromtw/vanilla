@@ -503,10 +503,16 @@ async function gatherWeb(kind:"read"|"search",target:string,originalQuestion:str
 }
 async function send(value=draft):Promise<void>{
  let raw=value.trim();
- if(raw.startsWith("/")){
+ const slashCommand=/^[\/／]/.test(raw);
+ if(slashCommand){
   const expanded=expandSlashCommand(raw);
-  if(!expanded){setLastRoute("不認得這個指令；輸入「/」可以看到全部指令。");return;}
+  if(!expanded){setLastRoute("尚未支援此指令；輸入「/」可以查看指令清單。");return;}
   setDraft("");
+  if(expanded.ui==="prompt"){
+   setLastRoute(expanded.hint||"請補充指令內容。");
+   prefill(expanded.prefill||raw+" ");
+   return;
+  }
   if(expanded.ui==="attach"){fileRef.current?.click();return;}
   if(expanded.ui==="private"){switchPrivacy();return;}
   if(expanded.ui==="new-chat"){await newConversation();return;}
@@ -516,7 +522,9 @@ async function send(value=draft):Promise<void>{
  if(!question||busy||comparison||assetBusy)return;
  setDetroitPlan(null);
  let visibleClarificationAnswer:string|undefined;
- if(merlinPending){
+ // Explicit slash commands take priority over pending Merlin clarifications.
+ if(slashCommand&&merlinPending)setMerlinPending(null);
+ if(!slashCommand&&merlinPending){
   const response=resolveMerlinClarification(merlinPending,question);
   if(response.kind==="cancel"){
    setMerlinPending(null);toolReply(question,"已取消上一項需求；可以直接提出新問題。","merlin");return;
@@ -531,7 +539,7 @@ async function send(value=draft):Promise<void>{
   visibleClarificationAnswer=question;
   question=response.prompt;
   setMerlinPending(null);
- }else{
+ }else if(!slashCommand){
   const clarification=detectMerlinClarification(question,{hasContext:history.some(x=>x.role==="user"),hasAttachment:Boolean(image||fileName||fileContext)});
   if(clarification){
    const at=Date.now(),originId=crypto.randomUUID();
@@ -542,7 +550,9 @@ async function send(value=draft):Promise<void>{
   }
  }
  recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
- const route=routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
+ // Preserve explicit /建立 and /改程式 intent before Diana's proactive routing.
+ const slashTail=slashCommand?routeTail(question):null;
+ const route=slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
  let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];

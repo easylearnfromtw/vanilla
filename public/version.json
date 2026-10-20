@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.48-scouts-provider-check",
-  "description": "Scouts real independent search provider readiness, signed test search, and helpful Brave/Tavily configuration diagnostics"
+  "build": "2026.10.20.49-notion-no-api-browser-bridge",
+  "description": "Offline-first Vanilla schedule with optional no-key Notion website CSV handoff and desktop browser companion"
 }

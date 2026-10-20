@@ -20,7 +20,7 @@ export function curriculumCase(type,index,split){
  if(!TYPES.includes(type)||!["train","eval"].includes(split))throw Error("invalid split/type");
  let job=syntheticCase(index,"tenant_"+split+"_"+index),context;
  if(type==="ops"){
-  job={id:"ops_"+split+"_"+index,tenantId:job.tenantId,kind:"ops",dueAt:job.dueAt,dataset:{total:200+index*2,failed:(index%20)+1}};
+  job={id:"ops_"+split+"_"+index,tenantId:job.tenantId,kind:"ops",dueAt:job.dueAt,dataset:{total:200+(index%11)*20,failed:(index%20)+1}};
  }
  if(type==="tenant_denied")job.id="denied_"+split+"_"+index;
  if(type==="not_due")job.id="notdue_"+split+"_"+index;
@@ -69,7 +69,12 @@ export function gradeIntegrated(pred,caseItem){
 export async function benchmarkIntegrated(file,model="signwell-agent:0.1",limit=16){
  const lines=readFileSync(file,"utf8").trim().split("\n").map(JSON.parse);
  if(!Number.isInteger(limit)||limit<1)throw Error("limit must be positive integer");
- const cases=lines.slice(0,limit),rows=[];
+ const buckets=TYPES.map(type=>lines.filter(x=>x.type===type));
+ const cases=[];
+ for(let i=0;cases.length<limit && buckets.some(b=>b.length);i++){
+  const bucket=buckets[i%TYPES.length];if(bucket.length)cases.push(bucket.shift());
+ }
+ const rows=[];
  for(const c of cases){
   try{
    const response=await fetch("http://127.0.0.1:11434/api/chat",{

@@ -5,8 +5,7 @@ the Node Fabric frontend admin tutorial with a download-only area**.
 
 ## Division of responsibility
 
-- **Vanilla PWA → Detroit Studio → Slime 下載**: only two downloadable Python
-  3.10+ opt-in programs: `slime-my-computer.py` and `slime-friend.py`.
+- **Vanilla PWA → Slime 算力網路 / Detroit Studio → Slime 下載**: download-only role and OS selector using **real GitHub Releases assets** built from `services/slime/desktop.py`. The page does not invent an EXE/ZIP link when no release exists.
 - **SignWell_bot / Ceres private Telegram**: the only administrative interface.
   The admin sends plain-language Chinese messages; the deterministic
   `slime_telegram.py` interpreter identifies four bounded actions. The LLM
@@ -67,24 +66,7 @@ retain messages and the content is **not end-to-end encrypted** for bot chats.
 
 ## Device onboarding
 
-Download the role-specific source from the Vanilla Slime download area.
-On the participant-owned computer install Python 3.10+, then run (Windows
-substitute `py -3` for `python3`):
-
-```sh
-python3 slime-friend.py probe
-python3 slime-friend.py join --url https://your-api.example --invite INVITE_CODE --consent
-python3 slime-friend.py run
-# Ctrl+C to stop; to revoke identity and delete local credentials:
-python3 slime-friend.py leave
-```
-
-For a personal device replace filename with `slime-my-computer.py`. The
-pairing link sent by the owner can be pasted into `--invite`; only the
-`#slime=` fragment token is used. `--url` must be the trusted HTTPS API
-origin separately supplied by the owner. The program only reports detected
-CPU cores, RAM size, OS and optional NVIDIA GPU metadata. It does not run
-tasks, throttle hardware or automatically consume CPU/GPU shares.
+Download the role-specific installer from a verified Slime GitHub Release (if published), launch it on the participating device, paste the owner's private Telegram invitation link, then explicitly accept sharing. The desktop client extracts the `#slime=` secret from the HTTPS link, reports only limited CPU/RAM/OS/optional GPU metadata, and offers pause/leave controls. No user needs to type a token or administrator credential into Vanilla's public frontend. Release artifacts are not guaranteed to exist until the signed-off release workflow succeeds. Source remains reviewable at `services/slime/desktop.py`.
 
 ## Security and verification
 
@@ -100,6 +82,4 @@ tasks, throttle hardware or automatically consume CPU/GPU shares.
 - Python tests: `python3 -m unittest discover -s services/weiguo -p test_slime_telegram.py`
 - UI tests: `npm run test:node-fabric`; full: `npm run build`.
 
-Existing pre-Slime prototype files under `public/node-fabric/` remain
-present for audit/backward compatibility but are no longer linked from the
-current frontend and are not interoperable with the new WeiGuo Slime registry.
+Existing pre-Slime prototype files under `public/node-fabric/` remain for audit and backward compatibility but are not linked from the current Slime download page; they are not interoperable with the WeiGuo Slime registry.

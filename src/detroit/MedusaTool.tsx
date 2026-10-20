@@ -29,7 +29,7 @@ export default function MedusaTool(){
   try{
    const next=await runMedusa(source,stdin,true);
    setResult(next);
-   setMessage(next.accepted?'Medusa 已完成程式執行':'Medusa 已完成，程式發生編譯或執行錯誤');
+   setMessage(next.accepted?'Medusa 已完成程式執行':'Medusa 已完成，程式不符合當前執行引擎的語法或限制');
   }catch(err){setMessage(err instanceof Error?err.message:String(err));}
   finally{setBusy(false);}
  }

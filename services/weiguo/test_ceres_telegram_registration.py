@@ -44,7 +44,7 @@ class Client:
         assert url.endswith("/setWebhook")
         assert kwargs["json"]["secret_token"] == SECRET
         assert kwargs["json"]["drop_pending_updates"] is False
-        self.current_url = kwargs["json"]["url"]
+        type(self).current_url = kwargs["json"]["url"]
         return Response(True)
 
 

@@ -1,7 +1,6 @@
 """Vanilla Windows Node: paired localhost-only Ollama proxy, no arbitrary execution."""
-import ctypes, json, os, secrets, subprocess, threading, tkinter as tk
+import ctypes, json, os, secrets, subprocess, threading
 from pathlib import Path
-from tkinter import ttk
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -110,6 +109,8 @@ class API(BaseHTTPRequestHandler):
    try:self.reply(502,{"error":"Ollama unavailable"})
    except OSError:pass
 def run():
+ import tkinter as tk
+ from tkinter import ttk
  d=identity();server=ThreadingHTTPServer(("127.0.0.1",PORT),API)
  server.token=d["token"];server.node_id=d["id"]
  threading.Thread(target=server.serve_forever,daemon=True).start()

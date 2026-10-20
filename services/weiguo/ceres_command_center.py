@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import os
 import re
+from html import escape
 import time
 
 import httpx
 
-from ceres_admin_bot import owner_subject, say, _telegram
+from ceres_admin_bot import owner_subject, say, _telegram, _edit_target
 from ceres_gateway import _session
 
 _COMMAND = re.compile(r"^/(?:hub|center|centre)(?:@SignWell_bot)?(?:\s+(.*))?$", re.I | re.S)
@@ -30,28 +31,36 @@ def _button(label: str, item: str) -> dict:
 
 
 def _menu() -> list[list[dict]]:
-    """Telegram-native compact entry points; callback identities stay stable."""
+    """A native Telegram control panel. Callback identities are stable."""
     return [
-        [_button("📊 系統概覽", "status"), _button("🩺 模型診斷", "diagnostics")],
-        [_button("🧠 Detroit 工具", "tools"), _button("🖥 Slime 節點", "nodes")],
-        [_button("🔌 API 與模型", "providers"), _button("👥 Gmail 權限", "accounts")],
-        [_button("📈 使用成本", "usage"), _button("🔎 GitHub 探索", "sources")],
+        [_button("◉ 系統狀態", "status"), _button("▣ 模型診斷", "diagnostics")],
+        [_button("◇ Detroit 工具", "tools"), _button("◎ Slime 節點", "nodes")],
+        [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
+        [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
     ]
+
+
+def _title(page: str) -> str:
+    return ("✦ <b>Ceres</b>  <code>VANILLA / DETROIT</code>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "<b>"+escape(page)+"</b>\n\n")
+
+
+def _page_buttons(action: str) -> list[list[dict]]:
+    return [[_button("↻ 重新整理",action),_button("← 控制中心","home")]]
+
 
 async def _home(chat: int) -> None:
     await say(chat,
-        "CERES  /  VANILLA AI\n"
-        "────────────────────\n"
-        "Detroit · Owner 控制中心\n\n"
-        "選擇下方功能，或直接和 Ceres 對話。\n"
-        "系統狀態分為配置、歷史紀錄與實際測試；不會把「服務在線」當成已成功回覆。\n\n"
-        "快速指令\n"
-        "• /hub diagnostics — 模型實測與故障碼\n"
-        "• /hub usage — 30 日用量\n"
-        "• /hub plan Gemini 速度優先 — 預覽設定\n"
-        "• /admin — 安全憑證與詳細設定\n\n"
-        "權限與付費設定都需要經過後端授權。",
-        _menu())
+        _title("OWNER · 私人 AI 控制中心")
+        +"<b>你的系統，集中管理。</b>\n"
+        +"不必記住指令，直接點選下方功能。\n\n"
+        +"<b>系統管理</b>  ·  狀態、模型、節點\n"
+        +"<b>存取控制</b>  ·  API、Gmail、成本\n\n"
+        +"<i>狀態為配置或歷史紀錄，不能代表目前已成功回覆。所有敏感操作均需 Owner 授權。</i>\n\n"
+        +"輸入 <code>/admin</code> 可進入詳細管理。",
+        _menu(),html=True)
+
 
 def _status_text() -> str:
     from ceres_server_agent import enabled, ready
@@ -99,7 +108,7 @@ def _tools_text() -> str:
         "• GitHub：/hub github 關鍵字（只讀搜尋、授權提示）\n"
         "• Retina、Janus、LUNA、Quirinus、Medusa："
         "Vanilla 具有相關模組，但尚未授予 Telegram 直接執行權。\n"
-        "• Mini App：目前提供安全 API 設定 WebApp；完整儀表板尚未上線。\n\n"
+        "• Mini App：提供經 Telegram 身分驗證的安全設定與健康儀表板。\n\n"
         "不會因為列出工具就宣稱已執行；寫入、部署、安裝須另行授權。"
     )
 
@@ -107,7 +116,9 @@ def _tools_text() -> str:
 async def _nodes(chat: int, sub: str) -> None:
     from slime_telegram import handle_slime
     result = handle_slime(chat, sub, "目前有哪些電腦")
-    await say(chat, result or "Slime 節點控制尚未設定。", [[_button("返回", "home")]])
+    await say(chat,_title("NODES / Slime 節點")
+              +"<pre>"+escape(result or "Slime 節點控制尚未設定。")+"</pre>",
+              _page_buttons("nodes"),html=True)
 
 
 async def _sources(chat: int) -> None:
@@ -119,7 +130,9 @@ async def _sources(chat: int) -> None:
         " AGPL、GPL 或特殊商業授權不得直接複製進專有產品；"
         "任何下載或安裝需完成授權、依賴與安全審查。"
     )
-    await say(chat, "\n".join(lines), [[_button("返回", "home")]])
+    await say(chat,_title("SOURCES / GitHub 開源框架")
+              +"<pre>"+escape("\n".join(lines))+"</pre>",
+              [[_button("⌕ GitHub 查詢說明","github"),_button("← 返回","home")]],html=True)
 
 
 def _limit_search(chat: int) -> bool:
@@ -210,9 +223,9 @@ async def command(chat: int, body: str) -> None:
     if not arg or action in ("home", "menu", "help"):
         await _home(chat)
     elif action in ("status", "狀態"):
-        await say(chat, _status_text(), _menu())
+        await say(chat, _title("SYSTEM / 系統配置")+"<pre>"+escape(_status_text())+"</pre>\n<i>配置快照並非端對端回覆測試。</i>", _page_buttons("status"),html=True)
     elif action in ("tools", "skills", "功能", "工具"):
-        await say(chat, _tools_text(), _menu())
+        await say(chat, _title("TOOLS / Detroit 工具")+"<pre>"+escape(_tools_text())+"</pre>", _page_buttons("tools"),html=True)
     elif action in ("nodes", "slime", "節點"):
         await _nodes(chat, sub)
     elif action in ("sources", "projects", "開源"):
@@ -223,21 +236,29 @@ async def command(chat: int, body: str) -> None:
         from ceres_model_ops import diagnostics
         report=diagnostics()
         records=report["modelChecks"][-8:]
-        await say(chat, "Ceres · 模型診斷\n"+
-                  ("\n".join(x["provider"]+"/"+x["model"]+" · "+
-                             ("OK" if x["ok"] else x["code"]) for x in records)
-                   if records else "尚無實測結果")+
-                  "\n詳細健康與模型比較請使用 /admin 的安全設定頁。",_menu())
+        entries=("\n".join(
+            ("● " if x["ok"] else "○ ")
+            +"<b>"+escape(x["provider"])+"</b> / <code>"+escape(x["model"])+"</code>"
+            +" · "+escape("OK" if x["ok"] else x["code"])
+            for x in records) if records else "尚無模型實測結果")
+        await say(chat,_title("MODELS / 實際推論診斷")
+                  +entries
+                  +"\n\n<i>歷史探測紀錄；最新測試可從 /admin 安全設定頁啟動。</i>",
+                  _page_buttons("diagnostics"),html=True)
     elif action in ("usage", "cost"):
         from ceres_model_ops import summary
         report=summary()
         rows=report["providers"]
-        message="\n".join(x["provider"]+" · "+str(x["calls"])+" 次 · "+
-                           ("$"+str(round(x["estimated_usd"],5)) if x["estimated_usd"] is not None
-                            and not x["unpriced"] else "費用部分未知")
-                           for x in rows)
-        await say(chat,"Ceres · 最近 30 日已記錄的模型用量\n"+
-                  (message or "尚無紀錄")+"\n非供應商完整帳單。",_menu())
+        lines=[]
+        for item in rows:
+            priced=(item["estimated_usd"] is not None and not item["unpriced"])
+            cost=("$"+str(round(item["estimated_usd"],5)) if priced else "價格資料不足")
+            lines.append("<b>"+escape(item["provider"].title())+"</b>\n"
+                         +"  呼叫 "+str(item["calls"])+" 次 · "+escape(cost))
+        await say(chat,_title("COST / 最近 30 日")
+                  +("\n\n".join(lines) if lines else "尚無已記錄的用量")
+                  +"\n\n<i>非供應商完整帳單；未計價呼叫不會估算。</i>",
+                  _page_buttons("usage"),html=True)
     elif action in ("plan", "設定"):
         from ceres_model_ops import preview
         from fastapi import HTTPException
@@ -246,11 +267,14 @@ async def command(chat: int, body: str) -> None:
         except HTTPException as exc:
             await say(chat,str(exc.detail)+"\n例如 /hub plan Gemini 速度優先",_menu())
             return
-        message=("Ceres · 設定預覽（尚未執行）\n"+
-                 proposal["provider"]+" · "+proposal["operation"]+" → "+proposal["value"]+
-                 "\n"+proposal["warning"]+"\n120 秒內可確認。")
-        await say(chat,message,[[_button("✅ 確認套用","confirmplan:"+proposal["token"]),
-                                _button("取消","home")]])
+        message=(_title("REVIEW / 待確認設定")
+                 +"<b>供應商</b>  "+escape(proposal["provider"])+"\n"
+                 +"<b>操作</b>  "+escape(proposal["operation"])+"\n"
+                 +"<b>預定值</b>  <code>"+escape(proposal["value"])+"</code>\n\n"
+                 +escape(proposal["warning"])+"\n\n"
+                 +"<i>尚未執行 · 請於 120 秒內確認</i>")
+        await say(chat,message,[[_button("✓ 確認套用","confirmplan:"+proposal["token"]),
+                                _button("× 取消","home")]],html=True)
     elif action in ("accounts", "gmail", "providers", "api", "admin"):
         from ceres_admin_bot import command as admin_command
         await admin_command(chat, "/admin " + ("users" if action in ("accounts", "gmail")
@@ -260,11 +284,18 @@ async def command(chat: int, body: str) -> None:
         await say(chat, "無法辨識控制中心指令，請使用 /hub 查看選單。", _menu())
 
 
-async def callback(chat: int, callback_id: str, data: str) -> None:
+async def callback(chat: int, callback_id: str, data: str, message_id: int | None=None) -> None:
     if not data.startswith("hub:") or not owner_subject(chat):
         return
     await _telegram("answerCallbackQuery", {"callback_query_id": callback_id})
-    action = data[4:]
+    token=_edit_target.set(message_id if type(message_id) is int and message_id>0 else None)
+    try:
+        await _handle_callback(chat,data[4:])
+    finally:
+        _edit_target.reset(token)
+
+
+async def _handle_callback(chat: int, action: str) -> None:
     if action in {"home", "status", "tools", "nodes", "sources",
                   "accounts", "providers"}:
         await command(chat, "/hub " + action)

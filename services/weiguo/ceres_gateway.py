@@ -179,11 +179,15 @@ async def telegram_webhook(request: Request,
             and isinstance(callback.get("id"),str) and isinstance(callback.get("data"),str)):
             from ceres_admin_bot import callback as admin_callback, owner_subject
             if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+                # Edit only the original bot message, never a user-supplied target.
+                message_id=sent.get("message_id")
+                if type(message_id) is not int or not 0<message_id<2**31:
+                    message_id=None
                 if callback["data"].startswith("hub:"):
                     from ceres_command_center import callback as hub_callback
-                    await hub_callback(chat_id,callback["id"],callback["data"])
+                    await hub_callback(chat_id,callback["id"],callback["data"],message_id=message_id)
                 else:
-                    await admin_callback(chat_id,callback["id"],callback["data"])
+                    await admin_callback(chat_id,callback["id"],callback["data"],message_id=message_id)
                 return {"ok":True,"accepted":True}
         return {"ok":True,"accepted":False}
     message = payload.get("message")

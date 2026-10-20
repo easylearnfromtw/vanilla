@@ -176,6 +176,24 @@ footer{display:flex;justify-content:center;gap:10px;padding:20px 8px;color:var(-
 @media(min-width:680px){body{padding-top:36px}.hero{padding:34px}.panel{margin:18px 0}.cards{grid-template-columns:repeat(4,minmax(0,1fr))}nav{justify-content:center}}
 @media(max-width:370px){.cards{gap:7px}.metric{padding:11px;min-height:138px}.action-row{grid-template-columns:1fr}.hero{padding:20px 16px}.access-pill{font-size:9px;padding:6px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+/* Ceres iOS monochrome design; all owner actions preserve existing signed endpoints. */
+:root{--bg:#f5f5f7;--surface:#fff;--text:#101114;--hint:#77777b;
+--link:#151515;--accent:#111;--accent-ink:#fff;--stroke:#e7e7eb;--stroke-strong:#d9d9de;
+--subtle:#f5f5f7;--focus:#555;color-scheme:light}
+html[data-theme="dark"]{--bg:#080809;--surface:#171719;--text:#fafafa;--hint:#98989f;
+--link:#fff;--accent:#fff;--accent-ink:#101010;--stroke:#313135;--stroke-strong:#444448;
+--subtle:#222225;--focus:#bbb;color-scheme:dark}
+.hero{background:var(--surface);box-shadow:none;border-radius:20px}
+.hero:after{display:none}.brand__mark,.section-symbol{background:var(--text);color:var(--surface);border-color:var(--text)}
+.hero__eyebrow{color:var(--hint)}nav{position:static;background:var(--stroke);backdrop-filter:none;padding:5px;display:flex;gap:4px}
+nav a{background:transparent;font-size:12px;padding:10px 12px}
+nav a[aria-current="location"]{background:var(--surface);color:var(--text);box-shadow:0 1px 3px #00000015}
+.panel{box-shadow:none;border-radius:19px;margin:0}.panel[hidden]{display:none!important}
+.metric{min-height:124px}.metric[data-tone="ok"] .metric__dot{background:var(--text);box-shadow:none}
+.metric[data-tone="warn"] .metric__dot{background:#c43a3a}
+button.billable{background:var(--subtle);color:var(--text);border-color:var(--stroke-strong)}
+button.secondary{background:var(--subtle)}.section-symbol{font-size:15px}
+body{max-width:680px}
 </style></head><body><header class="hero">
 <div class="hero__top"><div class="brand"><div class="brand__mark" aria-hidden="true">C</div>
 <div><div class="brand__name">CERES</div><span class="brand__caption">VANILLA / DETROIT</span></div></div>
@@ -186,8 +204,10 @@ footer{display:flex;justify-content:center;gap:10px;padding:20px 8px;color:var(-
 <nav aria-label="管理區">
 <a href="#overview" aria-current="location">總覽</a><a href="#model-panel">模型</a>
 <a href="#usage-panel">用量</a><a href="#vault-panel">金鑰</a><a href="#intent-panel">設定</a>
+
 </nav>
-<section class="panel" id="overview"><div class="section-head"><div><h2>系統健康</h2><span class="section-note">區分服務配置、歷史活動與實際回覆</span></div><span class="section-symbol" aria-hidden="true">◎</span></div>
+<section class="panel" id="overview">
+<a class="backlink" href="/v1/ceres/admin/api-console">◈ 我的模型 API · 獨立服務台 →</a><div class="section-head"><div><h2>系統健康</h2><span class="section-note">區分服務配置、歷史活動與實際回覆</span></div><span class="section-symbol" aria-hidden="true">◎</span></div>
 <div class="cards">
 <div class="metric" id="metric-telegram" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">Telegram</span></div><b id="health-telegram">未檢查</b><span class="metric__foot">以已確認的回覆紀錄為準</span></div>
 <div class="metric" id="metric-agent" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">AI Agent</span></div><b id="health-agent">未檢查</b><span class="metric__foot">確認模型及執行緒配置</span></div>
@@ -248,6 +268,8 @@ footer{display:flex;justify-content:center;gap:10px;padding:20px 8px;color:var(-
 <script nonce="__NONCE__">
 const tg=window.Telegram?.WebApp;
 tg?.ready();tg?.expand();
+document.documentElement.dataset.theme=(tg?.colorScheme==="dark"||
+ (!tg?.colorScheme&&window.matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light";
 const providerField=document.getElementById("provider");
 const form=document.getElementById("form"),result=document.getElementById("result");
 const modelBox=document.getElementById("model-panel"),modeField=document.getElementById("mode");
@@ -266,8 +288,7 @@ async function api(path,body){
 function render(info){
  lastInfo=info;
  const visible=info?.supported===true && providerField.value!=="canva";
- modelBox.hidden=!visible;
- if(!visible)return;
+ if(!visible){modelResult.textContent="此供應商沒有可選擇的文字模型。";return;}
  modelField.replaceChildren();
  const compareField=document.getElementById("compare-model");compareField.replaceChildren();
  for(const entry of info.models||[]){
@@ -322,22 +343,23 @@ form.addEventListener("submit",async e=>{
  button.disabled=false;
 });
 // Presentation-only state; no settings are changed by tab navigation.
+// Native iOS-style screens: one content screen at a time, not a long scroll page.
 const navLinks=[...document.querySelectorAll('nav a[href^="#"]')];
+const screens=["overview","model-panel","usage-panel","vault-panel","intent-panel"];
 function activateNav(href){
+ const id=href.slice(1);
+ if(!screens.includes(id))return;
+ for(const name of screens)document.getElementById(name).hidden=name!==id;
  for(const link of navLinks){
-   if(link.getAttribute("href")===href)link.setAttribute("aria-current","location");
-   else link.removeAttribute("aria-current");
+  if(link.getAttribute("href")===href)link.setAttribute("aria-current","location");
+  else link.removeAttribute("aria-current");
  }
+ window.scrollTo({top:0,behavior:"instant"});
 }
-navLinks.forEach(link=>link.addEventListener("click",()=>activateNav(link.getAttribute("href"))));
-if("IntersectionObserver" in window){
- const sections=navLinks.map(link=>document.querySelector(link.getAttribute("href"))).filter(Boolean);
- const observer=new IntersectionObserver(entries=>{
-   const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio);
-   if(visible[0])activateNav("#"+visible[0].target.id);
- },{rootMargin:"-12% 0px -62% 0px",threshold:[0,.25,.5]});
- sections.forEach(section=>observer.observe(section));
-}
+navLinks.forEach(link=>link.addEventListener("click",e=>{
+ e.preventDefault();activateNav(link.getAttribute("href"));
+}));
+activateNav("#overview");
 function metricTone(id,tone){
  const card=document.getElementById(id);
  if(card)card.dataset.tone=tone;

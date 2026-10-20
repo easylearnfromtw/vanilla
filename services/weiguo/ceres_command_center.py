@@ -37,7 +37,7 @@ def _menu() -> list[list[dict]]:
         [_button("◇ Detroit 工具", "tools"), _button("◎ Slime 節點", "nodes")],
         [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
         [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
-        [_button("✦ 進階運維中心", "operations")],
+        [_button("◈ 我的模型 API","myapi"),_button("✦ 進階運維","operations")],
     ]
 
 
@@ -409,6 +409,9 @@ async def command(chat: int, body: str) -> None:
                       _page_buttons("jobs"),html=True)
         except ValueError:
             await say(chat,"未知工作流程，使用 /hub flows 查看支援項目。")
+    elif action in ("myapi","我的api","my-models"):
+        from ceres_admin_bot import command as admin_command
+        await admin_command(chat,"/admin myapi")
     elif action in ("accounts", "gmail", "providers", "api", "admin"):
         from ceres_admin_bot import command as admin_command
         await admin_command(chat, "/admin " + ("users" if action in ("accounts", "gmail")
@@ -437,6 +440,8 @@ async def _handle_callback(chat: int, action: str) -> None:
         await say(chat, "輸入 /hub github 關鍵字，例如 /hub github telegram AI agent。")
     elif action in ("diagnostics","usage"):
         await command(chat,"/hub "+action)
+    elif action == "myapi":
+        await command(chat,"/hub myapi")
     elif action == "operations":
         await command(chat,"/hub operations")
     elif action in {"health","incidents","jobs","approvals","deploy","report","budget",

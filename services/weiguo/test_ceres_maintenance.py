@@ -123,7 +123,11 @@ class MaintenanceTests(unittest.TestCase):
         for name in ("Dockerfile","Dockerfile.pdfcraft"):
             with self.subTest(name=name):
                 content=(root/name).read_text()
-                self.assertIn("ceres_maintenance.py ./",content)
+                self.assertTrue(any(
+                    line.startswith("COPY ") and line.endswith(" ./") and
+                    "ceres_maintenance.py" in line.split()
+                    for line in content.splitlines()),
+                    "Ceres maintenance must be included in the Docker module list")
                 self.assertIn("import ceres_command_center, ceres_model_ops, ceres_model_ops_routes, ceres_maintenance",content)
 
 

@@ -103,5 +103,37 @@ class MedusaFamilyTests(unittest.TestCase):
                                           headers=owner, json=body).status_code, 429)
 
 
+    def test_real_family_owner_lite_gateway_executes_arithmetic_only(self):
+        owner = self.token_for(_OWNER)
+        member = self.token_for(_MEMBER)
+        os.environ.update({
+            "MEDUSA_FAMILY_ENABLED": "true",
+            "MEDUSA_FAMILY_OWNER_SUBS": _OWNER,
+            "MEDUSA_ENABLED": "true",
+            "MEDUSA_ENGINE": "lite",
+            "MEDUSA_LITE_ENABLED": "true",
+        })
+        status = self.request("GET", "/v1/family/medusa/status", headers=owner)
+        self.assertEqual(status.status_code, 200, status.text)
+        self.assertTrue(status.json()["connected"])
+        self.assertEqual(status.json()["backend"], "medusa-lite")
+        body = {"source_code": "print(sum(range(10)))", "approved": True}
+        response = self.request("POST", "/v1/family/medusa/run", headers=owner, json=body)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["stdout"], "45\n")
+        self.assertEqual(response.json()["backend"], "medusa-lite")
+        self.assertEqual(response.headers.get("cache-control"), "no-store, private")
+        self.assertEqual(self.request("POST", "/v1/family/medusa/run",
+                                      headers=member, json=body).status_code, 403)
+        self.assertEqual(self.request("POST", "/v1/family/medusa/run",
+                                      headers=owner, json={**body,"approved":False}).status_code, 403)
+        forbidden = self.request("POST", "/v1/family/medusa/run", headers=owner,
+                                 json={**body, "source_code":"import os"})
+        self.assertEqual(forbidden.status_code, 200)
+        self.assertFalse(forbidden.json()["accepted"])
+        self.assertEqual(forbidden.json()["status"], "Unsupported Syntax")
+
+
+
 if __name__ == "__main__":
     unittest.main()

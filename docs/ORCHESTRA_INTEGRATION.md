@@ -82,3 +82,10 @@ Images/text are not sent to WeiGuo for these fallback operations. The GIF encode
 ## Release verification checklist
 
 Before publicly labeling this release available: merge the CI-green branch, verify the published PWA build marker over HTTPS, exercise actual DOCX/PDF/PPTX downloads, inspect SVG/PNG/JPEG on both narrow and wide layouts, decode exported GIF animations, confirm private mode performs no upload, and test optional backend routes only with authenticated and sandboxed production workers. Upstream seven-Craft parity and MP4 remain out of scope.
+
+## Detroit AI native handoff
+
+Diana proactively sends explicit document, slide, vector and motion artifact intents to Orchestra. Zeus chooses only actual browser-local engines. A request to convert the **previous AI answer** can produce a real DOCX/PDF/PPTX from Retina or SVG/PNG/GIF from Orchestra without opening the Studio. A new requirement without authored content is a brief-only job in Orchestra Studio, never a purported completed file. The Studio can prepare a safe compose prompt back in AI chat; after drafting, the user can request export of the most recent answer.
+
+Private chats cannot send their brief to the ordinary workspace. Prior-answer local exports stay on the device. WordCraft/PdfCraft remote routes retain existing family authentication and explicit consent. Native upstream Rust executables and MP4 are not claimed deployed.
+

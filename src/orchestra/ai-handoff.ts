@@ -37,3 +37,27 @@ export function orchestraComposePrompt(p:OrchestraHandoff):string{
   "請先生成實際內容，不得聲稱已製成檔案。生成後使用者可要求把這則回答轉成 "+p.format.toUpperCase()+
   "。\n\n使用者需求：\n"+p.request.slice(0,6000);
 }
+
+/** New locally supported media requests can be fully drafted and rendered in chat.
+ * They cannot grant native Craft, network, photo edits or cloud service permissions.
+ */
+export function planOrchestraAutoDraft(request:string):OrchestraHandoff|null{
+ const q=request.trim();
+ if(!q||q.length>1600||reference.test(q)||
+  /^(?:請問|如何|怎麼|什麼是|為什麼|解釋|比較|引用：|引述：|原文如下|以下是原文|>)/.test(q)||
+  /(?:Canva|修圖|照片調整|PhotoCraft)/i.test(q)||
+  /(?:不要|不必|無需|不需要).{0,12}(?:匯出|下載|製作|生成|輸出)/.test(q))return null;
+ if(!action.test(q)||!/(?:\bSVG\b|\bPNG\b|\bGIF\b|向量圖|資訊圖|圖卡)/i.test(q))return null;
+ const plan=orchestraHandoff(q);
+ return plan.provenance==="brief-only"&&plan.tool!=="photocraft"&&
+  orchestraLocalAvailable(plan.tool,plan.format)?plan:null;
+}
+/** Only bind a real completed model answer to the approved local renderer. */
+export function bindOrchestraDraft(plan:OrchestraHandoff,completedText:string):OrchestraHandoff{
+ if(plan.provenance!=="brief-only"||!completedText.trim())throw Error("尚無完成的 AI 草稿可匯出");
+ const name=plan.format==="png"?"PNG 圖卡":plan.format.toUpperCase();
+ const ready=orchestraHandoff("把剛剛的回答製作成 "+name,completedText);
+ if(!canExecuteOrchestraHandoff(ready)||ready.tool!==plan.tool||ready.format!==plan.format)
+  throw Error("Orchestra 製作格式或執行器不一致");
+ return {...ready,title:plan.request.replace(/[\\/:*?"<>|]/g," ").slice(0,60)||"Orchestra AI"};
+}

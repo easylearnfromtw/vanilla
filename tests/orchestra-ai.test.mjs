@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {orchestraHandoff,canExecuteOrchestraHandoff,orchestraComposePrompt} from "../src/orchestra/ai-handoff.ts";
+import {orchestraHandoff,canExecuteOrchestraHandoff,orchestraComposePrompt,planOrchestraAutoDraft,bindOrchestraDraft} from "../src/orchestra/ai-handoff.ts";
 import {routeMessage,expandSlashCommand} from "../src/assistant/chat-router.ts";
 const ctx={privateMode:false,hasCreamResult:false};
 
@@ -36,4 +36,24 @@ test("Local formats preserve deterministic routing and missing-source blocking",
 test("Slash arguments preserve actual Orchestra tasks",()=>{
  assert.equal(expandSlashCommand("/Orchestra 做成 PPTX")?.text,"@Orchestra 做成 PPTX");
  assert.equal(routeMessage("@Orchestra 做成 PPTX",ctx).kind,"diana");
+});
+
+test("Diana can draft and export bounded local SVG PNG GIF from a single chat turn",()=>{
+ for(const [question,format] of [
+  ["請幫我製作 SVG 向量圖","svg"],
+  ["幫我製作 PNG 圖卡","png"],
+  ["請製作 GIF 動圖","gif"]
+ ]){
+  const plan=planOrchestraAutoDraft(question);
+  assert.ok(plan,question);assert.equal(plan.format,format,question);
+  const bound=bindOrchestraDraft(plan,"# 完成的 AI 正文\n實際完成的設計文字");
+  assert.equal(bound.provenance,"assistant-answer");
+  assert.ok(canExecuteOrchestraHandoff(bound));
+  assert.equal(bound.format,format);
+ }
+ for(const q of ["什麼是 SVG","Canva 製作 PNG 圖片","請不要製作 SVG",
+  "原文如下：幫我製作 SVG","把剛剛的回答轉成 GIF","幫我修圖 PhotoCraft"]){
+  assert.equal(planOrchestraAutoDraft(q),null,q);
+ }
+ assert.throws(()=>bindOrchestraDraft(orchestraHandoff("做一張 PNG 圖卡"),""),/尚無/);
 });

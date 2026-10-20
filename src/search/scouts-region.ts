@@ -27,7 +27,9 @@ export function selectScoutsSources(all:GroundedSource[],region:string):Grounded
    if(seen.has(key))return false;seen.add(key);return true;
   }catch{return false;}
  });
- const main=unique.slice(0,3).map(x=>({...x,regionSpecific:false}));
+ // Prefer three independent general sources, then one additional local source.
+ const main=unique.filter(x=>!localSource(x,region)).slice(0,3).map(x=>({...x,regionSpecific:false}));
+ for(const item of unique){if(main.length>=3)break;if(!main.some(x=>x.url===item.url))main.push({...item,regionSpecific:false});}
  const regional=unique.find(x=>localSource(x,region)&&!main.some(y=>y.url===x.url));
  if(regional)main.push({...regional,regionSpecific:true});
  else{

@@ -4,6 +4,7 @@
  * never send attachments, pasted/quoted material, private chat or local-only requests.
  */
 import {merlinParse} from "../detroit/core";
+import {planDianaNativeArtifact} from "../detroit/diana-auto";
 
 export type ScoutsAutoContext={
  routeKind:string;
@@ -13,7 +14,7 @@ export type ScoutsAutoContext={
  hasImage:boolean;
 };
 export function shouldAutoRunScouts(question:string,ctx:ScoutsAutoContext):boolean{
- if(ctx.routeKind!=="continue"||!ctx.autoResearchEnabled||ctx.privateMode||ctx.hasAttachment||ctx.hasImage)return false;
+ if(!["continue","diana"].includes(ctx.routeKind)||!ctx.autoResearchEnabled||ctx.privateMode||ctx.hasAttachment||ctx.hasImage)return false;
  const q=question.trim();
  if(q.length<8||q.length>260||/https?:\/\//i.test(q))return false;
  if(/(?:不要上網|不需搜尋|不需要網路|不要搜尋|不需網路|僅使用附件|只根據文件|只用本地|離線回答|不要查網路|不用查網路)/.test(q))return false;
@@ -22,5 +23,6 @@ export function shouldAutoRunScouts(question:string,ctx:ScoutsAutoContext):boole
  const plan=merlinParse(q);
  // "research" requires evidence; generic "analyze this" or discussing a
  // component's name must not silently send the conversation to the web.
- return plan.intent==="research"&&plan.requiresNetwork&&plan.needsEvidence;
+ return plan.requiresNetwork&&plan.needsEvidence&&
+  (plan.intent==="research"||(ctx.routeKind==="diana"&&planDianaNativeArtifact(q)!==null));
 }

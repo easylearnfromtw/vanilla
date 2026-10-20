@@ -15,13 +15,14 @@ export function proposeProactiveDiana(question:string,ctx:DianaContext):DianaDec
  // User-provided writing/source text must never be construed as new executable instructions.
  if(/^(?:【待潤稿原文】|以下是原文|原文如下|引用：|引述：|>)/.test(q))return null;
  const doc=DOC.test(q)&&ACTION.test(q);
+ const canva=/Canva/i.test(q)&&/(?:圖片|生圖|圖像|簡報|海報|設計|製作|生成|建立)/i.test(q);
  const visual=/(?:設計|製作|建立|生成|畫一張|幫我做).{0,40}(?:海報|廣告版面|品牌主視覺|AI\s*圖片|AI\s*圖像)/i.test(q);
  const email=/(?:設計|製作|建立|匯出|編輯).{0,40}(?:電子報|郵件模板|EDM|newsletter|Email\s*Studio)/i.test(q);
  const rewrite=/(?:幫我|請|麻煩).{0,10}(?:潤稿|去除AI腔|自然化這段)/i.test(q);
  const stats=/(?:幫我|請|麻煩).{0,12}(?:分析|統計|繪製).{0,35}(?:CSV|數據|圖表|資料集|折線圖|圓餅圖)/i.test(q);
  const code=/(?:幫我|請|麻煩|我要).{0,12}(?:修改|修復|重構|新增|實作).{0,45}(?:Vanilla|GitHub|原始碼|程式碼|bug)/i.test(q);
  const schedule=/(?:新增|建立|安排|記下|記錄).{0,45}(?:待辦|行程|排程|任務|提醒)|(?:待辦|排程|行程).{0,30}(?:新增|建立|安排|記下)/i.test(q);
- if(!(doc||visual||email||rewrite||stats||code||schedule))return null;
+ if(!(doc||visual||email||rewrite||stats||code||canva||schedule))return null;
  const choice=chooseDianaTool(q,ctx);
  // Keep ordinary LLM chat as-is if Diana cannot identify a concrete tool.
  if(choice.tool==="merlin"||choice.tool==="diana")return null;
@@ -60,4 +61,27 @@ export function composeDianaCreamDocument(question:string,result:CreamResult):Re
   "本報告由已完成的 CREAM 程式結果直接產生；沒有補造未提供的研究結論或引用。"
  ].join("\n");
  return {format,title:"CREAM_數據分析報告",body};
+}
+
+
+/** Native output handoff: the model drafts content; Detroit does the actual local export.
+ * Mentioning a format in a question or quotation never triggers a download.
+ */
+export type DianaNativeArtifact=
+ |{capability:"retina";format:RetinaFormat;title:string}
+ |{capability:"janus";kind:"invitation"|"newsletter"|"announcement";title:string;brand:string};
+export function planDianaNativeArtifact(request:string):DianaNativeArtifact|null{
+ const q=request.trim();
+ if(!q||q.length>1800||/^(?:什麼是|如何|怎麼|為什麼|請問|可不可以|能不能|引用：|引述：|原文如下|以下是原文|>)/.test(q))return null;
+ if(/(?:不要|不必|無需|不需要).{0,8}(?:匯出|下載|產生檔案|輸出檔案)/.test(q))return null;
+ const format=requestedDianaFormat(q);
+ if(format)return {capability:"retina",format,title:q.replace(/[\\/:*?"<>|]/g," ").slice(0,54)||"Detroit 文件"};
+ if(/(?:幫我|請|我要|製作|設計|建立|生成|產生)/.test(q)&&/(?:製作|設計|建立|生成|產生|匯出)/.test(q)&&
+   /(?:電子報|郵件模板|EDM|newsletter|HTML\s*(?:電子郵件|Email))/i.test(q)&&
+   !/(?:寄送|發送|傳送|寄給|群發|批次寄信)/.test(q)){
+  const kind=/(?:邀請函|邀請信|invitation)/i.test(q)?"invitation":/(?:公告|announcement)/i.test(q)?"announcement":"newsletter";
+  const brand=/(?:欣緯生醫|Sign Well|SignWell)/i.test(q)?"欣緯生醫":"VANILLA";
+  return {capability:"janus",kind,title:q.slice(0,80),brand};
+ }
+ return null;
 }

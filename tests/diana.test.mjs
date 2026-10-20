@@ -75,7 +75,7 @@ test("Diana exposes offline and incomplete-tool constraints",()=>{
  assert.equal(expandSlashCommand("/Quirinus")?.text,"@Quirinus");
  assert.equal(chooseDianaTool("執行排程",normal,"chronos").kind,"report");
 });
-test("Notion schedule intents only open the authenticated studio, never execute background jobs",()=>{
+test("Notion schedule intents open an offline editor, without background execution",()=>{
  assert.equal(parseDianaInvocation("@Notion 明天開會")?.forcedTool,"notion");
  assert.equal(expandSlashCommand("/排程")?.text,"@Notion");
  assert.equal(expandSlashCommand("/Notion")?.text,"@Notion");
@@ -97,4 +97,23 @@ test("Diana Erya delegates through an existing guarded writing request",()=>{
 test("Diana never copies private conversation text into Orchestra automatically",()=>{
  const source=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
+});
+
+test("Canva images and slides are a consent-gated Orchestra handoff, not fake execution",()=>{
+ const named=parseDianaInvocation("@Canva 幫我生成簡報");
+ assert.equal(named?.forcedTool,"canva");
+ const design=chooseDianaTool("使用 Canva 製作公司簡報",normal);
+ assert.equal(design.tool,"canva");
+ assert.equal(design.event,"vanilla-open-orchestra");
+ assert.equal(chooseDianaTool("Canva 製作圖片",privateMode).kind,"report");
+ assert.equal(routeMessage("請用 Canva 生成一份簡報",normal).kind,"diana");
+ assert.equal(DETROIT_ENGINES.find(x=>x.id==="canva")?.status,"adapter");
+});
+
+test("Diana delegates genuine visual presentation requests to Venus",()=>{
+ const ctx={privateMode:false,hasCreamResult:false,hasModel:true};
+ assert.equal(chooseDianaTool("用互動地圖呈現地點",ctx).tool,"venus");
+ assert.equal(chooseDianaTool("用互動地圖呈現地點",ctx).kind,"delegate");
+ assert.equal(chooseDianaTool("用互動地圖呈現地點",{...ctx,hasModel:false}).kind,"report");
+ assert.equal(chooseDianaTool("任何任務",ctx,"venus").kind,"report");
 });

@@ -24,12 +24,15 @@ from medusa_family import router as medusa_family_router
 from quirinus_family_actions import router as quirinus_family_router
 from ceres_gateway import telegram_router as ceres_telegram_router, operator_router as ceres_operator_router
 from ceres_dialogue import router as ceres_family_router
+from ceres_agent_bridge import router as ceres_bridge_router
+from ceres_agent_delivery import router as ceres_delivery_router
 from ceres_telegram_registration import register_telegram_webhook
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
 from orchestra_capabilities import orchestra_capabilities
+from canva_adapter import router as canva_router
 from pdfcraft_native import probe_sandbox
 from pdfcraft_engine import PdfCraftUnavailable, PdfCraftFailed
 from pdfcraft_remote import combine_pdfs, remote_requested, remote_ready
@@ -116,6 +119,7 @@ async def require_wordcraft_quota(sub: str) -> None:
 app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,docs_url=None,redoc_url=None)
 app.include_router(gridcraft_router)
 app.include_router(notion_router)
+app.include_router(canva_router)
 async def operator(authorization: str | None = Header(default=None)):
     expected=os.environ.get("WEIGUO_ADMIN_TOKEN","")
     if len(expected) < 32: raise HTTPException(503,"未設定後端金鑰")
@@ -134,6 +138,8 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 app.include_router(ceres_telegram_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)
+app.include_router(ceres_bridge_router)
+app.include_router(ceres_delivery_router)
 
 @app.get("/v1/health")
 @app.get("/health")

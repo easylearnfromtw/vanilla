@@ -7,6 +7,7 @@ import {wordcraftConfigured,pdfcraftConfigured,type OrchestraCapabilities} from 
 import {downloadCreamSvg,type OrchestraChart} from "./cream-chart";
 import {ORCHESTRA_TOOLS,orchestraPlan,orchestraTool,type OrchestraFormat,type OrchestraToolId} from "./core";
 import LocalCraftPanel,{supportsLocalCraft} from "./LocalCraftPanel";
+import CanvaPanel from "../canva/CanvaPanel";
 import "./orchestra.css";
 
 export default function OrchestraStudio({initialBody,source="manual",compact=false,chart}:{
@@ -127,6 +128,7 @@ export default function OrchestraStudio({initialBody,source="manual",compact=fal
       {(!weiGuoApiBase()||!weiGuoIdentity())&&<p>請先設定並登入「衞國系統」，才能測試選用 WordCraft 後端。</p>}
       {!backendWordcraft&&<p>目前未取得後端 WordCraft 可用配置；不能執行原生轉檔。可使用本機 Retina。</p>}
     </div>}
+    <CanvaPanel initialPrompt={initialBody||""}/>
     <p className="orchestra-feedback" role="status">{status}</p>
    </section>
    <aside className="orchestra-stages">

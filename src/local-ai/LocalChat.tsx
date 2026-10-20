@@ -984,7 +984,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const qualityNeeded=Boolean(image)||task==="analysis"||task==="code"||task==="writing"||classifyFactRequest(question).restrictTinyModel||!candidates.length;
   if(qualityNeeded){
    const accepted=window.confirm("這題適合用能力較高的雲端 AI。要開啟智慧雲端路由，讓 Vanilla 自動使用已連接的 Gemini／DeepSeek 嗎？API 可能有免費額度或計費限制；第一次傳給每個供應商前仍會再確認。");
-   if(accepted){changeMetered(true);candidates=discovered;}
+   if(accepted){changeMetered(true);candidates=qualifiedFactModels(discovered,classifyFactRequest(question));}
    else sessionStorage.setItem("vanilla.cloud.route.ask","declined");
   }
  }

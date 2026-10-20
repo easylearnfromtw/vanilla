@@ -373,7 +373,7 @@ def approve(token: str, actor: int):
         db.execute("BEGIN IMMEDIATE")
         row=db.execute("SELECT * FROM ceres_ops_pending WHERE token=? AND actor=? AND expires_at>?",
                        (token,actor,int(time.time()))).fetchone()
-        db.execute("DELETE FROM ceres_ops_pending WHERE token=?",(token,))
+        db.execute("DELETE FROM ceres_ops_pending WHERE token=? AND actor=?",(token,actor))
         item=dict(row) if row else None
     if not item:
         raise HTTPException(409,"操作確認已失效或已使用")

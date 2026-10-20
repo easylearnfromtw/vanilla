@@ -54,6 +54,9 @@ def _db_tables(db):
       charged_tokens INTEGER NOT NULL, prompt_tokens INTEGER, completion_tokens INTEGER,
       status TEXT NOT NULL, latency_ms INTEGER, model TEXT NOT NULL,
       FOREIGN KEY(key_id) REFERENCES vanilla_api_keys(id))""")
+    db.execute("""CREATE TABLE IF NOT EXISTS vanilla_api_audit(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, owner_chat INTEGER NOT NULL,
+      operation TEXT NOT NULL, subject TEXT NOT NULL, at INTEGER NOT NULL)""")
     db.execute("""CREATE TABLE IF NOT EXISTS vanilla_api_catalog(
       marker INTEGER PRIMARY KEY CHECK(marker=1), models_json TEXT NOT NULL,
       refreshed_at INTEGER NOT NULL, primary_model TEXT NOT NULL)""")
@@ -334,6 +337,10 @@ class KeyCreate(Owner):
     max_output_tokens: int=Field(default=512,ge=16,le=2048)
     expires_days: int=Field(default=30,ge=1,le=365)
 
+class ProjectToggle(Owner):
+    project_id: str=Field(pattern=r"^[a-f0-9]{16}$")
+    enabled: bool
+
 class KeyRevoke(Owner):
     key_id: str=Field(pattern=r"^[a-f0-9]{20}$")
 
@@ -380,7 +387,26 @@ async def new_project(body:ProjectCreate):
         uid=secrets.token_hex(8)
         db.execute("INSERT INTO vanilla_api_projects VALUES(?,?,?,?,?)",
                    (uid,body.label.strip(),chat,1,int(time.time())))
+        db.execute("INSERT INTO vanilla_api_audit(owner_chat,operation,subject,at) VALUES(?,?,?,?)",
+                   (chat,"project_created",uid,int(time.time())))
     return {"id":uid,"label":body.label.strip()}
+
+
+@admin_router.post("/projects/toggle")
+async def project_toggle(body:ProjectToggle):
+    chat=_verify(body.init_data)
+    with _session() as db:
+        _db_tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        result=db.execute("UPDATE vanilla_api_projects SET enabled=? "
+                          "WHERE id=? AND owner_chat=?",
+                          (int(body.enabled),body.project_id,chat))
+        if not result.rowcount:
+            raise HTTPException(404,"找不到指定應用")
+        db.execute("INSERT INTO vanilla_api_audit(owner_chat,operation,subject,at) VALUES(?,?,?,?)",
+                   (chat,"project_enabled" if body.enabled else "project_disabled",
+                    body.project_id,int(time.time())))
+    return {"ok":True,"enabled":body.enabled}
 
 
 @admin_router.post("/keys")
@@ -424,6 +450,8 @@ async def issue_key(body:KeyCreate):
              body.label.strip(),json.dumps(body.models),body.daily_tokens,
              body.monthly_tokens,body.rpm,body.max_output_tokens,
              int(time.time())+body.expires_days*86400,int(time.time())))
+        db.execute("INSERT INTO vanilla_api_audit(owner_chat,operation,subject,at) VALUES(?,?,?,?)",
+                   (chat,"api_key_created",key_id,int(time.time())))
     return {"id":key_id,"api_key":token,"shown_once":True,
             "warning":"只在這次安全回應中顯示，請立即複製到可信任的伺服器密鑰儲存。切勿放在瀏覽器前端。"}
 
@@ -433,9 +461,13 @@ async def revoke_key(body:KeyRevoke):
     chat=_verify(body.init_data)
     with _session() as db:
         _db_tables(db)
-        db.execute("UPDATE vanilla_api_keys SET revoked_at=? WHERE id=? AND project_id IN "
+        result=db.execute("UPDATE vanilla_api_keys SET revoked_at=? WHERE id=? AND project_id IN "
                    "(SELECT id FROM vanilla_api_projects WHERE owner_chat=?) AND revoked_at IS NULL",
                    (int(time.time()),body.key_id,chat))
+        if not result.rowcount:
+            raise HTTPException(404,"金鑰不存在或已撤銷")
+        db.execute("INSERT INTO vanilla_api_audit(owner_chat,operation,subject,at) VALUES(?,?,?,?)",
+                   (chat,"api_key_revoked",body.key_id,int(time.time())))
     return {"revoked":True}
 
 

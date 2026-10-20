@@ -340,7 +340,7 @@ function changeCompareMode(enabled:boolean){
 function toggleVictoriaConsent(){
  if(privateMode||busy)return;
  const enabled=!isVictoriaEnabled(victoriaOwner);
- if(enabled&&!window.confirm("啟用 Victoria 跨對話脈絡嗎？\\n\\nVictoria 只搜尋本裝置、目前登入帳號的「一般模式」封存對話，不會讀取其他家庭成員或私密模式。相關片段可能附入下一次的 AI 提問；當你已同意使用雲端模型時，片段也可能傳給該模型供應商。\\n\\n此功能可隨時在本面板關閉。是否同意？"))return;
+ if(enabled&&!window.confirm("啟用 Victoria 跨對話脈絡嗎？\n\nVictoria 只搜尋本裝置、目前登入帳號的「一般模式」封存對話，不會讀取其他家庭成員或私密模式。相關片段可能附入下一次的 AI 提問；當你已同意使用雲端模型時，片段也可能傳給該模型供應商。\n\n此功能可隨時在本面板關閉。是否同意？"))return;
  if(!setVictoriaEnabled(victoriaOwner,enabled)){setLastRoute("無法儲存 Victoria 設定，跨對話功能仍保持原狀。");return;}
  refreshVictoriaConsent(x=>x+1);
  setLastRoute(enabled?"Victoria 已啟用：將按相關程度搜尋同帳號的一般封存對話。":"Victoria 已關閉：不再查詢舊對話。");
@@ -969,7 +969,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     recalledChats.matches.length?"已找到 "+recalledChats.matches.length+" 段同帳號的相關封存對話":"沒有找到足夠相關的舊對話，不進行猜測");
   }catch(error){
    if(detroit.depth!=="quick")markDetroit("victoria","error","無法讀取裝置舊對話，已退回目前對話");
-   recordClientFault("model","victoria-context",error);
+   recordClientFault("detroit","tool",error);
   }
  }
  const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";

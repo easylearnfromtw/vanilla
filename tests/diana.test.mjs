@@ -83,9 +83,11 @@ test("Diana Erya delegates through an existing guarded writing request",()=>{
  assert.equal(chooseDianaTool("一段話",{...normal,hasModel:false},"er-ya").kind,"report");
  assert.equal(chooseDianaTool("",normal,"er-ya").kind,"report");
 });
-test("Diana never copies private conversation text into Orchestra automatically",()=>{
+test("Diana never redirects chat into Orchestra or copies private text",()=>{
  const source=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
- assert.match(source,/privateMode&&pick\.event==="vanilla-open-orchestra"/);
+ assert.doesNotMatch(source,/if\(pick\.kind==="open"&&pick\.event\)/);
+ assert.match(source,/detroitToolNote=/);
+ assert.match(source,/privateMode/);
 });
 
 test("Canva images and slides are a consent-gated Orchestra handoff, not fake execution",()=>{

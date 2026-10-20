@@ -105,5 +105,5 @@ function test(){
  console.log("PASS: 8 domains, calculations, grades, policy denial, split distinction");
 }
 if(process.argv.includes("--test"))test();
-else if(process.argv.includes("--benchmark"))await benchmark(resolve(process.argv[process.argv.indexOf("--benchmark")+1]||"training/agent_sandbox/generated/eval.jsonl"),process.argv[process.argv.indexOf("--model")+1]||"signwell-agent:0.1");
+else if(process.argv.includes("--benchmark"))await benchmark(resolve(process.argv[process.argv.indexOf("--benchmark")+1]||"training/agent_sandbox/generated/eval.jsonl"),process.argv.includes("--model")?process.argv[process.argv.indexOf("--model")+1]:"signwell-agent:0.1");
 else console.log(generate());

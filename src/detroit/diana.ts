@@ -3,6 +3,7 @@
  */
 import {DETROIT_ENGINES} from "./core";
 import {DETROIT_FACTORY_TOOLS} from "./factory";
+import {DETROIT_CAPABILITIES,detroitAvailability} from "./capability-bus";
 import {makeHumanizeRequest} from "../erya/humanize";
 import {creamInstruction} from "../cream/core";
 export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"canva"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
@@ -43,7 +44,9 @@ export function dianaCatalog():string{
   "部署／授權依賴的適配器："+groups("adapter"),
   "規劃中："+groups("planned"),
   "Factory 選用工具："+DETROIT_FACTORY_TOOLS.map(x=>x.label+"（"+(x.enabledByDefault?"啟用":"預設停用")+"）").join("、"),
-  "指令：/Diana 任務描述、@CREAM、@Retina、@Janus、@Scouts、@爾雅、@衞國 等。跨工具任務依序規劃，前一步沒有真正完成時，不會聲稱後一步已完成。只交接到已有工具，不自動部署後端、寄信、付款、執行程式碼或更改權限。"
+  "Detroit 已收編能力："+DETROIT_CAPABILITIES.map(x=>x.label).join("、"),
+  "目前已註冊執行器："+detroitAvailability().filter(x=>x.state==="runnable").map(x=>x.id).join("、")+"（僅代表當前程式內有執行器，非外部服務已授權）",
+  "工具以 Detroit 統一調度，使用者毋須手動指定。/Diana 與 @工具 僅是可選快捷方式。資料僅在已授權範圍內傳遞；尚未部署的適配器不會報稱執行完成。"
  ].join("\n\n");
 }
 function report(tool:DianaTarget,message:string,reason:string):DianaDecision{

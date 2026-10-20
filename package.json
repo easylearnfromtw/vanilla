@@ -40,7 +40,7 @@
     "test:orchestra": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/orchestra.test.mjs tests/orchestra-ai.test.mjs",
     "test:luna": "node --experimental-strip-types --test tests/luna.test.mjs",
     "test:retina": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/retina-exports.test.mjs",
-    "test:diana": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/diana.test.mjs tests/diana-auto.test.mjs tests/local-schedule.test.mjs",
+    "test:diana": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/diana.test.mjs tests/diana-auto.test.mjs tests/local-schedule.test.mjs tests/notion-browser-handoff.test.mjs",
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:victoria": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/victoria.test.mjs",
     "test:detroit-bus": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-capability-bus.test.mjs",

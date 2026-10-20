@@ -13,7 +13,7 @@ export function imageSearchQuery(input:string):string|null{
   .replace(/^(?:[@＠]Diana|戴安娜)[\s：:,，]*/i,"")
   .replace(/(?:幫我|請|麻煩|可不可以|請問|找出|搜尋|尋找|查找|查詢|給我看|展示|我想看|看看|show me|find|search for)/gi," ")
   .replace(/(?:一些|幾張|多張|真實的|真正的|網路上的|公開的|的圖片|的照片|的相片|圖片|照片|相片|圖庫|影像|image|photo|picture)/gi," ")
-  .replace(/[，、。！？!?]/g," ").trim().replace(/\s+/g," ");
+  .replace(/[，、。！？!?]/g," ").trim().replace(/^(?:找|看|尋找|查找)\s*/,"").replace(/\s+/g," ");
  return q&&q.length<=130?q:null;
 }
 type CommonsEntry={title?:string;imageinfo?:Array<{thumburl?:string;url?:string;descriptionurl?:string;extmetadata?:{LicenseShortName?:{value?:string}}}>};

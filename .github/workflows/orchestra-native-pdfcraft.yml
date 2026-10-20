@@ -50,6 +50,14 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check reportlab pypdf
           python3 services/weiguo/native_pdfcraft_smoke.py "$PDFCRAFT_CLI"
+      - name: Validate standalone VPS scripts and independent PDF fixtures
+        run: |
+          set -euo pipefail
+          bash -n services/pdfcraft-worker/install-linux.sh
+          bash -n services/pdfcraft-worker/check-host.sh
+          bash -n services/pdfcraft-worker/enable-scoped-apparmor.sh
+          python3 -m py_compile services/pdfcraft-worker/preflight.py
+          PYTHONPATH=services/weiguo python3 services/pdfcraft-worker/preflight.py --fixture-only
       - name: Build optional pinned Railway image and inspect installed CLI
         timeout-minutes: 16
         run: |

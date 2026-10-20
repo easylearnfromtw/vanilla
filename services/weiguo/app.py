@@ -30,7 +30,7 @@ from ceres_server_agent import router as ceres_server_router, worker_loop as cer
 from ceres_telegram_registration import register_telegram_webhook
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
-from slime import router as slime_router
+from slime import node_router as slime_router
 from scouts_search import router as scouts_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed

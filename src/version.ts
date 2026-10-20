@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.20.43-scouts-google-quota-fallback";
+export const VANILLA_BUILD="2026.10.20.44-quality-first-reliability";

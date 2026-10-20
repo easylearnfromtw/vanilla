@@ -52,6 +52,7 @@ import {driveSession} from "../workspace/cloud-drive";
 import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
 import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,saveAnswerRating,promptBudgetFor,type ModelCandidate} from "../ai/model-orchestrator";
 import {composeUserPrompt,type PromptContext} from "../ai/context-budget";
+import {compileSmallModelInput} from "../ai/small-model-scaffold";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
 import {classifyTaiwanTopic,isTaideModel,taiwanEvidenceGuidance,isTaiwanTaideEnabled} from "../ai/taiwan-routing";
 import {learnToneFromMessage,toneFeedback,applyExplicitToneRequest,type ToneFeedback} from "../ai/tone-adaptation";
@@ -1246,9 +1247,20 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const trustedToolGrounding=!humanize?toolKnowledgeGuidance(question):"";
  const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"");
  const compose=(candidate:ModelCandidate)=>{
-  const composed=composeUserPrompt(modelQuestion,contexts,guidance+(candidate.source==="local"?trustedToolGrounding:"")+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
+  const budget=promptBudgetFor(candidate,task);
+  // Small local/Ollama models need evidence, not 1K+ words of tool and style instructions.
+  // The compiler is deterministic, offline, and never rewrites the original question.
+  const compact=candidate.source==="local"||candidate.source==="ollama"?
+   compileSmallModelInput({question:modelQuestion,model:candidate.model,task,contexts,budgetTokens:budget,
+    tableRequested:tableExpected,artifactRequested:Boolean(nativeOrchestra||nativeArtifact),
+    toolGuidance:candidate.source==="local"?trustedToolGrounding:""}):null;
+  const prepared=compact?.reduced?compact:null;
+  const finalGuidance=prepared?.guidance??(
+   guidance+(candidate.source==="local"?trustedToolGrounding:"")+
+   venusPresentationGuidance(question,task,candidate.source==="local"));
+  const composed=composeUserPrompt(modelQuestion,prepared?.contexts??contexts,finalGuidance,budget);
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));
-  const notes:string[]=[];
+  const notes:string[]=[...(prepared?.notices||[])];
   const cut=composed.included.find(x=>x.truncated);
   if(cut)notes.push(cut.label+"太長，這個模型只讀到前 "+cut.chars.toLocaleString("en-US")+" 字");
   if(composed.omitted.length)notes.push("因模型長度限制未附上："+composed.omitted.join("、"));

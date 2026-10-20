@@ -167,7 +167,7 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
           SUM(CASE WHEN status='running' AND created_at>=? THEN 1 ELSE 0 END) active
           FROM vanilla_api_usage WHERE key_id=?""",
           (now-60,d0,int(m0),now-90,key["id"])).fetchone()
-        if stats["rpm"]>=live["rpm"] or stats["active"]>=2:
+        if (stats["rpm"] or 0)>=live["rpm"] or (stats["active"] or 0)>=2:
             raise HTTPException(429,"API Key 的頻率或併發請求已達上限")
         if (stats["day_total"] or 0)+budget>live["daily_limit"] or (
             stats["month_total"] or 0)+budget>live["monthly_limit"]:

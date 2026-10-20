@@ -1,0 +1,27 @@
+name: PdfCraft Railway microVM runner
+on:
+  pull_request:
+    paths:
+      - "services/pdfcraft-vm-runner/**"
+      - ".github/workflows/pdfcraft-vm-runner.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Offline authenticated worker tests (no billable VM)
+        working-directory: services/pdfcraft-vm-runner
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          node --check server.mjs
+          node --check runtime.mjs
+      - name: Build standalone Railway microVM broker
+        run: docker build -f services/pdfcraft-vm-runner/Dockerfile services/pdfcraft-vm-runner

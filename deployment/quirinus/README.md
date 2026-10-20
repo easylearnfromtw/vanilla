@@ -33,9 +33,17 @@ does not publish an HTTP service or need any API/Google/Drive/admin tokens.
 
 The isolated scanner runs automatically:
 - On pull requests targeting main that change source, tests, deployment/quirinus,
-  or the scanner workflow. A PR has read-only GitHub permissions. The scanner
-  Docker image is built from the trusted base commit; the PR merge revision is
-  read as untrusted data only, in a network-disabled, non-root container.
+  or the scanner workflow. `pull_request_target` loads workflow code from the
+  trusted base and has explicit read-only token permissions. The fork PR head
+  is downloaded as untrusted DATA and mounted into a network-disabled, non-root
+  container. Its Dockerfile, actions, requirements and scripts are NOT executed
+  on the host. Both the proposed source and the trusted base are scanned with
+  the same trusted scanner image. If Critical or High aggregate findings increase,
+  the PR check fails closed; this is a statistical regression warning, NOT proof
+  of new exploitable vulnerabilities. The "truncated" flag only limits the
+  detailed preview to 80 findings; the complete aggregate counters remain
+  comparable, so that flag alone does not fail a PR. Repository branch protection is required
+  if the maintainer wants this check to block merging.
 - On matching pushes to main (existing behavior).
 - Daily at 01:19 UTC (09:19 Taiwan), including days with no source change.
   GitHub may delay or skip scheduled jobs; this is a best-effort schedule.
@@ -63,7 +71,8 @@ secret rotation, active web probing or Railway production deploy. Existing
 Athena approval and maintainer controls continue to govern those actions.
 
 Validate the normal workflow and autonomous redaction with
-python3 -m unittest discover -s services/weiguo -p 'test_quirinus_autonomous.py'.
+python3 -m unittest discover -s services/weiguo -p 'test_quirinus_autonomous.py'` and
+`python3 -m unittest discover -s services/weiguo -p 'test_quirinus_regression.py'.
 
 ## Validation and limits
 

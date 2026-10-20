@@ -45,4 +45,4 @@ Write endpoints only accept fixed schema; arbitrary page IDs, database IDs, URLs
 - Notion API rate limiting may produce a temporary unavailable response; writes are not automatically retried to avoid duplicate tasks.
 - Existing Notion pages without a valid Vanilla Owner marker will not appear in the family API.
 
-Official references: https://developers.notion.com/reference/intro, https://developers.notion.com/reference/post-data-source-query, https://developers.notion.com/reference/post-page and https://developers.notion.com/reference/patch-page.
+Official references: https://developers.notion.com/reference/intro, https://developers.notion.com/reference/query-a-data-source, https://developers.notion.com/reference/post-page and https://developers.notion.com/reference/patch-page.

@@ -22,6 +22,8 @@ export default function NotionSchedulePanel(){
  const [busy,setBusy]=useState(false);
  const [notice,setNotice]=useState('');
  const [hasMore,setHasMore]=useState(false);
+ const [rescheduleId,setRescheduleId]=useState<string|null>(null);
+ const [rescheduleWhen,setRescheduleWhen]=useState('');
  const identity=weiGuoIdentity();
  const privateMode=currentChatMode()==='private';
  const available=Boolean(weiGuoApiBase()&&identity&&!privateMode&&identity.role!=='viewer');
@@ -49,6 +51,18 @@ export default function NotionSchedulePanel(){
    });
    setTasks(old=>[newTask,...old]);setTitle('');setDetails('');
    setNotice('已建立 Notion 任務。注意：這不等於已設定自動提醒或執行。');
+  }catch(e){setNotice(e instanceof Error?e.message:String(e));}
+  finally{setBusy(false);}
+ }
+ async function reschedule(id:string){
+  if(!available||!allowWrite||!rescheduleWhen)return;
+  const date=new Date(rescheduleWhen);
+  if(Number.isNaN(date.getTime()))return setNotice('請選擇有效時間');
+  setBusy(true);setNotice('');
+  try{
+   const updated=await notionFamilyRequest<Task>('/v1/family/notion/tasks/'+id+'/reschedule',{when:date.toISOString()});
+   setTasks(old=>old.map(task=>task.id===updated.id?updated:task));
+   setRescheduleId(null);setRescheduleWhen('');setNotice('已將新日期同步至 Notion。');
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }
@@ -80,7 +94,10 @@ export default function NotionSchedulePanel(){
    <h3>我的排程</h3>
    {tasks.length===0?<p>目前尚無讀取到任務。請按上方「同步 Notion 排程」。</p>:<ul>
     {tasks.map(task=><li key={task.id}><strong>{task.title||'未命名任務'}</strong> · {formatDate(task.when)} · {task.done?'已完成':'待辦'}
-     {!task.done&&<button type="button" disabled={busy||!allowWrite} onClick={()=>void complete(task.id)}><CheckCircle2 size={15}/> 標記完成</button>}
+     {!task.done&&<><button type="button" disabled={busy||!allowWrite} onClick={()=>void complete(task.id)}><CheckCircle2 size={15}/> 標記完成</button>
+      <button type="button" disabled={busy||!allowWrite} onClick={()=>{setRescheduleId(task.id);setRescheduleWhen('');}}>改期</button>
+      {rescheduleId===task.id&&<span><input type="datetime-local" aria-label="新日期與時間" value={rescheduleWhen} onChange={e=>setRescheduleWhen(e.target.value)}/><button type="button" disabled={busy||!allowWrite||!rescheduleWhen} onClick={()=>void reschedule(task.id)}>儲存新日期</button></span>}
+     </>}
     </li>)}
    </ul>}
    {hasMore&&<p>僅顯示前 50 項符合權限的任務；後續分頁尚未載入。</p>}

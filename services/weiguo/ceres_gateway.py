@@ -218,8 +218,8 @@ async def telegram_webhook(request: Request,
     if hub_text is None:
         # Read-only natural-language GitHub lookup, not remote installation.
         search = re.fullmatch(
-            r"(?:幫我)?(?:找|搜尋|尋找)\\s*github\\s*(?:上的|上|的)?\\s*"
-            r"(?:開源|專案|項目)?\\s*(.{2,80})",
+            r"(?:幫我)?(?:找|搜尋|尋找)\s*github\s*(?:上的|上|的)?\s*"
+            r"(?:開源|專案|項目)?\s*(.{2,80})",
             text, re.I)
         if search:
             hub_text = "/hub github " + search.group(1).strip()

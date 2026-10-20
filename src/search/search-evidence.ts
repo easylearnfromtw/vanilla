@@ -18,6 +18,8 @@ export function implicitResearchQuery(text:string):string|null{
  // Do not leak pasted source text or opt-out requests to external search providers.
  if(/(?:不要上網|不需搜尋|不需要網路|不要搜尋|僅使用附件|只根據文件|只用本地|離線回答)/.test(q))return null;
  if(/^(?:【待潤稿原文】|以下是原文|原文如下|引用：|引述：|>)/.test(q))return null;
+ // Never auto-send private/personal chat, files or memory context to public search.
+ if(/(?:我的|我家|我們的|家人|私密|附件|病歷|個人(?:健康|帳戶|資料)|本機|從記憶|舊對話|剛剛|上面的)/.test(q))return null;
  // Veritas flags short exam questions and other high-risk facts before a small LLM.
  if(classifyFactRequest(q).needsLiveSources)return q;
  // Requests for verifiable online facts should work without requiring "/搜尋".

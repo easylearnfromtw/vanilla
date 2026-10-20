@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from medusa_adapter import MedusaRunRequest, execute_medusa
+import medusa_lite
 from medusa_lite import run_subset, lite_status
 
 ENABLED = {"MEDUSA_ENABLED": "true", "MEDUSA_ENGINE": "lite", "MEDUSA_LITE_ENABLED": "true"}
@@ -18,6 +19,20 @@ class LiteTests(unittest.TestCase):
                 with self.assertRaises(HTTPException) as ex:
                     asyncio.run(execute_medusa(MedusaRunRequest(source_code="print(42)")))
                 self.assertEqual(ex.exception.status_code, 503)
+
+
+    def test_startup_proof_fails_closed_and_recovers_after_new_boot(self):
+        with patch.dict(os.environ, ENABLED):
+            self.assertTrue(medusa_lite.production_selftest())
+            self.assertTrue(medusa_lite.enabled())
+            with patch.object(medusa_lite, "run_subset", side_effect=RuntimeError("internal fault")):
+                self.assertFalse(medusa_lite.production_selftest())
+            self.assertFalse(medusa_lite.enabled())
+            with self.assertRaises(HTTPException) as caught:
+                asyncio.run(execute_medusa(MedusaRunRequest(source_code="print(42)")))
+            self.assertEqual(caught.exception.status_code, 503)
+            self.assertTrue(medusa_lite.production_selftest())
+            self.assertTrue(medusa_lite.enabled())
 
     def test_real_execution_and_status_no_external_cloud(self):
         with patch.dict(os.environ, ENABLED):

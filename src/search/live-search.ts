@@ -20,41 +20,54 @@ async function getJSON(url:string):Promise<unknown>{
 export async function searchLiveWeb(query:string):Promise<LiveSearchReport>{
  const q=query.trim().slice(0,180);
  if(q.length<2)throw Error("搜尋需要至少兩個字");
- const results:LiveSearchResult[]=[],errors:string[]=[];
- const tasks=[
-  (async()=>{
-   const url="https://zh.wikipedia.org/w/api.php?action=query&list=search&format=json&utf8=1&origin=*&srlimit=5&srsearch="+encodeURIComponent(q);
-   const data=await getJSON(url) as {query?:{search?:Array<{title?:unknown;snippet?:unknown;pageid?:unknown}>}};
-   const list=data.query?.search;
-   if(!Array.isArray(list))throw Error("無法讀取 Wikipedia 搜尋結果");
-   for(const item of list){
-    if(typeof item.pageid!=="number"||typeof item.title!=="string")continue;
-    results.push({title:safe(item.title,160),url:"https://zh.wikipedia.org/?curid="+item.pageid,
-     snippet:safe(item.snippet),provider:"Wikipedia"});
-   }
-  })(),
-  (async()=>{
-   // Crossref is a literature metadata index, not a general web search engine.
+ const errors:string[]=[];
+ const jobs:Array<{name:string;run:()=>Promise<LiveSearchResult[]>}>=[];
+ // Keep the general-purpose backend FIRST. Previously its results were appended
+ // after Wikipedia/Crossref and could be silently dropped by the nine-hit limit.
+ if(getSearchBridge())jobs.push({name:"自訂搜尋後端",run:async()=>{
+  const hits=await fetchSearchBridge(q);
+  return hits.map(hit=>({title:safe(hit.title,160),url:hit.url,snippet:safe(hit.snippet),provider:"自訂搜尋" as const}));
+ }});
+ jobs.push({name:"Wikipedia",run:async()=>{
+  const url="https://zh.wikipedia.org/w/api.php?action=query&list=search&format=json&utf8=1&origin=*&srlimit=5&srsearch="+encodeURIComponent(q);
+  const data=await getJSON(url) as {query?:{search?:Array<{title?:unknown;snippet?:unknown;pageid?:unknown}>}};
+  const list=data.query?.search;
+  if(!Array.isArray(list))throw Error("無法讀取 Wikipedia 搜尋結果");
+  return list.flatMap(item=>typeof item.pageid==="number"&&typeof item.title==="string"?
+   [{title:safe(item.title,160),url:"https://zh.wikipedia.org/?curid="+item.pageid,
+     snippet:safe(item.snippet),provider:"Wikipedia" as const}]:[]);
+ }});
+ // Crossref is NOT a general web engine. Unrelated DOI matches must not crowd
+ // out news, government or ordinary website search results.
+ if(/(?:文獻|論文|PubMed|研究|學術|期刊|臨床|治療|藥物|指引|指南|醫學|DOI|systematic review|meta.analysis|clinical trial|RCT)/i.test(q)){
+  jobs.push({name:"Crossref",run:async()=>{
    const data=await getJSON("https://api.crossref.org/works?rows=4&select=DOI,title,URL&query.title="+encodeURIComponent(q)) as {message?:{items?:Array<{DOI?:unknown;title?:unknown}>}};
-   for(const item of data.message?.items||[]){
+   return (data.message?.items||[]).flatMap(item=>{
     const doi=String(item.DOI||"");
-    if(!/^10\.\d{4,9}\/[a-z0-9._;()/:+-]+$/i.test(doi))continue;
+    if(!/^10\.\d{4,9}\/[a-z0-9._;()/:+-]+$/i.test(doi))return [];
     const title=Array.isArray(item.title)?item.title[0]:undefined;
-    results.push({title:safe(title,160),url:"https://doi.org/"+encodeURI(doi),snippet:"Crossref 文獻中繼資料 · DOI "+doi,provider:"Crossref"});
-   }
-  })(),
-  (async()=>{
-   if(!getSearchBridge())return;
-   const hits=await fetchSearchBridge(q);
-   for(const hit of hits)results.push({title:safe(hit.title,160),url:hit.url,snippet:safe(hit.snippet),provider:"自訂搜尋"});
-  })()
- ];
- const statuses=await Promise.allSettled(tasks);
- for(let i=0;i<statuses.length;i++)if(statuses[i].status==="rejected"){
-  const provider=i===0?"Wikipedia":i===1?"Crossref":"自訂搜尋後端";
-  errors.push(provider+" 無法取得內容（可能為 CORS、網路或服務限制）");
+    return [{title:safe(title,160),url:"https://doi.org/"+encodeURI(doi),
+     snippet:"Crossref 文獻中繼資料 · DOI "+doi,provider:"Crossref" as const}];
+   });
+  }});
  }
- return {results:results.slice(0,9),errors};
+ const outcomes=await Promise.allSettled(jobs.map(job=>job.run()));
+ const seen=new Set<string>(),results:LiveSearchResult[]=[];
+ for(let i=0;i<outcomes.length;i++){
+  const outcome=outcomes[i];
+  if(outcome.status==="rejected"){
+   const reason=outcome.reason instanceof Error?outcome.reason.message:String(outcome.reason);
+   const detail=/^(?:HTTP \d{3}|搜尋後端 HTTP \d{3}|搜尋後端格式錯誤)/.test(reason)?": "+reason.slice(0,90):"（CORS、逾時、連線或設定問題）";
+   errors.push(jobs[i].name+" 無法取得內容"+detail);
+   continue;
+  }
+  for(const item of outcome.value){
+   if(!item.url||seen.has(item.url))continue;
+   seen.add(item.url);
+   if(results.length<9)results.push(item);
+  }
+ }
+ return {results,errors};
 }
 export function searchWebSummary(report:LiveSearchReport,query:string):string{
  return report.results.length?

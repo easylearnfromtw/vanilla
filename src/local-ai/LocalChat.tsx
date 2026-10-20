@@ -720,7 +720,7 @@ async function send(value=draft):Promise<void>{
    return;
   }
   case "open":{
-   const events:Record<string,string>={email:"vanilla-open-email",weiguo:"vanilla-open-weiguo",cream:"vanilla-open-cream",projects:"vanilla-open-projects",sheets:"vanilla-open-sheets",files:"vanilla-open-files",builder:"vanilla-open-builder",library:"vanilla-open-library",settings:"vanilla-open-settings"};
+   const events:Record<string,string>={orchestra:"vanilla-open-orchestra",email:"vanilla-open-email",weiguo:"vanilla-open-weiguo",cream:"vanilla-open-cream",projects:"vanilla-open-projects",sheets:"vanilla-open-sheets",files:"vanilla-open-files",builder:"vanilla-open-builder",library:"vanilla-open-library",settings:"vanilla-open-settings"};
    window.dispatchEvent(route.section==="builder"?new CustomEvent(events.builder,{detail:{}}):new Event(events[route.section]));
    setDraft("");return;
   }

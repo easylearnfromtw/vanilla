@@ -277,3 +277,15 @@ test("Google grounding performs one global and at most one regional call with ex
   if(originalWindow===undefined)delete globalThis.window;else globalThis.window=originalWindow;
  }
 });
+
+test("Orchestra opens from chat and slash command without model hallucination",()=>{
+ for(const text of ["Orchestra","Orchestra Studio","開啟 Orchestra","打開管弦工作室"]){
+  const route=routeMessage(text,ctx);
+  assert.equal(route.kind,"open",text);
+  assert.equal(route.section,"orchestra",text);
+ }
+ assert.equal(expandSlashCommand("/Orchestra")?.text,"開啟 Orchestra Studio");
+ assert.deepEqual(matchSlashCommands("/Orc").map(x=>x.cmd),["/Orchestra"]);
+ const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(chat,/orchestra:"vanilla-open-orchestra"/);
+});

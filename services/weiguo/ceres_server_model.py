@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from ceres_admin_policy import provider_enabled, provider_key
+from ceres_model_catalog import selected_model
 
 _NAME = re.compile(r"^[A-Za-z0-9_.:/+\-]{1,96}$")
 _DNS = re.compile(r"^[a-z0-9.-]{4,253}$", re.I)
@@ -30,7 +31,7 @@ class ModelSettings:
 def model_settings() -> ModelSettings | None:
     provider = os.getenv("CERES_SERVER_MODEL_PROVIDER", "").strip().lower()
     base = os.getenv("CERES_SERVER_MODEL_BASE_URL", "").strip().rstrip("/")
-    model = os.getenv("CERES_SERVER_MODEL_NAME", "").strip()
+    model = selected_model(provider) or os.getenv("CERES_SERVER_MODEL_NAME", "").strip()
     if provider=="gemini":
         if provider_enabled("gemini") is False:
             return None
@@ -41,7 +42,16 @@ def model_settings() -> ModelSettings | None:
     elif provider=="openai":
         if provider_enabled("openai") is False:
             return None
-        key=provider_key("openai") or os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
+        managed=provider_key("openai")
+        if managed:
+            base="https://api.openai.com/v1"
+        key=managed or os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
+    elif provider=="deepseek":
+        if provider_enabled("deepseek") is False:
+            return None
+        base="https://api.deepseek.com"
+        key=provider_key("deepseek") or os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
+        provider="openai"
     else:
         key=os.getenv("CERES_SERVER_MODEL_API_KEY","").strip()
     if provider not in {"ollama", "openai"} or not _NAME.fullmatch(model):

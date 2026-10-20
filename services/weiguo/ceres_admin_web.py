@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from ceres_gateway import _session
 from ceres_admin_bot import owner_subject
 from ceres_admin_policy import store_provider_key, provider_status
+from ceres_model_catalog import clear_catalog, discover
 
 router=APIRouter(prefix="/v1/ceres/admin", tags=["ceres-admin"])
 _PAGE="""<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
@@ -34,25 +35,95 @@ small{display:block;margin-top:10px;line-height:1.5}#result{min-height:2em;margi
 <label for="secret">API Key / OAuth Token</label>
 <input id="secret" type="password" minlength="20" maxlength="4096" autocomplete="off" required placeholder="在此安全輸入金鑰">
 <small>Canva 短期 Access Token 可能過期；正式使用建議完成 OAuth 授權及 Refresh Token 流程。管理員仍需擁有服務供應商的有效授權。</small>
-<button id="save" type="submit">安全儲存並啟用</button></form><div id="result" role="status"></div>
+<button id="save" type="submit">安全儲存並自動偵測</button></form><div id="result" role="status"></div>
+<section id="model-panel"><h2>AI 模型選擇</h2>
+<p>儲存後預設自動查詢此 API 可見的模型；Canva 是設計服務，沒有 AI 模型清單。</p>
+<button type="button" id="refresh">重新偵測模型</button>
+<label for="mode">選擇策略</label><select id="mode">
+<option value="balanced">均衡（預設）</option>
+<option value="speed">速度優先</option>
+<option value="quality">品質優先</option>
+<option value="manual">手動指定</option>
+</select>
+<label for="model">模型版本（僅手動模式需要）</label>
+<select id="model"></select>
+<button type="button" id="apply">套用選擇</button>
+<p id="models-result" role="status"></p>
+<small>官方清單表示 API 金鑰可見該模型，但無法保證立即可呼叫、可用額度或實際費率；自動排序是啟發式推薦，不等於確定最強或最便宜。私人模式不使用雲端模型。</small>
+</section>
 <script nonce="__NONCE__">
 const tg=window.Telegram?.WebApp;
 tg?.ready();tg?.expand();
+const providerField=document.getElementById("provider");
 const form=document.getElementById("form"),result=document.getElementById("result");
+const modelBox=document.getElementById("model-panel"),modeField=document.getElementById("mode");
+const modelField=document.getElementById("model"),modelResult=document.getElementById("models-result");
+let lastInfo=null;
+async function api(path,body){
+ if(!tg?.initData)throw Error("請從 Ceres Telegram 的安全按鈕開啟設定頁");
+ const response=await fetch("/v1/ceres/admin/"+path,{method:"POST",
+   credentials:"omit",cache:"no-store",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify(Object.assign({init_data:tg.initData},body))});
+ if(!response.ok)throw Error(response.status===401?"登入已過期，請重新打開安全表單":
+   response.status===429?"操作過於頻繁，請稍後重試":"服務無法取得模型；請確認 API 權限及額度");
+ return response.json();
+}
+function render(info){
+ lastInfo=info;
+ const visible=info?.supported===true && providerField.value!=="canva";
+ modelBox.hidden=!visible;
+ if(!visible)return;
+ modelField.replaceChildren();
+ for(const entry of info.models||[]){
+  const option=document.createElement("option");
+  option.value=entry.id;option.textContent=(entry.name||entry.id)+" ("+entry.id+")";
+  modelField.append(option);
+ }
+ modeField.value=info.mode||"balanced";
+ modelField.value=info.selected||"";
+ modelField.disabled=modeField.value!=="manual";
+ modelResult.textContent=(info.models?.length||0)+" 個可見模型；目前選擇："+(info.selected||"尚未設定")+
+   (info.stale?"；清單建議重新偵測":"");
+}
+async function status(){
+ if(providerField.value==="canva"){
+  render({provider:"canva",supported:false});return;
+ }
+ try{render(await api("models/status",{provider:providerField.value}));}
+ catch(e){modelResult.textContent=String(e.message||e);}
+}
+providerField.addEventListener("change",()=>{lastInfo=null;void status();});
+modeField.addEventListener("change",()=>{
+ modelField.disabled=modeField.value!=="manual";
+ if(modeField.value!=="manual"&&lastInfo){modelResult.textContent="選擇策略已變更，請按套用。";}
+});
+document.getElementById("refresh").addEventListener("click",async()=>{
+ modelResult.textContent="正在向供應商查詢模型清單…";
+ try{render(await api("models/refresh",{provider:providerField.value}));}
+ catch(e){modelResult.textContent=String(e.message||e);}
+});
+document.getElementById("apply").addEventListener("click",async()=>{
+ try{
+  render(await api("models/select",{provider:providerField.value,
+    mode:modeField.value,model_id:modeField.value==="manual"?modelField.value:""}));
+  modelResult.textContent="已儲存模型策略。選用模型："+(lastInfo?.selected||"尚未設定");
+ }catch(e){modelResult.textContent=String(e.message||e);}
+});
 form.addEventListener("submit",async e=>{
  e.preventDefault();
- if(!tg?.initData){result.textContent="請由 Ceres Telegram Bot 內的安全按鈕開啟";return;}
  const button=document.getElementById("save"),field=document.getElementById("secret");
- button.disabled=true;result.textContent="正在安全儲存…";
+ button.disabled=true;result.textContent="正在安全儲存與偵測…";
  try{
-  const response=await fetch("/v1/ceres/admin/vault",{method:"POST",
-   credentials:"omit",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({init_data:tg.initData,provider:document.getElementById("provider").value,secret:field.value})});
+  const response=await api("vault",{provider:providerField.value,secret:field.value});
   field.value="";
-  result.textContent=response.ok?"已加密儲存。可以返回 Telegram 管理中心。":"授權失敗或儲存失敗；請重新透過 Bot 開啟設定頁。";
- }catch{field.value="";result.textContent="無法聯繫安全後端。";}
+  result.textContent=response.discoveryError?
+    "金鑰已安全儲存，但模型清單未取得。可按重新偵測；不會宣稱已驗證可用。":
+    "金鑰已加密儲存。"+(response.model?.selected?" 已偵測並選擇："+response.model.selected:" 此服務不需要模型版本。");
+  if(response.model)render(response.model);else await status();
+ }catch(err){field.value="";result.textContent=String(err.message||err);}
  button.disabled=false;
 });
+void status();
 </script></body></html>"""
 
 def _verify(init_data: str) -> int:
@@ -119,4 +190,14 @@ async def vault(request: VaultRequest):
             raise HTTPException(429,"Too many updates")
         db.execute("INSERT INTO ceres_admin_vault_rate VALUES(?,?)",(chat,now))
     store_provider_key(request.provider,request.secret,chat)
-    return {"ok":True,"provider":request.provider,"secretReturned":False}
+    clear_catalog(request.provider)
+    info=None
+    error=False
+    if request.provider in ("gemini","deepseek","openai"):
+        try:
+            info=await discover(request.provider)
+        except HTTPException:
+            # The credential was saved, but discovery has NOT verified usability.
+            error=True
+    return {"ok":True,"provider":request.provider,"secretReturned":False,
+            "model":info,"discoveryError":error}

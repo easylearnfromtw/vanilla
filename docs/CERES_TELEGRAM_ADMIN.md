@@ -54,3 +54,20 @@
 6. 另行完成 legacy Drive appDataFolder 明文憑證清理、舊 Key 輪替、OAuth Refresh Token 以及其餘工具的 Telegram 移轉。
 
 **部署不是提交 PR 就自動完成。** 合併、CI、Railway 變數、金鑰保管、GitHub Pages 與 Railway 實際部署狀態須另外驗證。
+
+## API 模型自動偵測（2026-10）
+
+Ceres 管理者可從 Telegram 發送 `/admin models`，或按管理選單的「AI 模型偵測與選擇」。安全 WebApp 輸入 Gemini、OpenAI、DeepSeek 的 API Key 後，後端會經由固定官方 HTTPS 端點查詢可見模型清單：
+
+- Gemini：`GET https://generativelanguage.googleapis.com/v1beta/models`，只顯示有 `generateContent` 的文字模型。
+- OpenAI：`GET https://api.openai.com/v1/models`，列出名稱符合支援型態的文字模型；官方模型清單不保證該模型支援目前的 Chat Completions 路徑。
+- DeepSeek：`GET https://api.deepseek.com/models`，解析模型識別碼。
+- Canva：是設計服務憑證，不需模型版本名稱，因此不執行模型偵測。
+
+偵測結果僅儲存模型 ID、顯示名稱與可取得的 context metadata（不含金鑰），時間戳以 6 小時標示建議更新。只有管理者透過 Telegram 簽名 WebApp 可以查詢、重新偵測或變更模型選擇。新的金鑰輪替會先撤銷舊模型清單，避免跨帳號混用。
+
+預設 `balanced`（均衡）以版本和 Flash/Mini 類型的啟發式規則選擇；`speed`（速度優先）、`quality`（品質優先）、`manual`（手動指定）可由管理員在 Telegram WebApp 更改，手動模式僅允許選擇 API 已列出的 ID。選定版本會供衞國 Gemini 代理及 Ceres 伺服器端模型使用，原本環境指定版本保留作為尚未成功偵測時的相容預設。
+
+**重要限制**：`models.list` 代表可列出模型，不代表有足夠配額、可使用特定推論協議、可使用視覺功能、已測試成功，亦不含可保證的最新價格／速度／品質排名。無法列出時會明確提示，既存金鑰保留加密，但不偽稱偵測成功。請利用供應商端設定 API 預算及用量限制，品質優先可能明顯增加成本。
+
+此功能不執行昂貴的自動 prompt 基準測試，也不會將任何 API Key、Google OIDC token 或供應商授權憑證傳回 Telegram 對話或 Vanilla PWA。

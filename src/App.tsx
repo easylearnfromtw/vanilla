@@ -30,12 +30,12 @@ const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 const BASE=import.meta.env.BASE_URL;
 type Section="luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
+// Detroit specialists are backstage runtime capabilities. Only conversation and
+// account/data management are direct navigation destinations.
 const items:NavItem[]=[
- {id:"chat",label:"AI 對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
- {id:"cream",label:"CREAM 長期分析",icon:BarChart3,description:"長期數據追蹤、目標與研究分析",tone:"red"},
- {id:"projects",label:"PROJECT HUB",icon:Code2,description:"專案原始碼、API 與功能整合",tone:"yellow"},
- {id:"library",label:"對話圖片與資料",icon:Images,description:"聊天附件、圖片預覽、更新與刪除",tone:"yellow"},
- {id:"settings",label:"系統設定",icon:Settings2,description:"模型、隱私、雲端與外觀",tone:"ink"}
+ {id:"chat",label:"AI 對話",icon:MessageCircle,description:"直接提出任務；Detroit 自動挑選執行能力",tone:"blue"},
+ {id:"library",label:"我的資料",icon:Images,description:"檢視與管理對話及附件",tone:"yellow"},
+ {id:"settings",label:"系統設定",icon:Settings2,description:"帳號、模型授權與隱私設定",tone:"ink"}
 ];
 const tools:NavItem[]=[
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
@@ -48,8 +48,7 @@ const tools:NavItem[]=[
  {id:"builder",label:"Self-Build Studio",icon:WandSparkles,description:"用自然語言新增與改進 Vanilla 工具",tone:"ink"}
 ];
 const tabs=[
- {id:"chat",label:"對話",icon:MessageCircle},{id:"cream",label:"CREAM",icon:BarChart3},
- {id:"projects",label:"專案",icon:Code2},{id:"library",label:"資料",icon:Images},{id:"settings",label:"設定",icon:Settings2}
+ {id:"chat",label:"對話",icon:MessageCircle},{id:"library",label:"資料",icon:Images},{id:"settings",label:"設定",icon:Settings2}
 ];
 function Loading(){return <div className="vh-loading" role="status"><span className="vh-loading-bar"/>載入中…</div>;}
 
@@ -154,8 +153,7 @@ return <div className="shell">
 <button className="new-chat" onClick={()=>void newChat()}><Plus size={18}/> 新對話</button>
 <div className="nav-caption">WORKSPACE · 工作空間</div>
 <nav aria-label="主要導覽">{items.map(navButton)}</nav>
-<div className="nav-caption">TOOLS · 工具</div>
-<nav aria-label="工具">{tools.map(navButton)}{features.slice(0,6).map(f=><button key={f.id} className={section==="feature"&&activeFeatureId===f.id?"nav active":"nav"} onClick={()=>openFeature(f.id)}><span className="nav-icon tone-ink"><Puzzle size={16}/></span><span>{f.name}</span></button>)}</nav>
+{/* Specialist tools remain implemented but are invoked through chat, not a separate tool launcher. */}
 {recent.length>0&&<><div className="nav-caption">RECENT · 最近對話</div>
 <div className="recent-list">{recent.slice(0,8).map(r=><button key={r.id} type="button" className="recent-item" onClick={()=>void openRecent(r.id)} title={r.title}><Clock3 size={14}/><span>{r.title}</span></button>)}</div></>}
 <div className="sidebar-footer"><ShieldCheck size={14}/><span>家庭專用 · 本地優先</span></div>

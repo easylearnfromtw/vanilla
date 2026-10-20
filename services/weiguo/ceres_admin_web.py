@@ -204,9 +204,10 @@ body{max-width:680px}
 <nav aria-label="管理區">
 <a href="#overview" aria-current="location">總覽</a><a href="#model-panel">模型</a>
 <a href="#usage-panel">用量</a><a href="#vault-panel">金鑰</a><a href="#intent-panel">設定</a>
-<a href="/v1/ceres/admin/api-console">我的模型 API ↗</a>
+
 </nav>
-<section class="panel" id="overview"><div class="section-head"><div><h2>系統健康</h2><span class="section-note">區分服務配置、歷史活動與實際回覆</span></div><span class="section-symbol" aria-hidden="true">◎</span></div>
+<section class="panel" id="overview">
+<a class="backlink" href="/v1/ceres/admin/api-console">◈ 我的模型 API · 獨立服務台 →</a><div class="section-head"><div><h2>系統健康</h2><span class="section-note">區分服務配置、歷史活動與實際回覆</span></div><span class="section-symbol" aria-hidden="true">◎</span></div>
 <div class="cards">
 <div class="metric" id="metric-telegram" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">Telegram</span></div><b id="health-telegram">未檢查</b><span class="metric__foot">以已確認的回覆紀錄為準</span></div>
 <div class="metric" id="metric-agent" data-tone="neutral"><div class="metric__top"><span class="metric__dot" aria-hidden="true"></span><span class="metric__label">AI Agent</span></div><b id="health-agent">未檢查</b><span class="metric__foot">確認模型及執行緒配置</span></div>

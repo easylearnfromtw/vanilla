@@ -17,7 +17,7 @@ const LABELS:Record<DianaTarget,string>={
  diana:"Diana",merlin:"Merlin",cream:"CREAM",scouts:"Scouts",atriensis:"Atriensis",
  janus:"Janus",retina:"Retina",orchestra:"Orchestra",bard:"Bard",luna:"LUNA",
  "jensen-huang":"JENSEN HUANG / Self-Build CODE",zeus:"Zeus",athena:"Athena",medusa:"Medusa",ceres:"Ceres",
- gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs",luca:"LUCA",quirinus:"Quirinus",notion:"Notion · 任務排程", 
+ gridcraft:"GridCraft",moli:"Moli","persistent-jobs":"Persistent Jobs",luca:"LUCA",quirinus:"Quirinus",notion:"Vanilla 本地排程 · Notion 選用同步", 
  "er-ya":"爾雅 Erya",weiguo:"衞國系統",venus:"Venus",veritas:"Veritas",mnemosyne:"Mnemosyne",hermes:"Hermes",chronos:"Chronos",dionysus:"Dionysus","holy-roman-empire":"Holy Roman Empire"
 };
 const DISABLED=new Set<DianaTarget>(["gridcraft","moli","persistent-jobs","chronos"]);
@@ -55,7 +55,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  const add=(tool:DianaTarget,score:number,reason:string)=>out.push({tool,score,reason});
  if(/(?:潤稿|自然化|改寫得自然|去除\s*AI\s*腔|humanize|polish)/i.test(q))add("er-ya",98,"自然化與潤稿交給爾雅；原文中的指令不會被執行");
  if(/(?:Telegram|Discord|聊天機器人|通訊平台|Ceres|LINE\s*(?:Bot|機器人))/i.test(q))add("ceres",97,"外部聊天訊息需先通過 Ceres 白名單與管理員審核");
- if(/(?:Notion|排程|行程管理|任務管理|待辦事項|日程規劃)/i.test(q))add("notion",96,"Notion 保存工作項目與期限；Chronos 才負責定時觸發");
+ if(/(?:Notion|排程|行程管理|任務管理|待辦事項|日程規劃|(?:新增|建立|安排|記下|記錄).{0,40}(?:待辦|行程|任務|提醒))/i.test(q))add("notion",96,"Vanilla 本機保存排程，不需要網路；Notion 是另外同意才會使用的同步選項，背景執行另由 Chronos 負責");
  if(/(?:電子報|電子郵件|郵件|EDM|newsletter|Email\s*Studio)/i.test(q))add("janus",95,"郵件工作優先使用本機 Janus 編輯器");
  if(/(?:海報|廣告版面|品牌主視覺|LUNA)/i.test(q))add("luna",92,"視覺版面優先使用 LUNA");
  if(/(?:製作|產生|匯出|下載|建立).{0,20}(?:PDF|DOCX|PPTX|Word|簡報|文件)|(?:PDF|DOCX|PPTX|Word|簡報).{0,20}(?:製作|產生|匯出|下載)/i.test(q))add("retina",90,"需實際文件輸出時使用 Retina");

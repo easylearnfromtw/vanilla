@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from auth import FamilyIdentity, family_user
 
 router = APIRouter()
+node_router = APIRouter()  # public API only for consented device tokens
 ONLINE_SECONDS = 150
 MAX_PER_OWNER = 50
 MAX_ACTIVE_INVITES = 10
@@ -181,7 +182,7 @@ def suggest_route(body: RouteRequest, user: FamilyIdentity = Depends(_owner)):
                                  "ram_gb": r["ram_gb"], "gpu": r["gpu"]} for r in records],
             "executed": False, "reason": "僅提供資源調度預覽；尚未接入可信模型執行器"}
 
-@router.post("/v1/slime/node/join")
+@node_router.post("/v1/slime/node/join")
 def join(body: JoinRequest):
     _enabled()
     if body.role not in ("owner", "friend"):
@@ -206,7 +207,7 @@ def join(body: JoinRequest):
     return {"node_id": node_id, "token": token, "heartbeat_interval_seconds": 60,
             "inference_enabled": False}
 
-@router.post("/v1/slime/node/heartbeat")
+@node_router.post("/v1/slime/node/heartbeat")
 def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None)):
     _enabled()
     with _db() as c:
@@ -219,7 +220,7 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None))
     return {"ok": True, "owner_enabled": owner_allowed, "inference_enabled": False,
             "commands": []}
 
-@router.post("/v1/slime/node/leave")
+@node_router.post("/v1/slime/node/leave")
 def leave(authorization: str | None = Header(default=None)):
     _enabled()
     with _db() as c:

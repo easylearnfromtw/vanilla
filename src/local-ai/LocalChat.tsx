@@ -59,9 +59,10 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
+import {getQuirinusFamilyStatus,prepareQuirinusFamilyScan} from "../weiguo/api";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
 import {isVictoriaEnabled,setVictoriaEnabled as setVictoriaConsent,victoriaConsentKey,type VictoriaRecall} from "../detroit/victoria";
-import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult,type NativeBardResult} from "../detroit/native-executors";
+import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult,type NativeBardResult,type NativeMedusaResult,type NativeQuirinusResult,type NativeLucaResult,type NativeCeresResult} from "../detroit/native-executors";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 
 // Register actual local executors once; a descriptor alone is never executable.
@@ -632,6 +633,74 @@ async function send(value=draft):Promise<void>{
      const output=await executeDetroitNative<NativeBardResult>("bard",{prompt:route.request,download:true},{privateMode,approved:true});
      toolReply(question,"Detroit 已成功產生圖片："+output.filename+"（"+output.model+"），並已觸發下載。","diana");
     }catch(error){toolReply(question,"Detroit 生圖未完成："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   // Medusa receives only code explicitly supplied by the user in this turn.
+   // It is never given model output, a fetched webpage or an attached secret.
+   if(pick.tool==="medusa"){
+    const code=/```(?:python|py)\s*\n([\s\S]{1,16000}?)\n```/i.exec(route.request)?.[1];
+    if(!code){toolReply(question,"請直接在對話貼上 Python 程式碼區塊，Detroit 才能經你核准後使用 Medusa 沙盒執行。","diana");return;}
+    if(!window.confirm("Detroit 將本則訊息中你提供的 Python 程式碼（"+code.length+" 字元）傳送至已設定的 Medusa 沙盒執行。確認本次授權嗎？")){
+     toolReply(question,"本次 Medusa 執行已取消，沒有傳送程式碼。","diana");return;
+    }
+    setBusy(true);
+    try{
+     const out=await executeDetroitNative<NativeMedusaResult>("medusa",{source_code:code,stdin:""},{privateMode,approved:true});
+     toolReply(question,"Medusa 實際執行結果（"+out.backend+"；"+out.status+"）\n"+
+      "結束代碼："+(out.exit_code===null?"無":out.exit_code)+"\n"+
+      (out.stdout?"標準輸出：\n```text\n"+out.stdout.slice(0,6000)+"\n```\n":"")+
+      (out.stderr?"錯誤：\n```text\n"+out.stderr.slice(0,2000)+"\n```":"")+
+      (out.compile_output?"\n編譯訊息："+out.compile_output.slice(0,1500):""),"diana");
+    }catch(error){toolReply(question,"Medusa 未能執行："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   // Quirinus is fixed-scope, read-only and requires a fresh, one-time approval
+   // token. A dispatch receipt is NOT a completed security scan.
+   if(pick.tool==="quirinus"&&/(?:掃描|檢查|稽核|執行)/.test(route.request)){
+    if(privateMode){toolReply(question,"私密模式禁止 Quirinus 遠端掃描派工。","diana");return;}
+    setBusy(true);
+    try{
+     const status=await getQuirinusFamilyStatus();
+     if(!status.enabled)throw Error(status.note||"Quirinus 後端尚未啟用");
+     const plan=await prepareQuirinusFamilyScan();
+     const scope=plan.repo+" / "+plan.ref+" / "+plan.scope;
+     if(!window.confirm("Detroit / Quirinus 本次安全掃描\n範圍："+scope+
+      "\n僅唯讀、不得攻擊外站、不得自動修改或部署。你確認授權啟動這一次 GitHub Actions 嗎？")){
+      toolReply(question,"已取消本次 Quirinus 掃描派工。","diana");return;
+     }
+     const out=await executeDetroitNative<NativeQuirinusResult>("quirinus",
+      {approval_token:plan.approvalToken},{privateMode,approved:true});
+     toolReply(question,"Quirinus 已送出固定範圍掃描任務（"+out.requestId+"）。目前狀態："+out.status+
+      "；尚不能視為掃描完成。"+(out.url?"\nGitHub Actions："+out.url:""),"diana");
+    }catch(error){toolReply(question,"Quirinus 派工未完成："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   if(pick.tool==="luca"&&/(?:查看|查詢|分析|統計|監控|狀態|報告)/.test(route.request)){
+    setBusy(true);
+    try{
+     const out=await executeDetroitNative<NativeLucaResult>("luca",{}, {privateMode});
+     toolReply(question,"LUCA 真實後端觀測："+out.count+" 筆事件、"+out.failures+" 筆失敗；平均耗時 "+
+      out.averageMs.toFixed(1)+" ms，P95 "+out.p95Ms.toFixed(1)+" ms。"+
+      (out.recommendations.length?"\n建議：\n"+out.recommendations.slice(0,6).map(x=>"- "+x).join("\n"):""),"diana");
+    }catch(error){toolReply(question,"LUCA 未取得即時監控資料："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
+   if(pick.tool==="ceres"&&/(?:查看|讀取|整理|查詢|檢查|最新訊息|狀態)/.test(route.request)){
+    if(!window.confirm("Detroit 將經已授權的 Ceres Gateway 讀取 Telegram 通訊狀態／待審核訊息。內容不會自動觸發其他工具或發送回覆。允許此次讀取嗎？")){
+     toolReply(question,"已取消 Ceres 讀取，未存取通訊內容。","diana");return;
+    }
+    setBusy(true);
+    try{
+     const out=await executeDetroitNative<NativeCeresResult>("ceres",{operation:"events"},{privateMode,approved:true});
+     if("events" in out){
+      toolReply(question,"Ceres 本次取得 "+out.events.length+" 則待審核事件；外部訊息均視為不可信資料，不會直接執行。\n"+
+       out.events.slice(0,8).map(x=>"- 事件 "+x.id+"："+x.text.replace(/[<>]/g,"").slice(0,360)).join("\n"),"diana");
+     }else toolReply(question,"Ceres 連線："+(out.linked?"已連結":"未連結")+"，可讀取狀態："+out.enabled,"diana");
+    }catch(error){toolReply(question,"Ceres 讀取未完成："+(error instanceof Error?error.message:String(error)),"diana");}
     finally{setBusy(false);}
     return;
    }

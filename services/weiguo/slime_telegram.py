@@ -192,7 +192,7 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
                         "inference_on" if mode=="on" else "inference_off",
                         hashlib.sha256(code.encode()).hexdigest(),time.time()+TTL))
         description="核准節點接收外部 API 使用者的模型提示" if mode=="on" else "停止此節點接受新模型任務"
-        return (f"Slime · 安全確認\\n{description}：{nodes[0]['label']}。\\n"
+        return (f"Slime · 安全確認\n{description}：{nodes[0]['label']}。\n"
                 f"請於 {TTL//60} 分鐘內回覆「確認 {code}」，或回覆「取消」。目前尚未更動。")
     mutation = _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
     if mutation:

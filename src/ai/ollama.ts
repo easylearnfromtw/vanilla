@@ -7,6 +7,7 @@ import {fitHistory,estimateTokens} from "./context-budget";
 import {readNDJSON} from "./stream-parsers";
 import {stripThinking,cleanModelOutput} from "./output-cleanup";
 import {ensureZhTw,toTaiwanese} from "./zh-tw";
+import {availableNodes,authFor,hasNodes,selectNode} from "../nodes/registry";
 
 const KEY="vanilla.ollama.connection.v1";
 const SECRET_KEY="vanilla.ollama.proxy-token.v1";
@@ -59,17 +60,17 @@ function normalizeOllamaUrl(value:string):string{
  const pathname=url.pathname.replace(/\/+$/,"").replace(/\/api(?:\/chat|\/tags)?$/,"");
  return url.origin+pathname;
 }
-function headers():HeadersInit{
- return {"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{})};
+function headers(auth:string=token):HeadersInit{
+ return {"Content-Type":"application/json",...(auth?{Authorization:"Bearer "+auth}:{})};
 }
-async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
+async function timedFetch(url:string,init:RequestInit={},auth=token):Promise<Response>{
  const controller=new AbortController();
  // Time out while waiting for the first byte (cold model load on a home host can be slow);
  // once streaming starts the caller's own signal governs cancellation.
  const timeout=setTimeout(()=>controller.abort(),240000);
  init.signal?.addEventListener("abort",()=>controller.abort(),{once:true});
  try{
-  const response=await fetch(url,{...init,signal:controller.signal,headers:headers()});
+  const response=await fetch(url,{...init,signal:controller.signal,headers:headers(auth)});
   if(!response.ok)throw new Error("Ollama HTTP "+response.status+"；請確認模型、代理授權與伺服器狀態");
   return response;
  }catch(e){
@@ -78,7 +79,7 @@ async function timedFetch(url:string,init:RequestInit={}):Promise<Response>{
   throw e;
  }finally{clearTimeout(timeout);}
 }
-export function isOllamaConfigured(){return Boolean(config.endpoint&&config.model);}
+export function isOllamaConfigured(){return Boolean((config.endpoint&&config.model)||hasNodes());}
 export async function testOllama(endpoint=config.endpoint,accessToken?:string):Promise<OllamaTest>{
  const base=normalizeOllamaUrl(endpoint);
  const savedHost=config.endpoint?normalizeOllamaUrl(config.endpoint):"";
@@ -105,8 +106,12 @@ export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signa
  * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the
  * model every question, and thinking only where it pays off. */
 export async function generateOllamaReply(history:ChatTurn[],model=config.model,options:OllamaReplyOptions={}):Promise<string>{
- if(!config.endpoint||!model)throw new Error("請先在設定中連接 Ollama，並選擇已下載的模型");
- const base=normalizeOllamaUrl(config.endpoint);
+ const live=hasNodes()?await availableNodes():[];
+ const candidate=selectNode(live,model||undefined);
+ if(!model&&candidate)model=candidate.models[0];
+ if((!config.endpoint&&!candidate)||!model)throw new Error("沒有已配對且具備模型的 Ollama 運算節點");
+ const base=candidate?candidate.endpoint:normalizeOllamaUrl(config.endpoint);
+ const activeToken=candidate?authFor(candidate.id):token;
  const latest=history[history.length-1]?.content||"";
  const structured=options.purpose==="structured";
  const task=options.task??(structured?"code":classifyTask(latest));
@@ -120,7 +125,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
   const extras=ollamaRequestExtras(model,task,Boolean(options.deep));
   if(!withThink)delete extras.think;
   // Ollama's grammar-constrained JSON mode makes Sheets/Self-Build drafts parse reliably.
-  return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&withThink?{format:"json"}:{})})});
+  return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&withThink?{format:"json"}:{})})},activeToken);
  };
  let res:Response;
  try{res=await send(true);}

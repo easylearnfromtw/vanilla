@@ -12,7 +12,7 @@ import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync
 import {loadProviderConfigs} from "./vault/provider-sync";
 import {startNewConversation,recentConversations,reopenConversation,currentChatMode,CHAT_ARCHIVE_EVENT} from "./local-ai/chat-session";
 import type {ArchiveSummary} from "./library/conversation-archive";
-import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen,Mail} from "lucide-react";
+import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen,Mail,Server} from "lucide-react";
 
 // Heavy sections load on demand so the chat opens fast on iPhone.
 const CreamLongitudinal=lazy(()=>import("./cream/CreamLongitudinal"));
@@ -24,6 +24,7 @@ const BuildStudio=lazy(()=>import("./builder/BuildStudio"));
 const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
+const NodesPage=lazy(()=>import("./nodes/NodesPage"));
 const CeresForegroundBridge=lazy(()=>import("./ceres/CeresForegroundBridge"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
@@ -31,7 +32,7 @@ const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 const items:NavItem[]=[
  {id:"chat",label:"AI 對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
@@ -42,6 +43,7 @@ const items:NavItem[]=[
 ];
 const tools:NavItem[]=[
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
+ {id:"nodes",label:"運算節點",icon:Server,description:"下載 Windows Node、配對與 AI 智慧調度",tone:"blue"},
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"orchestra",label:"Orchestra Studio",icon:Puzzle,description:"Craft 七引擎調度、CREAM 跨格式輸出與作品製作",tone:"yellow"},
  {id:"luna",label:"LUNA 視覺設計",icon:Images,description:"Detroit 原生海報畫布、圖層、模板與本機匯出",tone:"yellow"},
@@ -191,6 +193,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
+section==="nodes"?<div className="workspace-page"><NodesPage/></div>:
 section==="detroit"?<div className="workspace-page">{detroitStartTab==="notion"?<NotionSchedulePanel/>:<DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab}/>}</div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart} handoff={orchestraAI}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:

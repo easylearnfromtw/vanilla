@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ORCHESTRA_TOOLS,orchestraPlan,creamOrchestraBrief} from '../src/orchestra/core.ts';
+import {ORCHESTRA_TOOLS,orchestraPlan,creamOrchestraBrief,orchestraLocalAvailable} from '../src/orchestra/core.ts';
+import {posterSvg,encodeIndexedGif} from '../src/orchestra/local-exports.ts';
 import {creamLineSvg} from '../src/orchestra/cream-chart.ts';
 import {validateOrchestraCapabilities,wordcraftConfigured,pdfcraftConfigured} from '../src/orchestra/capability-contract.ts';
 
@@ -16,8 +17,10 @@ test('Retina fallback and unavailable media formats must be explicit',()=>{
  assert.equal(doc.modelCalls,0);
  assert.equal(doc.steps.find(x=>x.id==='craft').status,'blocked');
  assert.equal(orchestraPlan({format:'pptx'}).tool,'deckcraft');
- assert.equal(orchestraPlan({format:'svg'}).backend,'unavailable');
+ assert.equal(orchestraPlan({format:'svg'}).backend,'studio-local');
  assert.equal(orchestraPlan({format:'mp4'}).backend,'unavailable');
+ assert.equal(orchestraPlan({format:'png',tool:'photocraft'}).backend,'studio-local');
+ assert.equal(orchestraPlan({format:'gif',tool:'effectcraft'}).backend,'studio-local');
 });
 test('remote WordCraft requires a specific verified opt-in and cannot serve private mode',()=>{
  assert.equal(orchestraPlan({format:'docx',tool:'wordcraft',remoteAvailable:true}).backend,'craft-backend');
@@ -84,4 +87,31 @@ test('PdfCraft combines only through reviewed fixed capability contract',()=>{
   {...e,status:'configured',operations:['execute'],outputFormats:['pdf']}:e)}),/不符/);
  assert.throws(()=>validateOrchestraCapabilities({...record,engines:disabled.map(e=>e.id==='pdfcraft'?
   {...e,status:'configured',operations:['combine-pdf'],outputFormats:['docx']}:e)}),/不符/);
+});
+
+test('local media fallbacks cover all seven tool categories without representing native Craft',()=>{
+ const routes=[['wordcraft','docx'],['deckcraft','pptx'],['vectorcraft','svg'],
+  ['photocraft','jpeg'],['pdfcraft','pdf'],['effectcraft','gif'],['designcraft','png']];
+ for(const [tool,format] of routes){
+  const result=orchestraPlan({tool,format});
+  assert.equal(result.canRunLocally,true,tool);
+  assert.equal(result.steps.find(x=>x.id==='craft').status,'blocked',tool);
+ }
+ assert.equal(orchestraLocalAvailable('effectcraft','mp4'),false);
+ assert.equal(orchestraPlan({format:'mp4'}).canRunLocally,false);
+});
+test('poster export is escaped and never includes raw HTML or remote assets',()=>{
+ const svg=posterSvg({title:'T<script>alert(1)</script>',body:'<img src="https://evil.example/x"> & secret',
+  kind:'publication',accent:'#fff url(http://evil.example)'});
+ assert.match(svg,/&lt;script&gt;/);
+ assert.match(svg,/&lt;img/);
+ assert.doesNotMatch(svg,/<script>|<img|#fff url/);
+ assert.match(svg,/<svg xmlns=/);
+});
+test('GIF encoder emits bounded animated GIF89a with trailer',()=>{
+ const frames=[new Uint8Array(400).fill(4),new Uint8Array(400).fill(7)];
+ const bytes=encodeIndexedGif(frames,20,20);
+ assert.equal(new TextDecoder().decode(bytes.slice(0,6)),'GIF89a');
+ assert.equal(bytes.at(-1),0x3B);
+ assert.throws(()=>encodeIndexedGif(frames,900,200),/不合法/);
 });

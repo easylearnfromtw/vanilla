@@ -36,5 +36,5 @@ test("release diagnostics are accessible from system settings without opening ch
 test("PWA version manifest and compiled build identifier stay aligned",()=>{
  const manifest=JSON.parse(source("public/version.json"));
  assert.equal(publishedBuild(manifest),manifest.build);
- assert.ok(source("src/version.ts").includes("VANILLA_BUILD=\\\""+manifest.build+"\\\""));
+ assert.ok(source("src/version.ts").includes('VANILLA_BUILD="'+manifest.build+'"'));
 });

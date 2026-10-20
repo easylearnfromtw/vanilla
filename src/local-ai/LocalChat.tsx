@@ -61,7 +61,7 @@ import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
 import {isVictoriaEnabled,setVictoriaEnabled as setVictoriaConsent,victoriaConsentKey,type VictoriaRecall} from "../detroit/victoria";
-import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
+import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult,type NativeBardResult} from "../detroit/native-executors";
 import {createRetinaDocument,downloadRetina} from "../detroit/retina";
 
 // Register actual local executors once; a descriptor alone is never executable.
@@ -556,6 +556,7 @@ async function send(value=draft):Promise<void>{
  const slashTail=slashCommand?routeTail(question):null;
  const route=slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
  let inlineFileContext="";
+ let detroitToolNote="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
@@ -563,6 +564,27 @@ async function send(value=draft):Promise<void>{
   case "diana":{
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
    const next=pick.nextSteps?.length?"；完成後可接續："+pick.nextSteps.join(" → "):"";
+   // Compose deterministic CREAM analysis with an artifact in this same turn
+   // whenever the user actually supplied CSV data. No fabricated statistics.
+   const requestedArtifact=planDianaNativeArtifact(route.request);
+   const fencedCSV=/```(?:csv|tsv)?\s*\n([\s\S]{8,200000}?)\n```/i.exec(route.request);
+   if(requestedArtifact?.capability==="retina"&&fencedCSV){
+    setBusy(true);
+    try{
+     const calculated=await executeDetroitNative<CreamResult>("cream",{csv:fencedCSV[1],source:"對話 CSV"},{privateMode});
+     setCreamDataset(parseCreamCSV(fencedCSV[1],"對話 CSV"));
+     const report=composeDianaCreamDocument(route.request,calculated);
+     if(report){
+      const exported=await executeDetroitNative<NativeRetinaResult>("retina",{...report,download:true},{privateMode});
+      toolReply(question,"Detroit 已自動串接 CREAM 計算與 Retina 匯出："+exported.filename+
+       "。分析樣本 "+calculated.rowCount+" 筆，所有統計均來自實際 CSV 資料。","diana",{cream:calculated});
+      return;
+     }
+     inlineFileContext="CREAM 已實際分析此 CSV：\n"+summarizeCream(calculated);
+    }catch(error){
+     detroitToolNote="CSV 運算或匯出未完成："+(error instanceof Error?error.message:String(error))+"。不可自行補造統計值。";
+    }finally{setBusy(false);}
+   }
    // Safe automatic follow-up: reuse an already computed CREAM result for local export.
    const previousCream=[...history].reverse().find(x=>x.cream)?.cream;
    if(pick.tool==="retina"&&previousCream&&requestedDianaFormat(route.request)&&/(?:剛才|剛剛|上面|前面|上述|先前|那份|這份|這筆|這些|現有|已分析|分析結果|統計結果|CREAM)/i.test(route.request)){
@@ -570,9 +592,8 @@ async function send(value=draft):Promise<void>{
     if(report){
      setBusy(true);
      try{
-      const output=await createRetinaDocument(report);
-      downloadRetina(output);
-      toolReply(question,"Diana 已依已驗證的 CREAM 數據產生並觸發本機下載："+output.name+"。統計圖仍保留在聊天中，未嵌入匯出文件。","diana");
+      const output=await executeDetroitNative<NativeRetinaResult>("retina",{...report,download:true},{privateMode});
+      toolReply(question,"Detroit 已依真正的 CREAM 數據產生檔案："+output.filename+"。","diana",{cream:previousCream});
      }catch(error){toolReply(question,"Diana：統計保留，但本機文件匯出失敗："+String(error),"diana");}
      finally{setBusy(false);}
      return;
@@ -580,8 +601,8 @@ async function send(value=draft):Promise<void>{
    }
    // An explicit artifact request is fulfilled in this chat by the actual native
    // executor after model drafting. Opening an editor is the no-model fallback only.
-   if(!route.forcedTool&&canReply&&planDianaNativeArtifact(route.request)&&
-      (pick.tool==="retina"||pick.tool==="janus")){
+   if(canReply&&requestedArtifact&&
+      (pick.tool==="retina"||pick.tool==="janus"||pick.tool==="orchestra"||pick.tool==="cream")){
     setLastRoute("Detroit → "+pick.label+"：先完成內容，再由原生工具產生檔案");
     break;
    }
@@ -599,24 +620,39 @@ async function send(value=draft):Promise<void>{
     finally{setBusy(false);}
     return;
    }
+   // Browser-generated images are native Detroit calls, with explicit
+   // consent for potentially billed cloud requests (never an editor switch).
+   if(pick.tool==="bard"&&/(?:生圖|生成圖片|AI\\s*圖片|AI\\s*圖像|畫一張|插畫|生成.*圖)/i.test(route.request)){
+    if(privateMode){toolReply(question,"私密模式不可使用雲端生圖；可在對話中請 Detroit 使用 LUNA 本機海報模板。","diana");return;}
+    if(!window.confirm("Detroit 將把這次生圖描述傳送到你已連接的 Gemini 圖片服務。這可能使用 API 額度或產生費用；同意本次生成嗎？")){
+     toolReply(question,"已取消雲端圖片生成，沒有傳送資料或使用 API 額度。","diana");return;
+    }
+    setBusy(true);
+    try{
+     const output=await executeDetroitNative<NativeBardResult>("bard",{prompt:route.request,download:true},{privateMode,approved:true});
+     toolReply(question,"Detroit 已成功產生圖片："+output.filename+"（"+output.model+"），並已觸發下載。","diana");
+    }catch(error){toolReply(question,"Detroit 生圖未完成："+(error instanceof Error?error.message:String(error)),"diana");}
+    finally{setBusy(false);}
+    return;
+   }
    if(pick.kind==="delegate"&&pick.command){
-    if(pick.command.trim()===question.trim()){toolReply(question,"Diana 無法安全派發相同指令。","diana");return;}
+    if(pick.command.trim()===question.trim()){
+     // No recursive self-dispatch: ask the model to fulfill the rest of the
+     // task, without claiming an external executor ran.
+     detroitToolNote=pick.label+" 已識別為適合的能力；沒有符合本輪任務的原生執行操作。";
+     break;
+    }
     setDraft("");setLastRoute("Diana → "+pick.label+"："+pick.reason+next);
     await send(pick.command);
     return;
    }
-   if(pick.kind==="open"&&pick.event){
-    // Private conversation text must not be copied into regular non-private workspaces.
-    if(privateMode&&pick.event==="vanilla-open-orchestra"&&route.request.trim()){
-     toolReply(question,"私密模式不會把這段對話自動複製到一般 Orchestra 工作室；若要繼續，請在工作室自行貼入已確認可分享的內容。","diana");
-     return;
-    }
-    const detail=pick.event==="vanilla-open-detroit"?{tab:pick.tab}:pick.event==="vanilla-open-builder"?{idea:route.request,mode:"code"}:pick.event==="vanilla-open-orchestra"?{body:route.request}:{};
-    window.dispatchEvent(new CustomEvent(pick.event,{detail}));
-    toolReply(question,"Diana 選擇 "+pick.label+"（"+pick.reason+"）"+next+"，已開啟工具工作區。真正產製、雲端連線及寫入仍需要在該工具操作與確認。","diana");
-    return;
-   }
-   toolReply(question,pick.message||"Diana 無法執行這個工具。","diana");return;
+   // A work request never diverts the user to another screen.
+   // An unavailable integration is a bounded model task, not a fake success.
+   detroitToolNote=pick.kind==="open"?
+    pick.label+" 的獨立工作室不是 AI 已完成執行的證據；目前本輪沒有已驗證的原生操作。請只完成能在對話內真正完成的部分，未執行的寫入、上傳或遠端任務須明確說明。":
+    (pick.message||pick.label+" 尚未接通可供本輪對話執行的功能。");
+   if(!canReply){toolReply(question,detroitToolNote,"diana");return;}
+   break;
   }
   case "capability":{
    const capabilityTopic=capabilityIntent(question);
@@ -827,14 +863,10 @@ async function send(value=draft):Promise<void>{
  }
  if(!webContext&&!inlineFileContext&&route.kind==="continue"&&await executeIntent(question))return;
  const tail=routeTail(question);
- if(tail.kind==="code-builder"){
-  if(privateMode&&!window.confirm("這份私密對話內容要轉移至一般 GitHub 程式工作台嗎？請確認不包含任何金鑰或私密資料。"))return;
-  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:tail.idea,mode:"code"}}));
-  setDraft("");setLastRoute("已切換 Self-Build CODE；只有你確認後才會讀取、產生與提交 GitHub 原始碼。");return;
- }
- if(tail.kind==="feature-builder"){
-  if(privateMode&&!window.confirm("要將私密對話中的這份功能構想複製到一般 Self-Build 工作室嗎？只有你確認使用模型時才會送出。"))return;
-  window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:tail.idea}}));setDraft("");return;
+ if(tail.kind==="code-builder"||tail.kind==="feature-builder"){
+  // Detroit plans implementation in chat. GitHub writes remain guarded by a
+  // real authenticated executor; never send the user to a separate studio.
+  detroitToolNote="這個任務需要 JENSEN HUANG 的程式修改能力；尚無可在本輪安全提交 GitHub 變更的授權執行器。可以提出具體修改方案或程式碼，但不可聲稱已提交。";
  }
  const toneChange=applyExplicitToneRequest(question,privateMode);
  if(toneChange){
@@ -866,10 +898,10 @@ async function send(value=draft):Promise<void>{
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
  }
- await answerWithModel(question,{inlineFileContext,webContext,webSources},visibleClarificationAnswer);
+ await answerWithModel(question,{inlineFileContext,webContext,webSources,detroitToolNote},visibleClarificationAnswer);
 }
 
-async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[]},visibleQuestion?:string){
+async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];detroitToolNote?:string},visibleQuestion?:string){
  const {inlineFileContext,webContext,webSources}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=planDianaNativeArtifact(question);
@@ -1014,7 +1046,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(victoriaExtra)contexts.push({id:"victoria",label:"Victoria 本機舊對話",priority:2,text:victoriaExtra});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"");
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+(humanize?.guidance||"")+(found.detroitToolNote?"\\n[Detroit 真實執行狀態] "+found.detroitToolNote:"");
  const compose=(candidate:ModelCandidate)=>{
   const composed=composeUserPrompt(modelQuestion,contexts,guidance+venusPresentationGuidance(question,task,candidate.source==="local"),promptBudgetFor(candidate,task));
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));

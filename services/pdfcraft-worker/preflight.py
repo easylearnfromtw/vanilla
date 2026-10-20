@@ -99,6 +99,14 @@ async def check_real_pdf() -> None:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and sys.argv[1] == "--fixture-only":
+        for label in ("VANILLA_FIRST", "VANILLA_SECOND"):
+            data = fixture(label)
+            pages = PdfReader(BytesIO(data)).pages
+            if len(pages) != 1 or label not in (pages[0].extract_text() or ""):
+                raise SystemExit("Generated PDF fixture is not independently valid")
+        print("PASS: preflight fixtures parsed and decoded independently")
+        sys.exit(0)
     try:
         check_host()
         asyncio.run(check_real_pdf())

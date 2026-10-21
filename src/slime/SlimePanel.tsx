@@ -7,7 +7,7 @@ type Role="owner"|"friend";
 type Asset={name:string;browser_download_url:string;size:number;digest?:string};
 type GitHubRelease={tag_name:string;html_url:string;published_at:string;assets:Asset[];draft?:boolean;prerelease?:boolean};
 type ReleaseStatus="loading"|"ready"|"missing"|"error";
-const RELEASE_API="https://api.github.com/repos/easylearnfromtw/vanilla/releases/latest";
+const RELEASE_API="https://api.github.com/repos/easylearnfromtw/vanilla/releases?per_page=20";
 const RELEASES="https://github.com/easylearnfromtw/vanilla/releases";
 const BOT="https://t.me/SignWell_bot";
 function detectOS():OS{
@@ -56,11 +56,11 @@ export default function SlimePanel(){
    .then(async response=>{
     if(response.status===404){setStatus("missing");return;}
     if(!response.ok)throw Error("GitHub Releases 無法取得");
-    const data=await response.json() as GitHubRelease;
-    if(!data||!Array.isArray(data.assets)||!/^slime-v[\w.-]+$/.test(data.tag_name)||data.draft||data.prerelease){
-     setStatus("missing");return;
-    }
-    setRelease(data);setStatus("ready");
+    const data=await response.json() as GitHubRelease[];
+    const found=Array.isArray(data)?data.find(item=>item&&Array.isArray(item.assets)
+      &&/^slime-v[\w.-]+$/.test(item.tag_name)&&!item.draft&&!item.prerelease):undefined;
+    if(!found){setStatus("missing");return;}
+    setRelease(found);setStatus("ready");
    }).catch(e=>{if((e as Error)?.name!=="AbortError")setStatus("error");});
   return()=>controller.abort();
  },[]);

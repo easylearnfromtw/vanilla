@@ -154,6 +154,30 @@ def reward_ticket(authorization: str | None=Header(default=None)):
             "note":"一次性領獎連結，請勿轉交；只能由一個 Google 帳號領取"}
 
 
+class Quote(BaseModel):
+    model_config=ConfigDict(extra="forbid")
+    ticket: str=Field(min_length=32,max_length=160)
+
+
+@router.post("/v1/slime/rewards/quote")
+def reward_quote(body:Quote):
+    _enabled()
+    if not _TICKET.fullmatch(body.ticket):
+        raise HTTPException(422,"領獎連結格式不正確")
+    now=int(time.time())
+    with _session() as db:
+        _tables(db)
+        row=db.execute("SELECT owner_sub,expires_at FROM slime_reward_ticket "
+                       "WHERE code_digest=? AND expires_at>?",
+                       (hashlib.sha256(body.ticket.encode()).hexdigest(),now)).fetchone()
+    if not row:
+        raise HTTPException(409,"領獎連結已使用或逾時")
+    settings=config(row["owner_sub"])
+    if not settings["enabled"]:
+        raise HTTPException(403,"管理員目前已暫停獎勵")
+    return {"amount":settings["amount"],"expiresIn":max(0,row["expires_at"]-now)}
+
+
 class Claim(BaseModel):
     model_config=ConfigDict(extra="forbid")
     credential: str=Field(min_length=100,max_length=8192)
@@ -328,7 +352,7 @@ button:disabled{opacity:.5}button.secondary{color:#18181b;background:#f1f1f3}
 </style></head><body><main>
 <div class="brand">SLIME / VANILLA REWARDS</div><h1>配對完成，<br>領取你的 Token。</h1>
 <p>完成 Google 身分驗證後，可領取由 Slime 管理員提供的一次性模型額度。每個 Google 帳號及每個節點最多領取一次。</p>
-<div class="metric"><small>新節點預設獎勵</small><strong>100,000 <small style="display:inline">Token</small></strong></div>
+<div class="metric"><small>本次新節點加入獎勵</small><strong><span id="reward-amount">—</span> <small style="display:inline">Token</small></strong></div>
 <div id="google"></div>
 <p id="status" role="status" aria-live="polite">登入後會檢查獎勵資格；不會向 Google 傳送節點金鑰。</p>
 <div id="wallet" hidden><div class="metric"><small>目前可用額度</small><strong id="balance">—</strong></div>
@@ -353,7 +377,13 @@ async function api(route,data){
 }
 function showKey(key){issued=key;$("key").textContent=key;$("keybox").hidden=false;}
 function hideKey(){issued="";$("key").textContent="";$("keybox").hidden=true;}
-window.onload=function(){
+window.onload=async function(){
+ if(ticket){
+  try{
+    const quote=await api("quote",{ticket});
+    $("reward-amount").textContent=Number(quote.amount).toLocaleString();
+  }catch(error){msg(error.message);}
+ }else{$("reward-amount").textContent="100,000（預設）";}
  if(!window.google?.accounts?.id){msg("Google 登入元件載入失敗，請檢查網路或瀏覽器設定。");return;}
  google.accounts.id.initialize({client_id:__GOOGLE_CLIENT__,callback:async function(auth){
   if(!auth||!auth.credential)return;

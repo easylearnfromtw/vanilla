@@ -37,3 +37,15 @@ test("October: offline with no model never claims remote access",()=>{
  assert.match(message,/離線/);
  assert.match(message,/沒有已載入的本機模型/);
 });
+
+test("October: chat records no-model failure as a persistent message",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const {fileURLToPath}=await import("node:url");
+ const source=readFileSync(fileURLToPath(new URL("../src/local-ai/LocalChat.tsx",import.meta.url)),"utf8");
+ assert.match(source,/if\(!canReply\)\{/);
+ assert.match(source,/toolReply\(question,modelUnavailableReply\(\{privateMode,online/);
+ assert.match(source,/toolReply\(visibleQuestion\?\?question,modelUnavailableReply\(/);
+ assert.match(source,/toolReply\(question,"無法回覆："\+reason/);
+ assert.match(source,/toolReply\(visibleQuestion\?\?question,"無法回覆："\+reason/);
+ assert.doesNotMatch(source,/setLastRoute\("AI 模型尚未就緒。可以使用 CREAM/);
+});

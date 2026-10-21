@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from ceres_academy_curriculum import LESSONS, TOPICS, CHAPTERS
+from ceres_academy_content import render_lesson
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
@@ -106,6 +107,8 @@ async def _tg(method,data):
         response.raise_for_status()
         if response.json().get("ok") is not True: raise ValueError("Telegram API error")
 async def _send(chat_id,text,keyboard=None):
+    if not isinstance(text, str) or not text.strip() or len(text) > 4096:
+        raise ValueError('Telegram message must contain 1–4096 characters')
     await _tg("sendMessage",{"chat_id":chat_id,"text":text,"reply_markup":keyboard or _buttons([[("📚 開始學習 AI","learn:start")]])})
 def _hub_keyboard():
     return _buttons([
@@ -116,68 +119,72 @@ def _hub_keyboard():
 
 async def _hub(chat_id,section="home"):
     pages={
-        "home":("VANILLA  /  AI PLATFORM","歡迎回到 Vanilla。\\n\\n選擇下方功能，直接在 Telegram 探索與學習。\\n目前不開放付款或 API 金鑰申請。"),
-        "models":("MODELS  /  模型探索","模型清單與即時版本資訊尚未在此 Bot 開放。\\n正式提供前不顯示虛構模型或價格。"),
-        "api":("API STORE  /  服務中心","API 方案、金鑰申請及付款目前尚未開放。\\n請勿在聊天室傳送 API Key 或其他機密。"),
-        "usage":("USAGE  /  使用紀錄","用量儀表板尚未串接至公開 Bot。\\n目前沒有可驗證的個人 Token 使用數據。"),
-        "account":("ACCOUNT  /  個人中心","此 Bot 目前僅記錄 Academy 的學習進度。\\n尚未提供正式帳號管理及權限編輯。"),
-        "settings":("SETTINGS  /  偏好設定","可在 Academy 選擇學習程度。\\n其他設定將在後端權限與儲存機制完成後開放。")
+        "home":("VANILLA  /  AI PLATFORM","歡迎回到 Vanilla。\n\n選擇下方功能，直接在 Telegram 探索與學習。\n目前不開放付款或 API 金鑰申請。"),
+        "models":("MODELS  /  模型探索","模型清單與即時版本資訊尚未在此 Bot 開放。\n正式提供前不顯示虛構模型或價格。"),
+        "api":("API STORE  /  服務中心","API 方案、金鑰申請及付款目前尚未開放。\n請勿在聊天室傳送 API Key 或其他機密。"),
+        "usage":("USAGE  /  使用紀錄","用量儀表板尚未串接至公開 Bot。\n目前沒有可驗證的個人 Token 使用數據。"),
+        "account":("ACCOUNT  /  個人中心","此 Bot 目前僅記錄 Academy 的學習進度。\n尚未提供正式帳號管理及權限編輯。"),
+        "settings":("SETTINGS  /  偏好設定","可在 Academy 選擇學習程度。\n其他設定將在後端權限與儲存機制完成後開放。")
     }
     heading,body=pages.get(section,pages["home"])
     if section=="api":
-        await _send(chat_id,"API STORE  /  邀請制測試\\n━━━━━━━━━━━━\\n\\n目前僅接受白名單測試，模型推論尚未開放。\\n請勿在聊天室傳送 API Key。",_buttons([[("✦ 測試資格說明","api:apply")],[("〈 返回主選單","hub:home")]]))
+        await _send(chat_id,"API STORE  /  邀請制測試\n━━━━━━━━━━━━\n\n目前僅接受白名單測試，模型推論尚未開放。\n請勿在聊天室傳送 API Key。",_buttons([[("✦ 測試資格說明","api:apply")],[("〈 返回主選單","hub:home")]]))
         return
     if section=="home":
-        await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_hub_keyboard())
+        await _send(chat_id,f"{heading}\n━━━━━━━━━━━━\n\n{body}",_hub_keyboard())
     else:
-        await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_buttons([[("〈 返回主選單","hub:home")]]))
+        await _send(chat_id,f"{heading}\n━━━━━━━━━━━━\n\n{body}",_buttons([[("〈 返回主選單","hub:home")]]))
 
 async def _learn(chat_id,action):
     db,row=_learning_state(chat_id)
     try:
         level,step,mastered_raw=row
-        mastered=set(json.loads(mastered_raw))
+        try:
+            parsed=json.loads(mastered_raw)
+            mastered={i for i in parsed if type(i) is int and 0 <= i < len(LESSONS)} if isinstance(parsed,list) else set()
+        except (ValueError,TypeError):
+            mastered=set()
+        step=max(0,min(int(step),len(LESSONS)-1))
+        prefix=''
         if action=="start":
-            await _send(chat_id,"ACADEMY  /  學習中心\\n━━━━━━━━━━━━\\n\\n選擇你的學習程度\\n6 大主題 · 36 章節 · 324 課",_buttons([
+            await _send(chat_id,"ACADEMY  /  學習中心\n━━━━━━━━━━━━\n\n選擇你的學習程度\n6 大主題 · 36 章節 · 324 課",_buttons([
                 [("零基礎","learn:level:0"),("入門","learn:level:1")],
                 [("開發者","learn:level:2"),("進階","learn:level:3")],
                 [("〈 返回主選單","hub:home")]]))
             return
         if action.startswith("level:") and action[-1:] in ("0","1","2","3"):
             level=action[-1]
-            step={"0":0,"1":54,"2":108,"3":162}[level]
-            mastered=set()
+            # Skill level changes explanation depth, not the subject. Preserve achievements.
+            step=next((i for i in range(len(LESSONS)) if i not in mastered),0)
         elif action=="next": step=min(step+1,len(LESSONS)-1)
         elif action=="prev": step=max(step-1,0)
         elif action=="master":
             mastered.add(step)
             candidates=[i for i in range(len(LESSONS)) if i not in mastered]
             if candidates:
-                offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
-                preferred=list(range(offset,len(LESSONS)))+list(range(offset))
+                preferred=list(range(step+1,len(LESSONS)))+list(range(0,step+1))
                 step=next(i for i in preferred if i in candidates)
-                prefix="✓ COMPLETED\\n很棒！已完成這一課。\\n\\n為你推薦下一篇章\\n\\n"
+                prefix="✓ COMPLETED\n很棒！已完成這一課。\n\n為你推薦下一篇章\n\n"
             else:
-                prefix="✓ ALL COMPLETED\\n恭喜完成所有課程。\\n\\n"
+                prefix="✓ ALL COMPLETED\n恭喜完成所有課程。\n\n"
         elif action=="recommend":
             candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
-            offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
-            preferred=list(range(offset,len(LESSONS)))+list(range(offset))
+            preferred=list(range(step+1,len(LESSONS)))+list(range(0,step+1))
             if candidates:
                 step=next(i for i in preferred if i in candidates)
-                prefix="FOR YOU  /  推薦閱讀\\n\\n"
+                prefix="FOR YOU  /  推薦閱讀\n\n"
             else:
-                prefix="你已完成其他篇章；可以重新分級複習。\\n\\n"
-        elif action.startswith("go:") and action[3:].isdigit():
-            step=min(int(action[3:]),len(LESSONS)-1)
+                prefix="你已完成其他篇章；可以重新分級複習。\n\n"
+        elif action.startswith("go:") and action[3:].isascii() and action[3:].isdigit() and len(action[3:])<=6:
+            step=max(0,min(int(action[3:]),len(LESSONS)-1))
         else:
             step=max(0,min(step,len(LESSONS)-1))
         db.execute("UPDATE store_learning SET level=?,lesson=?,mastered=? WHERE chat_id=?",
                    (level,step,json.dumps(sorted(mastered)),chat_id))
         db.commit()
-        title,body,topic_idx,chapter_idx,stage_idx=LESSONS[step]
-        prefix=locals().get("prefix","")
-        await _send(chat_id,prefix+f"ACADEMY  /  {TOPICS[topic_idx]}\\n━━━━━━━━━━━━\\n\\n第 {chapter_idx+1:02d} / 06 章   ·   第 {stage_idx+1:02d} / 09 課\\n{title}\\n\\n{body}\\n\\n━━━━━━━━━━━━\\n學習進度  {len(mastered)} / {len(LESSONS)} 已學會",
+        title,_,topic_idx,chapter_idx,stage_idx=LESSONS[step]
+        body=render_lesson(step,level)
+        await _send(chat_id,prefix+f"ACADEMY  /  {TOPICS[topic_idx]}\n━━━━━━━━━━━━\n\n第 {chapter_idx+1:02d} / 06 章   ·   第 {stage_idx+1:02d} / 09 課\n{title}\n\n{body}\n\n━━━━━━━━━━━━\n學習進度  {len(mastered)} / {len(LESSONS)} 已學會",
                     _buttons([[("◀ 上一課","learn:prev"),("下一課 ▶","learn:next")],
                               [("✅ 這我會了","learn:master")],
                               [("✦ 推薦篇章","learn:recommend"),("課程分級","learn:start")],
@@ -221,7 +228,7 @@ async def store_webhook(request: Request,
                 and isinstance(callback.get("data"),str) and callback["data"].startswith(("learn:","hub:","api:"))):
             if _claim(update["update_id"]):
                 if callback["data"]=="api:apply":
-                    await _send(chat_id,"API ACCESS  /  申請說明\\n\\nTelegram 身分驗證及申請通知尚未啟用，申請暫不受理。",_buttons([[("〈 返回主選單","hub:home")]]))
+                    await _send(chat_id,"API ACCESS  /  申請說明\n\nTelegram 身分驗證及申請通知尚未啟用，申請暫不受理。",_buttons([[("〈 返回主選單","hub:home")]]))
                 elif callback["data"].startswith("hub:"):
                     section=callback["data"][4:]
                     if section=="academy": await _learn(chat_id,"start")

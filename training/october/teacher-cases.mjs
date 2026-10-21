@@ -4,7 +4,7 @@
  * underlying Qwen weights have been trained. Never include personal data.
  */
 import {writeFileSync,mkdirSync} from "node:fs";
-import {join,dirname} from "node:path";
+import {join,dirname,resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 const ROOT=dirname(fileURLToPath(import.meta.url));
 const CASES=[
@@ -83,4 +83,4 @@ export function emit(){
  }
  return audit();
 }
-if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1])console.log(JSON.stringify(emit()));
+if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1]))console.log(JSON.stringify(emit()));

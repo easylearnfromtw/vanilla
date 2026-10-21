@@ -321,9 +321,9 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
     {label:"負載 50%",kind:"load",enable:50},
     {label:"負載 100%",kind:"load",enable:100},
     {label:"GPU 上限 75°C",kind:"thermal",enable:75},
-    {label:"遠端關機（需本機同意）",kind:"power",enable:false},
     {label:"Telegram 驗證後撤銷",kind:"revoke",enable:false}
    ];
+   if(n.shutdown_opt_in)actions.push({label:"遠端關機（本機已同意）",kind:"power",enable:false});
    actions.forEach(a=>{
     const button=document.createElement("button");button.type="button";
     button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;

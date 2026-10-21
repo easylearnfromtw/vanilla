@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import json
 import os
 import re
 import secrets
@@ -362,11 +363,15 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const heartbeat=Number.isFinite(n.last_heartbeat_seconds)?n.last_heartbeat_seconds:null;
    const heartbeatText=n.online?"心跳正常"+(heartbeat!==null?"（"+heartbeat+" 秒前）":""):"心跳離線"+(heartbeat!==null?"（"+heartbeat+" 秒前）":"");
    const hardware=(n.os||"系統未偵測")+" · RAM "+(n.ram_gb||0)+" GB · "+(n.gpu||"GPU 未偵測");
-   const thermal=n.gpu_temp_c===null?"溫度未回報":"GPU "+n.gpu_temp_c+"°C";
+   const thermal=n.gpu_temp_c===null?"溫度未回報":n.temperature_stale?
+     "GPU "+n.gpu_temp_c+"°C（感測資料已逾時，暫停派工）":"GPU "+n.gpu_temp_c+"°C";
    const load="負載 "+n.max_load_pct+"% · 上限 "+n.thermal_limit_c+"°C";
    const geo=n.geo_opt_in?((n.public_ip||"IP 無法辨識")+" · "+(n.geo_area||"地區待查")):"IP 位置未授權";
+   const joined=n.pair_time?new Date(n.pair_time*1000).toLocaleString("zh-TW",
+       {timeZone:"Asia/Taipei",hour12:false}):"既有節點／時間未記錄";
+   const models=Array.isArray(n.models)&&n.models.length?n.models.join("、"):"尚無已登錄模型";
    info.textContent="第 "+n.pair_number+" 個節點 · 配置評分 "+n.hardware_score+"/10000（估算） · "+
-      "✓ 綁定已註冊 · "+heartbeatText+" · "+hardware+" · "+thermal+" · "+load+" · "+geo+" · "+
+      "✓ 綁定已註冊 · "+joined+"（台灣時間） · "+heartbeatText+" · "+hardware+" · "+thermal+" · "+load+" · "+geo+" · 已登錄模型："+models+" · "+
      (n.share_enabled?"裝置同意共享":"裝置已停用共享")+" · "+
      (n.owner_enabled?"Owner 已核准節點":"Owner 已停用節點")+" · "+
      (n.inference_enabled?"推論授權已開啟（仍需 Ollama）":"推論未核准")+" · "+
@@ -620,6 +625,8 @@ def snapshot(body:Owner):
       "geo_area":r["geo_area"] if r["geo_opt_in"] else "",
       "cpu_pct":r["cpu_pct"],"gpu_temp_c":r["gpu_temp_c"],
       "gpu_util_pct":r["gpu_util_pct"],"max_load_pct":r["max_load_pct"],
+      "gpu_temp_at":r["gpu_temp_at"],
+      "temperature_stale":bool(r["gpu_temp_at"] and now-r["gpu_temp_at"]>180),
       "thermal_limit_c":r["thermal_limit_c"],"shutdown_opt_in":bool(r["shutdown_opt_in"]),
       "gpu":r["gpu"],"ram_gb":r["ram_gb"],"cpu":r["cpu"],
       "online":now-r["last_seen"]<=ONLINE_SECONDS,
@@ -628,7 +635,24 @@ def snapshot(body:Owner):
       "owner_enabled":bool(r["owner_enabled"]),
       "inference_enabled":bool(r["inference_enabled"])
     } for r in records]
+    model_map={}
     available=0
+    if os.getenv("VANILLA_SLIME_RUNNER_ENABLED","false").lower()=="true":
+        from slime_runner_bridge import _tables as runner_tables
+        with _session() as db:
+            runner_tables(db)
+            for rec in db.execute("""SELECT node_id,models_json FROM slime_runner_catalog
+                                     WHERE owner_sub=? AND checked_at>=?""",
+                                  (sub,int(now)-180)).fetchall():
+                try:
+                    entries=json.loads(rec["models_json"])
+                    if isinstance(entries,list):
+                        model_map[rec["node_id"]]=[name for name in entries
+                            if isinstance(name,str) and len(name)<=120][:30]
+                except (ValueError,TypeError):
+                    continue
+    for entry in nodes:
+        entry["models"]=model_map.get(entry["id"],[])
     if os.getenv("VANILLA_SLIME_RUNNER_ENABLED","false").lower()=="true":
         try:
             from slime_runner_bridge import catalog

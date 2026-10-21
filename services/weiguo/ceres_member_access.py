@@ -155,7 +155,7 @@ def reserve_member_tokens(sub: str, content: str, *, output: int = 1024) -> bool
         return False
     if not isinstance(content, str) or len(content) > 1600:
         return False
-"    cost = len(content.encode("utf-8")) + 256 + output
+    cost = len(content.encode("utf-8")) + 256 + output
     from ceres_admin_policy import reserve_shared_tokens
     return reserve_shared_tokens(sub, cost)
 

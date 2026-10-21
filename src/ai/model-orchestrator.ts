@@ -70,7 +70,7 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
  if(gemini){
   result.push({id:"gemini:"+gemini.model,source:"gemini",model:gemini.model,label:"Gemini · "+gemini.model,location:"Google 雲端",note:"依帳號額度／計費規則使用"});
   const lite=geminiLiteSibling(gemini.model);
-  if(gemini.model!==lite)result.push({id:"gemini:"+lite,source:"gemini",model:lite,label:"Gemini · Flash-Lite",location:"Google 雲端",note:"較輕量快速的替代模型，仍受 API 額度限制"});
+  if(gemini.key!=="managed:weiguo"&&gemini.model!==lite)result.push({id:"gemini:"+lite,source:"gemini",model:lite,label:"Gemini · Flash-Lite",location:"Google 雲端",note:"較輕量快速的替代模型，仍受 API 額度限制"});
  }
  const deepseek=cfg.find(x=>x.provider==="deepseek");
  if(deepseek&&!options.image)result.push({id:"deepseek:"+deepseek.model,source:"deepseek",model:deepseek.model,label:"DeepSeek · "+deepseek.model,location:"DeepSeek 雲端",note:"可能產生 API 費用"});

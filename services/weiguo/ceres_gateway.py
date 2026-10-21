@@ -215,10 +215,23 @@ async def telegram_webhook(request: Request,
     # Pairing is the only accepted pre-whitelist command: high-entropy,
     # one-time Google-authenticated challenge, in a signed private webhook.
     if text.startswith("/link "):
-        from ceres_member_access import redeem_code
+        from ceres_member_access import redeem_code, enabled as members_enabled, _CODE
         from ceres_admin_bot import say
+        supplied = text[6:].strip()
+        if not members_enabled() or not _CODE.fullmatch(supplied):
+            return {"ok":True,"accepted":False}
+        with _session() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS ceres_pair_attempts(
+              chat_id INTEGER NOT NULL, created_at INTEGER NOT NULL)""")
+            now = int(time.time())
+            db.execute("DELETE FROM ceres_pair_attempts WHERE created_at<?", (now-3600,))
+            attempts = db.execute("SELECT COUNT(*) FROM ceres_pair_attempts "
+                                  "WHERE chat_id=? AND created_at>=?",(chat_id,now-3600)).fetchone()[0]
+            if attempts >= 5:
+                return {"ok":True,"accepted":False}
+            db.execute("INSERT INTO ceres_pair_attempts VALUES(?,?)",(chat_id,now))
         if _claim_admin_update(payload["update_id"]):
-            ok = redeem_code(chat_id, text[6:].strip())
+            ok = redeem_code(chat_id, supplied)
             await say(chat_id, "Ceres AI 對話綁定成功，現在可以直接提問。"
                       if ok else "綁定碼無效或已過期，請在 Vanilla 重新產生。")
         return {"ok":True,"accepted":True}

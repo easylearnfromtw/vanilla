@@ -61,6 +61,14 @@ class MemberAccessTests(unittest.TestCase):
         self.assertNotIn(MEMBER_CHAT, _allowed_chat_ids())
         self.assertIsNone(verified_subject(MEMBER_CHAT))
 
+    def test_scoped_cloud_denies_unlisted_member_even_when_global_enforce_off(self):
+        self._bind_google()
+        from ceres_admin_policy import require_scope
+        with self.assertRaises(HTTPException) as exc:
+            require_scope(MEMBER_SUB, "member@gmail.com", "openai")
+        self.assertEqual(exc.exception.status_code, 403)
+        require_scope(MEMBER_SUB, "member@gmail.com", "gemini")
+
     def test_disabled_feature_has_no_member_access(self):
         self._bind_google()
         with patch.dict(os.environ, {"CERES_MEMBER_CHAT_ENABLED": "false"}):

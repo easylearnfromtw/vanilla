@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 43 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 44 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1401,8 +1401,44 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 用多租戶混合影音 session 測試媒體快取、跨裝置同步、會話切換、第三方雲端 API 與朋友 Slime 節點存取，確保未授權使用者無法讀取或繼續擷取他人聲畫資料。
 - 對未安裝 Retina、壞檔／無音軌、權限拒絕、傳輸超時及工具尚未實作等情況，UI 只能顯示實際 partial／unsupported／failed 狀態，不能因存在輸入控件而宣稱多模態系統已成功運作。
 
+## Q45 / 50 — D：政策驅動的個人自動化引擎（Reminders × Recurrence × Condition Watch × Durable Execution × Notification）
+
+**決策：D — 政策驅動的個人自動化引擎。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採政策驅動的個人自動化引擎：整合一次性提醒、定期排程、事件與條件監看、使用者授權的自然語言任務建立、受信排程儲存、跨裝置通知、Telegram／行事曆等合法管道、執行Checkpoint、失敗恢復、去重與速率限制、配額成本治理、任務取消與授權撤銷、Verifier結果驗證及LUCA稽核。一般排程和使用者事件監看只能執行已授權的普通任務，不能轉換成Self-Build的觸發；Self-Build僅能由可信後端背景排程或經驗證的內部品質事件啟動。Vanilla系統級高風險操作仍只能由本人透過Ceres Telegram核准。」
+
+### 自動化架構及信任契約
+
+1. **兩種完全分離的排程與執行主體**：Personal Automation 是使用者授權的 reminder／recurrence／condition watch，使用 individual principal、task scope、預算與使用者通知管道；Self-Build 是 Q27–Q30 既定的可信後端背景品質／排程流程，有獨立 dispatcher、事件來源信任根、權限、任務類型及隔離佇列。兩者不得共用可互相提升權限的 enqueue API、webhook、job manifest 或 capability token，且 Personal Automation 明確不具 source=trusted_self_build 及任何系統自我修改能力。
+2. **自然語言建立與可檢查意圖**：October／Merlin 將使用者語句解析成一次性提醒、受權週期工作或條件監看，列出 what／when／source／action／recipient／stop_condition／estimated_cost／permissions；Diana 僅路由已啟用的普通專業工具，Detroit 在真正執行前核對後端授權。若日期、時區、資料來源或高副作用操作不明，先澄清；不能因含糊描述就默認永久監控、金流／部署權限或跨人共享。
+3. **Typed Automation Contract**：持久化 automation_id、owner_user_id、tenant／workspace／project、schedule_type（once／recurrence／watch）、ical_rrule 或等價受控規則、timezone（IANA）、start_at、end_at／max_occurrences、watch_predicate_ref、source_connection_refs、approved_actions、permission_snapshot_ref、recipient_channel_refs、notification_policy、cooldown、max_runs、max_tokens／cost、idempotency_key_policy、revision、created_at、canceled_at、state、last_run／next_run、execution_receipts。只有可信後端能簽發可執行的 task identity，不能接受模型生成 YAML／JSON 自稱已授權。
+4. **時間與週期語意**：支援一次性時間、每日／每週／每月與指定結束日期／次數，明確區分事件當地時間、使用者顯示時間、UTC 持久時間及時區規則變更。DST 重複／不存在時刻、跨午夜、閏日、系統時鐘漂移、暫停後錯過觸發（misfire）與作業重複需有可預期政策；只有使用者要求精確時間時才按精確時刻執行，廣泛的「早上／下午」可採明確彈性時窗，不能假稱保證零延遲。
+5. **條件式監看與事件判定**：支援授權 API 狀態、GitHub 狀態、配額、日曆及其他合法資料來源，watch predicate 由可信執行器對已取得且具 timestamp 的來源評估；設來源 freshness、連續觀測／confirmations、遲滯 hysteresis、cooldown、變更去重與 alert severity。資料未取得、429、來源欄位缺失或條件無法判定時呈現 unknown／unavailable，不得當成達標，也不得憑模型幻覺觸發通知。
+6. **主動提醒與一般任務執行**：一次性／定期作業可以提醒、取得用戶有權資料、整理報告、產出 Q35 Artifacts、更新自身允許的 Notion／日曆草稿等；對外寄信、重要檔案修改、公開發布等副作用沿用 Q36 risk tier、合法授權與具體批准。過期授權、非本人資料、企業團隊移除資格或服務端風險政策升級，都不能藉「之前允許排程」延長到新權限。
+7. **Durable Scheduler 與任務狀態**：由可信後端保存排程定義與下次執行時間，Detroit 以 Q15 DAG、Q31 checkpoints 及 Q38 leases／recovery 管理 queued、ready、running、awaiting_approval、completed、skipped、blocked、failed、unknown、paused、canceled。作業不依賴聊天頁面維持開啟；必須區分「已設定」和「實際執行成功」，未配置常駐 Scheduler／通知後端時不得聲稱會在未來自動執行。
+8. **冪等、重試及重複通知抑制**：每個 recurrence occurrence／watch transition 產生穩定的 run_id、dedup_key 和 notification_id，跨節點故障重啟不得再執行相同不可逆副作用。對外發信、日曆、Webhook 和第三方通知採 Q36 provider receipt／回讀查證；無法確認外部是否成功時保留 unknown outcome，不因 timeout 立即重送，亦不能保證所有第三方 exactly-once delivery。
+9. **通知管道與收件權限**：支援經用戶明確連結並授權的 Vanilla 裝置通知、Telegram 訊息、Email／日曆等管道，按事件性質、用戶偏好、quiet hours、頻率及可用性決定渠道。使用者通知可利用經授權的 Ceres 通訊基礎設施，但一般使用者訊息不能進入 @SignWell_bot 的 Owner 管理權限流程；跨組織、跨帳號及群組廣播需分別授權。不可把用戶的金鑰、提示、醫療或私人內容直接放進外部通知。
+10. **停止、撤權與生命週期**：本人有權列出、暫停、恢復、調整、刪除自己的排程；工作空間退出、Q43 SCIM 停用、OAuth 撤銷、資料來源撤銷、通知權限撤銷、帳戶停用、配額耗盡時，後端必須在下一次執行前強制複核。撤銷後禁止新作業與新資料傳輸，已執行不可逆動作及合法必要的審計紀錄依 Q36/Q40 如實保留。
+11. **多裝置同步與離線行為**：Vanilla 網頁、iPhone、桌面版可以檢視相同受權 automation 定義、最後 run 與下一次預期執行；同步需使用版本／ETag，防止離線裝置用舊版設定復活被停止的監看。裝置離線時由真正在線且有權的可信後端負責執行；如果沒有在線後端，則只能保留草稿與指出未啟用，不得宣稱本地關機後依然會發通知。
+12. **用量、資源與成本治理**：每 automation 設 tokens、外部 API calls、執行時間、每分鐘／日觸發次數及通知量硬限制，Q37 Gateway 和 Q39 方案約束同步生效，Q38 排隊／降級不得繞過配額。watch polling 應依事件頻率、API 配額與用戶需求設定合理 cadence；高費用、持續跑的監控需事先取得具體用量範圍的同意。
+13. **Verifier 的真實性與錯誤處理**：獨立檢查可信來源、條件評估與實際工具回執，將結果區分 fired／not_met／unknown／skipped／blocked／partial／verified_sent。若調用 Scout 未取得網站、GitHub provider 失效、時間或附件來源矛盾，只能報告未完成或必要的不確定，不能為了讓通知看起來正常就編造監控結果。
+14. **LUCA 可稽核但資料最小化**：紀錄 automation_id／run_id、排程版本、授權 Principal、下一次觸發、condition source/status、工具 refs、執行延遲、真正通知回執、去重／重試及錯誤指標；遵守 Q40 保留及租戶資料分類，不預設保存完整私人 prompt、訊息內容、API Key 或跨租戶監控細節。
+15. **Owner 高風險操作與 Self-Build 不可被替代**：排程與條件監看即使提到「程式碼改善」「自動上線」「修復自己的模型」，也不會取得 Self-Build dispatcher 身分或直接修改系統。Self-Build 僅能由獨立可信後端排程或驗證的內部品質／CI 事件啟動；任何用戶自訂的 schedule、watch event、外部 webhook、LUCA 顯示資料或代理工具輸出均不得被提升成可信內部 Self-Build 事件。合併 PR、部署、系統憑證／金流／全域設定等高風險行為仍須本人 Ceres Telegram 特定核准。
+16. **實作現況與承諾**：本題僅是已確認的設計規格，**不代表** Scheduler 已運行、提醒已建立、定期任務可持續執行、Telegram／日曆通知已配置、條件監看已啟用、Verifier／LUCA 已完成接線或 Self-Build 權限隔離經正式測試；未有後端成功回執不得假稱排程已正式開始。
+
+### 可驗證驗收條件（尚未完成實作）
+
+- 建立一次性提醒、具結束日期與 COUNT 上限的週期工作、條件監看各一組沙盒任務；驗證自然語言解析、原定時區、時段、取消／恢復、真實 next_run 與跨裝置顯示一致，任務在聊天關閉後可由實際受信 Scheduler 執行。
+- 模擬 DST 轉換、時區變更、跨午夜、時鐘偏移、重啟、missed runs、排程重複更新及相同事件多次傳入；不得產生非預期重複通知、漏過停用狀態或違反執行次數上限。
+- 對 GitHub 部署、模型 API 429、個人行事曆事件與 API 額度條件注入缺資料、來源陳舊、假網站回應、閾值震盪，確認 unknown／not_met 與 fired 區分正確，透過 cooldown/hysteresis 抑制提醒洪水。
+- 在 Detroit／Slime 節點失聯、provider timeout、Webhook 重複、通知回執不明與 checkpoint 恢復下進行重試演練；不可雙重寄信或對外寫入，unknown 必須保持可查而非宣稱已發送。
+- 撤銷 user session、Telegram 授權、Google Calendar OAuth、Q42 團隊會員、Q43 SCIM 帳號或 Q37 Key 後，確認後端停止下一次未授權工作、對外通知及資料傳送；已離職用戶不能用離線舊快取復活排程。
+- 用一般用戶 A/B、兩個組織及不同 Ceres chat_id 進行跨租戶通知測試，確保個人自動化不會推送他人私人資料，且一般用戶無法取得全域管理／Owner 通知管道權限。
+- 將「啟動 Self-Build」置入個人週期排程、條件 watch、LLM tool output、Telegram message 和仿造可信 LUCA 事件，全部由後端隔離；唯一可信背景 Self-Build 路徑必須經獨立 policy/authenticated event source 驗證。
+- 對費用、tokens、通知速率、最高作業併發與後端未配置做測試，限制到頂時應拒絕／暫停並如實說明；不存在常駐 Scheduler 時不得宣稱「已建立提醒，未來一定會通知」。
+
 ### 待決事項
 
-**Q45 / 50：October 應如何提供使用者授權的提醒、定期任務與事件條件監看，在跨裝置及 Telegram／行事曆等管道可靠通知，同時與只能由可信後端背景觸發的 Self-Build 保持完全隔離？** 尚待使用者答覆。
+**Q46 / 50：October 應如何支援跨語言、多地區與專業術語的高品質理解及產出，包括繁體中文／英文切換、研究文獻翻譯、專業術語一致性、文化與法規在地化及跨語言查證？** 尚待使用者答覆。
 
 ---

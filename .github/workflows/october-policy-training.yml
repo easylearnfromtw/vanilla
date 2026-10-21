@@ -108,6 +108,9 @@ jobs:
             }
             console.log("R5 synthetic safety parity passed; real-world deployment remains blocked.");
           '
+      - name: Benchmark paired CPU shadow inference latency (NOT GPU watts)
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/benchmark-penteract-cpu.mjs --output training/october/generated/october-five-projector-cpu-latency.json
       - name: Publish 5D synthetic held-out results and CPU weights (NOT deployed)
         uses: actions/upload-artifact@v4
         with:
@@ -115,5 +118,6 @@ jobs:
           path: |
             training/october/generated/october-five-projector-weights.json
             training/october/generated/october-five-projector-report.json
+            training/october/generated/october-five-projector-cpu-latency.json
           if-no-files-found: error
           retention-days: 30

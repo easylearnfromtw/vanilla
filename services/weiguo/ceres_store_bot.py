@@ -87,13 +87,7 @@ async def _send(chat_id: int, text: str):
     token = os.environ["CERES_STORE_BOT_TOKEN"]
     async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
         result = await client.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                                   json={"chat_id": chat_id, "text": text,
-                                         "reply_markup": {"inline_keyboard": [
-                                             [{"text": "AI 模型", "callback_data": "store:models"},
-                                              {"text": "API 方案", "callback_data": "store:plans"}],
-                                             [{"text": "我的 API", "callback_data": "store:keys"},
-                                              {"text": "使用量", "callback_data": "store:usage"}]
-                                         ]}})
+                                   json={"chat_id": chat_id, "text": text})
         result.raise_for_status()
         if result.json().get("ok") is not True:
             raise ValueError("send failed")

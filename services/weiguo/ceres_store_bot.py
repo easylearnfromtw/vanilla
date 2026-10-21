@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
+from ceres_academy_curriculum import LESSONS, TOPICS, CHAPTERS
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
@@ -85,12 +86,6 @@ def _claim(update_id: int) -> bool:
 
 
 
-LESSONS = [
- ("AI 基礎","理解 Token、上下文與提示詞。練習：描述一個有目標、限制和輸出格式的指令。","coding"),
- ("AI Coding","ChatGPT／Claude 開發流程：先規格、後最小實作、最後測試；不要分享 API Key。","api"),
- ("API 串聯","先確認服務的真實端點、模型名稱和認證方式，再撰寫程式。401 為認證失敗，429 常見於配額限制。","october"),
- ("October","October 的產品定位是資料與工具驅動的自主執行引擎，包含規劃、工具調用、證據驗證；屬設計目標，非效能保證。","ai")
-]
 def _learning_state(chat_id):
     path=Path(os.getenv("CERES_DB_PATH","/tmp/ceres-events.sqlite3"))
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -124,7 +119,7 @@ async def _learn(chat_id,action):
             return
         if action.startswith("level:") and action[-1:] in ("0","1","2","3"):
             level=action[-1]
-            step={"0":0,"1":1,"2":2,"3":3}[level]
+            step={"0":0,"1":54,"2":108,"3":162}[level]
             mastered=set()
         elif action=="next": step=min(step+1,len(LESSONS)-1)
         elif action=="prev": step=max(step-1,0)
@@ -132,14 +127,16 @@ async def _learn(chat_id,action):
             mastered.add(step)
             candidates=[i for i in range(len(LESSONS)) if i not in mastered]
             if candidates:
-                preferred={"0":[0,1,2,3],"1":[1,2,3,0],"2":[2,3,1,0],"3":[3,2,1,0]}.get(level,[0,1,2,3])
+                offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
+                preferred=list(range(offset,len(LESSONS)))+list(range(offset))
                 step=next(i for i in preferred if i in candidates)
                 prefix="🎉 很棒！這一課已標記為學會。\\n依照你的程度與尚未完成的篇章，我推薦：\\n\\n"
             else:
                 prefix="🎉 太棒了！你已完成目前所有篇章，可以重新選程度複習。\\n\\n"
         elif action=="recommend":
             candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
-            preferred={"0":[0,1,2,3],"1":[1,2,3,0],"2":[2,3,1,0],"3":[3,2,1,0]}.get(level,[0,1,2,3])
+            offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
+                preferred=list(range(offset,len(LESSONS)))+list(range(offset))
             if candidates:
                 step=next(i for i in preferred if i in candidates)
                 prefix="✨ 根據你的程度及已完成篇章，推薦你閱讀：\\n\\n"
@@ -152,9 +149,9 @@ async def _learn(chat_id,action):
         db.execute("UPDATE store_learning SET level=?,lesson=?,mastered=? WHERE chat_id=?",
                    (level,step,json.dumps(sorted(mastered)),chat_id))
         db.commit()
-        title,body,_=LESSONS[step]
+        title,body,topic_idx,chapter_idx,stage_idx=LESSONS[step]
         prefix=locals().get("prefix","")
-        await _send(chat_id,prefix+f"📖 {title} · {step+1}/{len(LESSONS)}\\n\\n{body}\\n\\n進度：{len(mastered)}/{len(LESSONS)} 已學會",
+        await _send(chat_id,prefix+f"📖 {TOPICS[topic_idx]}\\n第 {chapter_idx+1}/6 章 · 第 {stage_idx+1}/9 課\\n{title} · 總課次 {step+1}/{len(LESSONS)}\\n\\n{body}\\n\\n進度：{len(mastered)}/{len(LESSONS)} 已學會",
                     _buttons([[("◀ 上一課","learn:prev"),("下一課 ▶","learn:next")],
                               [("✅ 這我會了","learn:master")],
                               [("📚 推薦其他篇章","learn:recommend"),("重新分級","learn:start")]]))

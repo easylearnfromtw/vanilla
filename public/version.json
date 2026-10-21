@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.04-slime-standalone-portal",
-  "description": "Independent Slime installation and pairing web portal, QR deep-link, standalone download flow"
+  "build": "2026.10.21.05-slime-hide-admin-links",
+  "description": "Public Slime download page no longer exposes private Telegram admin shortcut buttons"
 }

@@ -61,6 +61,18 @@ test("No public client issues privileged short codes or consumes long-lived devi
  const html=read("public/slime/index.html");
  assert.doesNotMatch(html,/\/v1\/family\/slime\/invite|\/v1\/slime\/node\/pair/);
  assert.doesNotMatch(html,/authorization|bearer\s|token_digest/i);
- assert.match(html,/由 Telegram Ceres Owner 產生/);
+ assert.match(html,/短配對碼由系統管理者私下發給裝置持有人/);
  assert.match(html,/不在此公開網頁驗證或核發節點 Token/);
+});
+
+test("Public Slime portal and legacy embedded page never link to private owner Telegram",()=>{
+ const standalone=read("public/slime/index.html");
+ const embedded=read("src/slime/SlimePanel.tsx");
+ for(const page of [standalone,embedded]){
+  assert.doesNotMatch(page,/https:\/\/t\.me\/SignWell_bot/i);
+  assert.doesNotMatch(page,/(?:href|window\.open)[^\n]*(?:SignWell_bot|Telegram Owner 管理)/i);
+ }
+ assert.match(standalone,/不在此公開網頁驗證或核發節點 Token/);
+ const privateConsole=read("services/weiguo/ceres_command_center.py");
+ assert.match(privateConsole,/Slime 獨立安裝網頁/);
 });

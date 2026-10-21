@@ -6,7 +6,9 @@ signed, time-bounded initData and a server-verified Owner-to-Google-sub map.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
+import io
 import os
 import re
 import secrets
@@ -78,6 +80,8 @@ text-align:center;padding:20px 9px;margin:16px 0 7px}
 .code strong{font:800 clamp(19px,4.5vw,29px)/1.5 ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
 letter-spacing:.08em;user-select:all;overflow-wrap:anywhere}
 .code small{display:block;font-size:11px;margin-top:6px}
+.qr{display:flex;justify-content:center;align-items:center;margin:13px 0 4px}
+.qr img{width:min(100%,220px);height:auto;background:#fff;padding:10px;border-radius:15px;border:1px solid var(--line)}
 .hidden{display:none!important}
 .notice{padding:13px;background:var(--soft);border-radius:12px;color:var(--muted);font-size:11px;line-height:1.8}
 .result{margin:12px 0 0;padding:13px;border-radius:12px;background:var(--soft);
@@ -121,6 +125,7 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 配對碼有效 10 分鐘、只能使用一次；此頁不會讀取既有裝置的長期 Token。</div>
 <div class="controls"><button id="issue" class="btn primary">＋ 產生短配對碼</button></div>
 <div id="code-box" hidden><div class="code"><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
+<div id="qr-box" class="qr" hidden><img id="qr-image" alt="Slime 配對 QR Code，包含本次一次性邀請" width="220" height="220"></div>
 <div class="controls"><button id="copy-code" class="btn primary">複製配對碼</button>
 <button id="copy-link" class="btn">複製邀請連結</button></div></div>
 <p class="result" id="pair-result" role="status" aria-live="polite" hidden></p>
@@ -204,6 +209,8 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
    const obj=await api("issue");
    issued={code:obj.code,link:obj.link};
    $("code").textContent=issued.code;$("code-box").hidden=false;
+   $("qr-box").hidden=!obj.qr_data_uri;
+   if(obj.qr_data_uri)$("qr-image").src=obj.qr_data_uri;
    $("pair-result").hidden=false;
    $("pair-result").textContent="新配對碼已建立。僅私下提供給已同意加入的電腦持有人。";
   }catch(e){$("pair-result").hidden=false;$("pair-result").textContent=e.message;}
@@ -299,7 +306,7 @@ async def webapp():
     response.headers["X-Frame-Options"]="DENY"
     response.headers["Content-Security-Policy"]=(
       "default-src 'none'; script-src 'nonce-"+nonce+"' https://telegram.org; "
-      "style-src 'nonce-"+nonce+"'; connect-src 'self'; frame-ancestors 'none'; "
+      "style-src 'nonce-"+nonce+"'; connect-src 'self'; img-src data:; frame-ancestors 'none'; "
       "base-uri 'none'; form-action 'none'")
     return response
 
@@ -351,7 +358,20 @@ def issue(body:Owner):
         if n>=8:
             raise HTTPException(429,"一小時最多產生 8 組配對碼")
         db.execute("INSERT INTO ceres_slime_invite_rate VALUES(?,?)",(chat,now))
-    return issue_short_pair(sub)
+    result=issue_short_pair(sub)
+    # Generate the QR locally, only after signed Telegram Owner authentication.
+    # Never send a one-time secret to a public QR provider.
+    try:
+        from qrcode import QRCode
+        code=QRCode(box_size=7,border=3)
+        code.add_data(result["link"])
+        code.make(fit=True)
+        output=io.BytesIO()
+        code.make_image(fill_color="black",back_color="white").save(output,format="PNG")
+        result["qr_data_uri"]="data:image/png;base64,"+base64.b64encode(output.getvalue()).decode("ascii")
+    except (ImportError,ValueError,TypeError):
+        result["qr_data_uri"]=None
+    return result
 
 
 @router.post("/plan")

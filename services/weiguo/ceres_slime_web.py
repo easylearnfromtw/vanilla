@@ -405,4 +405,7 @@ def confirm(body:Confirm):
             raise HTTPException(400,"不支援的操作")
         if not changed.rowcount:
             raise HTTPException(404,"節點已撤銷或不屬於此 Owner")
+        # Slime uses sqlite isolation_level=None; after BEGIN IMMEDIATE an
+        # explicit commit is mandatory. Otherwise closing silently rolls back.
+        db.commit()
     return {"ok":True,"message":"已完成操作。重新整理節點狀態以確認結果。"}

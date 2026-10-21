@@ -49,6 +49,7 @@
     "test:detroit-studio": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-studio.test.mjs",
     "test:node-fabric": "node --test tests/node-fabric-ui.test.mjs",
     "test:slime-onboarding": "node --test tests/slime-onboarding.test.mjs",
+    "test:slime-standalone": "node --test tests/slime-standalone-portal.test.mjs",
     "test:detroit-factory": "node --experimental-strip-types --test tests/detroit-factory.test.mjs",
     "test:detroit-notifications": "node --test tests/detroit-notifications.test.mjs",
     "test:cream-weiguo": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/cream-weiguo-ui.test.mjs",

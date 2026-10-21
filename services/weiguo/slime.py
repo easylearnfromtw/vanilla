@@ -80,7 +80,8 @@ def _db():
             "max_load_pct":"INTEGER NOT NULL DEFAULT 100",
             "thermal_limit_c":"INTEGER NOT NULL DEFAULT 82",
             "shutdown_opt_in":"INTEGER NOT NULL DEFAULT 0",
-            "pending_power_off":"REAL NOT NULL DEFAULT 0"
+            "pending_power_off":"REAL NOT NULL DEFAULT 0",
+            "gecko_enabled":"INTEGER NOT NULL DEFAULT 0"
         }
         for key,definition in extras.items():
             if key not in cols:
@@ -89,6 +90,14 @@ def _db():
           owner TEXT PRIMARY KEY,last_number INTEGER NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_short_pair(
           digest TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL)""")
+        gecko_cols={r["name"] for r in c.execute("PRAGMA table_info(slime_short_pair)")}
+        if "origin" not in gecko_cols:
+            c.execute("ALTER TABLE slime_short_pair ADD COLUMN origin TEXT NOT NULL DEFAULT 'telegram'")
+        if "issued_by" not in gecko_cols:
+            c.execute("ALTER TABLE slime_short_pair ADD COLUMN issued_by TEXT NOT NULL DEFAULT ''")
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_gecko_issue(
+          parent_id TEXT NOT NULL, issued_at REAL NOT NULL)""")
+        c.execute("CREATE INDEX IF NOT EXISTS slime_gecko_issue_parent ON slime_gecko_issue(parent_id,issued_at)")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_failures(
           actor TEXT NOT NULL, happened_at REAL NOT NULL)""")
         c.execute("CREATE INDEX IF NOT EXISTS slime_pair_failures_actor "
@@ -166,13 +175,21 @@ def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str, geo
         total=c.execute("SELECT COUNT(*) FROM slime_pair_failures").fetchone()[0]
         if failed>=PAIR_MAX_FAILED_PER_IP or total>=PAIR_MAX_FAILED_GLOBAL:
             raise HTTPException(429,"配對嘗試過於頻繁，請稍後再試")
-        found=(c.execute("SELECT owner FROM slime_short_pair WHERE digest=? AND expires>?",
+        found=(c.execute("SELECT owner,origin,issued_by FROM slime_short_pair WHERE digest=? AND expires>?",
                         (_digest("short:"+normalized),now)).fetchone()
                if normalized else None)
         if not found:
             c.execute("INSERT INTO slime_pair_failures VALUES(?,?)",(actor,now))
             c.commit()
             raise HTTPException(403,"配對碼無效、已使用或已過期")
+        if found["origin"]=="gecko":
+            parent=c.execute("""SELECT role,owner,owner_enabled,share_enabled,gecko_enabled,last_seen
+                FROM nodes WHERE id=?""",(found["issued_by"],)).fetchone()
+            if (role!="friend" or geo_opt_in or shutdown_opt_in or not parent
+                or parent["role"]!="owner" or parent["owner"]!=found["owner"]
+                or not parent["gecko_enabled"] or not parent["owner_enabled"]
+                or not parent["share_enabled"] or time.time()-parent["last_seen"]>ONLINE_SECONDS):
+                raise HTTPException(403,"Gecko 分享已停用或加入權限不足")
         count=c.execute("SELECT COUNT(*) FROM nodes WHERE owner=?",
                         (found["owner"],)).fetchone()[0]
         if count>=MAX_PER_OWNER:
@@ -385,6 +402,61 @@ def join(body: JoinRequest):
         c.commit()
     return {"node_id": node_id, "token": token, "heartbeat_interval_seconds": 60,
             "inference_enabled": False}
+
+class GeckoSetting(BaseModel):
+    enabled: bool
+
+
+@node_router.post("/v1/slime/node/gecko/enable")
+def gecko_enable(body: GeckoSetting, authorization: str | None = Header(default=None)):
+    """Paired OWNER explicitly enables local invitations; inference stays off."""
+    _enabled()
+    with _db() as c:
+        c.execute("BEGIN IMMEDIATE")
+        parent=_node(c,authorization)
+        if parent["role"]!="owner":
+            raise HTTPException(403,"僅已配對的 Owner 裝置可分享 Gecko")
+        if body.enabled and (not parent["owner_enabled"] or not parent["share_enabled"]):
+            raise HTTPException(403,"裝置已停止共享，無法啟用 Gecko")
+        c.execute("UPDATE nodes SET gecko_enabled=? WHERE id=?",
+                  (int(body.enabled),parent["id"]))
+        if not body.enabled:
+            c.execute("DELETE FROM slime_short_pair WHERE origin='gecko' AND issued_by=?",
+                      (parent["id"],))
+        c.commit()
+    return {"enabled":bool(body.enabled),"maxInvitesPerHour":6}
+
+
+@node_router.post("/v1/slime/node/gecko/invite")
+def gecko_invite(authorization: str | None = Header(default=None)):
+    """Short-lived, one-use LAN-assisted friend ticket with bounded issuance."""
+    _enabled()
+    now=time.time()
+    with _db() as c:
+        c.execute("BEGIN IMMEDIATE")
+        parent=_node(c,authorization)
+        if (parent["role"]!="owner" or not parent["gecko_enabled"] or
+            not parent["owner_enabled"] or not parent["share_enabled"] or
+            now-parent["last_seen"]>ONLINE_SECONDS):
+            raise HTTPException(403,"Gecko 分享未啟用，或 Owner 節點離線")
+        c.execute("DELETE FROM slime_gecko_issue WHERE issued_at<?",(now-3600,))
+        n=c.execute("SELECT COUNT(*) FROM slime_gecko_issue WHERE parent_id=?",
+                    (parent["id"],)).fetchone()[0]
+        if n>=6:
+            raise HTTPException(429,"Gecko 每小時最多授權 6 台裝置")
+        if c.execute("SELECT COUNT(*) FROM nodes WHERE owner=?",
+                     (parent["owner"],)).fetchone()[0]>=MAX_PER_OWNER:
+            raise HTTPException(429,"Owner 節點數已達上限")
+        raw="".join(secrets.choice(PAIR_ALPHABET) for _ in range(12))
+        c.execute("""INSERT INTO slime_short_pair(digest,owner,expires,origin,issued_by)
+            VALUES(?,?,?,?,?)""",(_digest("short:"+raw),parent["owner"],
+            now+120,"gecko",parent["id"]))
+        c.execute("INSERT INTO slime_gecko_issue(parent_id,issued_at) VALUES(?,?)",
+                  (parent["id"],now))
+        c.commit()
+    return {"ticket":raw,"expiresSeconds":120,"role":"friend",
+            "inferenceEnabled":False}
+
 
 @node_router.post("/v1/slime/node/heartbeat")
 def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),

@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.21.08-atuber-single-driver";
+export const VANILLA_BUILD="2026.10.21.09-atuber-tool-receipts";

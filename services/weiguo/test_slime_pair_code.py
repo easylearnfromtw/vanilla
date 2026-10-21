@@ -27,6 +27,7 @@ class SlimePairingCodeTests(unittest.TestCase):
             "SLIME_DB_PATH":self.tmp.name+"/nodes.sqlite",
             "SLIME_ENABLED":"true",
             "SLIME_PUBLIC_API_ORIGIN":"https://vanilla.example.net",
+            "SLIME_PAIRING_PAGE_URL":"https://vanilla.example.net/slime/",
         })
         env.start()
         self.addCleanup(env.stop)
@@ -36,7 +37,7 @@ class SlimePairingCodeTests(unittest.TestCase):
         code=info["code"]
         self.assertRegex(code,r"^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-(?:[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-)[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$")
         self.assertEqual(info["expires_seconds"],INVITE_SECONDS)
-        self.assertEqual(info["link"],"https://vanilla.example.net/#slime="+code)
+        self.assertEqual(info["link"],"https://vanilla.example.net/slime/#slime="+code)
         with open(self.tmp.name+"/nodes.sqlite","rb") as storage:
             self.assertNotIn(code.encode(),storage.read())
         self.assertEqual(normalize_short_code(code.lower().replace("-"," ")),code.replace("-",""))

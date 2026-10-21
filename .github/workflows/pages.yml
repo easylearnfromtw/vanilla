@@ -53,6 +53,7 @@ jobs:
       - run: npm run test:detroit-studio
       - run: npm run test:node-fabric
       - run: npm run test:slime-onboarding
+      - run: npm run test:slime-standalone
       - run: npm run test:retina
       - run: npm run test:detroit-notifications
       - run: npm run test:cream-longitudinal
@@ -96,6 +97,8 @@ jobs:
         run: |
           test -f dist/index.html
           test -d dist/assets
+          test -f dist/slime/index.html
+          grep -q "Slime · Vanilla AI 節點安裝" dist/slime/index.html
           grep -q '/vanilla/assets/' dist/index.html
           if grep -q '/src/main.tsx' dist/index.html; then
             echo "::error::dist/index.html still references TypeScript source instead of bundled assets"

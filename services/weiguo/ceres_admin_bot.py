@@ -76,12 +76,12 @@ async def send_pairing_qr(chat: int, invite_link: str) -> bool:
     """
     if owner_subject(chat) is None:
         return False
-    from slime import _safe_origin
+    from slime import _pairing_page_url
     if not isinstance(invite_link,str) or len(invite_link)>280:
         return False
     try:
         from qrcode import QRCode
-        if not invite_link.startswith(_safe_origin()+"/#slime="):
+        if not re.fullmatch(re.escape(_pairing_page_url())+r"#slime=[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}",invite_link):
             return False
         token=os.getenv("CERES_TELEGRAM_BOT_TOKEN","")
         if not re.fullmatch(r"[0-9]{5,15}:[A-Za-z0-9_-]{30,80}",token):

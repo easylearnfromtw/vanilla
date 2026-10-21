@@ -88,6 +88,7 @@ class NativeTelegramTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{
             "SLIME_ENABLED":"true","SLIME_DB_PATH":directory+"/slime.sqlite",
             "SLIME_PUBLIC_API_ORIGIN":"https://example.invalid",
+            "SLIME_PAIRING_PAGE_URL":"https://example.invalid/slime/",
         }),patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as tg, \
              patch("ceres_admin_bot.send_pairing_qr",new_callable=AsyncMock,return_value=True) as qr:
             self.run_async(command(CHAT,"/hub invite"))
@@ -103,7 +104,7 @@ class NativeTelegramTests(unittest.TestCase):
             self.assertEqual(len(codes),1)
             self.assertEqual(len(links),1)
             self.assertRegex(codes[0],r"^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$")
-            self.assertEqual(links[0],"https://example.invalid/#slime="+codes[0])
+            self.assertEqual(links[0],"https://example.invalid/slime/#slime="+codes[0])
             self.assertIn(codes[0],payload["text"])
             qr.assert_awaited_once_with(CHAT,links[0])
             # Reusing the already issued code must not leak an installed node token.

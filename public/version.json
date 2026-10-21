@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.03-slime-code-first",
-  "description": "Short Slime pairing code first, QR open shows code and copy; legacy invitation link secondary"
+  "build": "2026.10.21.04-slime-standalone-portal",
+  "description": "Independent Slime installation and pairing web portal, QR deep-link, standalone download flow"
 }

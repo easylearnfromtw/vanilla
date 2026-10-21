@@ -27,7 +27,8 @@ class SlimeLifecycle(unittest.TestCase):
         self.env = patch.dict(os.environ, {
             "SLIME_ENABLED": "true",
             "SLIME_DB_PATH": str(Path(self.tmp.name) / "slime.db"),
-            "SLIME_PUBLIC_API_ORIGIN": "https://example.org"
+            "SLIME_PUBLIC_API_ORIGIN": "https://example.org",
+            "SLIME_PAIRING_PAGE_URL": "https://example.org/slime/"
         })
         self.env.start()
 
@@ -37,7 +38,7 @@ class SlimeLifecycle(unittest.TestCase):
 
     def pairing(self):
         invite = issue_invite(OWNER)["link"]
-        self.assertTrue(invite.startswith("https://example.org/#slime="))
+        self.assertTrue(invite.startswith("https://example.org/slime/#slime="))
         token = parse_qs(urlsplit(invite).fragment)["slime"][0]
         request=Request({"type":"http","client":("198.51.100.25",443),"headers":[]})
         return pair(PairRequest(code=token, label="Test Windows", role="friend"),request), token

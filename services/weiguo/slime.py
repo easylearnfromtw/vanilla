@@ -124,7 +124,7 @@ def issue_short_pair(owner: str) -> dict:
                   (_digest("short:"+raw),owner,now+INVITE_SECONDS))
         c.commit()
     formatted="-".join((raw[:4],raw[4:8],raw[8:]))
-    return {"code":formatted,"link":origin+"/#slime="+formatted,
+    return {"code":formatted,"link":_pairing_page_url()+"#slime="+formatted,
             "expires_seconds":INVITE_SECONDS,"single_use":True,
             "notice":"只能配對一次，不是裝置的永久密碼"}
 
@@ -178,6 +178,22 @@ def _safe_origin():
         parts.password or parts.path or parts.query or parts.fragment):
         raise HTTPException(503, "Slime 公開 HTTPS 網域尚未設定")
     return raw
+
+def _pairing_page_url() -> str:
+    """Canonical standalone pairing portal; separate from WeiGuo API origin.
+
+    The web page receives a one-time code in a URL *fragment* only. No
+    third-party QR service or public API endpoint receives the fragment.
+    """
+    target=os.getenv("SLIME_PAIRING_PAGE_URL",
+                     "https://easylearnfromtw.github.io/vanilla/slime/").strip()
+    parts=urlsplit(target)
+    if (parts.scheme!="https" or not parts.hostname or parts.username or parts.password
+        or parts.query or parts.fragment or parts.port not in (None,443)
+        or ".." in parts.path or "\\" in parts.path):
+        raise HTTPException(503,"Slime 獨立配對網頁網址未正確設定")
+    return target.rstrip("/")+"/"
+
 
 class JoinRequest(BaseModel):
     invite: str = Field(min_length=24, max_length=160)

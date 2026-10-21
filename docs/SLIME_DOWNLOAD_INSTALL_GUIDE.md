@@ -43,3 +43,14 @@ Leaving offline: ask the Owner to revoke the node in Telegram, then rerun --leav
 在 @SignWell_bot 輸入 `/hub` → `Slime 節點` → `產生新節點配對碼`，或 `/slime pair`。機器人會提供 12 位高熵配對碼，顯示為 `XXXX-XXXX-XXXX`，另有 Telegram 原生複製按鈕、私聊 QR 圖像及備用邀請連結。短碼只有 10 分鐘有效、用後即失效、後端只存 SHA-256 雜湊；公開配對端點具備每來源 IP 及全站 10 分鐘失敗次數限制。安裝端輸入短碼時呼叫 `/v1/slime/node/pair`，核銷成功後才取得長期節點 Token。既有長邀請連結仍可透過 `/v1/slime/node/join` 配對。QR 完全在 WeiGuo 伺服器本地生成，再送到驗證過的 Owner Telegram 私聊，不經第三方 QR 網站。
 
 配對成功不等於已核准推論，模型權限仍需 Owner 另行同意。請勿轉傳短碼或 QR 到公開頻道。
+
+
+## Slime 獨立安裝網頁
+
+- 預設入口：https://easylearnfromtw.github.io/vanilla/slime/（GitHub Pages 實際部署成功後才能視為可用）。
+- Vanilla 左側「Slime 算力網路」在獨立新分頁開啟安裝頁，並對舊的 #slime= 一次性邀請連結提供導向相容。
+- Telegram @SignWell_bot → /hub → Slime 節點有「Slime 獨立安裝網頁」。建立短碼後，私聊卡片的開啟按鈕與 QR 也指向新頁。
+- 獨立頁包含 Owner/Friend 與 Windows/macOS/Linux 選擇、GitHub 實際發行版本下載、12 位短配對碼和複製、Telegram 授權及裝置退出說明。
+- 網頁只把短碼存入當次頁面的記憶體，讀取網址片段後立即清除 fragment，無 localStorage/sessionStorage 或第三方 QR/追蹤 SDK。它沒有管理權限，也不能從網頁直接核發長期節點 Token。
+- 後端獨立變數 SLIME_PAIRING_PAGE_URL 只用於建立對外分享的 HTTPS 專屬網頁連結；它與 WeiGuo API 的 SLIME_PUBLIC_API_ORIGIN 不同，請勿混為一談。
+- 真正設備配對仍只由使用者在本人電腦上啟動 Slime Runner，向 WeiGuo HTTPS /v1/slime/node/pair 換取專用裝置 Token。

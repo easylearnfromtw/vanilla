@@ -143,6 +143,8 @@ async def _nodes(chat: int, sub: str) -> None:
             buttons.append([_button(icon+" · "+label,"infer_"+direction+":"+node["id"])])
     except (ValueError,TypeError,KeyError,RuntimeError):
         pass
+    from slime import _pairing_page_url
+    buttons.insert(0,[{"text":"↗ Slime 獨立安裝網頁","url":_pairing_page_url()}])
     buttons.insert(0,[_button("＋ 產生新節點配對碼","invite")])
     buttons.extend(_page_buttons("nodes"))
     await say(chat,_title("NODES / Slime 節點")
@@ -161,6 +163,10 @@ async def _invite_card(chat: int, sub: str) -> None:
         code=code_match.group(1)
         buttons.append([{"text":"複製配對碼","copy_text":{"text":code}}])
         link_match=re.search(r"https://[^\s]+/#slime="+re.escape(code),result)
+        if link_match:
+            from slime import _pairing_page_url
+            if link_match.group(0).startswith(_pairing_page_url()+"#slime="):
+                buttons.insert(0,[{"text":"↗ 在獨立網頁開啟配對","url":link_match.group(0)}])
         if link_match and len(link_match.group(0))<=256:
             buttons.append([{"text":"複製邀請連結","copy_text":{"text":link_match.group(0)}}])
     buttons.append([_button("← 返回節點管理","nodes")])

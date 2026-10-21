@@ -85,6 +85,34 @@ class SlimeDesktopOnboardingTests(unittest.TestCase):
             app.leave(settings)
         self.assertFalse(app._settings_path().exists())
 
+    def test_gecko_managed_fleet_enrollment_without_telegram_code(self):
+        secret="gck_"+("A"*48)
+        credential={"node_id":"f"*24,"token":"Z"*48,"poolId":"9"*24,
+                    "inference_enabled":False}
+        env={"GECKO_ENROLLMENT_TOKEN":secret,
+             "GECKO_DEVICE_CONSENT":"approved_by_operator",
+             "GECKO_HOST_LABEL":"GPU-RACK-01",
+             "SLIME_INSTALL_ROLE":"friend"}
+        with patch.dict(os.environ,env),patch.object(app,"_http",return_value=credential) as request,patch(
+             "slime_runner_agent._heartbeat",return_value={"ok":True}):
+            item=app.setup_fleet()
+        self.assertEqual(item["node_id"],credential["node_id"])
+        self.assertTrue(item["gecko_fleet"])
+        self.assertFalse(item["shutdown_opt_in"])
+        self.assertEqual(request.call_args.args[1],app.DEFAULT_SERVER+"/v1/gecko/agent/enroll")
+        self.assertEqual(request.call_args.args[2]["device_consent"],True)
+        self.assertEqual(app._load()["token"],credential["token"])
+        self.assertNotIn(secret,str(app._load()))
+
+    def test_unapproved_headless_gecko_host_cannot_autoenroll(self):
+        secret="gck_"+("A"*48)
+        with patch.dict(os.environ,{"GECKO_ENROLLMENT_TOKEN":secret,
+                  "GECKO_DEVICE_CONSENT":"","SLIME_INSTALL_ROLE":"friend"}),patch.object(
+                  app.sys.stdin,"isatty",return_value=False),patch.object(
+                  app,"_http") as request:
+            self.assertIsNone(app.setup_fleet())
+            request.assert_not_called()
+
     def test_status_does_not_leak_token(self):
         settings={"role":"friend","server":app.DEFAULT_SERVER,
                   "label":"test","node_id":"a"*24,"token":"P"*40}

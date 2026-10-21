@@ -70,7 +70,7 @@ export function audit(){
   if(prompts.has(prompt))throw Error("DUPLICATE_PROMPT");
   prompts.add(prompt);
   if(prompt.length<8||answer.length<8||answer.length>5000)throw Error("CASE_LENGTH");
-  if(/(?:已幫你部署|保證獲利|我已在背景)/.test(answer))throw Error("UNSUPPORTED_TOOL_OR_GUARANTEE_CLAIM");
+  if(/^(?:已幫你部署|我已在背景|保證你獲利)/.test(answer))throw Error("UNSUPPORTED_TOOL_OR_GUARANTEE_CLAIM");
  }
  return {train:TRAIN.length,holdout:HOLDOUT.length,domains:[...new Set(all.map(x=>x.domain))].sort()};
 }

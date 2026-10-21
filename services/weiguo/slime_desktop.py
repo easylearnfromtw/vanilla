@@ -7,6 +7,7 @@ WeiGuo HTTPS origin. Never publishes a local port or runs remote shell code.
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
 from pathlib import Path
 import platform
@@ -105,6 +106,17 @@ def _confirm(question):
     return input(question+" [y/N] ").strip().lower() in ("y","yes")
 
 
+def _public_ip():
+    """Called only after consent; no credential is sent to this external service."""
+    try:
+        data=_http("GET","https://api64.ipify.org?format=json",timeout=6)
+        address=ipaddress.ip_address(data.get("ip","") if isinstance(data,dict) else "")
+        return str(address) if address.is_global else ""
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError):
+        print("公開 IP 查詢暫不可用；不影響 Slime 配對。")
+        return ""
+
+
 def setup():
     role=_role()
     previous=_load()
@@ -126,7 +138,8 @@ def setup():
         print("未取得同意，沒有建立任何配對。")
         return None
     print("隱私選項：IP 與約略地區只會顯示於已授權的 Telegram Owner 管理頁。")
-    geo_opt_in=_confirm("允許分享公開 IP 並查詢粗略城市？") if sys.stdin.isatty() else False
+    geo_opt_in=_confirm("同意經 IPify HTTPS 查詢裝置對外 IP，供 Owner 估算城市？") if sys.stdin.isatty() else False
+    public_ip=_public_ip() if geo_opt_in else ""
     print("電源控制：預設停用。若核准，Telegram Owner 仍需二次確認才能關機。")
     shutdown_opt_in=_confirm("允許 Telegram Owner 遠端關閉本機電源？") if sys.stdin.isatty() else False
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
@@ -134,9 +147,9 @@ def setup():
     short=bool(SHORT_CODE.fullmatch(compact))
     endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
     payload={"code":secret,"role":role,"label":label,
-             "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in} if short else {
+             "geo_opt_in":geo_opt_in,"public_ip":public_ip,"shutdown_opt_in":shutdown_opt_in} if short else {
         "invite":secret,"role":role,"label":label,
-        "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
+        "geo_opt_in":geo_opt_in,"public_ip":public_ip,"shutdown_opt_in":shutdown_opt_in}
     response=_http("POST",server+endpoint,payload,timeout=12)
     token=response.get("token")
     nodeid=response.get("node_id")

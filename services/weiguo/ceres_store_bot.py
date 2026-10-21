@@ -84,14 +84,36 @@ def _claim(update_id: int) -> bool:
         return cursor.rowcount == 1
 
 
-async def _send(chat_id: int, text: str):
+async def _send(chat_id: int, text: str, *, section: str = "store"):
     token = os.environ["CERES_STORE_BOT_TOKEN"]
+    base = "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app"
+    if section not in ("store", "models", "plans", "keys", "usage", "account"):
+        section = "store"
+    markup = {"inline_keyboard": [
+        [{"text": "✦ 開啟 Vanilla API Store", "web_app": {"url": base + "#" + section}}],
+        [{"text": "◈ 模型", "callback_data": "store:models"},
+         {"text": "▤ 方案", "callback_data": "store:plans"},
+         {"text": "⚿ 金鑰", "callback_data": "store:keys"}],
+        [{"text": "▥ 用量", "callback_data": "store:usage"},
+         {"text": "ⓘ 使用說明", "callback_data": "store:help"}],
+    ]}
     async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
         result = await client.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                                   json={"chat_id": chat_id, "text": text, "reply_markup": {"inline_keyboard": [[{"text": "開啟 Vanilla API Store", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app"}}]]}})
+                                   json={"chat_id": chat_id, "text": text, "reply_markup": markup})
         result.raise_for_status()
         if result.json().get("ok") is not True:
             raise ValueError("send failed")
+
+
+STORE_MESSAGES = {
+    "/start": ("✦ 歡迎來到 Vanilla AI API Store\n\n探索 AI 模型、API 金鑰與 Token 用量的統一入口。\n\n目前為公開預覽：金鑰發行與付款尚未開放，請勿匯款或分享敏感資料。\n\n選擇下方功能，或開啟商店瀏覽。", "store"),
+    "/help": ("ⓘ Vanilla API Store 使用指南\n\n/start  商店首頁\n/models  模型目錄\n/plans  方案資訊\n/keys  API 金鑰\n/usage  Token 用量\n/status  服務開放狀態\n\n目前為預覽版本，所有金鑰、計費及用量資料皆需正式後端驗證。", "store"),
+    "/models": ("◈ AI Models\n\n模型清單將由 Vanilla 後端同步。目前尚未提供經驗證的公開模型目錄。", "models"),
+    "/plans": ("▤ Plans\n\n方案、定價及付款尚未開放。請勿透過私訊或外部連結付款。", "plans"),
+    "/keys": ("⚿ API Keys\n\n金鑰建立與撤銷尚未開放，正式版本將要求安全身分驗證。", "keys"),
+    "/usage": ("▥ Usage\n\nToken 用量與配額需由驗證後的後端提供，目前沒有可供顯示的用量數據。", "usage"),
+    "/status": ("ⓘ 服務狀態\n\n商店導覽：已開放\n模型目錄：待同步\nAPI 金鑰：未開放\n付款功能：未開放\n用量查詢：未開放\n\n此處為功能開放狀態，不代表即時伺服器健康監測。", "store"),
+}
 
 
 @router.get("/app")
@@ -118,20 +140,29 @@ async def store_webhook(request: Request,
         raise HTTPException(400, "Invalid JSON") from None
     if not isinstance(update, dict) or type(update.get("update_id")) is not int:
         raise HTTPException(400, "Invalid update")
-    message = update.get("message")
+    callback = update.get("callback_query")
+    message = callback.get("message") if isinstance(callback, dict) else update.get("message")
     if not isinstance(message, dict):
         return {"ok": True}
     chat, sender = message.get("chat"), message.get("from")
     if not isinstance(chat, dict) or not isinstance(sender, dict):
         return {"ok": True}
     chat_id = chat.get("id")
+    actor = callback.get("from") if isinstance(callback, dict) else sender
     if (chat.get("type") != "private" or type(chat_id) is not int
-            or sender.get("id") != chat_id or sender.get("is_bot")):
+            or not isinstance(actor, dict) or actor.get("id") != chat_id or actor.get("is_bot")):
         return {"ok": True}
-    command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
-    if command not in ("/start", "/help"):
+    if isinstance(callback, dict):
+        data = callback.get("data", "")
+        command = "/" + data.removeprefix("store:") if isinstance(data, str) and data.startswith("store:") else ""
+    else:
+        value = message.get("text")
+        words = value.split(maxsplit=1) if isinstance(value, str) else []
+        command = words[0].split("@")[0].lower() if words else ""
+    if command not in STORE_MESSAGES:
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
-    await _send(chat_id, "歡迎使用 Vanilla AI API Store！\n\n模型、方案、API 金鑰與使用量功能即將開放。目前尚未開放付款，請勿匯款或提供敏感資料。")
+    text, section = STORE_MESSAGES[command]
+    await _send(chat_id, text, section=section)
     return {"ok": True}

@@ -7,6 +7,7 @@
 import type {SheetPreviewData} from "./sheet-preview-model";
 import type {CreamResult} from "../cream/core";
 import {streamDisplayInterval,shouldPublishStream} from "./stream-performance";
+import {startInferenceFrameMonitor,recordLocalInferenceMetric} from "./frame-pressure";
 import {VANILLA_BUILD} from "../version";
 import {validateWebLLMMessages} from "./request-guard";
 import {buildLocalChatMessages,buildSystemlessRecoveryMessages,assertLocalMessages,retryOnSystemPromptError,isSystemPromptOrderError,type LocalChatMessage} from "./chat-messages";
@@ -228,6 +229,10 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  const currentEngine=engine;
  if(!currentEngine)throw new Error("本地模型尚未就緒，請載入模型後再試。");
  const model=loadedModel||LOCAL_MODEL;
+ const startedAt=Date.now();
+ let firstTokenMs:number|null=null;
+ let completed=false;
+ const frameMonitor=startInferenceFrameMonitor();
  const latest=history[history.length-1]?.content||"";
  const structured=options.purpose==="structured";
  const task=options.task??(structured?"code":classifyTask(latest));
@@ -248,12 +253,14 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   validateWebLLMMessages(snapshot,mode);
   const stream=await currentEngine!.chat.completions.create({...request,messages:snapshot,stream:true});
   let answer="",last=0,truncated=false;
-  const interval=streamDisplayInterval(navigator.hardwareConcurrency);
   for await(const chunk of stream){
-   answer+=chunk.choices[0]?.delta?.content??"";
+   const delta=chunk.choices[0]?.delta?.content??"";
+   if(delta&&firstTokenMs===null)firstTokenMs=Date.now()-startedAt;
+   answer+=delta;
    if(chunk.choices[0]?.finish_reason==="length")truncated=true;
    const now=Date.now();
    // Reduce expensive React updates while WebGPU is streaming token chunks.
+   const interval=streamDisplayInterval(navigator.hardwareConcurrency,frameMonitor.p95FrameMs());
    if(shouldPublishStream(now,last,interval)){
     const view=stripThinking(answer);
     // Small models occasionally loop; stop early instead of burning the battery.
@@ -267,7 +274,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
   return final;
  }
  try{
-  return await retryOnSystemPromptError(
+  const output=await retryOnSystemPromptError(
    ()=>streamReply(messages,"normal"),
    async()=>{
     // This recovery only runs for the exact upstream WebLLM system-order exception.
@@ -278,6 +285,8 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
     return streamReply(recovery,"recovery");
    }
   );
+  completed=true;
+  return output;
  }catch(error){
   if(isDisposedWebLLMFailure(error)){
    // A disposed TVM object cannot be safely reused on the next turn.
@@ -290,5 +299,10 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
     "；已通過角色序列檢查並嘗試一次本機恢復。請確認裝置版本與正式網站一致後回報版本號。");
   }
   throw error;
- }finally{options.signal?.removeEventListener("abort",abort);}
+ }finally{
+  frameMonitor.stop();
+  recordLocalInferenceMetric({model,elapsedMs:Date.now()-startedAt,ttftMs:firstTokenMs,
+   frameP95Ms:frameMonitor.p95FrameMs(),completed,at:Date.now()});
+  options.signal?.removeEventListener("abort",abort);
+ }
 }

@@ -88,7 +88,7 @@ def _listing(sub: str) -> str:
     if len(rows)>12:
         lines.append(f"尚有 {len(rows)-12} 台，可從 Telegram Mini App 查看全部。")
     lines.append("即使在線，也必須實際模型測試成功才算可用。")
-    return "\n".join(lines)[:3500]
+    return "\n".join(lines)[:2600]
 
 
 def _create_invite(sub: str, chat: int) -> dict | None:

@@ -101,7 +101,14 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
   throw e;
  }finally{clearTimeout(timeout);}
 }
-export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured";deep?:boolean;toolGrounding?:string};
+export type OllamaInferenceMetrics={
+ model:string;task:TaskKind;elapsedMs:number;
+ inputTokens:number|null;outputTokens:number|null;generationTokensPerSecond:number|null;
+ source:"ollama-actual-stream";
+};
+export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;
+ onMetrics?:(metrics:OllamaInferenceMetrics)=>void;signal?:AbortSignal;
+ purpose?:"chat"|"structured";deep?:boolean;toolGrounding?:string};
 /** Streams from Ollama /api/chat (NDJSON). Tuned per model: num_ctx large enough for web/file
  * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the
  * model every question, and thinking only where it pays off. */
@@ -121,6 +128,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
   vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,model})+
   (options.toolGrounding?"\n\n[Vanilla 應用程式提供的可信任工具事實；僅用於解釋功能，非操作授權]\n"+options.toolGrounding:"");
  const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
+ const startedAt=performance.now();
  const send=async(withThink:boolean)=>{
   const extras=ollamaRequestExtras(model,task,Boolean(options.deep));
   if(!withThink)delete extras.think;
@@ -134,9 +142,17 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
   if(error instanceof Error&&/HTTP 400/.test(error.message))res=await send(false);else throw error;
  }
  let text="",failure="",completed=false,truncated=false;
- await readNDJSON<{message?:{content?:string};error?:string;done?:boolean}>(res,chunk=>{
+ let promptTokens:number|null=null,outputTokens:number|null=null,outputDurationNs:number|null=null;
+ await readNDJSON<{message?:{content?:string};error?:string;done?:boolean;
+  prompt_eval_count?:number;eval_count?:number;eval_duration?:number}>(res,chunk=>{
   if(chunk.error){failure=chunk.error;return;}
-  if(chunk.done){completed=true;truncated=(chunk as {done_reason?:string}).done_reason==="length";}
+  if(chunk.done){
+   completed=true;
+   truncated=(chunk as {done_reason?:string}).done_reason==="length";
+   if(Number.isFinite(chunk.prompt_eval_count)&&Number(chunk.prompt_eval_count)>=0)promptTokens=Number(chunk.prompt_eval_count);
+   if(Number.isFinite(chunk.eval_count)&&Number(chunk.eval_count)>=0)outputTokens=Number(chunk.eval_count);
+   if(Number.isFinite(chunk.eval_duration)&&Number(chunk.eval_duration)>0)outputDurationNs=Number(chunk.eval_duration);
+  }
   const piece=chunk.message?.content||"";
   if(piece){
    text+=piece;
@@ -148,5 +164,17 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  if(truncated)throw new Error("Ollama 達到生成長度上限，已拒絕將截斷的答案視為完成。");
  const answer=structured?stripThinking(text).text.trim():toTaiwanese(cleanModelOutput(text));
  if(!answer)throw new Error("Ollama 未回傳回答");
+ // Only provider-reported counters are accepted as token measurements.
+ // Never record the user's prompt, chat transcript or answer in telemetry.
+ if(options.onMetrics){
+  const metrics:OllamaInferenceMetrics={
+   model,task,elapsedMs:Math.round(performance.now()-startedAt),
+   inputTokens:promptTokens,outputTokens,
+   generationTokensPerSecond:outputTokens!==null&&outputDurationNs!==null
+    ?Math.round(outputTokens*1e10/outputDurationNs)/10:null,
+   source:"ollama-actual-stream"
+  };
+  try{options.onMetrics(metrics);}catch{/* Observability must not break a valid answer. */}
+ }
  return answer;
 }

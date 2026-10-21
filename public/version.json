@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.22.04-merlin-taiwan-pragmatics",
-  "description": "Merlin Taiwan Mandarin semantic pragmatics, local context alignment and human-reviewed Atuber training data gate"
+  "build": "2026.10.22.05-atuber-live-readiness",
+  "description": "Atuber 4B/14B/30B alias tuning, operator-triggered inference probes, read-only host preflight"
 }

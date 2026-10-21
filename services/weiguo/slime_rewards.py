@@ -25,6 +25,7 @@ router=APIRouter(tags=["slime-rewards"])
 DEFAULT_REWARD=100_000
 MAX_REWARD=10_000_000
 TICKET_TTL=600
+ABANDONED_RESERVATION_SECONDS=900  # Above bounded inference execution time.
 _ID=re.compile(r"^[a-f0-9]{24}$")
 _SUB=re.compile(r"^[0-9]{8,32}$")
 _TICKET=re.compile(r"^[A-Za-z0-9_-]{32,160}$")
@@ -63,6 +64,52 @@ def _tables(db):
     db.execute("""CREATE TABLE IF NOT EXISTS slime_reward_admin_audit(
       id INTEGER PRIMARY KEY AUTOINCREMENT, owner_sub TEXT NOT NULL,
       amount INTEGER NOT NULL, enabled INTEGER NOT NULL, at INTEGER NOT NULL)""")
+
+
+
+def recover_abandoned_reservations(db, now: int | None = None) -> int:
+    """Recover reward credits trapped by a crashed inference process.
+
+    Caller MUST hold a write transaction (BEGIN IMMEDIATE). Mark usage failed,
+    restore wallet balance and append its refund ledger entry atomically.
+    Actual backend requests are bounded at 45 seconds; 15 minutes gives an
+    ample margin before treating a running job as abandoned.
+    """
+    if not _usage_exists(db):
+        return 0
+    timestamp = int(time.time()) if now is None else int(now)
+    rows = db.execute("""SELECT u.id, u.key_id, u.charged_tokens, u.model,
+                               k.google_sub
+        FROM vanilla_api_usage u JOIN slime_reward_key k ON k.key_id=u.key_id
+        WHERE u.status='running' AND u.created_at<=?
+        ORDER BY u.created_at,id LIMIT 200""",
+        (timestamp-ABANDONED_RESERVATION_SECONDS,)).fetchall()
+    recovered = 0
+    for row in rows:
+        amount = int(row["charged_tokens"])
+        if amount < 0:
+            raise RuntimeError("Invalid abandoned reservation amount")
+        changed=db.execute("""UPDATE vanilla_api_usage
+            SET status='failed', charged_tokens=0,
+                prompt_tokens=NULL, completion_tokens=NULL
+            WHERE id=? AND key_id=? AND status='running'""",
+            (row["id"],row["key_id"]))
+        if changed.rowcount != 1:
+            continue
+        wallet=db.execute("""UPDATE slime_reward_wallet
+            SET balance=balance+?,spent=spent-?
+            WHERE google_sub=? AND spent>=?""",
+            (amount,amount,row["google_sub"],amount))
+        if wallet.rowcount != 1:
+            raise RuntimeError("Reward wallet missing during recovery")
+        db.execute("""INSERT INTO slime_reward_ledger
+            (id,google_sub,kind,delta,created_at,model,note)
+            VALUES(?,?,?,?,?,?,?)""",
+            (row["id"]+":abandoned",row["google_sub"],
+             "api_refund",amount,timestamp,row["model"],
+             "abandoned_timeout_refund"))
+        recovered += 1
+    return recovered
 
 
 def _google(credential: str) -> str:
@@ -278,6 +325,8 @@ def balance(body:GoogleCredential):
     now=int(time.time())
     with _session() as db:
         _tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        recover_abandoned_reservations(db, now)
         wallet=db.execute("SELECT balance,earned,spent,created_at FROM slime_reward_wallet WHERE google_sub=?",
                           (sub,)).fetchone()
         if not wallet:

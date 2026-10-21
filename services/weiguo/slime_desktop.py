@@ -125,19 +125,26 @@ def setup():
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
+    print("隱私選項：IP 與約略地區只會顯示於已授權的 Telegram Owner 管理頁。")
+    geo_opt_in=_confirm("允許分享公開 IP 並查詢粗略城市？") if sys.stdin.isatty() else False
+    print("電源控制：預設停用。若核准，Telegram Owner 仍需二次確認才能關機。")
+    shutdown_opt_in=_confirm("允許 Telegram Owner 遠端關閉本機電源？") if sys.stdin.isatty() else False
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
     compact=re.sub(r"[-\s]","",secret).upper()
     short=bool(SHORT_CODE.fullmatch(compact))
     endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
-    payload={"code":secret,"role":role,"label":label} if short else {
-        "invite":secret,"role":role,"label":label}
+    payload={"code":secret,"role":role,"label":label,
+             "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in} if short else {
+        "invite":secret,"role":role,"label":label,
+        "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
     response=_http("POST",server+endpoint,payload,timeout=12)
     token=response.get("token")
     nodeid=response.get("node_id")
     if not isinstance(token,str) or not 32<=len(token)<=256 or not isinstance(nodeid,str):
         raise ValueError("WeiGuo 配對結果無效；沒有保存憑證")
     obj={"role":role,"server":server,"label":label,
-         "node_id":nodeid,"token":token}
+         "node_id":nodeid,"token":token,
+         "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
     # Save first: one-time invitations must never be lost when the immediate
     # heartbeat fails because of a temporary network or server interruption.
     _save(obj)
@@ -220,6 +227,7 @@ def main():
         print("按 Ctrl+C 可隨時停止；永久退出請使用 --leave。")
         os.environ["VANILLA_SERVER_URL"]=config["server"]
         os.environ["SLIME_NODE_TOKEN"]=config["token"]
+        os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
         try:
             run_model()
         except KeyboardInterrupt:

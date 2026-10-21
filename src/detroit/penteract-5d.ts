@@ -84,6 +84,15 @@ export function embedFiveSpace(text:string):Vec5{
  });
  return normalize(dims);
 }
+/** Local, uncalibrated lexical evidence for SHADOW-ONLY routing checks.
+ * A geometric nearest neighbor is not reliable without any known task cues.
+ * This number is NOT semantic confidence, policy approval or authorization.
+ */
+export function penteractLexicalEvidence(question:string):number{
+ const bounded=question.normalize("NFKC").trim().slice(0,1024);
+ return KEYWORDS.filter(pattern=>pattern.test(bounded)).length;
+}
+
 export type FiveExpert={id:string;title:string;prototype:Vec5;group:string};
 const SEEDS=[
  {id:"finance",title:"財務分析",group:"expert",sample:"財務 投資 報酬率 毛利 現金流 風險 NPV 財報"},

@@ -403,6 +403,12 @@ def weeken_join(body:WeekenOptIn):
         if row:
             if row["status"]=="node_removed":
                 raise HTTPException(409,"節點已移除，無法加入")
+            if row["status"]=="joined":
+                # Preferences are user-controlled and can be changed anytime.
+                db.execute("""UPDATE slime_weeken_enrollment
+                    SET allow_contact=?,allow_diagnostics=?,allow_relay=0,changed_at=?
+                    WHERE google_sub=?""",
+                    (int(body.allow_contact),int(body.allow_diagnostics),now,sub))
             if row["status"]=="withdrawn":
                 db.execute("""UPDATE slime_weeken_enrollment SET status='joined',
                     consent_at=?,changed_at=?,allow_contact=?,allow_diagnostics=?,allow_relay=0
@@ -739,6 +745,22 @@ def reward_page():
        "img-src https://accounts.google.com data:; frame-ancestors 'none'; "
        "form-action 'none'; base-uri 'none'")})
     return result
+
+
+def weeken_participants(owner_sub: str) -> list[dict]:
+    """Owner-only projection; never expose raw Google sub or Drive data."""
+    with _session() as db:
+        _tables(db)
+        records=db.execute("""SELECT e.node_id,e.score,e.bonus,e.status,
+           e.consent_at,e.changed_at,e.allow_contact,e.allow_diagnostics
+           FROM slime_weeken_enrollment e JOIN slime_reward_wallet w
+           ON e.google_sub=w.google_sub WHERE w.owner_sub=?
+           ORDER BY e.consent_at DESC LIMIT 200""",(owner_sub,)).fetchall()
+    return [{"nodeId":r["node_id"],"score":r["score"],"bonusTokens":r["bonus"],
+             "status":r["status"],"enrolledAt":r["consent_at"],"updatedAt":r["changed_at"],
+             "contactAllowed":bool(r["allow_contact"]),
+             "diagnosticsAllowed":bool(r["allow_diagnostics"]),
+             "networkRelayAllowed":False} for r in records]
 
 
 def reward_snapshot(owner_sub: str) -> dict:

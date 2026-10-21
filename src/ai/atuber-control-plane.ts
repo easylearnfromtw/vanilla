@@ -28,7 +28,7 @@ export type AtuberRouteDecision={
 export function isAtuberDriver(candidate:ModelCandidate):boolean{
  if(candidate.source==="local")return candidate.model===ATUBER_LOCAL_MODEL;
  if(candidate.source!=="ollama")return false;
- return isAtuberModel(candidate.model)&&/(^|[\\/\s:_-])(october|atuber|阿土伯)($|[\\/\s:_-])/i.test(candidate.model);
+ return isAtuberModel(candidate.model)&&/^(?:october|atuber|阿土伯)(?::[a-z0-9._-]+)?$/i.test(candidate.model);
 }
 
 export function selectAtuberDriver(

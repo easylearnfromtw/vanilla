@@ -203,11 +203,12 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>
 <p>請從已授權的 Ceres Owner 私聊使用「Slime 私人管理頁」按鈕開啟。
 一般瀏覽器直接開啟網址不會取得管理權限。</p></div>
-<div class="card" id="confirm-box" hidden><div class="confirm"><strong id="confirm-title">確認操作</strong>
-<p id="confirm-description"></p>
-<div class="controls"><button id="approve" class="btn danger">確認執行</button>
-<button id="cancel" class="btn">取消</button></div></div></div>
-<div id="message" class="result" role="status" aria-live="polite" hidden></div>
+<div id="confirm-box" class="sheet-backdrop" hidden><div class="sheet-body" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+<div class="sheet-handle" aria-hidden="true"></div><span class="eyebrow">SECURE ACTION / REVIEW</span>
+<strong id="confirm-title">確認操作</strong><p id="confirm-description"></p>
+<div class="sheet-actions"><button type="button" id="approve" class="btn danger solid">確認執行</button>
+<button type="button" id="cancel" class="btn soft">取消，返回</button></div></div></div>
+<div id="message" class="toast" role="status" aria-live="polite" hidden></div>
 </main>
 <script nonce="__NONCE__">
 (function(){
@@ -215,11 +216,21 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
  const tg=window.Telegram?.WebApp;
  const auth=tg?.initData||"";
  const $=id=>document.getElementById(id);
- let nodes=[],issued=null,pending=null,busy=false;
- function notice(txt){$("message").hidden=false;$("message").textContent=String(txt);}
+ let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false;
+ function haptic(){try{tg?.HapticFeedback?.selectionChanged?.();}catch(e){}}
+ function notice(txt){
+   const box=$("message");box.hidden=false;box.textContent=String(txt);
+   if(flash)clearTimeout(flash);
+   flash=setTimeout(()=>{box.hidden=true;},4200);
+ }
  function setTab(value){
-   document.querySelectorAll("[data-tab]").forEach(btn=>btn.setAttribute("aria-selected",String(btn.dataset.tab===value)));
+   if(!["overview","devices","pairing"].includes(value))return;
+   document.querySelectorAll("[data-tab]").forEach(btn=>{
+     const active=btn.dataset.tab===value;
+     btn.setAttribute("aria-selected",String(active));btn.tabIndex=active?0:-1;
+   });
    ["overview","devices","pairing"].forEach(key=>$(key).hidden=key!==value);
+   haptic();
  }
  async function api(route,extra){
    if(!auth)throw Error("Telegram Owner 驗證未就緒；請從 Bot 私聊重新開啟。");
@@ -234,7 +245,9 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
    const root=document.createElement("article");root.className="node";
    const head=document.createElement("div");head.className="node-top";
    const name=document.createElement("strong");name.textContent=n.label;
-   const badge=document.createElement("span");badge.className="state";badge.textContent=n.online?"● 在線":"○ 離線";
+   const badge=document.createElement("span");badge.className="state";
+   badge.dataset.online=String(Boolean(n.online));
+   badge.textContent=n.online?"● 在線":"○ 離線";
    head.append(name,badge);root.append(head);
    const info=document.createElement("small");
    info.textContent=(n.role==="owner"?"我的電腦":"朋友節點")+" · "+
@@ -251,12 +264,15 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
    ];
    actions.forEach(a=>{
     const button=document.createElement("button");button.type="button";
-    button.className="btn"+(a.kind==="revoke"?" danger":"");button.textContent=a.label;
+    button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
     button.addEventListener("click",()=>plan(n,a.kind,a.enable));ctr.append(button);
    });
    root.append(ctr);return root;
  }
  async function reload(){
+  if(requesting)return;
+  requesting=true;$("refresh").disabled=true;
+  $("sync-pill").textContent="● 正在同步";$("sync-pill").dataset.state="loading";
   try{
    const data=await api("snapshot");
    nodes=data.nodes||[];
@@ -265,15 +281,21 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
    $("approved").textContent=String(data.counts.inferenceApproved);
    $("models").textContent=String(data.counts.catalogModels);
    $("service").textContent=data.service.message;
+   $("sync-pill").textContent="● 已同步";$("sync-pill").dataset.state="ready";
+   $("device-counter").textContent=nodes.length+" DEVICES";
    const list=$("node-list");list.replaceChildren();
    if(!nodes.length){const p=document.createElement("p");p.textContent="尚未註冊節點。可前往「配對」新增第一台電腦。";list.append(p);}
    else nodes.forEach(n=>list.append(nodeCard(n)));
    $("installer").href=data.publicInstaller;
-  }catch(e){notice(e.message);}
+  }catch(e){
+   $("sync-pill").textContent="● 連線失敗";$("sync-pill").dataset.state="error";
+   notice(e.message);
+  }finally{requesting=false;$("refresh").disabled=false;}
  }
  async function issue(){
   const button=$("issue");button.disabled=true;$("pair-result").hidden=true;
   try{
+   button.textContent="正在建立安全配對碼…";
    const obj=await api("issue");
    issued={code:obj.code,link:obj.link};
    $("code").textContent=issued.code;$("code-box").hidden=false;
@@ -282,7 +304,7 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
    $("pair-result").hidden=false;
    $("pair-result").textContent="新配對碼已建立。僅私下提供給已同意加入的電腦持有人。";
   }catch(e){$("pair-result").hidden=false;$("pair-result").textContent=e.message;}
-  finally{button.disabled=false;}
+  finally{button.disabled=false;button.textContent="＋ 產生一次性配對碼";}
  }
  async function copy(content){
   if(!content)return;
@@ -301,7 +323,7 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
    $("confirm-title").textContent=obj.title;
    $("confirm-description").textContent=warning+" 確認後才會寫入後端。";
    $("confirm-box").hidden=false;
-   $("confirm-box").scrollIntoView({block:"nearest"});
+   $("cancel").focus();
   }catch(e){notice(e.message);}
  }
  async function approve(){
@@ -327,7 +349,16 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
- $("cancel").addEventListener("click",()=>{pending=null;$("confirm-box").hidden=true;});
+ function closeConfirm(){pending=null;$("confirm-box").hidden=true;}
+ $("cancel").addEventListener("click",closeConfirm);
+ $("confirm-box").addEventListener("click",event=>{if(event.target===$("confirm-box"))closeConfirm();});
+ document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&!$("confirm-box").hidden){event.preventDefault();closeConfirm();}
+  if(["ArrowLeft","ArrowRight"].includes(event.key)&&event.target?.matches?.('[role="tab"]')){
+   const tabs=[...document.querySelectorAll("[data-tab]")],i=tabs.indexOf(event.target);
+   if(i>=0){const next=tabs[(i+(event.key==="ArrowRight"?1:tabs.length-1))%tabs.length];setTab(next.dataset.tab);next.focus();}
+  }
+ });
  void reload();
 })();
 </script></body></html>"""

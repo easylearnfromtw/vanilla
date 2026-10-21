@@ -44,7 +44,7 @@ export default function SlimePanel(){
  const pairCode=useMemo(()=>{
   if(!invite)return null;
   const token=invite.match(/#slime=([^#&?]+)$/)?.[1]??"";
-  return /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(token)?token:null;
+  return /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}(?:-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}){2}$/.test(token)?token:null;
  },[invite]);
  const asset=useMemo(()=>trustedAsset(release,role,os),[release,role,os]);
  useEffect(()=>{

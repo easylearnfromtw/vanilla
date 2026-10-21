@@ -227,6 +227,7 @@ async function attachFile(file?:File){
 }
 const [busy,setBusy]=useState(false);
 const [generating,setGenerating]=useState(false);
+ const [victoriaProcessing,setVictoriaProcessing]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
 const [modelProgress,setModelProgress]=useState(0);
 const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(preferredLocalModel);
@@ -1228,13 +1229,25 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(!privateMode&&!humanize&&(victoriaEnabled||wantsLongitudinal)){
   if(detroit.depth!=="quick")markDetroit("victoria","running",victoriaEnabled?
    "正在核對已授權封存與長期指標":"正在核對已啟用的 CREAM 長期指標（未讀取跨對話封存）");
+  const victoriaController=wantsLongitudinal?new AbortController():null;
+  if(victoriaController){
+   abortRef.current=victoriaController;
+   setBusy(true);setVictoriaProcessing(true);
+   setLastRoute("Victoria 正在檢視本機已授權的歷史紀錄…");
+  }
   try{
-   // Current-chat terse follow-ups resolve locally. Archived conversations still
-   // require Victoria's separate opt-in, while CREAM honors its own preference.
    const query=victoriaTaskQuery(question,history);
    const evidence=await executeDetroitNative<VictoriaRecall>("victoria",{
     owner:victoriaOwner,query,includeLongitudinal:wantsLongitudinal
-   },{privateMode});
+   },{
+    privateMode,signal:victoriaController?.signal,
+    onProgress:(done,total)=>{
+     if(!wantsLongitudinal)return;
+     const progress=done.toLocaleString("en-US")+"／"+total.toLocaleString("en-US");
+     setLastRoute("Victoria × CREAM 長期數據："+progress+" 筆，資料仍在本機處理");
+     if(detroit.depth!=="quick")markDetroit("victoria","running","已核對 "+progress+" 筆來源觀察");
+    }
+   });
    victoriaContext=evidence.context;
    victoriaDataContext=evidence.longitudinal?.context||"";
    const found=evidence.matches.length,metrics=evidence.longitudinal?.matchedMetrics||0;
@@ -1244,8 +1257,20 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    if(detroit.depth!=="quick")markDetroit("victoria",found||metrics?"done":"skipped",victoriaStatus);
   }catch(error){
    recordClientFault("detroit","tool",error);
+   if(victoriaController?.signal.aborted){
+    if(detroit.depth!=="quick")markDetroit("victoria","skipped","使用者取消長期數據分析，本輪沒有產生完整結論");
+    toolReply(visibleQuestion??question,"Victoria 長期資料分析已停止；這一輪沒有完成完整歷史統計。",
+     {...TOOL.cream,status:"partial",detail:"使用者已停止長期資料處理"});
+    setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
+    return;
+   }
    victoriaStatus="Victoria 歷史資料讀取未完成，沒有將未驗證舊數據加入答案";
    if(detroit.depth!=="quick")markDetroit("victoria","error",victoriaStatus);
+  }finally{
+   if(victoriaController){
+    if(abortRef.current===victoriaController)abortRef.current=null;
+    setVictoriaProcessing(false);setBusy(false);
+   }
   }
  }
  const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";
@@ -1474,7 +1499,7 @@ const composer=<div className="composer-wrap">
    }
    if(event.key==="Enter"&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();if(!busy)void send();}
   }}/>
- {generating?<button type="button" className="send-button is-stop" title="停止生成" aria-label="停止生成" onClick={stopGenerating}><Square size={14} fill="currentColor"/></button>:
+ {(generating||victoriaProcessing)?<button type="button" className="send-button is-stop" title="停止生成" aria-label="停止生成" onClick={stopGenerating}><Square size={14} fill="currentColor"/></button>:
  <button type="submit" className="send-button" title="傳送" aria-label="傳送" disabled={busy||assetBusy||Boolean(comparison)||(!draft.trim()&&!image&&!fileName)}><ArrowUp size={19}/></button>}
 </form>
 {privateMode&&<p className="composer-private"><LockKeyhole size={11}/>私密對話只存在這台裝置</p>}

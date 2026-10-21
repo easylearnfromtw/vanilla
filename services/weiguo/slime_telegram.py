@@ -63,22 +63,32 @@ def _audit(db, sub: str, chat: int, operation: str, node_id: str = ""):
 
 
 def _listing(sub: str) -> str:
+    from slime_ops import score
     with _db() as db:
-        rows = db.execute("SELECT id,label,role,last_seen,share_enabled,owner_enabled,inference_enabled,ram_gb,gpu"
-                          " FROM nodes WHERE owner=? ORDER BY label", (sub,)).fetchall()
+        rows=db.execute("""SELECT id,label,role,last_seen,share_enabled,owner_enabled,
+            inference_enabled,cpu,ram_gb,gpu,os,pair_number,max_load_pct,thermal_limit_c,
+            gpu_temp_c,geo_opt_in,geo_area,public_ip FROM nodes
+            WHERE owner=? ORDER BY pair_number,label""",(sub,)).fetchall()
     if not rows:
-        return "Slime 目前沒有已配對的電腦。你可以說「幫我建立朋友邀請碼」。"
-    active = sum(time.time() - x["last_seen"] <= ONLINE_SECONDS for x in rows)
-    lines = [f"Slime 目前 {len(rows)} 台節點，{active} 台有心跳（不代表正在推論）。"]
-    for x in rows[:25]:
-        online = "在線" if time.time() - x["last_seen"] <= ONLINE_SECONDS else "離線"
-        allowed = "可參與" if x["owner_enabled"] and x["share_enabled"] else "已暫停"
-        inference = "已核准推論" if x["inference_enabled"] else "推論關閉"
-        lines.append(f"• {x['label']}｜{online}｜{allowed}｜{inference}｜RAM {x['ram_gb']:g}GB｜ID {x['id']}")
-    if len(rows) > 25:
-        lines.append(f"另有 {len(rows)-25} 台；目前只顯示前 25 台。")
-    lines.append("目前只有節點註冊／心跳，尚未啟用 30B 分散式推論。")
-    return "\n".join(lines)[:1200]
+        return "Slime 目前沒有已配對的電腦。請按「＋ 產生新節點配對碼」。"
+    active=sum(time.time()-n["last_seen"]<=ONLINE_SECONDS for n in rows)
+    lines=[f"Slime 網路：{len(rows)} 個已綁定節點，{active} 個心跳在線。"]
+    for n in rows[:12]:
+        online="在線" if time.time()-n["last_seen"]<=ONLINE_SECONDS else "離線"
+        permitted="可共享" if n["owner_enabled"] and n["share_enabled"] else "暫停"
+        inference="推論已授權" if n["inference_enabled"] else "推論未授權"
+        temp=(f'{n["gpu_temp_c"]:g}°C' if n["gpu_temp_c"] is not None else "溫度未回報")
+        location=(n["geo_area"] or "地區待查") if n["geo_opt_in"] else "位置未授權"
+        lines.append(
+            f'第{n["pair_number"]}個：{n["label"]}｜{online}｜{permitted}｜{inference}\n'
+            f'裝置評分 {score(n["cpu"],n["ram_gb"],n["gpu"])}/10000（估算）'
+            f'｜RAM {n["ram_gb"]:g}GB｜GPU {temp}｜負載 {n["max_load_pct"]}%'
+            f'｜IP約略位置 {location}\nID {n["id"]}'
+        )
+    if len(rows)>12:
+        lines.append(f"尚有 {len(rows)-12} 台，可從 Telegram Mini App 查看全部。")
+    lines.append("即使在線，也必須實際模型測試成功才算可用。")
+    return "\n".join(lines)[:3500]
 
 
 def _create_invite(sub: str, chat: int) -> dict | None:

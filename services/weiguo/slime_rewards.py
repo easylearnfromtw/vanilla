@@ -576,14 +576,35 @@ p,small{color:#75757c;font-size:13px;line-height:1.8}small{font-size:11px}
 .metric small{display:block}.metric strong{font-size:31px;letter-spacing:-.04em}
 #google{margin:18px 0;min-height:43px}button{width:100%;border:0;padding:14px 17px;margin:7px 0;border-radius:12px;background:#18181b;color:#fff;font-size:13px;font-weight:750;cursor:pointer}
 button:disabled{opacity:.5}button.secondary{color:#18181b;background:#f1f1f3}
+.weeken-check{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.7;margin:13px 0}
+.weeken-check input{flex-shrink:0;margin-top:5px}
+#thankyou{border-top:1px solid #e7e7e9;padding-top:20px;margin-top:15px}
 #key{font:12px ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f4f5;padding:13px;border-radius:10px}
 [hidden]{display:none!important}#status{border-radius:12px;padding:10px 0;font-size:12px}
 </style></head><body><main>
 <div class="brand">SLIME / VANILLA REWARDS</div><h1>配對完成，<br>領取你的 Token。</h1>
 <p>完成 Google 身分驗證後，可領取由 Slime 管理員提供的一次性模型額度。每個 Google 帳號及每個節點最多領取一次。</p>
+<div class="metric"><small>裝置能力評分（1–1000）</small><strong id="device-score">—</strong>
+<small>基本獎勵：分數 × <span id="reward-multiplier">100</span> Token／分</small></div>
 <div class="metric"><small>本次新節點加入獎勵</small><strong><span id="reward-amount">—</span> <small style="display:inline">Token</small></strong></div>
 <div id="google"></div>
 <p id="status" role="status" aria-live="polite">登入後會檢查獎勵資格；不會向 Google 傳送節點金鑰。</p>
+<section id="thankyou" hidden aria-label="感謝加入 Slime 及 WEEKEN 邀請">
+<h2 style="font-size:26px;letter-spacing:-.05em">謝謝你加入 Slime！</h2>
+<p>感謝你分享裝置資源。這份 Token 大禮已加入 Vanilla 錢包。你願意再加入 <strong>WEEKEN VPN 企劃</strong>嗎？</p>
+<div class="metric"><small>WEEKEN 加碼：裝置分數 × 100，尾數無條件進位至 9</small>
+<strong id="weeken-bonus">—</strong></div>
+<p>這是與 Slime 獨立的自願加入決定，只記錄 Google 帳號識別碼、節點 ID、評分、同意時間及你指定的許可。
+<strong>加入不會自行啟用 VPN、傳送你的網路流量、查看檔案或賦予遠端控制權。</strong>
+任何實際網路轉送都需另行清楚授權。你可隨時撤回登記及選填許可。</p>
+<label class="weeken-check"><input type="checkbox" id="weeken-consent">我自願加入 WEEKEN VPN 企劃並同意上述必要登記資料</label>
+<label class="weeken-check"><input type="checkbox" id="weeken-contact">同意接收企劃相關聯絡（選填）</label>
+<label class="weeken-check"><input type="checkbox" id="weeken-diag">同意提供基本裝置狀態資料（選填，非瀏覽紀錄）</label>
+<button id="weeken-join" type="button" disabled>同意加入 WEEKEN，領取加碼</button>
+<button id="weeken-skip" type="button" class="secondary">暫不加入，保留原贈禮</button>
+<button id="weeken-leave" type="button" class="secondary" hidden>撤回 WEEKEN 登記</button>
+<p id="weeken-status" role="status" aria-live="polite"></p>
+</section>
 <div id="wallet" hidden><div class="metric"><small>目前可用額度</small><strong id="balance">—</strong></div>
 <div class="metric"><small>累計消耗 · 以實際用量優先</small><strong id="spent">0</strong>
 <p id="usage-detail" style="margin-bottom:0">尚未產生模型請求。</p></div>

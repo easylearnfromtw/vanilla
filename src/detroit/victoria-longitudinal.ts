@@ -4,6 +4,7 @@
  * Browser local only; no polling, background inference or external transmission here.
  */
 import type {CreamTrend, CreamSnapshot} from "../cream/longitudinal.ts";
+import {inspectExternalText} from "../security/trust-boundary.ts";
 
 export type VictoriaLongitudinal={
  context:string;matchedMetrics:number;inspectedMetrics:number;
@@ -45,7 +46,9 @@ export function summarizeVictoriaLongitudinal(
  const snapshotCount=report.snapshots.length;
  if(!selected.length)return {context:"",matchedMetrics:0,inspectedMetrics:trends.length,snapshots:snapshotCount,
   from:null,to:null,observations:0};
+ const safe=(v:string,max:number)=>v.replace(/[\r\n<>]/g," ").replace(/\s+/g," ").slice(0,max);
  const lines=selected.map((t,i)=>{
+  if(inspectExternalText(t.metric+" "+t.unit+" "+t.points.slice(0,2).map(p=>p.source).join(" "),"memory").blocked)return "";
   const enough=t.uniqueDates>=2;
   const span=t.firstDate+" → "+t.lastDate;
   const basis=count(t.count)+" 筆觀察／"+count(t.uniqueDates)+" 個日期";
@@ -57,14 +60,14 @@ export function summarizeVictoriaLongitudinal(
     "；不同日期不足兩個，不可判斷趨勢";
   const quality=t.quality.length?"；品質註記："+t.quality.slice(0,2).join("、").slice(0,150):"";
   const sources=[...new Set(t.points.map(p=>p.source).filter(Boolean))].slice(0,2);
-  const provenance=sources.length?"；資料來源："+sources.join("、").slice(0,120):"；資料來源名稱缺失";
-  return "[CREAM 指標 "+(i+1)+"] "+t.metric.slice(0,90)+(t.unit?" ("+t.unit.slice(0,24)+")":"")+
+  const provenance=sources.length?"；資料來源："+safe(sources.join("、"),120):"；資料來源名稱缺失";
+  return "[CREAM 指標 "+(i+1)+"] "+safe(t.metric,90)+(t.unit?" ("+safe(t.unit,24)+")":"")+
     "，區間 "+span+"，"+basis+"，"+measured+trend+quality+provenance;
- });
+ }).filter(Boolean);
  const observations=selected.reduce((n,x)=>n+x.count,0);
  const intro="Victoria／CREAM 長期資料核對（只讀本裝置已授權之同帳號一般模式 CREAM 歷史）：\n"+
   "CREAM 已用數值原始觀察計算；Victoria 僅編排與挑選證據，不自行推估缺失數值。"+
   "不可混合單位、不作因果推論，也不可把舊數值當成即時值；必須保留數據區間、來源及資料品質。\n";
- return {context:(intro+lines.join("\n")).slice(0,3300),matchedMetrics:selected.length,
+ return {context:(intro+lines.join("\n")).slice(0,3300),matchedMetrics:lines.length,
   inspectedMetrics:trends.length,snapshots:snapshotCount,from:ext.from,to:ext.to,observations};
 }

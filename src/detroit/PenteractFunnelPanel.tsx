@@ -4,6 +4,7 @@ import {ROTATION_PLANES,PENTERACT_VERTICES,PENTERACT_EDGES,project5D,
 import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract-camera";
 import {sectionPenteract5D,type FiveSlice} from "./penteract-section";
 import {shadowPenteractRoute} from "./penteract-shadow";
+import {routeLearnedFive,assertLearnedFiveWeights,type LearnedFiveWeights} from "./penteract-learned";
 import {latestOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "./penteract-telemetry";
 import "./penteract-5d.css";
 
@@ -17,18 +18,22 @@ export default function PenteractFunnelPanel(){
  const [angle,setAngle]=useState(0.42);
  const [showAll,setShowAll]=useState(false);
  const [showSlice,setShowSlice]=useState(false);
+ const [learnedArtifact,setLearnedArtifact]=useState<LearnedFiveWeights|null>(null);
+ const [learnedError,setLearnedError]=useState("");
  const [slice,setSlice]=useState<FiveSlice>({w:0,v:0});
  const [orbit,setOrbit]=useState<OrbitCamera>({...DEFAULT_ORBIT_CAMERA});
  const [measured,setMeasured]=useState(latestOctoberFunnelObservation);
  useEffect(()=>subscribeOctoberFunnelObservation(setMeasured),[]);
  const plan=useMemo(()=>planPenteractFunnel(text,{privateMode:true}),[text]);
  const shadow=useMemo(()=>shadowPenteractRoute(text),[text]);
+ const learnedPreview=useMemo(()=>learnedArtifact?routeLearnedFive(text,learnedArtifact):null,[text,learnedArtifact]);
  const projected=useMemo(()=>PENTERACT_VERTICES.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[plane,angle,orbit]);
  const expertNodes=useMemo(()=>FIVE_EXPERTS.map(p=>({
   ...p,pos:cameraProject3D(project5D(p.prototype,plane,angle),orbit)
  })),[plane,angle,orbit]);
  const query=useMemo(()=>cameraProject3D(project5D(embedFiveSpace(text),plane,angle),orbit),[text,plane,angle,orbit]);
  const chosenExpert=expertNodes.find(node=>node.id===shadow.candidateId);
+ const learnedPoint=learnedPreview?cameraProject3D(project5D(learnedPreview.coordinate,plane,angle),orbit):null;
  const sliceGeometry=useMemo(()=>sectionPenteract5D(slice),[slice]);
  const sliceProjected=useMemo(()=>sliceGeometry.vertices.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[sliceGeometry,plane,angle,orbit]);
  return <section className="october-5d" aria-label="阿土伯 Penteract 五維架構與理解優先漏斗">
@@ -56,6 +61,10 @@ export default function PenteractFunnelPanel(){
        <g key={x.id}><circle cx={x.pos.x} cy={x.pos.y} r="7" fill="#fff" stroke="#8d8d8d" strokeWidth="1.5"/><title>{x.title}：五維原型座標（非實測語意精度）</title></g>)}
       <circle cx={query.x} cy={query.y} r="10" fill="#111" stroke="#fff" strokeWidth="3"/>
       <circle cx={query.x} cy={query.y} r="15" fill="none" stroke="#111" opacity=".36"/>
+      {learnedPoint&&<g aria-label="從本機權重計算的五維學習投影（僅供影子測試）">
+       <circle cx={learnedPoint.x} cy={learnedPoint.y} r="7" fill="none" stroke="#767676" strokeDasharray="3 2" strokeWidth="2"/>
+       <title>實際 CPU 訓練的 5D 專家投影，不代表授權或語意正確</title>
+      </g>}
       <text x="14" y="29" fontSize="12" fill="currentColor" opacity=".6">PENTERACT / R⁵ → R³ ORBIT → R²</text>
      </svg>
     </div>
@@ -115,8 +124,35 @@ export default function PenteractFunnelPanel(){
     <div><strong>{plan.routes.length}</strong><small>候選專家（非已執行）</small></div>
     <div><strong>{plan.ambiguity==="high"?"高":plan.ambiguity==="medium"?"中":"低"}</strong><small>啟發式歧義程度</small></div>
    </div>
+   <section className="october-5d-learned" aria-label="可訓練五維投影器的本機影子模式">
+    <h3>03 · 可訓練五維投影器 <small>本機載入權重 / 不執行工具</small></h3>
+    <p>可從 GitHub Actions 下載「october-penteract-learned-cpu-v0.1」中的權重 JSON，再於此頁本機載入。僅顯示比較結果，不會切換正式路由、傳送檔案或開啟新模型。</p>
+    <label className="october-5d-file">讀取 CPU 訓練權重（JSON，不超過 180 KB）
+     <input aria-label="Upload local five-dimensional projector weights" type="file" accept=".json,application/json" onChange={async e=>{
+      const selected=e.currentTarget.files?.[0];
+      e.currentTarget.value="";
+      if(!selected)return;
+      setLearnedArtifact(null);
+      setLearnedError("");
+      if(selected.size>180000){setLearnedError("權重檔超過本機 180 KB 限制");return;}
+      try{
+       const parsed=JSON.parse(await selected.text());
+       setLearnedArtifact(assertLearnedFiveWeights(parsed));
+      }catch{
+       setLearnedError("權重檔案格式、維度或訓練來源不符合 5D 規格");
+      }
+     }}/>
+    </label>
+    {learnedError&&<p role="alert">{learnedError}</p>}
+    {learnedPreview?<div className="october-5d-learning-grid">
+     <div><strong>{learnedPreview.status==="candidate"?learnedPreview.candidateId:"選擇棄權"}</strong><small>實際訓練 5D 投影 · 影子候選</small></div>
+     <div><strong>{shadow.status==="candidate"?shadow.candidateId:"選擇棄權"}</strong><small>原有幾何啟發式 · 基準</small></div>
+     <div><strong>{learnedPreview.confidence===null?"—":Math.round(learnedPreview.confidence*100)+"%"}</strong><small>未校準 softmax（非準確率）</small></div>
+    </div>:<p className="october-5d-note">尚未載入已訓練權重。預設只顯示原有五維幾何；即使載入模型，也完全不授予 Diana、Slime 或 Ceres 權限。</p>}
+    <p className="october-5d-note">權重由本地 JSON 讀取，僅驗證檔案結構與宣告的訓練來源，未進行獨立數位簽章驗證；任何結果均不可視為正式模型品質背書。已知第一次訓練在混合意圖的棄權能力弱於舊版，故不得自動上線。</p>
+   </section>
    <section className="october-5d-observed" aria-label="本次工作階段中的真實 Ollama 漏斗量測">
-    <h3>03 · 模型實際量測 <small>僅記憶體暫存 / 不保留問題內容</small></h3>
+    <h3>04 · 模型實際量測 <small>僅記憶體暫存 / 不保留問題內容</small></h3>
     {measured?.summary.status==="measured"?<>
      <div className="october-5d-observed-grid">
       <div><strong>{measured.summary.understandingGeneratedSharePct}%</strong><small>理解階段生成 Token 佔比</small></div>

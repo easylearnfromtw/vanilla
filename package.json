@@ -67,7 +67,7 @@
     "test:october-readonly": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/october-readonly.test.mjs",
     "test:october-delivery": "node --test training/october/delivery-gate.test.mjs && node training/october/delivery-gate.mjs",
     "test:october-persona": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/october-persona.test.mjs",
-    "test:october-quality": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test training/october/teacher-cases.test.mjs tests/october-server-proof.test.mjs tests/october-planner.test.mjs training/october/benchmark.test.mjs training/october/quant-benchmark.test.mjs training/october/quant-sft.test.mjs tests/penteract-5d.test.mjs tests/penteract-understanding.test.mjs tests/penteract-ollama-funnel.test.mjs"
+    "test:october-quality": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test training/october/teacher-cases.test.mjs tests/october-server-proof.test.mjs tests/october-planner.test.mjs training/october/benchmark.test.mjs training/october/quant-benchmark.test.mjs training/october/quant-sft.test.mjs tests/penteract-5d.test.mjs tests/penteract-understanding.test.mjs tests/penteract-ollama-funnel.test.mjs tests/penteract-camera-telemetry.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

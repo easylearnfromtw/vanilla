@@ -578,8 +578,9 @@ def plan(body:Plan):
         db.execute("DELETE FROM ceres_slime_approval WHERE expires_at<?",(now,))
         db.execute("INSERT INTO ceres_slime_approval VALUES(?,?,?,?,?,?,?)",
                    (hashlib.sha256(token.encode()).hexdigest(),chat,sub,body.node_id,
-                    body.operation,int(body.enabled),now+120))
-    return {"token":token,"title":title+" · "+row["label"],"expiresSeconds":120}
+                    body.operation,int(body.enabled),now+(240 if body.operation=="revoke" else 120)))
+    return {"token":token,"title":title+" · "+row["label"],
+            "expiresSeconds":240 if body.operation=="revoke" else 120}
 
 
 @router.post("/confirm")

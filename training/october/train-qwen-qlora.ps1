@@ -4,6 +4,7 @@ param(
   [switch]$RunTraining,
   [switch]$AcknowledgedModelLicense,
   [switch]$AllowModelDownload,
+  [switch]$UseVerifiedNumeracyCurriculum,
   [string]$Model = "Qwen/Qwen3-0.6B",
   [string]$Output = "adapters/october-qwen3-0.6b"
 )
@@ -19,12 +20,22 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "October teacher corpus failed to generate." }
   $train = "training/october/generated/october-teacher-sft-train.jsonl"
   $validation = "training/october/generated/october-teacher-sft-eval.jsonl"
+  if ($UseVerifiedNumeracyCurriculum) {
+    # Clearly separate the exact-JSON numeracy adapter from the general October persona.
+    # Training this narrow adapter by itself can DEGRADE general conversation behavior.
+    node training/october/quant-sft.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Numeric curriculum generation failed." }
+    $train = "training/october/generated/october-numeric-sft-train.jsonl"
+    $validation = "training/october/generated/october-numeric-sft-eval.jsonl"
+    Write-Host "Selected optional 250/100 mathematically verified numeracy curriculum."
+  }
   python training/noodles_train.py --mode sft --train $train --eval $validation --check-only
   if ($LASTEXITCODE -ne 0) { throw "SFT data validation failed." }
   if (-not $RunTraining) {
     Write-Host "Dataset validation passed. No Qwen weights have been trained."
     Write-Host "Install training/requirements-noodles.txt and training/requirements-qlora.txt in a CUDA-compatible Python environment."
     Write-Host "To train: .\\training\\october\\train-qwen-qlora.ps1 -RunTraining -AcknowledgedModelLicense -AllowModelDownload"
+    Write-Host "Optional numeracy dataset: add -UseVerifiedNumeracyCurriculum (train a SEPARATE adapter and benchmark before use)."
     exit 0
   }
   if (-not $AcknowledgedModelLicense) { throw "Training requires explicit -AcknowledgedModelLicense." }

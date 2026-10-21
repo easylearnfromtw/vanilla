@@ -36,6 +36,7 @@ jobs:
           npm run test:api-registry
           npm run test:merlin
           npm run test:victoria
+          npm run test:october-persona
           npm run test:erya
           npm run test:cream-weiguo
           npm run test:detroit-studio

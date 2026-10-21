@@ -89,6 +89,12 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 .confirm{border:1px solid var(--line);padding:14px;border-radius:13px;margin-top:11px}
 .confirm strong{font-size:13px}
 .confirm p{margin:8px 0}
+.delete-proof{margin:16px 0 12px;padding:15px;border:1px solid var(--line);border-radius:16px;background:var(--soft)}
+.delete-proof label{display:block;font-size:12px;font-weight:720;margin:0 0 8px}
+.delete-proof input{width:100%;height:52px;padding:0 15px;letter-spacing:.22em;font-size:21px;
+ font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--paper);
+ border:1px solid var(--line);border-radius:12px;text-transform:lowercase}
+.delete-proof small{display:block;color:var(--muted);margin:8px 0 0;font-size:11px;line-height:1.7}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
@@ -206,6 +212,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <button type="button" role="tab" id="tab-overview" aria-selected="true" tabindex="0" aria-controls="overview" data-tab="overview"><span class="tab-icon" aria-hidden="true">◫</span>總覽</button>
 <button type="button" role="tab" id="tab-devices" aria-selected="false" tabindex="-1" aria-controls="devices" data-tab="devices"><span class="tab-icon" aria-hidden="true">▤</span>節點</button>
 <button type="button" role="tab" id="tab-pairing" aria-selected="false" tabindex="-1" aria-controls="pairing" data-tab="pairing"><span class="tab-icon" aria-hidden="true">＋</span>配對</button>
+<button type="button" role="tab" id="tab-rewards" aria-selected="false" tabindex="-1" aria-controls="rewards" data-tab="rewards"><span class="tab-icon" aria-hidden="true">◇</span>獎勵</button>
 </nav>
 <main>
 <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
@@ -250,12 +257,39 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="controls"><a id="installer" class="btn soft full" href="#" target="_blank" rel="noopener noreferrer">↗ Slime 公開下載頁</a></div>
 </div>
 </section>
+<section id="rewards" role="tabpanel" aria-labelledby="tab-rewards" hidden>
+<div class="section-head"><span class="eyebrow">04 / TOKEN REWARDS</span><h2>Token 獎勵管理</h2><p>Google 登入領取 · 交易帳本 · 使用額度</p></div>
+<div class="card"><div class="card-title"><div><span class="eyebrow">REWARD POLICY</span><h2>新節點加入禮</h2></div><span>◇</span></div>
+<p>預設每名首次合資格的 Google 帳號獲得 100,000 Token。每個 Google 帳號、每台節點只能領取一次。調整後只影響未來新領取。</p>
+<label for="reward-amount" style="display:block;font-weight:700;font-size:12px;margin:16px 0 7px">每次發放 Token 數量</label>
+<input id="reward-amount" type="number" min="0" max="10000000" step="1000" value="100000" style="width:100%;min-height:52px;padding:10px 15px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)">
+<label style="display:flex;align-items:center;gap:9px;font-size:12px;margin:17px 0"><input type="checkbox" id="reward-enabled" checked>允許新節點領取獎勵</label>
+<div class="controls"><button type="button" class="btn primary full" id="save-reward">儲存獎勵設定</button></div>
+<p class="result" id="reward-notice" role="status" aria-live="polite" hidden></p>
+</div>
+<div class="card" style="margin-top:13px">
+<div class="card-title"><div><span class="eyebrow">REWARD LEDGER / KPI</span><h2>獎勵與用量</h2></div><button class="btn soft" id="refresh-reward" type="button">更新</button></div>
+<div class="cards">
+<div class="metric"><strong id="reward-recipients">—</strong><span>已領取人數</span></div>
+<div class="metric"><strong id="reward-total">—</strong><span>累計發放 Token</span></div>
+<div class="metric"><strong id="reward-spent">—</strong><span>累計模型消耗</span></div>
+</div>
+<div class="notice">Token 以 Vanilla 模型使用額度計算，不等同成本或現金。扣款於推論前預留、完成後結算；模型提供可靠 usage 時按實際 input + output Token 計算。</div>
+</div>
+</section>
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>
 <p>請從已授權的 Ceres Owner 私聊使用「Slime 私人管理頁」按鈕開啟。
 一般瀏覽器直接開啟網址不會取得管理權限。</p></div>
 <div id="confirm-box" class="sheet-backdrop" hidden><div class="sheet-body" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-description">
 <div class="sheet-handle" aria-hidden="true"></div><span class="eyebrow">SECURE ACTION / REVIEW</span>
 <strong id="confirm-title">確認操作</strong><p id="confirm-description"></p>
+<div id="delete-code-wrap" class="delete-proof" hidden>
+<label for="delete-code">Telegram 專屬刪除碼</label>
+<input id="delete-code" type="text" inputmode="text" maxlength="12" autocomplete="one-time-code"
+ spellcheck="false" autocapitalize="none" placeholder="12 位代碼" aria-describedby="delete-code-help">
+<small id="delete-code-help">先回到 Ceres Bot 私聊輸入「移除 節點ID」取得代碼。
+3 分鐘有效、一次使用、最多可輸錯 5 次。朋友可以自行解除安裝。</small>
+</div>
 <div class="sheet-actions"><button type="button" id="approve" class="btn danger solid">確認執行</button>
 <button type="button" id="cancel" class="btn soft">取消，返回</button></div></div></div>
 <div id="message" class="toast" role="status" aria-live="polite" hidden></div>
@@ -274,12 +308,13 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    flash=setTimeout(()=>{box.hidden=true;},4200);
  }
  function setTab(value){
-   if(!["overview","devices","pairing"].includes(value))return;
+   if(!["overview","devices","pairing","rewards"].includes(value))return;
    document.querySelectorAll("[data-tab]").forEach(btn=>{
      const active=btn.dataset.tab===value;
      btn.setAttribute("aria-selected",String(active));btn.tabIndex=active?0:-1;
    });
-   ["overview","devices","pairing"].forEach(key=>$(key).hidden=key!==value);
+   ["overview","devices","pairing","rewards"].forEach(key=>$(key).hidden=key!==value);
+   if(value==="rewards")void loadReward();
    haptic();
  }
  async function api(route,extra){
@@ -290,6 +325,30 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    let obj={};try{obj=await res.json();}catch(e){throw Error("伺服器回傳格式不正確");}
    if(!res.ok)throw Error(typeof obj.detail==="string"?obj.detail:"操作失敗");
    return obj;
+ }
+ async function loadReward(){
+   try{
+    const r=await api("rewards/snapshot");
+    $("reward-amount").value=String(r.amount);
+    $("reward-enabled").checked=Boolean(r.enabled);
+    $("reward-recipients").textContent=Number(r.recipients).toLocaleString();
+    $("reward-total").textContent=Number(r.awarded).toLocaleString();
+    $("reward-spent").textContent=Number(r.spent).toLocaleString();
+   }catch(e){const n=$("reward-notice");n.textContent=e.message;n.hidden=false;}
+ }
+ async function saveReward(){
+   const amount=Number($("reward-amount").value);
+   const n=$("reward-notice");
+   if(!Number.isSafeInteger(amount)||amount<0||amount>10000000){
+    n.textContent="Token 獎勵必須是 0 至 10,000,000 的整數";n.hidden=false;return;
+   }
+   const btn=$("save-reward");btn.disabled=true;
+   try{
+     const r=await api("rewards/config",{amount,enabled:$("reward-enabled").checked});
+     n.textContent="已儲存。新領取獎勵："+Number(r.amount).toLocaleString()+" Token";
+     n.hidden=false;await loadReward();
+   }catch(e){n.textContent=e.message;n.hidden=false}
+   finally{btn.disabled=false}
  }
  function nodeCard(n){
    const root=document.createElement("article");root.className="node";
@@ -328,7 +387,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
     const button=document.createElement("button");button.type="button";
     button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
     button.addEventListener("click",()=>{
-      if(a.kind==="revoke"||a.kind==="power"){
+      if(a.kind==="power"){
        const command=a.kind==="revoke"?"撤銷 "+n.id:"/slime power "+n.id+" off";
        copy(command).then(ok=>{if(ok)notice("請到 Ceres Telegram 私聊貼上命令，並依 Bot 提示完成二次確認。");});
        return;
@@ -392,22 +451,35 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const obj=await api("plan",{node_id:n.id,operation:kind,
       enabled:typeof enable==="boolean"?enable:false,
       level:typeof enable==="number"?enable:0});
-   pending=obj.token;
+   pending={token:obj.token,revoke:kind==="revoke"};
    $("confirm-title").textContent=obj.title;
-   $("confirm-description").textContent=warning+" 確認後才會寫入後端。";
+   $("confirm-description").textContent=warning+(kind==="revoke"?
+      " 請先回到 Telegram 私聊，輸入「移除 "+n.id+"」取得專屬刪除碼。":
+      " 確認後才會寫入後端。");
+    $("delete-code-wrap").hidden=kind!=="revoke";
+    $("delete-code").value="";
    $("confirm-box").hidden=false;
-   $("cancel").focus();
+   (kind==="revoke"?$("delete-code"):$("cancel")).focus();
   }catch(e){notice(e.message);}
  }
  async function approve(){
-  if(!pending||busy)return;
-  busy=true;$("approve").disabled=true;
-  const token=pending;pending=null;
-  try{const obj=await api("confirm",{token});notice(obj.message);await reload();}
-  catch(e){notice(e.message);}
-  finally{busy=false;$("approve").disabled=false;$("confirm-box").hidden=true;}
- }
- if(!auth){
+   if(!pending||busy)return;
+   const proof=$("delete-code").value.trim();
+   if(pending.revoke&&!/^(?:[a-fA-F0-9]{8}|[a-fA-F0-9]{12})$/.test(proof)){
+    notice("請輸入 Telegram 私聊提供的 12 位刪除碼");$("delete-code").focus();return;
+   }
+   busy=true;$("approve").disabled=true;
+   const request={token:pending.token};
+   if(pending.revoke)request.code=proof;
+   try{
+    const obj=await api("confirm",request);
+    pending=null;$("delete-code").value="";
+    $("confirm-box").hidden=true;notice(obj.message);await reload();
+   }
+   catch(e){notice(e.message);}
+   finally{busy=false;$("approve").disabled=false;}
+  }
+  if(!auth){
   $("welcome-splash").hidden=true;
   $("auth-block").hidden=false;
   $("service").textContent="需要 Telegram 簽署驗證";
@@ -419,6 +491,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.tab)));
  document.querySelectorAll("[data-go]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.go)));
  $("refresh").addEventListener("click",reload);
+ $("refresh-reward").addEventListener("click",()=>void loadReward());
+ $("save-reward").addEventListener("click",()=>void saveReward());
  $("issue").addEventListener("click",issue);
  $("probe-model").addEventListener("click",async()=>{
    const button=$("probe-model"),out=$("probe-output");
@@ -436,7 +510,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
- function closeConfirm(){pending=null;$("confirm-box").hidden=true;}
+ function closeConfirm(){pending=null;$("delete-code").value="";$("confirm-box").hidden=true;}
  $("cancel").addEventListener("click",closeConfirm);
  // Opening a signed Mini App shows a welcome landing before the white workspace.
  // This is per-open visual state; no credentials or onboarding flags are stored.
@@ -467,6 +541,25 @@ class Owner(BaseModel):
     init_data: str=Field(min_length=20,max_length=8192)
 
 
+class RewardConfig(Owner):
+    amount: int=Field(ge=0,le=10000000)
+    enabled: bool=True
+
+
+@router.post("/rewards/snapshot")
+def rewards_snapshot(body:Owner):
+    _,sub=_owner(body.init_data)
+    from slime_rewards import reward_snapshot
+    return reward_snapshot(sub)
+
+
+@router.post("/rewards/config")
+def rewards_config(body:RewardConfig):
+    _,sub=_owner(body.init_data)
+    from slime_rewards import set_config
+    return set_config(sub,body.amount,body.enabled)
+
+
 class Plan(Owner):
     node_id: str=Field(pattern=r"^[a-f0-9]{24}$")
     operation: str=Field(pattern=r"^(node|inference|revoke|load|thermal)$")
@@ -476,6 +569,7 @@ class Plan(Owner):
 
 class Confirm(Owner):
     token: str=Field(pattern=r"^[a-f0-9]{48}$")
+    code: str | None=Field(default=None,max_length=64)
 
 
 def _owner(init_data: str) -> tuple[int,str]:
@@ -589,8 +683,6 @@ def issue(body:Owner):
 def plan(body:Plan):
     chat,sub=_owner(body.init_data)
     _enabled()
-    if body.operation=="revoke":
-        raise HTTPException(403,"請至 Ceres Telegram 私聊執行撤銷，並輸入獨立確認碼")
     with _db() as db:
         row=db.execute("SELECT id,label FROM nodes WHERE id=? AND owner=?",
                        (body.node_id,sub)).fetchone()
@@ -610,8 +702,9 @@ def plan(body:Plan):
         db.execute("DELETE FROM ceres_slime_approval WHERE expires_at<?",(now,))
         db.execute("INSERT INTO ceres_slime_approval VALUES(?,?,?,?,?,?,?)",
                    (hashlib.sha256(token.encode()).hexdigest(),chat,sub,body.node_id,
-                    body.operation,(body.level if body.operation in ("load","thermal") else int(body.enabled)),now+120))
-    return {"token":token,"title":title+" · "+row["label"],"expiresSeconds":120}
+                    body.operation,(body.level if body.operation in ("load","thermal") else int(body.enabled)),now+(240 if body.operation=="revoke" else 120)))
+    return {"token":token,"title":title+" · "+row["label"],
+            "expiresSeconds":240 if body.operation=="revoke" else 120}
 
 
 @router.post("/confirm")
@@ -624,16 +717,25 @@ def confirm(body:Confirm):
         row=db.execute("""SELECT * FROM ceres_slime_approval
                WHERE digest=? AND chat_id=? AND owner_sub=? AND expires_at>?""",
                (hashlib.sha256(body.token.encode()).hexdigest(),chat,sub,now)).fetchone()
-        if row:
+        if row and row["operation"] != "revoke":
             db.execute("DELETE FROM ceres_slime_approval WHERE digest=?",(row["digest"],))
     if not row:
         raise HTTPException(409,"操作確認已過期、已使用或無權限")
     _enabled()
+    if row["operation"]=="revoke":
+        if not body.code:
+            raise HTTPException(403,"請先在 Telegram 私聊取得刪除碼")
+        from slime_revoke_gate import consume_revoke, RevokeDenied
+        try:
+            consume_revoke(sub,row["node_id"],body.code,chat)
+        except RevokeDenied as exc:
+            raise HTTPException(exc.status,str(exc)) from exc
+        with _session() as db:
+            db.execute("DELETE FROM ceres_slime_approval WHERE digest=?",(row["digest"],))
+        return {"ok":True,"message":"Telegram 驗證成功，已撤銷節點憑證。"}
     with _db() as db:
         db.execute("BEGIN IMMEDIATE")
-        if row["operation"]=="revoke":
-            raise HTTPException(403,"此舊版撤銷確認已停用；請透過 Ceres Telegram 私聊確認")
-        elif row["operation"]=="node":
+        if row["operation"]=="node":
             changed=db.execute("UPDATE nodes SET owner_enabled=? WHERE id=? AND owner=?",
                                (row["enabled"],row["node_id"],sub))
         elif row["operation"]=="inference":

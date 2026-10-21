@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "product": "阿土伯 Atuber",
+  "model_id": "atuber-0.1",
+  "release_state": "bootstrap-only",
+  "base_model": "Qwen/Qwen3-0.6B",
+  "base_license": "Apache-2.0",
+  "standalone_weights": null,
+  "adapter": null,
+  "training_dataset_sha256": null,
+  "note": "Qwen3 WebLLM bootstrap is a distinct app persona, NOT an independently fine-tuned Atuber checkpoint. Do not label independent until training, merging and GGUF release validation succeed."
+}

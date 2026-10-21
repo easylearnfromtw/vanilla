@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.22.01-atuber-local-planner",
-  "description": "Opt-in Qwen3 0.6B local tool proposals, host-validated read-only receipts"
+  "build": "2026.10.22.03-atuber-three-tiers",
+  "description": "Three owner-hosted October model tiers plus honest independent-weights training stage and smoke test"
 }

@@ -81,9 +81,29 @@ export function forwardLearnedFive(
  const denom=probs.reduce((a,b)=>a+b,0);
  return {coordinate:coord as unknown as Vec5,probabilities:probs.map(p=>p/denom)};
 }
+/** Evidence is a conservative safety veto, not an expert classifier or a
+ * language model. One-domain agreement is required before suggesting ONE
+ * specialist. Multi-domain and unseen phrasing remain in Merlin/Diana.
+ *
+ * These regex guards were revised after inspecting exploratory synthetic
+ * holdouts, therefore old holdout scores are NOT independent/blind evidence.
+ */
+const LEARNED_DOMAIN_EVIDENCE:readonly RegExp[]=[
+ /(?:財務|投資|股息|股票|營收|報酬|基金|毛利|ETF|資產|收益|淨利|貸款|房貸|殖利率|償債|租金|獲利|現金流|銀行|利率)/i,
+ /(?:來源|文獻|法規|法律|研究|證據|新聞|指引|期刊|查核|查證|原始試驗|DOI|法源|學術|發表|指南)/i,
+ /(?:程式|Python|TypeScript|GitHub|API|修復|元件|編譯|部署|編碼|套件|函式|測試|腳本|後端|伺服器|模組|錯誤|軟體)/i,
+ /(?:設計|UI|UX|海報|介面|視覺|Figma|配色|App|版面|儀表板|卡片|陰影|留白|導覽|圖示)/i,
+ /(?:文章|文件|郵件|文案|撰寫|稿|改寫|摘要|致謝函|發言|潤飾|敘述|逐字稿|通知內容|起草|報告)/i,
+ /(?:CSV|數據|數值|統計|平均|標準差|試算表|表格|樣本|數列|加總|比例|數字|中位數|頻數|百分位|離群值)/i
+];
+export function detectLearnedFiveEvidence(text:string):readonly string[]{
+ const bounded=text.normalize("NFKC").trim().slice(0,240);
+ return LEARNED_5D_IDS.filter((_,i)=>LEARNED_DOMAIN_EVIDENCE[i].test(bounded));
+}
+
 export type LearnedFiveRoute={
  status:"candidate"|"abstain";candidateId:string|null;
- reason:"learned-shadow"|"insufficient-evidence"|"uncertain-margin"|"multi-domain"|"empty";
+ reason:"learned-shadow"|"insufficient-evidence"|"uncertain-margin"|"multi-domain"|"empty"|"no-domain-evidence"|"intent-disagreement";
  confidence:number|null;margin:number|null;coordinate:Vec5;
  policy:"advisory-only";
 };
@@ -99,17 +119,14 @@ export function routeLearnedFive(text:string,artifact:LearnedFiveWeights):Learne
  if(!input)return {status:"abstain",candidateId:null,reason:"empty",...meta};
  // Strong visible signals of a multi-stage task require the pre-existing
  // Merlin/Diana orchestration, not blind top-one sparse specialization.
- const stages=[
-  /(?:財務|投資|股息|股票|營收|報酬|基金|毛利|ETF|資產)/i,
-  /(?:來源|文獻|法規|法律|研究|證據|新聞|指引|期刊)/i,
-  /(?:程式|Python|TypeScript|GitHub|API|修復|元件|編譯|部署)/i,
-  /(?:設計|UI|UX|海報|介面|視覺|Figma|配色)/i,
-  /(?:文章|文件|郵件|文案|撰寫|稿|改寫|摘要)/i,
-  /(?:CSV|數據|數值|統計|平均|標準差|試算表|表格)/i
- ].filter(re=>re.test(input)).length;
- if(stages>=2)return {status:"abstain",candidateId:null,reason:"multi-domain",...meta};
- // Thresholds were selected before running any held-out accuracy checks.
- // They are engineering rules, NOT calibrated confidence intervals.
+ const evidence=detectLearnedFiveEvidence(input);
+ if(evidence.length===0)return {status:"abstain",candidateId:null,reason:"no-domain-evidence",...meta};
+ if(evidence.length>1)return {status:"abstain",candidateId:null,reason:"multi-domain",...meta};
+ // Low-dimensional prediction must agree with independently observable task
+ // cues; disagreement delegates understanding to the original safe pipeline.
+ if(LEARNED_5D_IDS[top.i]!==evidence[0])
+  return {status:"abstain",candidateId:null,reason:"intent-disagreement",...meta};
+ // Thresholds are heuristic only, NOT calibrated confidence intervals.
  if(top.p<0.6)return {status:"abstain",candidateId:null,reason:"insufficient-evidence",...meta};
  if(margin<0.2)return {status:"abstain",candidateId:null,reason:"uncertain-margin",...meta};
  return {status:"candidate",candidateId:LEARNED_5D_IDS[top.i],reason:"learned-shadow",...meta};

@@ -118,7 +118,7 @@ test("Victoria foreground long job uses numeric-only progress and supports user 
  const native=readFileSync(fileURLToPath(new URL("../src/detroit/native-executors.ts",import.meta.url)),"utf8");
  assert.match(source,/setVictoriaProcessing\(true\)/);
  assert.match(source,/onProgress:\(done,total\)=>/);
- assert.match(source,/victoriaController=new AbortController/);
+ assert.match(source,/victoriaController=wantsLongitudinal\?new AbortController/);
  assert.match(source,/victoriaController\?\.signal\.aborted/);
  assert.match(source,/\(generating\|\|victoriaProcessing\)/);
  assert.match(native,/longitudinalReportForVictoria\(input\.owner/);

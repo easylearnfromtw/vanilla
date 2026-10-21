@@ -518,6 +518,9 @@ def snapshot(body:Owner):
             available=len(catalog(sub))
         except HTTPException:
             available=0
+    slime_db=os.path.realpath(os.getenv("SLIME_DB_PATH","/tmp/vanilla-slime.db"))
+    persistence_warning=(" · 注意：節點資料庫未設在 /data 持久化磁碟；雲端部署可能遺失配對" 
+                          if os.getenv("RAILWAY_ENVIRONMENT") and not slime_db.startswith("/data/") else "")
     return {"nodes":nodes,
         "counts":{"total":len(nodes),"online":sum(n["online"] for n in nodes),
                   "inferenceApproved":sum(n["inference_enabled"] for n in nodes),
@@ -527,7 +530,7 @@ def snapshot(body:Owner):
                    "message":"Slime 節點管理已就緒 · 本地推論"+
                    ("可查詢，仍需實機驗收" if os.getenv("VANILLA_SLIME_RUNNER_ENABLED","false").lower()=="true"
                     else "目前關閉")+" · 對外 API "+
-                   ("已開啟" if os.getenv("VANILLA_PUBLIC_API_ENABLED","false").lower()=="true" else "關閉")}}
+                   ("已開啟" if os.getenv("VANILLA_PUBLIC_API_ENABLED","false").lower()=="true" else "關閉")+persistence_warning}}
 
 
 @router.post("/issue")

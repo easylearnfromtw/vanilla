@@ -1444,18 +1444,27 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  setHistory([...next,{role:"assistant",content:"",source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
  setLastRoute(taiwanTopic&&isTaiwanTaideEnabled()&&!localOnly?(primary.source==="ollama"&&isTaideModel(primary.model)?"台灣主題優先選用 TAIDE · ":"台灣主題：TAIDE 尚未可用，改用其他模型 · ")+primary.label:"正在使用："+primary.label);
  let partial="";
+ const funnelMeasurements:Array<{stage:"understand"|"answer";inputTokens:number|null;outputTokens:number|null;elapsedMs:number}>=[];
  try{
   const result=await generateCandidate(primary,primaryPrompt.history,image||undefined,text=>{
    partial=text;
    if(!humanize)setHistory([...next,{role:"assistant",content:text,source:primary.source,model:primary.model,...base,id:assistantId,createdAt:assistantTime}]);
-  },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep",toolGrounding:trustedToolGrounding});
+  },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep",toolGrounding:trustedToolGrounding,
+   onFunnelMetrics:(stage,metrics)=>{
+    funnelMeasurements.push({stage,inputTokens:metrics.inputTokens,outputTokens:metrics.outputTokens,elapsedMs:metrics.elapsedMs});
+    if(stage==="understand")setLastRoute("October 5D：理解階段已取得模型回應（結構校驗中）；未授權任何工具");
+   }});
   const drafted=finalizeHumanizedText(humanize,result||"");
   const artifactNote=await finishNativeArtifact(drafted);
   setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
   if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
   if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact&&!nativeArtifact)markDetroit("retina","skipped","本題未要求支援格式的本機匯出");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
-  setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒"+(victoriaContext||victoriaDataContext?" · Victoria 已加入已授權資料":""));
+  const phaseTokens=funnelMeasurements.length?" · 5D "+
+   funnelMeasurements.map(m=>(m.stage==="understand"?"理解":"回答")+" "+(m.outputTokens===null?"Token 未提供":m.outputTokens+" 輸出 Token")).join("／")+
+   "（Ollama 實測，非功耗）":"";
+  setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒"+phaseTokens+
+   (victoriaContext||victoriaDataContext?" · Victoria 已加入已授權資料":""));
  }catch(error){
   if(detroit.depth!=="quick")markDetroit("dionysus","error",controller.signal.aborted?"使用者已中止任務":"主模型推論失敗，檢查備援");
   if(controller.signal.aborted){

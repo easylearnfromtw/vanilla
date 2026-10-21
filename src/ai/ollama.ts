@@ -1,5 +1,5 @@
 import type {ChatTurn} from "../local-ai/engine";
-import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "./prompts";
+import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT,OCTOBER_READONLY_PLANNER_PROMPT} from "./prompts";
 import {classifyTask,type TaskKind} from "./task-kind";
 import {profileFor} from "./model-profiles";
 import {ollamaRequestExtras} from "./generation-config";
@@ -108,7 +108,7 @@ export type OllamaInferenceMetrics={
 };
 export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;
  onMetrics?:(metrics:OllamaInferenceMetrics)=>void;signal?:AbortSignal;
- purpose?:"chat"|"structured";deep?:boolean;toolGrounding?:string};
+ purpose?:"chat"|"structured"|"october-plan";deep?:boolean;toolGrounding?:string};
 /** Streams from Ollama /api/chat (NDJSON). Tuned per model: num_ctx large enough for web/file
  * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the
  * model every question, and thinking only where it pays off. */
@@ -120,17 +120,19 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  const base=candidate?candidate.endpoint:normalizeOllamaUrl(config.endpoint);
  const activeToken=candidate?authFor(candidate.id):token;
  const latest=history[history.length-1]?.content||"";
- const structured=options.purpose==="structured";
+ const octoberPlan=options.purpose==="october-plan";
+ const structured=options.purpose==="structured"||octoberPlan;
  const task=options.task??(structured?"code":classifyTask(latest));
  const profile=profileFor("ollama",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
- const system=structured?STRUCTURED_SYSTEM_PROMPT:
+ const system=octoberPlan?OCTOBER_READONLY_PLANNER_PROMPT:structured?STRUCTURED_SYSTEM_PROMPT:
   vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,model})+
   (options.toolGrounding?"\n\n[Vanilla 應用程式提供的可信任工具事實；僅用於解釋功能，非操作授權]\n"+options.toolGrounding:"");
  const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
  const startedAt=performance.now();
  const send=async(withThink:boolean)=>{
-  const extras=ollamaRequestExtras(model,task,Boolean(options.deep));
+  const extras=ollamaRequestExtras(model,task,Boolean(options.deep)&&!octoberPlan);
+  if(octoberPlan){extras.options.num_predict=96;extras.options.temperature=0;extras.options.top_p=1;extras.think=false;}
   if(!withThink)delete extras.think;
   // Ollama's grammar-constrained JSON mode makes Sheets/Self-Build drafts parse reliably.
   return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&withThink?{format:"json"}:{})})},activeToken);

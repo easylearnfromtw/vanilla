@@ -750,4 +750,12 @@ def reward_snapshot(owner_sub: str) -> dict:
              WHERE w.owner_sub=?""",(owner_sub,)).fetchone()
         spent=db.execute("SELECT COALESCE(SUM(spent),0) x FROM slime_reward_wallet WHERE owner_sub=?",
                          (owner_sub,)).fetchone()["x"]
-    return {**settings,"recipients":r["recipients"],"awarded":r["awarded"],"spent":spent}
+        weeken=db.execute("""SELECT COUNT(*) enrolled,COALESCE(SUM(bonus),0) gifts
+             FROM slime_weeken_enrollment e JOIN slime_reward_wallet w
+             ON w.google_sub=e.google_sub WHERE w.owner_sub=? AND e.status='joined'""",
+             (owner_sub,)).fetchone()
+        forfeited=db.execute("SELECT COALESCE(SUM(forfeited),0) n FROM slime_reward_forfeiture WHERE owner_sub=?",
+                             (owner_sub,)).fetchone()["n"]
+    return {**settings,"recipients":r["recipients"],"awarded":r["awarded"],
+            "spent":spent,"weekenJoined":weeken["enrolled"],
+            "weekenGifted":weeken["gifts"],"forfeited":forfeited}

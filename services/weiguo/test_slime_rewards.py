@@ -12,7 +12,7 @@ from fastapi import HTTPException
 import slime
 from slime_rewards import (reward_ticket, claim, Claim, config, set_config,
                            balance, GoogleCredential, _google, _owner_chat, rotate_key)
-from vanilla_public_api import (_reserve, _finish, _key_from_header)
+from vanilla_public_api import (_reserve, _finish, _key_from_header, _session)
 
 
 OWNER="123456789012345678901"
@@ -116,6 +116,48 @@ class SlimeRewardWalletTests(unittest.TestCase):
         wallet=balance(GoogleCredential(credential="x"*120))
         self.assertEqual(wallet["balance"],99970)
         self.assertEqual(wallet["usage"]["exactTokens"],30)
+
+    def test_crashed_job_recovers_all_reserved_tokens_once(self):
+        reward=self.claim_reward(self.ticket())
+        key=_key_from_header("Bearer "+reward["apiKey"])
+        job=_reserve(key,"model-offline",2500)
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],97500)
+        with _session() as db:
+            db.execute("UPDATE vanilla_api_usage SET created_at=? WHERE id=?",
+                       (int(time.time())-1000,job))
+        restored=balance(GoogleCredential(credential="x"*120))
+        self.assertEqual(restored["balance"],100000)
+        self.assertEqual(restored["spent"],0)
+        with _session() as db:
+            row=db.execute("SELECT status,charged_tokens FROM vanilla_api_usage WHERE id=?",
+                           (job,)).fetchone()
+            self.assertEqual((row["status"],row["charged_tokens"]),("failed",0))
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM slime_reward_ledger WHERE id=?",
+                                        (job+":abandoned",)).fetchone()[0],1)
+        # A late response, a duplicate status lookup, or new request must
+        # never refund the same reservation for a second time.
+        _finish(key["id"],job,2500,status="success",
+                usage={"prompt_tokens":1,"completion_tokens":1})
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],100000)
+        followup=_reserve(key,"model-offline",100000)
+        self.assertTrue(followup)
+        _finish(key["id"],followup,100000,status="failed")
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],100000)
+
+    def test_crashed_job_recovers_before_new_quota_reservation(self):
+        reward=self.claim_reward(self.ticket())
+        key=_key_from_header("Bearer "+reward["apiKey"])
+        job=_reserve(key,"model-offline",100000)
+        with _session() as db:
+            db.execute("UPDATE vanilla_api_usage SET created_at=? WHERE id=?",
+                       (int(time.time())-1000,job))
+        # The wallet has zero spendable credits until the next request
+        # reconciles the old reservation under the write lock.
+        next_job=_reserve(key,"model-offline",200)
+        self.assertTrue(next_job)
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],99800)
+        _finish(key["id"],next_job,200,status="failed")
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],100000)
 
     def test_failed_generation_refunds_reward_wallet_fully(self):
         result=self.claim_reward(self.ticket())

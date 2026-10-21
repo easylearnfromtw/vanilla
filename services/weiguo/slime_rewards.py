@@ -116,12 +116,8 @@ def recover_abandoned_reservations(db, now: int | None = None) -> int:
             (row["id"],row["key_id"]))
         if changed.rowcount != 1:
             continue
-        wallet=db.execute("""UPDATE slime_reward_wallet
-            SET balance=balance+?,spent=spent-?
-            WHERE google_sub=? AND spent>=?""",
-            (amount,amount,row["google_sub"],amount))
-        if wallet.rowcount != 1:
-            raise RuntimeError("Reward wallet missing during recovery")
+        from slime_reward_policy import account_credit
+        account_credit(db,row["google_sub"],amount,refund=True)
         db.execute("""INSERT INTO slime_reward_ledger
             (id,google_sub,kind,delta,created_at,model,note)
             VALUES(?,?,?,?,?,?,?)""",
@@ -486,6 +482,8 @@ def weeken_status(body:GoogleCredential):
 @router.post("/v1/slime/rewards/balance")
 def balance(body:GoogleCredential):
     _enabled()
+    from slime_reward_policy import reconcile_node_revocations,signed_balance
+    reconcile_node_revocations()
     sub=_google(body.credential)
     now=int(time.time())
     with _session() as db:
@@ -526,8 +524,10 @@ def balance(body:GoogleCredential):
           FROM slime_reward_key k JOIN vanilla_api_usage u ON u.key_id=k.key_id
           WHERE k.google_sub=? GROUP BY u.model ORDER BY total_tokens DESC LIMIT 20""",
           (sub,)).fetchall() if _usage_exists(db) else []
-    return {"claimed":True,"balance":wallet["balance"],"earned":wallet["earned"],
-            "spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
+        net_balance=signed_balance(db,sub,wallet["balance"])
+    return {"claimed":True,
+            "balance":net_balance,
+            "earned":wallet["earned"],"spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
             "usageByModel":[dict(x) for x in by_model],
             "usage":({
               "requests":stats["requests"],"chargedTokens":stats["charged"],

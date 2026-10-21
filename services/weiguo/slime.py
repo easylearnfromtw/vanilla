@@ -269,13 +269,20 @@ def inference_policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(
             "notice":"啟用後，外部使用者的模型提示可能傳送至這個受信任的節點。"}
 
 
+class RevokeProof(BaseModel):
+    # Requested separately from Ceres Telegram; never generated on the public web.
+    code: str = Field(min_length=8, max_length=64)
+
+
 @router.post("/v1/family/slime/nodes/{node_id}/revoke")
-def revoke(node_id: str, user: FamilyIdentity = Depends(_owner)):
-    with _db() as c:
-        cursor = c.execute("DELETE FROM nodes WHERE id=? AND owner=?", (node_id, user.sub))
-        if not cursor.rowcount:
-            raise HTTPException(404, "找不到節點")
-    return {"ok": True}
+def revoke(node_id: str, body: RevokeProof, user: FamilyIdentity = Depends(_owner)):
+    """Owner remote revocation cannot bypass the bot-issued, node-bound OTP."""
+    from slime_revoke_gate import consume_revoke, RevokeDenied
+    try:
+        consume_revoke(user.sub, node_id, body.code)
+    except RevokeDenied as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"ok": True, "verified_by": "telegram", "node_id": node_id}
 
 @router.post("/v1/family/slime/route")
 def suggest_route(body: RouteRequest, user: FamilyIdentity = Depends(_owner)):

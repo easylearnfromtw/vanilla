@@ -22,6 +22,7 @@ export type OctoberReadonlyResult={
  dataset?:CreamDataset;result?:CreamResult;
 };
 const CHARTS=new Set<string>(["auto","bar","line","scatter","pie","numberline"]);
+const RESULT_CHARTS=new Set<string>(["bar","line","scatter","pie","numberline"]);
 const NUMBER=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
 const TOL=1e-9;
 function numberOrNull(raw:string):number|null{
@@ -45,7 +46,7 @@ export function verifyOctoberCream(dataset:CreamDataset,value:unknown):{ok:boole
   !Array.isArray(r.columns)||r.columns.length!==dataset.columns.length||
   r.columns.some((x,i)=>x!==dataset.columns[i])||
   !Array.isArray(r.metrics)||!Array.isArray(r.previewRows)||
-  !CHARTS.has(String(r.chartKind))||r.chartKind==="auto")return {ok:false,code:"RECEIPT_SCHEMA_MISMATCH"};
+  !RESULT_CHARTS.has(String(r.chartKind)))return {ok:false,code:"RECEIPT_SCHEMA_MISMATCH"};
  const preview=dataset.rows.slice(0,12);
  if(JSON.stringify(r.previewRows)!==JSON.stringify(preview))return {ok:false,code:"PREVIEW_MISMATCH"};
  const expected: Array<{column:number;key:string;n:number;missing:number;sum:number;mean:number;median:number;min:number;max:number;sampleStdDev:number|null;points:Array<{row:number;label:string;value:number}>}>=[];
@@ -73,6 +74,7 @@ export function verifyOctoberCream(dataset:CreamDataset,value:unknown):{ok:boole
   expected.push({column:col,key:dataset.columns[col],n,missing:dataset.rows.length-n,
    sum,mean,median,min:sorted[0],max:sorted[n-1],sampleStdDev,points});
  }
+ if(!expected.length)return {ok:false,code:"NO_NUMERIC_COLUMNS"};
  if(r.metrics.length!==expected.length)return {ok:false,code:"METRIC_COUNT_MISMATCH"};
  for(const m of expected){
   const out=r.metrics.find(x=>x?.column===m.column);

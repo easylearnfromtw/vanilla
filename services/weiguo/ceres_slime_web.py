@@ -219,7 +219,9 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="metric"><span class="metric-top" aria-hidden="true">▤</span><strong id="models">—</strong><span>可用模型</span><small>MODELS</small></div>
 </div>
 <div class="overview-actions"><button class="btn primary" id="refresh">↻ 重新同步</button>
-<button class="btn soft" data-go="devices">查看所有節點 ↗</button></div>
+<button class="btn soft" data-go="devices">查看所有節點 ↗</button>
+<button class="btn soft" id="probe-model">▷ 測試真實模型回覆</button></div>
+<p class="result" id="probe-output" role="status" aria-live="polite" hidden></p>
 <p class="note">「已加入」=配對註冊；「目前在線」=最近收到心跳；「可用模型」=後端模型登錄數；「推論已授權」=管理者核准。四者分開驗證，均不代表已完成實際推論測試。</p></div>
 <div class="card"><div class="card-title"><div><span class="eyebrow">RUNTIME STATUS</span><h2>服務狀態</h2></div><span aria-hidden="true">◎</span></div>
 <p id="service">正在確認後端服務…</p><div class="separator"></div>
@@ -405,6 +407,19 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  document.querySelectorAll("[data-go]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.go)));
  $("refresh").addEventListener("click",reload);
  $("issue").addEventListener("click",issue);
+ $("probe-model").addEventListener("click",async()=>{
+   const button=$("probe-model"),out=$("probe-output");
+   button.disabled=true;out.hidden=false;out.textContent="正在經由 Slime 派工並等待模型回覆（最多約 48 秒）…";
+   try{
+     const data=await api("verify");
+     out.textContent="✓ 真正模型推論成功 · "+data.model+
+       " · 輸入 "+data.prompt_tokens+" tokens · 輸出 "+data.completion_tokens+
+       " tokens · 節點模型已能回覆。";
+     await reload();
+   }catch(e){out.textContent="✕ 尚未完成真實推論："+e.message+
+     "。請檢查節點心跳、Ollama、Owner 推論核准與後端 Runner 開關。";}
+   finally{button.disabled=false;}
+ });
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
@@ -601,3 +616,45 @@ def confirm(body:Confirm):
         # explicit commit is mandatory. Otherwise closing silently rolls back.
         db.commit()
     return {"ok":True,"message":"已完成操作。重新整理節點狀態以確認結果。"}
+
+@router.post("/verify")
+async def verify_inference(body:Owner):
+    """Owner-only smoke test: fixed-prompt inference, no arbitrary commands."""
+    _chat,sub=_owner(body.init_data)
+    _enabled()
+    from slime_runner_bridge import catalog,dispatch,enabled
+    if not enabled():
+        raise HTTPException(503,"Slime Model Runner 服務尚未啟用")
+    now=int(time.time())
+    with _session() as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS ceres_slime_verify_rate (
+          owner_sub TEXT NOT NULL, issued_at INTEGER NOT NULL)""")
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM ceres_slime_verify_rate WHERE issued_at<?",(now-600,))
+        recent=db.execute("SELECT COUNT(*) FROM ceres_slime_verify_rate WHERE owner_sub=?",
+                          (sub,)).fetchone()[0]
+        if recent>=2:
+            raise HTTPException(429,"每 10 分鐘最多進行 2 次真實模型測試")
+        db.execute("INSERT INTO ceres_slime_verify_rate VALUES(?,?)",(sub,now))
+        db.commit()
+    models=catalog(sub)
+    if not models:
+        raise HTTPException(503,"Owner 節點尚未註冊可用模型")
+    model=models[0]
+    result=await dispatch(sub,{
+        "model":model,
+        "messages":[{"role":"user","content":"Reply in one short sentence: Slime model is ready."}],
+        "max_tokens":48,
+        "temperature":0.0,
+    })
+    choices=result.get("choices",[])
+    answer=(choices[0].get("message",{}).get("content","")
+            if choices and isinstance(choices[0],dict) else "")
+    usage=result.get("usage",{})
+    if not isinstance(answer,str) or not answer.strip():
+        raise HTTPException(502,"節點未產生有效模型回覆")
+    if not isinstance(usage,dict) or type(usage.get("completion_tokens")) is not int:
+        raise HTTPException(502,"節點缺少可驗證的實際 Token 數")
+    return {"ok":True,"model":model,
+            "prompt_tokens":usage.get("prompt_tokens",0),
+            "completion_tokens":usage["completion_tokens"]}

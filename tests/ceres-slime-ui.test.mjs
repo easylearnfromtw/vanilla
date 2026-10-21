@@ -81,5 +81,5 @@ test("Real Slime readiness is never inferred from heartbeat alone",()=>{
  assert.match(source,/@router\.post\("\/verify"\)/);
  assert.match(source,/await dispatch\(sub/);
  assert.match(source,/ceres_slime_verify_rate/);
- assert.match(source,/if body\.operation=="revoke"/);
+ assert.match(source,/consume_revoke/);
 });

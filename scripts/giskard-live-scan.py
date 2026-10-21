@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Optional Giskard vulnerability scan against the owner's HTTPS model API.
+"""Optional Hank live vulnerability scan powered by Giskard v3.
 
 Runs only on trusted main-branch pushes (opted in) or owner dispatch.
 No production personal conversations or privileged system prompts are loaded.
@@ -86,17 +86,17 @@ async def main() -> int:
         "expected": 24, "executed": len(result.results),
         "passed": result.passed_count, "failed": result.failed_count,
         "errored": result.errored_count, "skipped": result.skipped_count,
-        "framework": "giskard-v3-vulnerability-scan",
+        "system": "Hank", "framework": "giskard-v3-vulnerability-scan",
     }
     (out / "giskard-live-summary.json").write_text(
         json.dumps(counts, indent=2) + "\n", encoding="utf-8"
     )
-    print("Giskard live scan aggregate:", counts)
+    print("Hank live scan aggregate (Giskard v3):", counts)
     note = os.getenv("GITHUB_STEP_SUMMARY")
     if note:
         with open(note, "a", encoding="utf-8") as file:
             file.write(
-                f"### Giskard model vulnerability scan\n"
+                f"### Hank model vulnerability scan (Giskard v3)\n"
                 f"Generated {len(result.results)} scenarios; passed {result.passed_count}; "
                 f"failed {result.failed_count}; errors {result.errored_count}; "
                 f"skipped {result.skipped_count}.\n"

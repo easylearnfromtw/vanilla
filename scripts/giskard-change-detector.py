@@ -56,6 +56,7 @@ def classify(changes: list[dict], *, force: bool = False) -> dict:
         reasons.append("multi-module-ai-refactor")
     return {
         "schemaVersion": 1,
+        "system": "Hank",
         "classification": "major" if reasons else "minor",
         "runGiskard": bool(reasons),
         "reasons": reasons or ["below-major-ai-threshold"],
@@ -112,14 +113,14 @@ def main() -> None:
     output = Path(options.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Giskard gate: {report['classification']} | {report['aiFilesChanged']} AI files | {report['aiLinesChanged']} changed lines")
+    print(f"Hank gate: {report['classification']} | {report['aiFilesChanged']} AI files | {report['aiLinesChanged']} changed lines")
     if options.github_output:
         with open(options.github_output, "a", encoding="utf-8") as file:
             file.write(f"major={'true' if report['runGiskard'] else 'false'}\n")
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as file:
-            file.write(f"### Giskard change classification: {report['classification']}\n")
+            file.write(f"### Hank change classification: {report['classification']}\n")
             file.write(f"AI source files: {report['aiFilesChanged']}; changed lines: {report['aiLinesChanged']}.\n")
             file.write("Reasons: " + ", ".join(report["reasons"]) + "\n")
 

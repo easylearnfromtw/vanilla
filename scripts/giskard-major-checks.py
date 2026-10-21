@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Giskard v3 Checks against real Vanilla TypeScript AI-routing/policy code.
+"""Hank AI regression suite powered by Giskard v3 against real Vanilla code.
 
 These seeded regression checks do not use an LLM judge or external services.
 They verify real decision functions, not generative answer quality.
@@ -59,7 +59,7 @@ CASES = [
 
 async def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
-    suite = Suite(name="vanilla-major-ai-regressions", target=target)
+    suite = Suite(name="hank-vanilla-major-ai-regressions", target=target)
     for name, inputs, expected in CASES:
         suite.append(
             Scenario(name).interact(inputs=inputs).check(
@@ -71,7 +71,7 @@ async def main() -> int:
     )
     result.to_junit_xml(OUT / "giskard-major-junit.xml")
     summary = {
-        "schemaVersion": 1, "framework": "giskard-v3-checks",
+        "schemaVersion": 1, "system": "Hank", "framework": "giskard-v3-checks",
         "target": "real-Vanilla-TypeScript-functions",
         "expected": len(CASES), "passed": result.passed_count,
         "failed": result.failed_count, "errored": result.errored_count,
@@ -80,12 +80,12 @@ async def main() -> int:
     (OUT / "giskard-major-summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
-    print("Giskard Checks:", summary)
+    print("Hank / Giskard Checks:", summary)
     note = os.getenv("GITHUB_STEP_SUMMARY")
     if note:
         with open(note, "a", encoding="utf-8") as file:
             file.write(
-                f"### Giskard AI regression\n"
+                f"### Hank AI regression (Giskard v3)\n"
                 f"Passed {result.passed_count}/{len(CASES)}; "
                 f"failed {result.failed_count}; errors {result.errored_count}; "
                 f"skipped {result.skipped_count}.\n"

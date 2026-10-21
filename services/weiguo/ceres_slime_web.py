@@ -523,8 +523,9 @@ def rewards_config(body:RewardConfig):
 
 class Plan(Owner):
     node_id: str=Field(pattern=r"^[a-f0-9]{24}$")
-    operation: str=Field(pattern=r"^(node|inference|revoke)$")
+    operation: str=Field(pattern=r"^(node|inference|revoke|load|thermal)$")
     enabled: bool=False
+    level: int=Field(default=0,ge=0,le=100)
 
 
 class Confirm(Owner):
@@ -571,10 +572,19 @@ def snapshot(body:Owner):
     with _db() as db:
         records=db.execute("SELECT * FROM nodes WHERE owner=? ORDER BY label",(sub,)).fetchall()
     now=time.time()
+    from slime_ops import score
     nodes=[{
       "id":r["id"],"label":r["label"],"role":r["role"],"os":r["os"],
+      "pair_number":r["pair_number"],"hardware_score":score(r["cpu"],r["ram_gb"],r["gpu"]),
+      "pair_time":int(r["paired_at"] or 0),"geo_opt_in":bool(r["geo_opt_in"]),
+      "public_ip":r["public_ip"] if r["geo_opt_in"] else "",
+      "geo_area":r["geo_area"] if r["geo_opt_in"] else "",
+      "cpu_pct":r["cpu_pct"],"gpu_temp_c":r["gpu_temp_c"],
+      "gpu_util_pct":r["gpu_util_pct"],"max_load_pct":r["max_load_pct"],
+      "thermal_limit_c":r["thermal_limit_c"],"shutdown_opt_in":bool(r["shutdown_opt_in"]),
       "gpu":r["gpu"],"ram_gb":r["ram_gb"],"cpu":r["cpu"],
       "online":now-r["last_seen"]<=ONLINE_SECONDS,
+      "last_heartbeat_seconds":max(0,int(now-r["last_seen"])),
       "share_enabled":bool(r["share_enabled"]),
       "owner_enabled":bool(r["owner_enabled"]),
       "inference_enabled":bool(r["inference_enabled"])
@@ -636,7 +646,12 @@ def plan(body:Plan):
                        (body.node_id,sub)).fetchone()
     if not row:
         raise HTTPException(404,"找不到此 Owner 的節點")
-    title={"node":"節點啟用／停用","inference":"模型推論授權","revoke":"永久撤銷節點"}[body.operation]
+    if body.operation=="load" and body.level not in (10,25,50,75,100):
+        raise HTTPException(422,"負載級別不支援")
+    if body.operation=="thermal" and not 60<=body.level<=95:
+        raise HTTPException(422,"溫度上限須在 60–95°C")
+    title={"node":"節點啟用／停用","inference":"模型推論授權",
+           "revoke":"永久撤銷節點","load":"運算負載","thermal":"GPU 溫度限制"}[body.operation]
     token=secrets.token_hex(24)
     now=int(time.time())
     with _session() as db:
@@ -645,7 +660,7 @@ def plan(body:Plan):
         db.execute("DELETE FROM ceres_slime_approval WHERE expires_at<?",(now,))
         db.execute("INSERT INTO ceres_slime_approval VALUES(?,?,?,?,?,?,?)",
                    (hashlib.sha256(token.encode()).hexdigest(),chat,sub,body.node_id,
-                    body.operation,int(body.enabled),now+(240 if body.operation=="revoke" else 120)))
+                    body.operation,(body.level if body.operation in ("load","thermal") else int(body.enabled)),now+(240 if body.operation=="revoke" else 120)))
     return {"token":token,"title":title+" · "+row["label"],
             "expiresSeconds":240 if body.operation=="revoke" else 120}
 
@@ -683,6 +698,12 @@ def confirm(body:Confirm):
                                (row["enabled"],row["node_id"],sub))
         elif row["operation"]=="inference":
             changed=db.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
+                               (row["enabled"],row["node_id"],sub))
+        elif row["operation"]=="load" and row["enabled"] in (10,25,50,75,100):
+            changed=db.execute("UPDATE nodes SET max_load_pct=? WHERE id=? AND owner=?",
+                               (row["enabled"],row["node_id"],sub))
+        elif row["operation"]=="thermal" and 60<=row["enabled"]<=95:
+            changed=db.execute("UPDATE nodes SET thermal_limit_c=? WHERE id=? AND owner=?",
                                (row["enabled"],row["node_id"],sub))
         else:
             raise HTTPException(400,"不支援的操作")

@@ -23,7 +23,7 @@ test("one-time invite launches Slime automatically but never persists the URL se
  const app=read("src/App.tsx");
  const panel=read("src/slime/SlimePanel.tsx");
  assert.match(app,/^.*#slime=/m);
- assert.match(app,/nodes":"chat"/);
+ assert.match(app,/window\.location\.replace\(BASE\+"slime\/"\+hash\)/);
  assert.match(panel,/inviteFromURL/);
  assert.match(panel,/copyPairCode/);
  assert.match(panel,/一次性節點配對碼/);

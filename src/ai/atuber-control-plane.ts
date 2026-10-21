@@ -1,11 +1,7 @@
 /**
- * 阿土伯 / October single conversational-driver policy.
- *
- * Distinct from model-weight merging: experts and deterministic tools can
- * remain capabilities, but no Gemini/DeepSeek/unrelated Ollama model may
- * silently become the user-facing conversation driver.
- * A route decision is not an authorization: Diana/Ceres/Quirinus still gate
- * execution and explicit external consent is never skipped.
+ * October / 阿土伯 single conversational driver with three owner-hosted tiers.
+ * This chooses among configured candidates; it neither downloads weights nor
+ * asserts a model is reachable. Never substitutes cloud experts silently.
  */
 import type {ModelCandidate} from "./model-orchestrator";
 import type {TaskKind} from "./task-kind";
@@ -13,6 +9,24 @@ import {isAtuberModel} from "./prompts";
 
 export const ATUBER_SINGLE_DRIVER=true as const;
 export const ATUBER_LOCAL_MODEL="Qwen3-0.6B-q4f16_1-MLC" as const;
+
+/** Install on an approved Ollama host with the matching deployment Modelfiles. */
+export const ATUBER_TIERS=[
+ {tier:"mid-small",model:"october:sm",base:"qwen3:4b",label:"中小型 · 4B",approxDownloadGB:2.5},
+ {tier:"mid-large",model:"october:ml",base:"qwen3:14b",label:"中大型 · 14B",approxDownloadGB:9.3},
+ {tier:"large",model:"october:lg",base:"qwen3:30b",label:"大型 · 30B (MoE)",approxDownloadGB:19}
+] as const;
+export type AtuberTier="phone"|"mid-small"|"mid-large"|"large"|"custom";
+export function atuberTier(candidate:ModelCandidate):AtuberTier|null{
+ if(candidate.source==="local")return candidate.model===ATUBER_LOCAL_MODEL?"phone":null;
+ if(candidate.source!=="ollama"||candidate.location!=="自架主機")return null;
+ const model=candidate.model.toLowerCase();
+ const found=ATUBER_TIERS.find(t=>t.model===model);
+ if(found)return found.tier;
+ // Backward-compatible owner-created October aliases. Unknown capacity is
+ // deliberately NOT counted as a verified large model.
+ return /^(?:october|atuber|阿土伯)(?::[a-z0-9._-]+)?$/i.test(candidate.model)&&isAtuberModel(candidate.model)?"custom":null;
+}
 export type AtuberRouteDecision={
  policy:"atuber-single-driver-v1";
  controller:ModelCandidate|null;
@@ -20,46 +34,53 @@ export type AtuberRouteDecision={
  reason:"ready-local"|"ready-ollama"|"private-needs-local"|
   "vision-needs-approved-adapter"|"no-atuber-runtime"|"fact-needs-stronger-runtime";
 };
-
-/** Only the dedicated local Qwen3 0.6B or a named self-hosted October/Atuber
- * Ollama deployment can be the controller. A generic Qwen 0.6B alias from
- * unrelated providers and cloud Gemini/DeepSeek are NEVER accepted.
- */
 export function isAtuberDriver(candidate:ModelCandidate):boolean{
- if(candidate.source==="local")return candidate.model===ATUBER_LOCAL_MODEL;
- if(candidate.source!=="ollama"||candidate.location!=="自架主機")return false;
- return isAtuberModel(candidate.model)&&/^(?:october|atuber|阿土伯)(?::[a-z0-9._-]+)?$/i.test(candidate.model);
+ return atuberTier(candidate)!==null;
 }
-
+const order:Record<AtuberTier,number>={"phone":0,"mid-small":1,"mid-large":2,"large":3,"custom":1};
+/** Task-dependent floor, not a claim of correctness or hardware readiness. */
+function desiredTier(task:TaskKind,restrictTinyModel:boolean):number{
+ if(task==="code")return 3;
+ if(task==="analysis")return 2;
+ if(restrictTinyModel)return 2;
+ if(task==="writing")return 1;
+ return 0;
+}
 export function selectAtuberDriver(
  candidates:readonly ModelCandidate[],
  options:{privateMode:boolean;localOnly:boolean;image:boolean;task:TaskKind;restrictTinyModel?:boolean}
 ):AtuberRouteDecision{
  const specialists=candidates.filter(x=>!isAtuberDriver(x));
- const driverCandidates=candidates.filter(isAtuberDriver);
- const local=driverCandidates.find(c=>c.source==="local");
- const host=driverCandidates.find(c=>c.source==="ollama");
+ const eligible=candidates.filter(isAtuberDriver);
+ const local=eligible.find(x=>x.source==="local")??null;
+ const hosts=eligible.filter(x=>x.source==="ollama");
  const base={policy:"atuber-single-driver-v1" as const,specialists};
  if(options.image)return {...base,controller:null,reason:"vision-needs-approved-adapter"};
- if(options.privateMode||options.localOnly)
-  return {...base,controller:options.restrictTinyModel?null:local??null,
-   reason:options.restrictTinyModel?"fact-needs-stronger-runtime":local?"ready-local":"private-needs-local"};
- // Use the stronger self-hosted October runtime on factual/high-complexity
- // tasks when present; a private/on-device request never makes this choice.
- const preferHost=options.restrictTinyModel||options.task==="analysis"||options.task==="code";
- const controller=preferHost?(host??(options.restrictTinyModel?null:local??null)):(local??host??null);
+ if(options.privateMode||options.localOnly){
+  const controller=options.restrictTinyModel?null:local;
+  return {...base,controller,reason:controller?"ready-local":
+   options.restrictTinyModel?"fact-needs-stronger-runtime":"private-needs-local"};
+ }
+ const target=desiredTier(options.task,Boolean(options.restrictTinyModel));
+ // Never allow the 0.6B phone model on verified demanding/factual routes.
+ const allowed=hosts.filter(x=>!options.restrictTinyModel||order[atuberTier(x)!]>=1);
+ const best=allowed.map((candidate,index)=>({candidate,index,level:order[atuberTier(candidate)!]}))
+  .sort((a,b)=>{
+   const da=Math.abs(a.level-target),db=Math.abs(b.level-target);
+   return da-db||(target>=2?b.level-a.level:a.level-b.level)||a.index-b.index;
+  })[0]?.candidate??null;
+ const preferHost=target>=1;
+ const controller=preferHost?(best??(options.restrictTinyModel?null:local)):(local??best);
  return {...base,controller,reason:controller?.source==="local"?"ready-local":
-   controller?.source==="ollama"?"ready-ollama":
-   options.restrictTinyModel?"fact-needs-stronger-runtime":"no-atuber-runtime"};
+  controller?.source==="ollama"?"ready-ollama":
+  options.restrictTinyModel?"fact-needs-stronger-runtime":"no-atuber-runtime"};
 }
-
-/** Fail closed: no automatic generic-model takeover if October crashes. */
+/** No cross-boundary fallback or automatic cloud-provider promotion. */
 export function atuberFallback(
  ranked:readonly ModelCandidate[],failed:ModelCandidate,options:{privateMode:boolean;localOnly:boolean}
 ):ModelCandidate|null{
  return ranked.find(x=>x.id!==failed.id&&isAtuberDriver(x)&&
   (!(options.privateMode||options.localOnly)||x.source==="local")&&
-  // The fallback must not silently move an on-device prompt to a host.
   !(failed.source==="local"&&x.source!=="local")&&
   !(failed.source==="ollama"&&x.source!=="ollama"))??null;
 }

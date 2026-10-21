@@ -88,7 +88,8 @@ class NativeTelegramTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{
             "SLIME_ENABLED":"true","SLIME_DB_PATH":directory+"/slime.sqlite",
             "SLIME_PUBLIC_API_ORIGIN":"https://example.invalid",
-        }),patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as tg:
+        }),patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as tg, \
+             patch("ceres_admin_bot.send_pairing_qr",new_callable=AsyncMock,return_value=True) as qr:
             self.run_async(command(CHAT,"/hub invite"))
             method,payload=tg.await_args.args
             self.assertEqual(method,"sendMessage")
@@ -101,12 +102,14 @@ class NativeTelegramTests(unittest.TestCase):
                    if item.get("text")=="複製邀請連結"]
             self.assertEqual(len(codes),1)
             self.assertEqual(len(links),1)
-            self.assertRegex(codes[0],r"^[A-Za-z0-9_-]{24,160}$")
+            self.assertRegex(codes[0],r"^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$")
             self.assertEqual(links[0],"https://example.invalid/#slime="+codes[0])
             self.assertIn(codes[0],payload["text"])
+            qr.assert_awaited_once_with(CHAT,links[0])
             # Reusing the already issued code must not leak an installed node token.
             with patch("ceres_command_center._telegram",new_callable=AsyncMock,return_value=True),patch(
-                    "ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as via:
+                    "ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as via, \
+                    patch("ceres_admin_bot.send_pairing_qr",new_callable=AsyncMock,return_value=True):
                 self.run_async(callback(CHAT,"cb-pair","hub:invite",message_id=33))
                 self.assertEqual(via.await_args.args[0],"editMessageText")
                 self.assertIn("copy_text",str(via.await_args.args[1]["reply_markup"]))

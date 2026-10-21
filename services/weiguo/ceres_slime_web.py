@@ -303,7 +303,11 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const heartbeat=Number.isFinite(n.last_heartbeat_seconds)?n.last_heartbeat_seconds:null;
    const heartbeatText=n.online?"心跳正常"+(heartbeat!==null?"（"+heartbeat+" 秒前）":""):"心跳離線"+(heartbeat!==null?"（"+heartbeat+" 秒前）":"");
    const hardware=(n.os||"系統未偵測")+" · RAM "+(n.ram_gb||0)+" GB · "+(n.gpu||"GPU 未偵測");
-   info.textContent="✓ 綁定已註冊 · "+heartbeatText+" · "+hardware+" · "+
+   const thermal=n.gpu_temp_c===null?"溫度未回報":"GPU "+n.gpu_temp_c+"°C";
+   const load="負載 "+n.max_load_pct+"% · 上限 "+n.thermal_limit_c+"°C";
+   const geo=n.geo_opt_in?((n.public_ip||"IP 無法辨識")+" · "+(n.geo_area||"地區待查")):"IP 位置未授權";
+   info.textContent="第 "+n.pair_number+" 個節點 · 配置評分 "+n.hardware_score+"/10000（估算） · "+
+      "✓ 綁定已註冊 · "+heartbeatText+" · "+hardware+" · "+thermal+" · "+load+" · "+geo+" · "+
      (n.share_enabled?"裝置同意共享":"裝置已停用共享")+" · "+
      (n.owner_enabled?"Owner 已核准節點":"Owner 已停用節點")+" · "+
      (n.inference_enabled?"推論授權已開啟（仍需 Ollama）":"推論未核准")+" · "+
@@ -313,15 +317,20 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const actions=[
     {label:n.owner_enabled?"停用節點":"啟用節點",kind:"node",enable:!n.owner_enabled},
     {label:n.inference_enabled?"停止推論":"核准推論",kind:"inference",enable:!n.inference_enabled},
+    {label:"負載 25%",kind:"load",enable:25},
+    {label:"負載 50%",kind:"load",enable:50},
+    {label:"負載 100%",kind:"load",enable:100},
+    {label:"GPU 上限 75°C",kind:"thermal",enable:75},
+    {label:"遠端關機（需本機同意）",kind:"power",enable:false},
     {label:"Telegram 驗證後撤銷",kind:"revoke",enable:false}
    ];
    actions.forEach(a=>{
     const button=document.createElement("button");button.type="button";
     button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
     button.addEventListener("click",()=>{
-      if(a.kind==="revoke"){
-       const command="撤銷 "+n.id;
-       copy(command).then(ok=>{if(ok)notice("已複製：「"+command+"」。請回到 Ceres Telegram 私聊貼上，再輸入獨立 8 位撤銷碼。");});
+      if(a.kind==="revoke"||a.kind==="power"){
+       const command=a.kind==="revoke"?"撤銷 "+n.id:"/slime power "+n.id+" off";
+       copy(command).then(ok=>{if(ok)notice("請到 Ceres Telegram 私聊貼上命令，並依 Bot 提示完成二次確認。");});
        return;
       }
       plan(n,a.kind,a.enable);
@@ -374,11 +383,15 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  }
  async function plan(n,kind,enable){
   if(busy)return;
-  const warning=kind==="revoke"?"永久撤銷此裝置配對。原憑證將無法再使用。":
+  const warning=kind==="load"?"調整派工優先順序與工作間隔；不直接限制 GPU 功率。":
+   kind==="thermal"?"超過溫度上限將暫停新的模型派工，需裝置具備感測器。":
+   kind==="revoke"?"永久撤銷此裝置配對。原憑證將無法再使用。":
    kind==="inference"&&enable?"允許這台電腦處理其他使用者的模型提示；須先取得電腦持有人同意。":
    kind==="node"&&!enable?"停止節點承接新工作。":"此動作會修改 Slime 權限。";
   try{
-   const obj=await api("plan",{node_id:n.id,operation:kind,enabled:enable});
+   const obj=await api("plan",{node_id:n.id,operation:kind,
+      enabled:typeof enable==="boolean"?enable:false,
+      level:typeof enable==="number"?enable:0});
    pending=obj.token;
    $("confirm-title").textContent=obj.title;
    $("confirm-description").textContent=warning+" 確認後才會寫入後端。";
@@ -456,8 +469,9 @@ class Owner(BaseModel):
 
 class Plan(Owner):
     node_id: str=Field(pattern=r"^[a-f0-9]{24}$")
-    operation: str=Field(pattern=r"^(node|inference|revoke)$")
+    operation: str=Field(pattern=r"^(node|inference|revoke|load|thermal)$")
     enabled: bool=False
+    level: int=Field(default=0,ge=0,le=100)
 
 
 class Confirm(Owner):
@@ -503,8 +517,16 @@ def snapshot(body:Owner):
     with _db() as db:
         records=db.execute("SELECT * FROM nodes WHERE owner=? ORDER BY label",(sub,)).fetchall()
     now=time.time()
+    from slime_ops import score
     nodes=[{
       "id":r["id"],"label":r["label"],"role":r["role"],"os":r["os"],
+      "pair_number":r["pair_number"],"hardware_score":score(r["cpu"],r["ram_gb"],r["gpu"]),
+      "pair_time":int(r["paired_at"] or 0),"geo_opt_in":bool(r["geo_opt_in"]),
+      "public_ip":r["public_ip"] if r["geo_opt_in"] else "",
+      "geo_area":r["geo_area"] if r["geo_opt_in"] else "",
+      "cpu_pct":r["cpu_pct"],"gpu_temp_c":r["gpu_temp_c"],
+      "gpu_util_pct":r["gpu_util_pct"],"max_load_pct":r["max_load_pct"],
+      "thermal_limit_c":r["thermal_limit_c"],"shutdown_opt_in":bool(r["shutdown_opt_in"]),
       "gpu":r["gpu"],"ram_gb":r["ram_gb"],"cpu":r["cpu"],
       "online":now-r["last_seen"]<=ONLINE_SECONDS,
       "last_heartbeat_seconds":max(0,int(now-r["last_seen"])),
@@ -574,7 +596,12 @@ def plan(body:Plan):
                        (body.node_id,sub)).fetchone()
     if not row:
         raise HTTPException(404,"找不到此 Owner 的節點")
-    title={"node":"節點啟用／停用","inference":"模型推論授權","revoke":"永久撤銷節點"}[body.operation]
+    if body.operation=="load" and body.level not in (10,25,50,75,100):
+        raise HTTPException(422,"負載級別不支援")
+    if body.operation=="thermal" and not 60<=body.level<=95:
+        raise HTTPException(422,"溫度上限須在 60–95°C")
+    title={"node":"節點啟用／停用","inference":"模型推論授權",
+           "revoke":"永久撤銷節點","load":"運算負載","thermal":"GPU 溫度限制"}[body.operation]
     token=secrets.token_hex(24)
     now=int(time.time())
     with _session() as db:
@@ -583,7 +610,7 @@ def plan(body:Plan):
         db.execute("DELETE FROM ceres_slime_approval WHERE expires_at<?",(now,))
         db.execute("INSERT INTO ceres_slime_approval VALUES(?,?,?,?,?,?,?)",
                    (hashlib.sha256(token.encode()).hexdigest(),chat,sub,body.node_id,
-                    body.operation,int(body.enabled),now+120))
+                    body.operation,(body.level if body.operation in ("load","thermal") else int(body.enabled)),now+120))
     return {"token":token,"title":title+" · "+row["label"],"expiresSeconds":120}
 
 
@@ -611,6 +638,12 @@ def confirm(body:Confirm):
                                (row["enabled"],row["node_id"],sub))
         elif row["operation"]=="inference":
             changed=db.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
+                               (row["enabled"],row["node_id"],sub))
+        elif row["operation"]=="load" and row["enabled"] in (10,25,50,75,100):
+            changed=db.execute("UPDATE nodes SET max_load_pct=? WHERE id=? AND owner=?",
+                               (row["enabled"],row["node_id"],sub))
+        elif row["operation"]=="thermal" and 60<=row["enabled"]<=95:
+            changed=db.execute("UPDATE nodes SET thermal_limit_c=? WHERE id=? AND owner=?",
                                (row["enabled"],row["node_id"],sub))
         else:
             raise HTTPException(400,"不支援的操作")

@@ -37,6 +37,13 @@ test("168 synthetic controller configurations never promote another model",()=>{
  }
  assert.equal(cases,336);
 });
+test("Untrusted or non-self-hosted October names cannot impersonate the controller",()=>{
+ const unofficial={...models[2],location:"Ollama Cloud"};
+ const spoofed={...models[2],model:"deepseek:october"};
+ assert.equal(isAtuberDriver(unofficial),false);
+ assert.equal(isAtuberDriver(spoofed),false);
+ assert.equal(selectAtuberDriver([unofficial,models[4]],{task:"general",privateMode:false,localOnly:false,image:false}).controller,null);
+});
 test("No Atuber available fails closed, including if generic providers are plentiful",()=>{
  const d=selectAtuberDriver(models.filter(x=>!isAtuberDriver(x)),{task:"general",privateMode:false,localOnly:false,image:false});
  assert.equal(d.controller,null);assert.equal(d.reason,"no-atuber-runtime");

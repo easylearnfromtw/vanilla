@@ -4,6 +4,7 @@
  */
 import {indexedDbArchiveStore,type ArchiveStore,type ArchivedConversation} from "../library/conversation-archive";
 import type {VictoriaLongitudinal} from "./victoria-longitudinal";
+import {shouldVictoriaAnalyzeLongitudinal} from "./victoria-longitudinal";
 
 export type VictoriaMatch={id:string;title:string;score:number;excerpt:string};
 export type VictoriaRecall={matches:VictoriaMatch[];context:string;inspectedArchives?:number;longitudinal?:VictoriaLongitudinal};
@@ -37,20 +38,33 @@ function shortExcerpt(text:string,terms:readonly string[],max=340):string{
  const start=Math.max(0,at-65);
  return (start?"…":"")+clean.slice(start,start+max)+(start+max<clean.length?"…":"");
 }
-function bestPair(item:ArchivedConversation,terms:readonly string[]):{score:number;excerpt:string}|null{
+function bestPair(item:ArchivedConversation,terms:readonly string[],timeline=false):{score:number;excerpt:string}|null{
  let best=-1,position=-1;
+ const candidates:{at:number;score:number}[]=[];
  for(let i=0;i<item.turns.length;i++){
   const turn=item.turns[i];
   if(turn?.role!=="user"||typeof turn.content!=="string")continue;
   const prompt=norm(turn.content.slice(0,8000));
   const answer=item.turns[i+1]?.role==="assistant"?norm(item.turns[i+1].content.slice(0,5000)):"";
-  const score=termHits(terms,prompt).length*3+termHits(terms,answer).length;
+  const userHits=termHits(terms,prompt).length,answerHits=termHits(terms,answer).length;
+  const score=userHits*3+Math.min(2,answerHits);
+  // Previous assistant messages are unverified; never use assistant-only mentions
+  // to establish that a real user made a long-running decision or measurement.
+  if(userHits>0)candidates.push({at:i,score});
   if(score>best){best=score;position=i;}
  }
  if(position<0||best<=0)return null;
  const user=item.turns[position];
  const answer=item.turns[position+1]?.role==="assistant"?item.turns[position+1]:null;
- const excerpt="過去提問："+shortExcerpt(user.content,terms,380)+(answer?"\n過去回答："+shortExcerpt(answer.content,terms,340):"");
+ let excerpt="過去提問："+shortExcerpt(user.content,terms,340)+(answer?"\n過去回答（未驗證）："+shortExcerpt(answer.content,terms,270):"");
+ if(timeline&&candidates.length>1){
+  // Preserve at most two distinct user-authored updates with their source turns.
+  // This is a chronology of *what was said*, not a verified numerical time series.
+  const additional=candidates.filter(c=>c.at!==position&&c.score>=Math.max(2,best/3))
+   .sort((a,b)=>a.at-b.at).slice(0,2);
+  for(const x of additional)excerpt+="\n其他相關歷史提問（第 "+(x.at+1)+" 則）："+
+   shortExcerpt(item.turns[x.at].content,terms,180);
+ }
  return {score:best,excerpt};
 }
 /** Only recall confidently relevant topic matches; vague "繼續" stays with the active chat. */
@@ -62,7 +76,7 @@ export function rankVictoriaArchives(question:string,archives:readonly ArchivedC
   if(!item||!Array.isArray(item.turns)||item.turns.length===0)continue;
   const title=norm(item.title||"");
   const titleHits=termHits(terms,title);
-  const pair=bestPair(item,terms);
+  const pair=bestPair(item,terms,shouldVictoriaAnalyzeLongitudinal(question));
   if(!pair)continue;
   const combined=norm(item.title+" "+pair.excerpt);
   const hits=termHits(terms,combined);

@@ -44,7 +44,10 @@ test("Ordinary Vanilla and schema generation do not inherit October credentials"
 });
 test("Ollama selects the model-aware persona, not the generic family identity",()=>{
  const source=file("src/ai/ollama.ts");
- assert.match(source,/vanillaSystemPrompt\(\{task,compact:profile.compactPrompt,latestUserText:latest,model\}\)/);
+ assert.match(source,/vanillaSystemPrompt\(\{task,compact:profile\.compactPrompt,latestUserText:latest,model,tongcheng:isAtuberModel\(model\)\}\)/);
+ const october=vanillaSystemPrompt({task:"analysis",compact:false,latestUserText:"比較風險",model:"october:0.3",tongcheng:true});
+ assert.match(october,/October|阿土伯/);
+ assert.doesNotMatch(october,/你是 Vanilla，一個家庭專用/);
 });
 test("Erya refines October's consultant voice without overwriting evidence",()=>{
  const task=prepareHumanization("潤稿：本季營收達 120 萬元，較上季增加 8%。");

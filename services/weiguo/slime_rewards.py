@@ -303,8 +303,18 @@ def balance(body:GoogleCredential):
           FROM slime_reward_key k JOIN vanilla_api_usage u ON u.key_id=k.key_id
           WHERE k.google_sub=?""",
           (now-now%86400,now-30*86400,sub)).fetchone() if _usage_exists(db) else None
+        by_model=db.execute("""SELECT u.model,COUNT(*) requests,
+          COALESCE(SUM(u.charged_tokens),0) total_tokens,
+          COALESCE(SUM(u.prompt_tokens),0) input_tokens,
+          COALESCE(SUM(u.completion_tokens),0) output_tokens,
+          COALESCE(SUM(CASE WHEN u.status='success' AND u.prompt_tokens IS NULL
+               THEN u.charged_tokens ELSE 0 END),0) estimated_tokens
+          FROM slime_reward_key k JOIN vanilla_api_usage u ON u.key_id=k.key_id
+          WHERE k.google_sub=? GROUP BY u.model ORDER BY total_tokens DESC LIMIT 20""",
+          (sub,)).fetchall() if _usage_exists(db) else []
     return {"claimed":True,"balance":wallet["balance"],"earned":wallet["earned"],
             "spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
+            "usageByModel":[dict(x) for x in by_model],
             "usage":({
               "requests":stats["requests"],"chargedTokens":stats["charged"],
               "exactTokens":stats["exact"],"estimatedTokens":stats["estimated"],
@@ -361,6 +371,8 @@ button:disabled{opacity:.5}button.secondary{color:#18181b;background:#f1f1f3}
 <div id="google"></div>
 <p id="status" role="status" aria-live="polite">登入後會檢查獎勵資格；不會向 Google 傳送節點金鑰。</p>
 <div id="wallet" hidden><div class="metric"><small>目前可用額度</small><strong id="balance">—</strong></div>
+<div class="metric"><small>累計消耗 · 以實際用量優先</small><strong id="spent">0</strong>
+<p id="usage-detail" style="margin-bottom:0">尚未產生模型請求。</p></div>
 <button type="button" id="rotate" class="secondary">重新產生 API Key（舊金鑰失效）</button></div>
 <div id="keybox" hidden><small>這是唯一一次顯示 API Key，請存入你自己的私密伺服器設定。</small>
 <pre id="key"></pre><button type="button" id="copy">複製 API Key</button>
@@ -381,6 +393,20 @@ async function api(route,data){
  return body;
 }
 function showKey(key){issued=key;$("key").textContent=key;$("keybox").hidden=false;}
+function showWallet(data){
+ $("wallet").hidden=!data.claimed;
+ $("balance").textContent=Number(data.balance||0).toLocaleString();
+ $("spent").textContent=Number(data.spent||0).toLocaleString();
+ const u=data.usage||{};
+ const models=(data.usageByModel||[]).slice(0,8).map(x=>
+   x.model+": "+Number(x.total_tokens).toLocaleString()+" Token").join("；");
+ $("usage-detail").textContent=
+   "本期輸入 "+Number(u.inputTokens||0).toLocaleString()+
+   " / 輸出 "+Number(u.outputTokens||0).toLocaleString()+
+   " · 精確結算 "+Number(u.exactTokens||0).toLocaleString()+
+   " · 保守計算 "+Number(u.estimatedTokens||0).toLocaleString()+
+   (models?" · 模型： "+models:"");
+}
 function hideKey(){issued="";$("key").textContent="";$("keybox").hidden=true;}
 window.onload=async function(){
  if(ticket){
@@ -397,12 +423,11 @@ window.onload=async function(){
    if(ticket){
     const result=await api("claim",{credential,ticket});
     msg("已領取 "+result.rewardTokens.toLocaleString()+" Token！");
-    $("wallet").hidden=false;$("balance").textContent=result.balance.toLocaleString();
+    showWallet(await api("balance",{credential}));
     showKey(result.apiKey);
    }else{
     const result=await api("balance",{credential});
-    $("wallet").hidden=!result.claimed;
-    $("balance").textContent=result.balance.toLocaleString();
+    showWallet(result);
     msg(result.claimed?"Google 身分確認成功，可查詢目前剩餘 Token。":"尚未領取。請由已配對的 Slime 節點開啟專屬領獎連結。");
    }
   }catch(error){msg(error.message)}

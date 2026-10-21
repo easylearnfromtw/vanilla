@@ -49,6 +49,36 @@ node training/october/policy.mjs
 
 The training script exports portable JSON weights. Download the verified, already-trained weight file separately from the October archive provided in ChatGPT; the GitHub training workflow can also generate model artifacts. The JS policy always enforces deterministic scope/tenant/due/privileged gates, never grants execution rights.
 
+## October 認證後端回執（獨立選用的候選功能，預設 OFF）
+
+本分支新增 `services/weiguo/october_readonly.py`，整合進現有 FastAPI `app.py`。此後端與瀏覽器本機 October→Diana→Detroit→Verifier 是**兩個不同執行環境**，不能把前端計算視為已自動送到伺服器。只有部署、驗證設定且使用者主動呼叫新 API，後端才會真正執行 Python 唯讀 CSV 核算並建立可查詢回執。
+
+- `POST /v1/family/october/csv`：以衞國短效 Google 家庭 Bearer session 驗證真正 `sub`；只允許 `owner/member`，Ceres Gmail ACL 強制開啟時須具備 `chat` scope。只接受固定 `csv-descriptive-statistics`、`task_id`、`source`、最多 200 KB CSV；不接受前端自報 tenant/role/tool/script。CSV 不會當程式碼執行。
+- `GET /v1/family/october/receipts/{task_id}`：只允許相同經驗證 `sub` 查詢任務 metadata，跨租戶回 404；DB 僅保存原始 CSV 的 SHA-256、報表 digest、任務 ID、時間與 HMAC 簽章，**不持久保存原始 CSV／統計輸出**。
+- 同一 `sub+task_id` 相同內容重送回覆 `replayed: true` 及相同回執，不生成第二筆；使用相同 ID 傳不同資料回 409。每位使用者每分鐘最多 12 筆新回執，保留期 30 日。
+- 結果來自後端 Python 標準程式的真正本機數值核算並核對，並非根據瀏覽器回傳的 `verified`、模型文字或虛構 provider receipt。這是 server-authenticated receipt，**不代表多步 durable DAG、完整工具授權或 24/7 背景運作**。
+
+必要伺服器配置（僅後端環境／secret manager；切勿放進瀏覽器或 Git）：
+
+```dotenv
+OCTOBER_SERVER_READONLY_ENABLED=true
+OCTOBER_RECEIPT_SECRET=<independent-random-at-least-32-characters>
+```
+
+`OCTOBER_RECEIPT_SECRET` 必須與 `WEIGUO_SESSION_SECRET`、`WEIGUO_ADMIN_TOKEN` 不同；未設定或不符合規則時，後端回 503，絕不降級為無簽章的成功。伺服器必須配置既有 Google 登入、獨立簽章 Session、家庭／Gmail ACL、TLS、持久化 `CERES_DB_PATH`（預設暫存路徑不適合正式部署）；密鑰輪換會使舊回執無法通過目前的驗簽，需制訂輪換與留存程序。新 API **目前未配置、未對外開放**。
+
+端對端驗收命令：
+
+```sh
+python3 -m unittest discover -s services/weiguo -p 'test_october_readonly.py'
+# 以及完整衞國 suite
+python3 -m unittest discover -s services/weiguo -p 'test_*.py'
+npm run test:october-readonly
+npm run build
+```
+
+所有測試結果須看本 PR 最新 commit 的 GitHub Actions / 真實服務回執；CI 通過也**不等於**已建立正式線上服務。正式發佈仍依 Ceres Owner 指定版本核准、撤權演練與 rollback gate。
+
 ## October OC-003/OC-004/OC-005｜第一個本機唯讀垂直切片（2026-10-21）
 
 開發分支新增 `src/detroit/october-readonly.ts`，並將 `src/local-ai/LocalChat.tsx` 的「貼上 CSV」路徑接入。流程只處理明確的 `csv-descriptive-statistics` 任務：

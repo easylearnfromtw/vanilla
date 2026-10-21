@@ -247,3 +247,21 @@ benchmark.mjs 限定 loopback Ollama，兩組固定 temperature、top_p、seed�
     node training/october/quant-benchmark.mjs --models october:0.3,qwen3:4b --cases 50 --output ./october-quant-report.json
 
 輸出只保留任務代碼、精確判分、時間與 token 統計，不會把題目和回答全文放進報表；考慮評測再現性，兩模型套用相同的 `think:false`、seed、輸出上限及 JSON 輸出。計算準確率不等於通用模型評分。
+
+
+## v0.5 GPU 訓練 → 實際 PEFT Adapter 對照驗收（預設不執行 GPU 訓練）
+
+已加入 `gpu-preflight.py`、`adapter-evaluate.py`、`quant-holdout-export.mjs` 與 Windows `compare-adapter.ps1`。這些工具是對先前只有資料 schema 驗證的不足補充。CI 僅驗證來源程式、50 題 benchmark/250 題 train/100 題 eval 互不包含完全相同問題，並模擬 Adapter 的權重/資料校驗；CI CPU runner **沒有載入 Qwen 語言權重，也沒有聲稱評估成功**。
+
+**同一 CUDA GPU 測試的真實對照流程：**
+
+1. 在自有 Windows CUDA 電腦的隔離 Python 3.11 虛擬環境中，依 NVIDIA/PyTorch 支援矩陣安裝相容 CUDA 版 PyTorch，再安裝 `training/requirements-noodles.txt`、`training/requirements-qlora.txt`。不可只因有 RTX 3050 就假定 VRAM、驅動和 Python 相容。
+2. 執行 `python training/october/gpu-preflight.py --require-gpu`，必須有 CUDA GPU 且套件就緒；這個檢查不下載模型、也不接觸個人憑證。
+3. 執行 `powershell -ExecutionPolicy Bypass -File training/october/train-qwen-qlora.ps1 -UseVerifiedNumeracyCurriculum`（預設僅產生 250/100 題及資料校驗，不訓練）。
+4. 已充分確認合法授權與 GPU 資源後，才顯式加上 `-RunTraining -AcknowledgedModelLicense`。首次需要下載 Hugging Face 開放模型權重時，另外加 `-AllowModelDownload`；沒有上述開關絕不下載。請為獨立數值 Adapter 指定獨立 `-Output adapters/october-numeric-qwen3-0.6b`，不要覆寫舊有主模型。
+5. 執行 `powershell -ExecutionPolicy Bypass -File training/october/compare-adapter.ps1 -Adapter adapters/october-numeric-qwen3-0.6b`（預設只檢查 50 題、模組與本地資料，**不推論**）。
+6. 真正評測時必須另加 `-RunInference -Load4Bit`，必要時顯式加 `-AllowModelDownload`。比較器要求 Adapter 的 `adapter_config.json`、本地 safetensors、`noodles-training-manifest.json`，並核對 `base_model` 和訓練/驗證語料 SHA-256。它在**同一載入模型**中以 `disable_adapter()` 切換原始 Qwen3 與 Adapter，降低多模型額外 VRAM 負擔，記錄完整 50 題準確率、延遲與生成 Token。
+
+輸出的報告不會包含原始題目、生成答覆或使用者秘密；只存每題代號、錯誤原因與數值統計。SHA-256 只能偵測與 manifest 不一致，**無法證明 manifest 一定由可信第三方簽發**。評測題與訓練/驗證集是同類公式的不同數值，測量的是有限範圍計算正確率，不是醫療、法律、財經通用智慧。若未明顯提升或其他領域品質下降，應保留基礎模型並拒絕升級。
+
+對於目前 GPT 執行環境的實際硬體查核：`torch 2.10.0+cpu`、無 `nvidia-smi`、無 CUDA GPU、無 Ollama 或 Hugging Face 模型權重。因此本次只可完成 CPU 合約測試，**沒有真實 Qwen LoRA 訓練或基礎模型 A/B 分數**。正式環境上線需要另行取得可查證 GPU run 記錄、模型輸出驗證、Owner 核准及 rollback 配套。

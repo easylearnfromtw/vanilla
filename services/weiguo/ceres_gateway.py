@@ -246,16 +246,19 @@ async def telegram_webhook(request: Request,
     elif prefix in ("/start", "/help"):
         from ceres_admin_bot import owner_subject
         from ceres_command_center import welcome
-        if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
-            await welcome(chat_id)
-            return {"ok":True,"accepted":True}
+        if owner_subject(chat_id):
+            if _claim_admin_update(payload["update_id"]):
+                await welcome(chat_id)
+                return {"ok":True,"accepted":True}
+            return {"ok":True,"accepted":False}
         from ceres_member_access import subject_for_chat
         if subject_for_chat(chat_id):
             from ceres_admin_bot import say
             if _claim_admin_update(payload["update_id"]):
                 await say(chat_id, "Ceres AI 私人對話已開啟。直接輸入問題即可使用白名單模型。"
                           "系統管理功能僅供 Owner。")
-            return {"ok":True,"accepted":True}
+                return {"ok":True,"accepted":True}
+            return {"ok":True,"accepted":False}
         return {"ok":True,"accepted":False}
     elif prefix == "/menu" or text in ("控制中心", "開啟控制中心", "打開控制中心", "開始使用"):
         hub_text = "/hub"

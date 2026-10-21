@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 40 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 41 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1292,8 +1292,44 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 用一般使用者、外部 API Key、偽造 Ceres username、非 Owner callback、Prompt injection 及前端 DOM 篡改測試系統管理和 Self-Build 的權限邊界，必須全部在後端拒絕，不能因前端隱藏按鈕就當作安全。
 - 以真實工具執行紀錄比對 UI 狀態、LUCA Trace、Verifier 結果、任務取消與完成回執；只接受有證據的完成，並維持一致的時間、版本和使用者可見狀態。
 
+## Q42 / 50 — D：分層式企業協作與權限治理（Personal × Team × Organization × Resource ACL）
+
+**決策：D — 分層式企業協作與權限治理系統。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採分層式企業協作與權限治理系統：支援個人、團隊與組織工作空間，結合RBAC及資源層級權限、成員邀請、授權共享、Artifact協作、任務分派、資料版本、稽核與離職／退組後權限撤銷。各租戶及專案資料嚴格隔離，跨成員共用需明確授權，成員及企業工作空間權限不得提升為Vanilla系統級管理權限。全域管理操作僅限本人經Ceres Telegram核准；Self-Build僅可由可信後端背景觸發，不能被聊天、團隊任務或成員按鈕啟動。」
+
+### 協作架構、存取契約與生命週期
+
+1. **三層工作空間**：Personal Workspace 屬個別使用者且預設不共享；Team Workspace 屬具明確成員與共享政策的團隊；Organization Workspace 為企業租戶管理結構，可容納多個團隊與專案。資源須有 owner_tenant_id、workspace_id、project_id、classification、visibility、version 和存取政策參照。工作空間切換不能把前一租戶的文件、記憶或 API Key 帶入新上下文。
+2. **RBAC 與 Resource ACL 聯合判定**：提供 viewer／contributor／editor／project_manager／workspace_admin 等可配置業務角色，但角色名稱本身不授予平台系統權限。可信後端對 actor、tenant、workspace、resource、action、scope、expiry、share_policy 逐項檢查；拒絕優先，並以最小權限為原則。企業 workspace_admin 只能管其自身組織資源，不能成為 Vanilla Global Owner。
+3. **系統 Owner 與租戶角色硬隔離**：Vanilla 的全域 API Key、共用模型／雲端憑證、Detroit 管理設定、Slime 全域政策、Self-Build 候選發布、程式部署及全域權限只允許本人經 Ceres Telegram + 可信後端一次性特定批准執行；團隊管理者、組織管理者、付費客戶或外部 API Key 均不能繼承／委任這些特權。Ceres Owner 的私聊與驗證機制不得透過一般工作空間 UI 或普通 API 複製。
+4. **成員邀請與加入**：邀請函須含 invite_id、issuer、target tenant/workspace、受邀身分或受控電子郵件、role、expiry、single-use token、issuer permission 與政策版本；接受時重新驗證身分與角色上限，避免轉寄邀請、已撤銷邀請或重播 token 提權。未知使用者不得因文件共享連結或同一郵件網域自動取得整個組織權限。
+5. **共享範圍顯式授權**：Artifact、文件、對話摘要、專案任務、研究資料及模型結果預設 private；共享必須指定收件使用者／團隊、資源與允許動作、期限和必要的資料所有者授權。針對高敏感醫療、金融、企業秘密、來源授權受限內容，除 ACL 之外仍遵守 Q21／Q40 的處理目的、資料轉移與委外限制。不可透過「共享專案」自動公開私人長期記憶或 API 密鑰。
+6. **Artifact 協作與版本一致性**：與 Q14/Q35 結合，以 artifact_id、base_version／hash、editor_id、change_set、write precondition／ETag、current_version、review_state、provenance_chain 管理多人共同編輯與審核。並行更新需採樂觀鎖、分支／衝突呈現或受控合併，不能靜默 last-write-wins 覆蓋已驗證來源、公式或決策記錄；機密內容不得被寫入可供其他租戶讀取的共用快取。
+7. **跨成員任務分派**：由 October/Diana／Detroit Q15 DAG 在同一授權工作空間協調子任務；任務的 assignee、executor identity、capability grants、dependency graph、approval status、artifact refs、idempotency key、checkpoint 和 deadline 均可查驗。委派者不能賦予被委派者自身沒有的操作權限；Agent 不能藉代理執行者暫時離線或任務重試擴大 resource scope。
+8. **長期記憶與上下文隔離**：Q31 Working/Episodic/Semantic/Checkpoint Memory 均按 user／tenant／workspace／project 精確分域；共用的是明確核准的專案知識、事件／成果 refs，不是每個成員完整個人記憶。Victoria／Merlin 檢索前先受後端 ACL 與資料來源授權過濾；跨工作空間問答不得透過向量相似度或摘要快取洩漏禁止讀取的內容。
+9. **離職、退組與立即撤權**：成員被移除或角色降低時，可信後端立即拒絕後續新讀／寫、資源分享／API 呼叫，撤銷或失效其 session、workspace-scoped tokens、委派工作憑證、活躍 lease 與後續同步授權；停止尚未執行的委派 DAG step，對已進行的不可逆第三方行動依 Q36 記錄及處理。已合法交付的外部副本可能無法技術上收回，需按資料治理與服務條款清楚揭露。
+10. **資源所有權與交接**：使用者退組不代表組織授權資料必須同時刪除或可被個人攜走。依資源創建來源、工作區歸屬、契約及保留政策判斷留下的業務資料、工作紀錄、Artifact 所有者／維護者移轉與刪除權利；離職流程需對孤兒任務、排程、邀請連結、部署權杖及外部整合連線盤點後轉交或停用。
+11. **組織計費與資源配額邊界**：Q37 API Key／模型白名單及 Q39 Plan/Usage Ledger 應綁定實際 tenant、workspace 或指定項目，依有效方案和後端硬配額計量。團隊成員的推論消耗不得越過 Owner 設的全域 Token 上限，也不能利用跨組織任務轉移未經核准的帳單責任。修改組織內部共享預算須具合法工作空間權限；全域商業方案與收款開關仍僅 Ceres Owner 授權。
+12. **審計、可稽核與隱私**：記錄 member_id／tenant、resource_ref、invitation、role change、ACL share／revoke、artifact version、task_assignment、tool receipt、source timestamp、decision reason 及 owner approval reference；使用 Q40 最小必要與分類保護，不把所有員工私人對話保存在企業共用 Audit 面板。LUCA 能回報跨租戶拒絕、異常存取、停權後呼叫及資料版本衝突，但不授予診斷 Agent 讀取所有租戶原始資料。
+13. **禁止橫向提權與間接邀請**：使用者消息、共享文件、第三方 webhook、Agent-to-Agent payload、ArtifactRefs、URL 權杖、轉址、群組訊息及組織管理者的自然語言都不得直接增加後端角色或創建新的跨租戶權限；邀請、共享與角色變更需走可信後端帶具體 scope 的簽驗程序。防範 IDOR、跨租戶快取鍵碰撞、工具使用者上下文錯置、離線 sync 舊憑證復活及離組成員被重新加入。
+14. **Self-Build 觸發維持純後端**：Q25／Q27–Q30 的 Self-Build 只由可信後端排程或驗證的內部品質事件建立。聊天、團隊任務分配、共享文件留言、管理員介面、成員按鈕及外部 API 不能直接或透過 October／Diana／LUCA 間接觸發；Ceres Owner 可看既有候選、核准高風險後續、停止任務與設定未來可信政策，但不透過對話直接驅動 Self-Build。
+15. **既有管理者權限防火牆**：全域 Ceres 管理平面與企業 RBAC 使用不同 principal namespace、service account、token audiences、路由與權限表。即使組織 admin、企業付費訂閱或企業 SSO 自動配帳，也不建立 Owner 的 Telegram 權限或後端全域 admin capability；後端每個敏感副作用需獨立核查原平台及唯一 Owner 政策。
+16. **實作現況與交付邊界**：此題是已確認的多租戶工作空間／協作治理設計規格，不表示 Personal/Team/Organization 資料模型、團隊邀請、RBAC/ACL、多人編輯、離組撤權、組織帳務和 Ceres 隔離已全部完成實作或部署；必須由正式測試及可查證的後端結果決定是否達標。
+
+### 可驗證驗收條件（尚未完成實作）
+
+- 使用兩個 organization、三個 team 與多位測試成員建立同名專案／文件，測試 API、檢索、全文引用、向量索引、跨設備快取及 Agent 工具路由均不能跨 tenant 取得未授權資料。
+- 測試不同角色對 project/view/edit/share/run/invite/manage 的 resource-level 判定，角色降級和不同權限的 ACL 發生衝突時採最小權限與拒絕優先；workspace_admin 不可升為 Vanilla Global Owner。
+- 邀請 email 不符、已過期、被轉寄、已撤銷、重播、超出邀請者角色上限等情況，後端全部阻擋；舊分享連結不能在資源 revoke 後再度授權。
+- 兩位成員同時編輯相同 DOCX／XLSX／研究 Artifact，檢查版本競爭、變更差異、衝突提示、來源引用和可回滾版本；模型摘要不應默默覆蓋有明確證據的原始資料。
+- 對已啟動跨成員 DAG 的 assignee 執行退組、權限撤銷、OAuth 斷線、API Key 停用及節點掉線，確認後續非法操作停止、已完成事件保留、可安全恢復而不重複副作用。
+- 以合法 Personal、Team、Organization 專案資料測試 Q31 記憶、Q35 Artifact、Q37 Token 配額與 Q39 訂閱帳務的租戶上下文，跨成員共享不得複製或暴露私人記憶、秘密與其他組織的帳單。
+- 嘗試透過 workspace UI、組織 admin、外部 API Key、被偽造的 Owner Telegram username／callback、共享 README、團隊聊天指令提權為 Vanilla 管理員或觸發 Self-Build；後端均應拒絕並記錄安全事件。
+- 複核成員移除、孤兒專案／任務、歷史审計、資料合法保留與分享撤銷，確認已撤銷的 session／cache／invite token 不可在同步後重新取回權限。
+
 ### 待決事項
 
-**Q42 / 50：October／Vanilla 面向多使用者及企業團隊時，應如何設計組織工作空間、成員邀請、角色與權限、共享專案資料、跨成員協作和退出後權限回收，同時保障 Owner Ceres 系統管理權限與租戶隔離？** 尚待使用者答覆。
+**Q43 / 50：October／Vanilla 應如何整合安全登入、Passkeys／多因素驗證、企業 SSO、成員自動建立／停用與裝置工作階段管理，並防止企業身分系統取得 Ceres Owner 的全域管理權限？** 尚待使用者答覆。
 
 ---

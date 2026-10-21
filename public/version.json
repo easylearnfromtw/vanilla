@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.05-slime-hide-admin-links",
-  "description": "Public Slime download page no longer exposes private Telegram admin shortcut buttons"
+  "build": "2026.10.21.06-atuber-neuro-runtime",
+  "description": "Atuber modern Tongcheng prose, safer WebLLM Worker fallback, UI frame-pressure throttling, source deduplication and civic-philosophy research"
 }

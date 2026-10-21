@@ -79,6 +79,14 @@ jobs:
           npm run test:reliability
           npm run test:archive
           npm run test:providers
+      - name: Measure October approximate prompt token budget (not GPU inference)
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/prompt-budget.mjs
+      - name: Archive October prompt budget report
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-prompt-budget
+          path: training/october/generated/october-prompt-budget.json
+          if-no-files-found: error
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Athena private scanner unit tests (no AV daemon)

@@ -11,8 +11,8 @@ from starlette.requests import Request
 from auth import FamilyIdentity
 from slime import (
     Caps, Heartbeat, JoinRequest, PairRequest, Policy, RouteRequest, _db,
-    _digest, heartbeat, issue_invite, issue_short_pair, join, pair, leave, list_nodes,
-    policy, revoke, slime_status, suggest_route
+    _digest, heartbeat, issue_invite, join, pair, leave, list_nodes,
+    policy, revoke, RevokeProof, slime_status, suggest_route
 )
 
 OWNER = FamilyIdentity(sub="12345678901234567890", member="Owner",
@@ -37,7 +37,7 @@ class SlimeLifecycle(unittest.TestCase):
         self.tmp.cleanup()
 
     def pairing(self):
-        invite = issue_short_pair(OWNER.sub)["link"]
+        invite = issue_invite(OWNER)["link"]
         self.assertTrue(invite.startswith("https://example.org/slime/#slime="))
         token = parse_qs(urlsplit(invite).fragment)["slime"][0]
         request=Request({"type":"http","client":("198.51.100.25",443),"headers":[]})
@@ -83,9 +83,10 @@ class SlimeLifecycle(unittest.TestCase):
         self.assertEqual(suggest_route(RouteRequest(workload="tools"), OWNER)["candidate_nodes"], [])
         with self.assertRaises(HTTPException):
             policy(d["node_id"], Policy(enabled=False), OTHER)
-        with self.assertRaises(HTTPException) as blocked:
-            revoke(d["node_id"], OWNER)
-        self.assertEqual(blocked.exception.status_code,403)
+        with self.assertRaises(HTTPException):
+            revoke(d["node_id"], RevokeProof(code="deadbeefdead"), OWNER)
+        self.assertEqual(len(list_nodes(OWNER)["nodes"]),1)
+        # A consenting device always retains its ability to leave voluntarily.
         leave(authorization="Bearer "+d["token"])
         with self.assertRaises(HTTPException):
             heartbeat(Heartbeat(capabilities=Caps()), authorization="Bearer "+d["token"])
@@ -93,13 +94,10 @@ class SlimeLifecycle(unittest.TestCase):
     def test_disabled_by_default_and_invalid_origin(self):
         with patch.dict(os.environ, {"SLIME_ENABLED": "false"}):
             with self.assertRaises(HTTPException):
-                issue_short_pair(OWNER.sub)
+                issue_invite(OWNER)
         with patch.dict(os.environ, {"SLIME_PUBLIC_API_ORIGIN": "http://example.org"}):
             with self.assertRaises(HTTPException):
-                issue_short_pair(OWNER.sub)
-        with self.assertRaises(HTTPException) as blocked:
-            issue_invite(OWNER)
-        self.assertEqual(blocked.exception.status_code,403)
+                issue_invite(OWNER)
 
 
 if __name__ == "__main__":

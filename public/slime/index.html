@@ -17,7 +17,7 @@
  var fragment=location.hash;
  var matched=/^#slime=([A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.exec(fragment);
  var raw=matched?matched[1]:"";
- window.__slimePairCode=/^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(raw.toUpperCase())?raw.toUpperCase():"";
+ window.__slimePairCode=/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}(?:-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}){2}$/.test(raw.toUpperCase())?raw.toUpperCase():"";
  window.__slimeLegacyToken=window.__slimePairCode?"":raw;
  if(fragment)history.replaceState(history.state,"",location.pathname+location.search);
 })();
@@ -102,7 +102,7 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
    <div class="cols">
     <section class="card" aria-labelledby="download-title">
      <div class="head"><div><div class="number">STEP 01 — DOWNLOAD</div><h2 id="download-title">下載 Slime</h2></div><span class="symbol" aria-hidden="true">↓</span></div>
-     <p class="desc">區分自己的電腦和朋友的電腦。下載來源只會使用 GitHub 上實際存在的 Slime 正式發行版本。</p>
+     <p class="desc">請明確選擇「我的電腦」或「朋友的電腦」。邀請碼不包含裝置角色，無論從誰的 QR 開啟都要自行選對版本。僅提供 GitHub 正式發行版本。</p>
      <span class="label">使用者身分</span>
      <div class="toggle" role="group" aria-label="選擇電腦角色">
       <button type="button" id="owner" aria-pressed="true">我的電腦</button>
@@ -121,32 +121,35 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
      <code id="sha" class="checksum" hidden></code>
     </section>
     <section class="card" aria-labelledby="pair-title">
-     <div class="head"><div><div class="number">STEP 02 — PAIR</div><h2 id="pair-title">一次性配對碼</h2></div><span class="symbol" aria-hidden="true">⌘</span></div>
-     <p class="desc">短配對碼由系統管理者私下發給裝置持有人。掃描配對 QR 開啟此頁時，可以直接查看並複製。</p>
+     <div class="head"><div><div class="number">STEP 02 — PAIR</div><h2 id="pair-title">查看 Telegram 配對碼</h2></div><span class="symbol" aria-hidden="true">⌘</span></div>
+     <p class="desc">這是 Telegram Ceres 核發的<strong>同一組</strong>配對碼的唯讀顯示區，不會在網頁右側另外產生第二組。從 Owner 私聊中的專屬連結開啟，即可查看並複製。</p>
      <div class="pair-box" aria-live="polite">
-      <span class="tiny" id="code-label">一次性節點配對碼</span>
-      <strong id="code" class="pair-code pair-placeholder">XXXX-XXXX-XXXX</strong>
-      <span class="tiny" id="code-hint">僅顯示已由 Owner 提供的配對碼 · 不是永久密碼</span>
+      <span class="tiny" id="code-label">來源：Telegram Ceres（唯一核發處）</span>
+      <strong id="code" class="pair-code pair-placeholder">尚未收到配對碼</strong>
+      <span class="tiny" id="code-hint">前往 Telegram /hub → Slime → 產生配對碼，再點選「在獨立網頁開啟配對」</span>
      </div>
-     <button type="button" class="primary" id="copy-code" disabled>複製配對碼</button>
+     <button type="button" class="primary" id="copy-code" disabled>複製同一組配對碼至 Windows Slime</button>
      <button type="button" class="secondary" id="copy-link" hidden>複製備用邀請連結</button>
-     <p class="micro">不在此公開網頁驗證或核發節點 Token。首次安裝程式會透過 WeiGuo HTTPS 後端完成真正的配對。</p>
+     <p class="micro">請勿輸入 Vanilla 模型 API Key、Gemini 金鑰、GitHub Token 或舊版 Detroit Windows Node 授權。右側不是另一組密碼，也不在此公開網頁驗證或核發節點 Token。首次安裝程式會透過 WeiGuo HTTPS 後端完成真正的配對。</p>
     </section>
    </div>
    <section class="card" aria-labelledby="setup-title">
     <div class="head"><div><div class="number">STEP 03 — CONNECT</div><h2 id="setup-title">首次執行與連線</h2></div><span class="symbol" aria-hidden="true">◈</span></div>
     <ol class="steps">
      <li><span class="step-id">01</span><div><strong>在電腦上開啟 Slime</strong><p>Windows 啟動 Slime-Owner.exe 或 Slime-Friend.exe。macOS、Linux 的壓縮包需 Python 3.10+ 與相對應啟動腳本。未有正式發行檔時，不可使用來源不明的安裝程式。</p></div></li>
-     <li><span class="step-id">02</span><div><strong>貼上 12 位短配對碼</strong><p>輸入電腦名稱及 Owner 提供的 XXXX-XXXX-XXXX；你也可以使用備用邀請連結。確認同意後，Slime 才會註冊此電腦並安全保存專屬節點憑證。</p></div></li>
-     <li><span class="step-id">03</span><div><strong>在 Telegram 確認裝置</strong><p>由 Owner 在其私人管理介面檢查心跳與授權。重新開啟同一台電腦的 Slime，不需要重複使用一次性短碼。</p></div></li>
-     <li><span class="step-id">04</span><div><strong>選擇性開啟 Ollama 推論</strong><p>安裝並啟動本地 Ollama，Owner 再逐台核准推論。Vanilla API Key、Token 額度與模型權限由 Gateway 另行控制。未核准時只保留節點狀態。</p></div></li>
+     <li><span class="step-id">02</span><div><strong>貼上 12 位短配對碼</strong><p>輸入電腦名稱，貼上 Telegram 所核發、網頁右側唯讀顯示的同一組 12 位短碼。備用邀請連結含同一組短碼，不是另一組密碼。確認同意後，Slime 才會註冊此電腦。</p></div></li>
+     <li><span class="step-id">03</span><div><strong>在 Telegram 確認裝置</strong><p>在 Ceres Telegram 私人管理頁確認「已加入」及「目前在線」；配對成功只代表已註冊，不等於 GPU 或 AI 模型已可使用。重開 Slime 不需重新輸入短碼。</p></div></li>
+     <li><span class="step-id">04</span><div><strong>選擇性開啟 Ollama 推論</strong><p>安裝並啟動本地 Ollama，確認 Ceres 中的可用模型數，再由 Owner 核准推論。Vanilla API Key、Token 額度與模型權限由 Gateway 另行控制；核准後還需實際推論測試。</p></div></li>
     </ol>
    </section>
    <section class="card" aria-labelledby="safety-title">
     <div class="head"><div><div class="number">STEP 04 — MANAGE</div><h2 id="safety-title">安全與退出</h2></div><span class="symbol" aria-hidden="true">◎</span></div>
     <p class="desc">管理功能不會出現在公開下載頁。朋友版無法變更管理員權限；關閉程式可停止共享，正式退出需在本機使用 <code>--leave</code> 或由 Owner 撤銷節點。</p>
     <p class="desc"><strong>遠端刪除保護：</strong>管理員若要永久撤銷某台節點，必須先在已驗證的 Ceres Telegram 私聊取得該節點專屬刪除碼（3 分鐘、一次性、5 次錯誤上限）。電腦持有人仍可在本機自由退出或解除安裝，不需向管理員索取代碼。</p>
-    <p class="micro">本頁不載入追蹤腳本；配對碼只從網址片段暫存在記憶體，會立即從網址列清除。對外推論功能仍由服務端獨立開關保護。</p>
+    <p class="desc"><strong>遠端刪除保護：</strong>管理員若要永久撤銷某台節點，必須先在已驗證的 Ceres Telegram 私聊取得該節點專屬刪除碼（3 分鐘、一次性、5 次錯誤上限）。電腦持有人仍可在本機自由退出或解除安裝，不需向管理員索取代碼。</p>
+    <p class="micro">安全背景模式：裝置持有人配對後，可自行選用 Windows 工作排程器、macOS LaunchAgent 或 Linux systemd user service。在使用者登入後可關閉螢幕繼續運算，不能讓睡眠／休眠／關機的主機保持計算，也不會隱藏硬體狀態燈。</p>
+    <a class="secondary" href="https://github.com/easylearnfromtw/vanilla/blob/main/docs/SLIME_NODE_SECURITY.md" target="_blank" rel="noopener noreferrer">查看 Windows／macOS／Linux 安全與背景權限說明 ↗</a>
+    <p class="micro">不更改防火牆、不要求停用防毒或繞過 Gatekeeper。本頁不載入追蹤腳本；配對碼只從網址片段暫存在記憶體，並立即從網址列清除。對外推論功能仍由服務端獨立開關保護。</p>
    </section>
   </div>
  </main>
@@ -202,23 +205,19 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
  else if(/linux/i.test(navigator.userAgent))selectOS("linux");
  if(code){
   $("code").textContent=code;$("code").classList.remove("pair-placeholder");
-  $("code-hint").textContent="10 分鐘有效 · 使用一次後失效";
+  $("code-hint").textContent="已從 Telegram 專屬連結帶入同一組短碼 · 10 分鐘有效 · 使用一次後失效";
   $("copy-code").disabled=false;
-  selectRole("friend");
  }else if(legacy){
-  $("code").textContent="舊版長邀請連結";
-  $("code-hint").textContent="目前持有舊版邀請；請優先使用 Telegram 新短配對碼";
-  $("copy-code").textContent="複製舊版配對資訊";
-  $("copy-code").disabled=false;
-  selectRole("friend");
+  $("code").textContent="這是舊版邀請連結";
+  $("code-hint").textContent="舊版連結不是新版 12 位短碼。請回 Telegram /hub 重新產生 Slime 配對碼。";
  }
- var safeLink=(code||legacy)?location.origin+location.pathname+"#slime="+(code||legacy):"";
+ var safeLink=code?location.origin+location.pathname+"#slime="+code:"";
  if(safeLink){$("copy-link").hidden=false;}
  function copyText(value,success){
   if(!navigator.clipboard||!navigator.clipboard.writeText){notify("此裝置不支援自動複製。請手動輸入。");return;}
   navigator.clipboard.writeText(value).then(function(){notify(success);},function(){notify("複製失敗，請手動輸入。");});
  }
- $("copy-code").addEventListener("click",function(){if(code||legacy)copyText(code||legacy,"配對資訊已複製");});
+ $("copy-code").addEventListener("click",function(){if(code)copyText(code,"已複製 Telegram 核發的同一組短配對碼");});
  $("copy-link").addEventListener("click",function(){if(safeLink)copyText(safeLink,"備用連結已複製，請私下分享");});
  // Only the public release metadata is fetched; no pairing secret is sent.
  fetch("https://api.github.com/repos/easylearnfromtw/vanilla/releases?per_page=20",

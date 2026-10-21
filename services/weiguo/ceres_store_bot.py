@@ -136,7 +136,7 @@ async def _learn(chat_id,action):
         elif action=="recommend":
             candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
             offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
-                preferred=list(range(offset,len(LESSONS)))+list(range(offset))
+            preferred=list(range(offset,len(LESSONS)))+list(range(offset))
             if candidates:
                 step=next(i for i in preferred if i in candidates)
                 prefix="✨ 根據你的程度及已完成篇章，推薦你閱讀：\\n\\n"

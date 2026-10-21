@@ -23,7 +23,6 @@ const BuildStudio=lazy(()=>import("./builder/BuildStudio"));
 const FeatureRuntime=lazy(()=>import("./builder/FeatureRuntime"));
 const SettingsPage=lazy(()=>import("./settings/SettingsPage"));
 const DetroitStudio=lazy(()=>import("./detroit/DetroitStudio"));
-const SlimeNetwork=lazy(()=>import("./slime/SlimePanel"));
 const CeresForegroundBridge=lazy(()=>import("./ceres/CeresForegroundBridge"));
 const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
@@ -58,12 +57,15 @@ const tabs=[
 function Loading(){return <div className="vh-loading" role="status"><span className="vh-loading-bar"/>載入中…</div>;}
 
 export default function App(){
-// Invitation URL fragments are passed to the Slime download panel in memory
-// and removed there before navigating away. Never persist the join secret.
-const [section,setSection]=useState<Section>(()=>{
- const hash=typeof window!=="undefined"?window.location.hash:"";
- return /^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)?"nodes":"chat";
-});
+// Legacy invitation deep links are redirected to a dedicated, lightweight
+// Slime pairing page. The fragment stays client-only; no login boot required.
+const [section,setSection]=useState<Section>("chat");
+useEffect(()=>{
+ const hash=window.location.hash;
+ if(/^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)){
+  window.location.replace(BASE+"slime/"+hash);
+ }
+},[]);
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
@@ -149,7 +151,14 @@ useEffect(()=>{
 const all=[...items,...tools];
 const activeFeature=features.find(x=>x.id===activeFeatureId);
 const selected=all.find(x=>x.id===section)||{id:"feature" as const,label:activeFeature?.name||"自建工具",icon:Puzzle,description:activeFeature?.description||"Vanilla 自建模組",tone:"ink" as const};
-function navigate(next:Section){setSection(next);setMenuOpen(false);}
+function navigate(next:Section){
+ if(next==="nodes"){
+  // Tool-initiated navigation uses same-tab fallback to avoid popup blockers.
+  window.location.assign(BASE+"slime/");
+  return;
+ }
+ setSection(next);setMenuOpen(false);
+}
 async function newChat(){
  const result=await startNewConversation();
  if(result.error){window.alert("目前對話無法封存，為避免遺失已停止："+result.error);return;}
@@ -160,7 +169,11 @@ async function openRecent(id:string){
  catch(e){window.alert(String(e instanceof Error?e.message:e));}
 }
 const initial=(signedIn?.email||"V").trim().charAt(0).toUpperCase();
-const navButton=(x:NavItem)=><button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)} aria-current={section===x.id?"page":undefined}><span className={"nav-icon tone-"+x.tone}><x.icon size={17}/></span><span>{x.label}</span></button>;
+const navButton=(x:NavItem)=>x.id==="nodes"
+ ?<a key={x.id} className="nav" href={BASE+"slime/"} target="_blank" rel="noopener noreferrer" onClick={()=>setMenuOpen(false)} aria-label="Slime 算力網路（開啟獨立分頁）">
+   <span className={"nav-icon tone-"+x.tone}><x.icon size={17}/></span><span>{x.label} ↗</span>
+  </a>
+ :<button key={x.id} className={section===x.id?"nav active":"nav"} onClick={()=>navigate(x.id)} aria-current={section===x.id?"page":undefined}><span className={"nav-icon tone-"+x.tone}><x.icon size={17}/></span><span>{x.label}</span></button>;
 return <div className="shell">
 <Suspense fallback={null}><CeresForegroundBridge/></Suspense>
 {menuOpen&&<button className="nav-backdrop" aria-label="關閉選單" onClick={()=>setMenuOpen(false)}/>}
@@ -196,7 +209,7 @@ section==="sheets"?<div className="workspace-page"><Sheets/></div>:
 section==="email"?<div className="workspace-page"><EmailStudio/></div>:
 section==="files"?<div className="workspace-page"><CloudFiles/></div>:
 section==="weiguo"?<div className="workspace-page"><WeiGuoConsole/></div>:
-section==="nodes"?<div className="workspace-page"><SlimeNetwork/></div>:
+section==="nodes"?<div className="workspace-page"><a href={BASE+"slime/"} target="_blank" rel="noopener noreferrer">↗ 前往 Slime 獨立安裝頁</a></div>:
 section==="detroit"?<div className="workspace-page">{detroitStartTab==="notion"?<NotionSchedulePanel/>:<DetroitStudio initialBody={retinaSeed} initialTab={detroitStartTab==='nodes'?'slime':detroitStartTab}/>}</div>:
 section==="orchestra"?<div className="workspace-page"><OrchestraStudio initialBody={orchestraSeed} source={orchestraSource} chart={orchestraChart} handoff={orchestraAI}/></div>:
 section==="luna"?<div className="workspace-page"><LunaStudio key={signedIn?.email||"guest"} owner={signedIn?.email||"guest"}/></div>:

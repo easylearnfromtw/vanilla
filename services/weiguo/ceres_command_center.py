@@ -170,13 +170,20 @@ async def _nodes(chat: int, sub: str) -> None:
     buttons=[]
     try:
         with _db() as db:
-            rows=db.execute("SELECT id,label,inference_enabled FROM nodes "
+            rows=db.execute("SELECT id,label,inference_enabled,max_load_pct,shutdown_opt_in FROM nodes "
                             "WHERE owner=? ORDER BY label LIMIT 6",(sub,)).fetchall()
         for node in rows:
             label=(node["label"][:16]+"…" if len(node["label"])>16 else node["label"])
             direction="off" if node["inference_enabled"] else "on"
             icon="✕ 停止推論" if node["inference_enabled"] else "✓ 核准推論"
             buttons.append([_button(icon+" · "+label,"infer_"+direction+":"+node["id"])])
+            buttons.append([_button("25% 省電","load_25:"+node["id"]),
+                            _button("50% 平衡","load_50:"+node["id"]),
+                            _button("100% 效能","load_100:"+node["id"])])
+            buttons.append([_button("75°C 保護","temp_75:"+node["id"]),
+                            _button("⛔ 撤銷綁定","revoke:"+node["id"])])
+            if node["shutdown_opt_in"]:
+                buttons.append([_button("關閉裝置電源 · "+label,"poweroff:"+node["id"])])
     except (ValueError,TypeError,KeyError,RuntimeError):
         pass
     from slime import _pairing_page_url
@@ -541,6 +548,22 @@ async def _handle_callback(chat: int, action: str) -> None:
         result=handle_slime(chat,sub,"/slime infer "+node_id+" "+mode)
         await say(chat,_title("REVIEW / Slime 推論權限")
                   +"<pre>"+escape(result or "操作不可用")+"</pre>",
+                  [[_button("← 返回節點","nodes")]],html=True)
+    elif re.fullmatch(r"(load_(?:10|25|50|75|100)|temp_(?:[6-8][0-9]|9[0-5])|poweroff|revoke):[a-f0-9]{24}",action):
+        from slime_telegram import handle_slime
+        sub=owner_subject(chat)
+        operation,node_id=action.split(":",1)
+        if operation.startswith("load_"):
+            msg="/slime load "+node_id+" "+operation.removeprefix("load_")
+        elif operation.startswith("temp_"):
+            msg="/slime temp "+node_id+" "+operation.removeprefix("temp_")
+        elif operation=="poweroff":
+            msg="/slime power "+node_id+" off"
+        else:
+            msg="撤銷 "+node_id
+        result=handle_slime(chat,sub,msg)
+        await say(chat,_title("REVIEW / Slime 節點控制")
+                  +"<pre>"+escape(result or "無法設定")+"</pre>",
                   [[_button("← 返回節點","nodes")]],html=True)
     elif action == "github":
         await say(chat, "輸入 /hub github 關鍵字，例如 /hub github telegram AI agent。")

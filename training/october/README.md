@@ -265,3 +265,25 @@ benchmark.mjs 限定 loopback Ollama，兩組固定 temperature、top_p、seed�
 輸出的報告不會包含原始題目、生成答覆或使用者秘密；只存每題代號、錯誤原因與數值統計。SHA-256 只能偵測與 manifest 不一致，**無法證明 manifest 一定由可信第三方簽發**。評測題與訓練/驗證集是同類公式的不同數值，測量的是有限範圍計算正確率，不是醫療、法律、財經通用智慧。若未明顯提升或其他領域品質下降，應保留基礎模型並拒絕升級。
 
 對於目前 GPT 執行環境的實際硬體查核：`torch 2.10.0+cpu`、無 `nvidia-smi`、無 CUDA GPU、無 Ollama 或 Hugging Face 模型權重。因此本次只可完成 CPU 合約測試，**沒有真實 Qwen LoRA 訓練或基礎模型 A/B 分數**。正式環境上線需要另行取得可查證 GPU run 記錄、模型輸出驗證、Owner 核准及 rollback 配套。
+
+
+## October Penteract v0.1｜真正五維幾何＋漏斗式理解優先
+
+**空間本體**：不是五個能力面向或五條雷達軸。`src/detroit/penteract-5d.ts` 真的在 R⁵ 中建立 32 個 ±1 頂點、80 條邊，對任意十個座標平面（XY、XZ、XW、XV、YZ、YW、YV、ZW、ZV、WV）進行保長度的五維旋轉，再以 5→3 線性投影和透視產生可見圖。
+
+**可用的互動入口**：Detroit Studio → `October 5D`。`PenteractFunnelPanel.tsx` 透過 `React.lazy` 延遲載入、SVG 繪圖與受限輸入，手機可旋轉平面、觀察專家原型與五層漏斗。零 WebGL/Shader 背景動畫，不上傳輸入、不持久保存問題；採黑白、iOS 系資訊階層、reduced-motion。
+
+**稀疏路由仍為實驗性建議**：將限定長度的題目透過 deterministic character-trigram signed random feature projection 轉成五維座標。專家原型同法投影，按歐氏距離 Top-K≤3 提出候選。這不是 Qwen 學過的語意嵌入、不是已驗證的高準確率模型，也不能把五維幾何的視覺表現當成真實專家決策品質。Diana 和 Ceres 的可信後端授權系統沒有被改寫；目前幾何路由**不直接派工或執行工具**。
+
+**五層漏斗**：理解（依問題歧義預留 55%~62%）→ 幾何路由（14%）→ 證據與工具需求核對（剩餘額度的一部分）→ 簡短回答 → 最終驗證（固定 15%）。總額恆為 100%，候選最多 6→3→2→1→1。這是系統設計的**抽象預算規劃**，不是實測 Token、耗電瓦數、NVIDIA GPU 算力或真實時間分配，實際效果需要 LUCA／Ollama 量測。
+
+**真正 Qwen 深度理解實驗**：僅在已取得 Ollama 主機授權、選擇 `october:0.3` / October 4B 且打開 Vanilla 的**深度分析**時，`generateOllamaReply()` 才額外執行一次不多於 384（程式題 512）個輸出 Token 的 JSON 問題理解推論，先抽取 goal、最多四項 constraints、needsEvidence、missingCritical，再將合格摘要（低信任；原始使用者指令仍優先）供同一模型生成最終答覆。任何錯誤／無效 JSON 都丟棄摘要；使用者中止則不繼續。簡單／一般模式、非 October 模型、October Lite 均維持單次模型呼叫。
+
+**真實度與代價**：額外理解推論可能顯著增加 Ollama 首字延遲、電力和 Token。`onFunnelMetrics` 回傳理解／最終答覆兩階段 Ollama 實測 `prompt_eval_count`、`eval_count`、生成時間，聊天狀態僅暫時展示各階段輸出 Token，**不記錄使用者題目、推理內容或憑證**。目前沒有真實 GPU／功耗儀器結果，不能宣稱已達到指定 55% 瓦數、比 DeepSeek 快或答對率已提高。必須以同硬體同題集 A/B、耗能／延遲及滿意度作 release gate，否則保留既有直接路由。
+
+**防護邊界**：模型理解摘要只能是嚴格 JSON 且不包含擴權欄位；檔案、網頁、過往聊天與模型產生的文字都不能提升身份、租戶、scope 或執行權限。五維幾何候選不能呼叫付費、刪除、正式部署或高風險工具。新版只在 PR #201 開發分支；未經正式 CI、Owner 核准與 rollback 驗證不合併部署。
+
+核心驗證指令：
+
+    npm run test:october-quality
+    npm run build

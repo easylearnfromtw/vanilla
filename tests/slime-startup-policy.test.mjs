@@ -32,13 +32,16 @@ test("Friend Linux entrypoint sets role before exec and all installer platforms 
  }
  assert.match(workflow,/test_slime_desktop\.py/);
 });
-test("Ceres owner revocation cannot bypass Telegram private chat code",()=>{
+test("Ceres owner revocation requires device-bound Telegram proof in REST and Mini App",()=>{
  const source=read("services/weiguo/ceres_slime_web.py");
  assert.match(source,/Telegram 驗證後撤銷/);
- assert.match(source,/if body.operation=="revoke":\s*raise HTTPException\(403/);
- assert.match(source,/if row\["operation"\]=="revoke":\s*raise HTTPException\(403/);
- assert.match(source,/const command="撤銷 "\+n.id/);
+ assert.match(source,/if not body\.code:/);
+ assert.match(source,/from slime_revoke_gate import consume_revoke, RevokeDenied/);
+ assert.match(source,/consume_revoke\(sub,row\["node_id"\],body\.code,chat\)/);
+ assert.match(source,/Telegram 驗證成功，已撤銷節點憑證/);
  const commands=read("services/weiguo/slime_telegram.py");
  assert.match(commands,/_CONFIRM = re\.compile/);
- assert.match(commands,/hmac\.compare_digest/);
+ assert.match(commands,/consume_revoke/);
+ const api=read("services/weiguo/slime.py");
+ assert.match(api,/consume_revoke\(user\.sub, node_id, body\.code\)/);
 });

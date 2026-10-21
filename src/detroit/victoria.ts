@@ -75,6 +75,18 @@ export function rankVictoriaArchives(question:string,archives:readonly ArchivedC
  }
  return matches.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id)).slice(0,MAX_MATCHES);
 }
+/** Recover the current conversation topic for terse follow-ups without inventing a new memory.
+ * This does not change consent, account scope, or access to archived/private chats.
+ */
+export function victoriaTaskQuery(
+ question:string,turns:readonly {role:string;content:string}[]
+):string{
+ const q=question.trim();
+ if(!/^(?:繼續|再繼續|繼續分析|往下做|照剛才的|接著做|深入一點|再詳細一點|好|好的|可以)[。！!\s]*$/.test(q))return q;
+ const prior=[...turns].reverse().find(t=>t.role==="user"&&
+  t.content.trim().length>=8&&!/^(?:繼續|好的|可以)[。！!\s]*$/.test(t.content.trim()));
+ return prior?prior.content.slice(0,420):q;
+}
 export function victoriaConsentKey(owner:string):string{
  return "vanilla.victoria.cross-chat.v1."+encodeURIComponent(owner);
 }

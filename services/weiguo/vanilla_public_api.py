@@ -139,6 +139,20 @@ def _key_from_header(authorization: str|None):
     match=_KEY.fullmatch(supplied)
     if not match:
         raise HTTPException(401,"無效的 Vanilla API Key",headers={"WWW-Authenticate":"Bearer"})
+    # Only reward-issued keys depend on the Slime registry. Ordinary vnl_
+    # project keys must not break when the optional Slime service is disabled.
+    with _session() as db:
+        reward_table=db.execute("""SELECT 1 FROM sqlite_master
+            WHERE type='table' AND name='slime_reward_key'""").fetchone()
+        is_reward=bool(reward_table and db.execute(
+            "SELECT 1 FROM slime_reward_key WHERE key_id=?",
+            (match.group(1),)).fetchone())
+    if is_reward:
+        if os.getenv("SLIME_REWARDS_ENABLED","false").lower()!="true":
+            raise HTTPException(503,"Slime 獎勵額度功能目前未啟用")
+        # Reconcile revocations before the live key is read and validated.
+        from slime_reward_policy import reconcile_node_revocations
+        reconcile_node_revocations()
     now=int(time.time())
     with _session() as db:
         _db_tables(db)
@@ -246,9 +260,8 @@ def _finish(keyid:str,job:str,reservation:int,*,usage=None,status="failed",laten
             if refund<0:
                 raise HTTPException(502,"Token 使用量超出預留上限")
             if refund:
-                db.execute("""UPDATE slime_reward_wallet
-                    SET balance=balance+?,spent=spent-? WHERE google_sub=?""",
-                    (refund,refund,mapping["google_sub"]))
+                from slime_reward_policy import account_credit
+                account_credit(db,mapping["google_sub"],refund,refund=True)
                 db.execute("""INSERT INTO slime_reward_ledger
                     (id,google_sub,kind,delta,created_at,model,note)
                     VALUES(?,?,?,?,?,?,?)""",
@@ -320,8 +333,11 @@ async def client_usage(authorization: str|None=Header(default=None)):
         reward_tables(db)
         reward_key=db.execute("SELECT google_sub FROM slime_reward_key WHERE key_id=?",
                               (key["id"],)).fetchone()
-        reward_balance=(db.execute("SELECT balance FROM slime_reward_wallet WHERE google_sub=?",
+        reward_cash=(db.execute("SELECT balance FROM slime_reward_wallet WHERE google_sub=?",
                       (reward_key["google_sub"],)).fetchone()["balance"] if reward_key else None)
+        from slime_reward_policy import signed_balance
+        reward_balance=(signed_balance(db,reward_key["google_sub"],reward_cash)
+                        if reward_key else None)
         stats=db.execute("""SELECT COUNT(*) calls,
            SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) today,
            SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) month_total,

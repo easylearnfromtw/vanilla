@@ -16,6 +16,7 @@ test("Telegram Mini App inline Javascript remains syntactically valid",()=>{
 test("Monochrome Hub design retains accessible functional controls",()=>{
  for(const id of ["overview","devices","pairing","sync-pill","device-counter","refresh",
   "issue","code","copy-code","copy-link","qr-image","installer","node-list",
+  "probe-model","probe-output",
   "confirm-box","confirm-title","confirm-description","approve","cancel","message"]){
    assert.match(page,new RegExp('id="'+id+'"'),"Missing control: "+id);
  }
@@ -71,4 +72,14 @@ test("Welcome screen starts privately and transitions in one tap to actual white
  assert.match(page,/if\(!auth\)\s*\{\s*\$\("welcome-splash"\)\.hidden=true/);
  assert.match(page,/role="region" aria-label="Ceres Slime 歡迎畫面"/);
  assert.doesNotMatch(page,/localStorage\.|sessionStorage\.|document\.cookie\s*=/);
+});
+
+test("Real Slime readiness is never inferred from heartbeat alone",()=>{
+ assert.match(page,/實際模型回覆：尚待測試/);
+ assert.match(page,/last_heartbeat_seconds/);
+ assert.match(page,/api\("verify"\)/);
+ assert.match(source,/@router\.post\("\/verify"\)/);
+ assert.match(source,/await dispatch\(sub/);
+ assert.match(source,/ceres_slime_verify_rate/);
+ assert.match(source,/if body\.operation=="revoke"/);
 });

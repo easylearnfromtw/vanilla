@@ -597,6 +597,7 @@ button:disabled{opacity:.5}button.secondary{color:#18181b;background:#f1f1f3}
 </style></head><body><main>
 <div class="brand">SLIME / VANILLA REWARDS</div><h1>配對完成，<br>領取你的 Token。</h1>
 <p>完成 Google 身分驗證後，可領取由 Slime 管理員提供的一次性模型額度。每個 Google 帳號及每個節點最多領取一次。</p>
+<p><strong>獎勵追回規則：</strong>若節點日後被撤銷或持有人自行退出，已贈送的基本與 WEEKEN Token 將全部收回。若已花掉部分額度，錢包可能顯示負 Token 餘額；但你隨時可以退出並收回裝置權限。</p>
 <div class="metric"><small>裝置能力評分（1–1000）</small><strong id="device-score">—</strong>
 <small>基本獎勵：分數 × <span id="reward-multiplier">100</span> Token／分</small></div>
 <div class="metric"><small>本次新節點加入獎勵</small><strong><span id="reward-amount">—</span> <small style="display:inline">Token</small></strong></div>

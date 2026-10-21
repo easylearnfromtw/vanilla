@@ -315,8 +315,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
     button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
     button.addEventListener("click",()=>{
       if(a.kind==="revoke"){
-       const command="撤銷 "+n.label;
-       copy(command).then(()=>notice("已複製：「"+command+"」。請回到 Ceres Telegram 私聊貼上，依 Bot 提示輸入獨立 8 位撤銷確認碼。"));
+       const command="撤銷 "+n.id;
+       copy(command).then(ok=>{if(ok)notice("已複製：「"+command+"」。請回到 Ceres Telegram 私聊貼上，再輸入獨立 8 位撤銷碼。");});
        return;
       }
       plan(n,a.kind,a.enable);

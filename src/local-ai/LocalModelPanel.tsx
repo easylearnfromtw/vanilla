@@ -4,6 +4,7 @@ import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,s
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
 import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL} from "../ai/atuber-control-plane";
+import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
 
 type Props={
  selected:LocalModelId;
@@ -42,7 +43,7 @@ export default function LocalModelPanel(props:Props){
  const state=props.ready?"已就緒":props.loading?"下載／初始化中 "+props.progress+"%":!props.webgpu?"無法使用 WebGPU":props.error?"載入失敗":props.cached?"已快取，可離線載入":"尚未下載";
  return <div className="local-model-panel">
   <div className="local-model-heading">
-   <Cpu size={17}/><span>阿土伯 · 本機主控</span>
+   <Cpu size={17}/><span>{atuberModelStageLabel()}</span>
    <span className={"local-model-state "+(props.ready?"ready":"")}>{props.ready?<CheckCircle2 size={14}/>:props.error?<AlertTriangle size={14}/>:null}{state}</span>
    {!props.online&&<span className="local-offline"><WifiOff size={13}/>離線</span>}
   </div>
@@ -55,6 +56,7 @@ export default function LocalModelPanel(props:Props){
     <button type="button" disabled={!props.webgpu||props.loading||props.repairingCache||props.ready} onClick={props.onLoad}><Download size={15}/>{props.loading?"載入中":props.ready?"已載入":props.cached?"載入":"下載"}</button>
    </div>
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
+   {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}
    <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>
    {(props.error||props.cached)&&!props.ready&&<button type="button" className="local-cache-repair" disabled={props.loading||props.repairingCache} onClick={props.onRepairCache}>{props.repairingCache?"正在清除本模型快取…":"清除這個模型的快取後重試"}</button>}

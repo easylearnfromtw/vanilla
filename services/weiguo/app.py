@@ -42,6 +42,7 @@ from vanilla_api_console import router as vanilla_console_router
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
 from slime import node_router as slime_router
+from slime_rewards import router as slime_rewards_router
 from scouts_search import router as scouts_router
 from detroit_quirinus_dispatcher import router as detroit_quirinus_router
 from wordcraft_engine import convert_markdown, MIME as WORDCRAFT_MIME, WordCraftUnavailable, WordCraftFailed
@@ -157,6 +158,7 @@ app = FastAPI(title="衞國 Browser Service",version="0.1",lifespan=lifespan,doc
 app.include_router(gridcraft_router)
 app.include_router(notion_router)
 app.include_router(slime_router)
+app.include_router(slime_rewards_router)
 app.include_router(scouts_router)
 app.include_router(canva_router)
 async def operator(authorization: str | None = Header(default=None)):

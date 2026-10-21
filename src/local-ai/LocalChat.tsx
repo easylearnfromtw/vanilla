@@ -13,6 +13,7 @@ import {venusPresentationGuidance} from "../venus/presentation";
 import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
 import ChatHome from "./ChatHome";
+import {modelUnavailableReply} from "./model-unavailable";
 import LocalModelPanel from "./LocalModelPanel";
 import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
 import {parseCreamCSV,fromCreamRows,analyzeCream,summarizeCream,creamInstruction,type CreamDataset,type CreamResult} from "../cream/core";
@@ -1085,14 +1086,14 @@ async function send(value=draft):Promise<void>{
   return;
  }
  if(!canReply){
-  if(image){const reason=retinaUnavailableMessage({privateMode,localOnly:privateMode,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);return;}
+  if(image){const reason=retinaUnavailableMessage({privateMode,localOnly:privateMode,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);toolReply(question,"無法回覆："+reason,{...TOOL.retina,status:"error",detail:"模型或圖片辨識未就緒"});return;}
   if(!privateMode&&/(?:專案|CITYMUS|citymusic|musictown|musiccity|稜角|Signwell|Github|GitHub|我的程式碼)/i.test(question)){
    const found=await projectMatches(attachmentOwner(signedChatAccount()),question).catch(()=>[]);
    if(found.length){toolReply(question,"這些是真正讀取過的專案程式碼索引；目前沒有可用 AI 模型可進行語意推理：\n"+
      found.map((f,i)=>"["+(i+1)+"] "+f.repo+"/"+f.path+"\n"+(f.url||"本機上傳")+"\n"+
       f.excerpt.slice(0,850)).join("\n\n"),"project");return;}
   }
-  setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
+  toolReply(question,modelUnavailableReply({privateMode,online,localReady:ready,ollamaConfigured:ollamaConnected,cloudConfigured:providers.length>0,allowMetered,loadingLocal:loadingModel}),{...TOOL.merlin,status:"error",detail:"模型未就緒；尚未執行推論"});return;
  }
  await answerWithModel(question,{inlineFileContext,webContext,webSources},visibleClarificationAnswer);
 }
@@ -1158,7 +1159,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const ranked=rankedCandidates(candidates,task,preference,!privateMode,localOnly?"":question);
  const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
  if(!primary){
-  if(image){const reason=retinaUnavailableMessage({privateMode,localOnly,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);markDetroit("retina","error",reason);setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
+  if(image){const reason=retinaUnavailableMessage({privateMode,localOnly,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);toolReply(visibleQuestion??question,"無法回覆："+reason,{...TOOL.retina,status:"error",detail:"圖片模型未通過可用性檢查"});markDetroit("retina","error",reason);setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
   if(classifyFactRequest(question).restrictTinyModel){
    toolReply(question,"Diana / Veritas：這題屬於知識或事實性問答，已阻止 0.5B 等極小本地模型編造答案。"+
     "請載入至少 1.5B 的本地模型、連接已授權的較大型自架 Ollama，或經同意啟用較強雲端模型；私密模式不會自動外傳內容。",
@@ -1166,7 +1167,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
    return;
   }
-  setLastRoute(automatic&&!allowMetered?"目前沒有可用的免按量付費模型。請下載本地模型、連線自架 Ollama，或在模型面板開啟「允許計費 API」。":image?"圖片辨識需要已連接的 Gemini API":"所選模型尚未就緒。請在模型面板載入本地模型，或到設定連接 Ollama／Gemini");
+  toolReply(visibleQuestion??question,modelUnavailableReply({privateMode:localOnly,online,localReady,ollamaConfigured:isOllamaConfigured(),cloudConfigured:providers.length>0,allowMetered,loadingLocal:loadingModel}),{...TOOL.merlin,status:"error",detail:"沒有符合授權條件的模型；推論未開始"});
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }

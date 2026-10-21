@@ -62,12 +62,9 @@ export function summarizeVictoriaLongitudinal(
     "，區間 "+span+"，"+basis+"，"+measured+trend+quality+provenance;
  });
  const observations=selected.reduce((n,x)=>n+x.count,0);
- const intro="Victoria／CREAM 長期資料核對（只讀本裝置已授權之同帳號一般模式 CREAM 歷史）：
-"+
+ const intro="Victoria／CREAM 長期資料核對（只讀本裝置已授權之同帳號一般模式 CREAM 歷史）：\n"+
   "CREAM 已用數值原始觀察計算；Victoria 僅編排與挑選證據，不自行推估缺失數值。"+
-  "不可混合單位、不作因果推論，也不可把舊數值當成即時值；必須保留數據區間、來源及資料品質。
-";
- return {context:(intro+lines.join("
-")).slice(0,3300),matchedMetrics:selected.length,
+  "不可混合單位、不作因果推論，也不可把舊數值當成即時值；必須保留數據區間、來源及資料品質。\n";
+ return {context:(intro+lines.join("\n")).slice(0,3300),matchedMetrics:selected.length,
   inspectedMetrics:trends.length,snapshots:snapshotCount,from:ext.from,to:ext.to,observations};
 }

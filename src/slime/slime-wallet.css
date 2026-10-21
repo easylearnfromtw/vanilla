@@ -1,0 +1,17 @@
+.slime-wallet-front{border:1px solid var(--border,#dedee3);background:var(--surface,#fff);color:var(--text,#17171b);border-radius:21px;padding:clamp(18px,3vw,27px);margin-top:20px;display:grid;gap:15px}
+.slime-wallet-front-head h3{font-size:21px;font-weight:760;letter-spacing:-.04em;margin:8px 0 5px}
+.slime-wallet-front-head p,.slime-wallet-front p{font-size:13px;color:var(--text-muted,#6c6c76);line-height:1.85;margin:0}
+.slime-wallet-eyebrow{font-size:10px;letter-spacing:.16em;font-weight:800;color:var(--text-muted,#74747a)}
+.slime-wallet-google{min-height:43px}
+.slime-wallet-stat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.slime-wallet-stat>div{min-width:0;border-radius:14px;border:1px solid var(--border,#e9e9ed);padding:16px;background:var(--bg,#f7f7f9);display:flex;flex-direction:column;gap:6px}
+.slime-wallet-stat small{font-size:11px;color:var(--text-muted,#6d6d76);line-height:1.55}
+.slime-wallet-stat strong{font-weight:780;font-size:clamp(18px,3vw,27px);letter-spacing:-.035em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.slime-wallet-stat .slime-wallet-wide{grid-column:1/-1}
+.slime-wallet-stat strong.debt{color:#ae3434}
+.slime-wallet-actions{display:flex;flex-wrap:wrap;gap:9px}
+.slime-wallet-actions button,.slime-wallet-actions a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-radius:11px;padding:12px 15px;background:var(--text,#18181b);color:var(--surface,#fff);border:1px solid var(--text,#18181b);font:inherit;font-size:12px;font-weight:740;cursor:pointer}
+.slime-wallet-actions a{background:transparent;color:var(--text,#17171b)}
+.slime-wallet-actions button:disabled{opacity:.5}
+.slime-wallet-privacy{font-size:11px!important}
+@media(max-width:430px){.slime-wallet-front{padding:17px}.slime-wallet-stat{grid-template-columns:1fr 1fr}.slime-wallet-stat strong{font-size:20px}}

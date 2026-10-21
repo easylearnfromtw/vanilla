@@ -220,6 +220,30 @@ class Completion(BaseModel):
     temperature: float=Field(default=0.4,ge=0,le=2)
     stream: bool=False
 
+@router.get("/v1/vanilla/inference/status")
+def inference_status():
+    """Public capability metadata only; never expose credentials or private hosts."""
+    active=enabled()
+    mode=os.getenv("VANILLA_INFERENCE_MODE","https")
+    configured=False
+    if active and mode=="https":
+        try:
+            _origin()
+            configured=True
+        except HTTPException:
+            pass
+    # Slime availability is owner-scoped and cannot be asserted anonymously.
+    return {"gateway_enabled":active,
+            "mode":mode if mode in ("https","slime_pull") else "invalid",
+            "runtime_configured":configured if mode=="https" else None,
+            "slime_requires_owner_approval":mode=="slime_pull",
+            "models_endpoint":"/v1/models",
+            "chat_endpoint":"/v1/chat/completions",
+            "key_scheme":"vnl_",
+            "legacy_ceres_keys_supported":False,
+            "inference_verified":False}
+
+
 @router.get("/v1/models")
 async def models(authorization: str|None=Header(default=None)):
     key=_key_from_header(authorization)

@@ -60,6 +60,9 @@ def _tables(db):
     db.execute("CREATE INDEX IF NOT EXISTS slime_reward_ledger_subject ON slime_reward_ledger(google_sub,created_at)")
     db.execute("""CREATE TABLE IF NOT EXISTS slime_reward_key(
       key_id TEXT PRIMARY KEY, google_sub TEXT NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS slime_reward_admin_audit(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, owner_sub TEXT NOT NULL,
+      amount INTEGER NOT NULL, enabled INTEGER NOT NULL, at INTEGER NOT NULL)""")
 
 
 def _google(credential: str) -> str:
@@ -114,6 +117,8 @@ def set_config(owner_sub: str, amount: int, enabled: bool) -> dict:
         db.execute("""INSERT INTO slime_reward_config(owner_sub,amount,enabled,changed_at)
           VALUES(?,?,?,?) ON CONFLICT(owner_sub) DO UPDATE SET
           amount=excluded.amount,enabled=excluded.enabled,changed_at=excluded.changed_at""",
+                   (owner_sub,amount,int(enabled),now))
+        db.execute("INSERT INTO slime_reward_admin_audit(owner_sub,amount,enabled,at) VALUES(?,?,?,?)",
                    (owner_sub,amount,int(enabled),now))
     return config(owner_sub)
 

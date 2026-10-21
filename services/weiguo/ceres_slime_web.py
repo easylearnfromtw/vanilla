@@ -92,10 +92,12 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style></head><body>
-<header class="hero"><div class="eyebrow">CERES / SLIME · OWNER ONLY</div>
-<h1>Slime<br>節點控制中心。</h1>
-<p>獨立的 Telegram Mini App。裝置管理、短碼配對與模型推論權限集中於此。
-此頁不會出現在公開 Vanilla 下載頁。</p></header>
+<header class="hero">
+<div class="hub-top"><div class="hub-mark" aria-hidden="true">S</div><div class="hub-brand"><span class="eyebrow">CERES / OWNER STUDIO</span><b>SLIME NETWORK</b></div><span class="hub-private">◇ 私人控制台</span></div>
+<div class="hero-copy"><span class="hero-kicker">● YOUR COMPUTE FABRIC</span>
+<h1>算力，<br><span>盡在掌握。</span></h1><p>管理你的本地節點、模型權限與一次性配對。<br>僅限經過身分驗證的 Owner。</p></div>
+<div class="hero-foot"><span>SLIME / CONTROL STUDIO</span><span>OWNER ONLY</span></div>
+</header>
 <nav class="tabs" role="tablist" aria-label="Slime 管理分頁">
 <button role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">總覽</button>
 <button role="tab" aria-selected="false" aria-controls="devices" data-tab="devices">節點</button>

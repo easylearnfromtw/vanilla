@@ -74,7 +74,7 @@ def to_conversations(rows: list[dict]) -> tuple[list[dict], list[dict]]:
         ]}
         # Taiwan expression paraphrases from the same reviewed situation must never
         # leak between train and evaluation splits.
-        split_id = row["id"].rsplit("_", 1)[0] if row["domain"] == "taiwan-pragmatics" else row["id"]
+        split_id = row["id"].split("__", 1)[0] if row["domain"] == "taiwan-pragmatics" else row["id"]
         bucket = int(hashlib.sha256(split_id.encode()).hexdigest()[:8], 16) % 10
         (evaluation if bucket == 0 else train).append(transcript)
     if not train or not evaluation:

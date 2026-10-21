@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 35 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 36 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1110,8 +1110,44 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 測試已核准外部工具失效、資料來源撤銷、離線與 Slime 節點轉移，任務能在資料授權、成本及連線條件內合理繼續或如實中止，LUCA 審計足以還原每個副作用動作。
 - 核對時間區、寄件收件人、檔案附件 refs、Notion 頁面權限、CMS 草稿／正式發布差異，Verifer 須標記實際成功與未驗證之處。
 
+## Q37 / 50 — D：完整模型 API 管理與服務引擎（Secure Gateway × Key Quotas × Model Registry × Slime）
+
+**決策：D — 完整模型 API 管理與服務引擎。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採完整模型API管理與服務引擎：以安全API Gateway提供October／Vanilla本地及授權雲端模型API，支援每Key獨立權限、模型白名單、Token硬配額、速率限制、期限、撤銷、後端可信用量計數、模型版本目錄及更新同步、固定版本選用、專屬開發者服務頁、用量成本監控與Slime節點調度。外部Key不得取得Detroit管理員或Self-Build權限；API Key與全域政策僅本人可透過Ceres Telegram管理，Self-Build只允許可信後端背景觸發。」
+
+### API 服務平台與安全契約
+
+1. **單一可信 API Gateway**：October／Vanilla 模型對外經 Gateway 提供經版本化的 inference-only endpoints，負責身份驗證、輸入驗證、權限與配額、路由、記帳、回應與串流。所有外部呼叫必須經後端 policy enforcement；不得直接對外公開 Ollama、Slime 節點、Detroit Executor、管理員 REST 或模型管理埠。
+2. **API Key 僅限模型服務能力**：Key 需帶 tenant_id、key_id、owner_principal、scope、allowlisted_model_ids／capabilities、request/token/budget limits、expiration、revocation、created_at、policy_version、allowed_origins 或 IP 條件（適用時）及 usage ledger。Key 以高熵秘密產生，僅首次安全顯示明文，服務端僅保存適當雜湊／不可逆驗證表示，支援輪替與撤銷；不得在 URL、GitHub、前端 bundle、日誌或錯誤訊息洩漏。
+3. **Ceres Telegram 唯一全域控制平面**：本人透過可信後端驗證 Telegram user_id／私聊 chat_id、限時一次性 action token，執行建立／撤銷／輪替 API Key、設定跨用戶配額、核准模型上架、全域流量政策、金鑰權限及共享憑證管理；公開 Vanilla 網站與聊天不得出現可繞過的全域管理入口。開發者服務頁可供已授權開發者查看自身規格、匿名化用量及必要的自身權限設定，但**不得自行核准全域變更、提權、建立額外系統級 Key 或繞過本人配額**。
+4. **嚴格權限與租戶隔離**：一般 Key 默認只允許經明確列出的推論 model/capability；禁止調用 Detroit 管理功能、檔案系統、內部工具、Self-Build、系統提示變更、權限政策、訓練、節點管理或部署。任何模型自行產生的 tool-call 字串都不能繞過 Gateway 執行真實工具；若另需工具 API，必須獨立決策及具體授權。API 用戶 A 不能讀取 B 的 usage、私有模型、記憶、文件、向量索引或工作流。
+5. **Token 硬上限與可核對計數**：將每 Key 的 prompt tokens、completion tokens、cached token 類別（適用時）、累計總量、時間窗／日／月限制及 in-flight 佔額分離。請求開始時依最大可輸出值先行原子性保留可用額度，結束時根據實際可信推論計數結算並釋放未用部分；串流逐步控制上限，超限即受控中斷且回報部分內容狀態。採可交易一致性的 quota ledger／reserved + consumed，避免多節點、重試或併行請求雙重扣款／超額；網路中斷和後端未知結果需可 reconciliate。
+6. **不同模型的計數與一致性**：具官方 tokenizer 的模型使用確切 tokenizer／version；對雲端供應商核對官方 usage receipt，對本地後端用對應 tokenizer／實際 inference 回執（包含 batch、context truncation），明確處理估算與最終結算差異。用 Token 硬上限保護時若無法取得可信計數，採保守預留或拒絕，不得以未校準預估冒充已確定使用量。
+7. **速率限制與濫用防護**：至少支援 per-key、per-account、per-tenant 及全系統的 RPM/TPM、併發、最大 context、最大輸出、排隊時間、請求大小及成本預算；全域 backpressure、超時、熔斷、WAF／必要反濫用檢測均不得繞過同一權限與記帳。對超限使用一致的錯誤碼、Retry-After／剩餘額度（不洩漏他人資訊），避免濫用錯誤訊息探知金鑰。
+8. **Model Registry 與版本契約**：以 model_id、immutable model_version／digest、model family、context window、capabilities、tokenizer、hardware requirements、license／provider terms、deployment status、allowed tiers、rollout stage、deprecation／compatibility policy 管理模型。支援 alias（例如 stable/latest-policy）及指定固定版本；alias 指向變更須完成 Q27/Q30 評估並遵守本人 Ceres 核准與通知，禁止讓固定版本在不知情時跳轉到別的模型。
+9. **模型自動發現與同步**：透過可信 adapter 觀測已核准的本地 Ollama／Slime 節點及合法雲端 provider 的真實版本與能力，驗證模型 digest、license／權利、實際可載入與 token 計數能力後才向符合條件的 API Key 曝露；發現新模型不代表自動上架、無限配額或可轉發第三方受限模型。節點失聯及雲端授權撤銷時 registry 標 unavailable／degraded，不虛構可用狀態。
+10. **Slime 與 Diana 的推論路由**：依 Q01/Q02/Q05/Q15 檢查 CPU/GPU/VRAM、任務長度、queue、延遲、節點 Owner 同意、資料所在地、API 額度和 provider 授權，自動選擇可執行且不越權的節點；不得將外部用戶 prompt、記憶或敏感資料送到未授權朋友節點或任意雲端模型。不能因節點性能不足就悄悄換成與 API 契約不相容的模型。
+11. **Provider failover／回應一致性**：雲端與本地不可用時按事先核准 fallback 清單、用戶安全政策與版本限制決定是否切換；切換時記錄實際 model/provider/region，固定模型請求若無同版本可用則應失敗而非冒名回覆。streaming partial、provider timeout、取消、重試可能產生費用與 token 差異，必須顯示實際結果和計數狀態。
+12. **開發者服務頁與 API 契約**：提供已授權用戶自己的模型列表、版本與 capability、API endpoint、文件／SDK 範例、Key 有效期與權限摘要、請求／token 用量、餘額、錯誤分析和成本估算；個別開發者只能看自己的資源。模型清單、價格／成本說明須根據實際供應商資料與 policy，不能先宣稱存在正式計費、付款、SLA 或商業服務。
+13. **計費／成本透明（非已批准商業收費方案）**：LUCA 與受信 ledger 分別紀錄原始 inference 消耗、雲端 provider 成本、Slime 節點計算資源估算、保留／耗盡／退回的配額及異常；後端的成本上限是操作安全閘門，不等於已選擇對外售價、支付閘道或訂閱方案。未經另行設計與正式授權不得自動向外部用戶收費。
+14. **監測及隱私**：依 request_id、key_id 的非秘密標識、tenant、model_id/version、node、tokens、latency、error_status、quota_debit／refund、provider receipts 和 trace_ref 審計；LUCA 僅保留脫敏聚合與必要診斷指標，不默認保存提示、生成全文、API Key 明文或私人檔案；依 Q21/Q31 做資料保留及刪除治理。
+15. **與 Self-Build 的完全隔離**：對外 Gateway、用戶聊天、API 所提供的 tool-call／webhook／structured response，以及外部開發者服務頁均不得直接或間接觸發 Self-Build。只有 Q27–Q30 已核准的後端排程／可信內部品質事件能啟動 Self-Build；外部 API 失敗紀錄可在符合嚴格可信聚合與防事件洗白的規則下供 LUCA 統計，但單一外部請求不可被改寫成有權啟動背景自我修改的事件。
+16. **實作狀態與發布聲明**：本題為已確認的架構產品規格，**不代表** API Gateway、硬 Token 原子配額、開發者頁、真正可用的模型目錄、Slime 路由、全域 Ceres Key 管理或成本儀表板已完成實作／接通／正式對外提供。所有「金鑰已建立」「模型可用」「消耗額度」必須以受信後端可核對回執為準。
+
+### 可驗證驗收標準（尚未完成正式實作）
+
+- 使用多租戶沙盒與不同 Key 的模型白名單、單次／每日／月 Token 額度、過期、撤銷和速率限制，驗證 API 只返回允許模型並阻止所有不合法權限與 Key 互用。
+- 模擬 20 個並行串流請求與多 Slime 節點同時搶配額，驗證 reserve→consume→release 原子流程，任何 Key 實際累計消耗不超過硬限制；測試中斷、重試、超時、部分串流與供應商計數延遲不會超額或重複扣除。
+- 以實際本地 tokenizer 與雲端 provider usage receipt 對帳，同時測試 tokenizer 版本不同、cache／特殊 token、長上下文裁切與 max output 限制；未能可信計數時須安全拒絕／保守處理。
+- 驗證模型上架／移除／改 alias 不會改動 pinned version，版本變更經本人的 Ceres Telegram 核准與 Q30 回歸閘門，外部 SDK 對退役版本取得可解釋的錯誤訊息。
+- 模擬 RTX／VRAM 不足、Slime 節點離線、雲端 provider 429、網路中斷、授權撤銷及用量成本到頂，Gateway 要在合法候選內降級或明確回報 unavailable，不能洩漏其他租戶資料或假稱指定模型成功推論。
+- 針對外部 Key 發送要求呼叫 Detroit 高權限工具、寫 GitHub、設定 Telegram 管理員、啟動 Self-Build 或繞過 Quirinus 的惡意提示，後端一律拒絕這些副作用，所有此類未授權成功次數必須為零。
+- 使用偽造 Telegram Owner username、群組、過期 nonce、重放 callback、一般前端 API 與受限開發者 Key 操作建立／撤銷全域金鑰、加額度、修改模型政策，可信後端全部拒絕並保留必要稽核。
+- 稽核 LUCA／API 日誌、服務錯誤、模型 Registry、開發者頁及 export，確保不顯示明文 Key、秘密、未經授權的 prompt、其他用戶內容，且能依 task_id／request_id 追溯實際 tokens 與輸出狀態。
+
 ### 待決事項
 
-**Q37 / 50：October 應如何將本地與雲端模型能力安全地提供給其他使用者與外部開發者，包括 API Key、每 Key Token／用量上限、模型版本更新、權限隔離、用量追蹤及服務穩定性？** 尚待使用者答覆。
+**Q38 / 50：October／Vanilla 在對外提供模型 API 與多節點運算後，應如何建立服務可靠性（SLO／SLA）、故障偵測、容量管理、跨節點容錯及災難復原，並保證故障時安全降級、不越權與不重複執行？** 尚待使用者答覆。
 
 ---

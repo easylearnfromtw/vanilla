@@ -74,6 +74,17 @@ class OctoberAdapterAcceptanceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "provenance"):
             adapter.validate_adapter(self.base, model)
 
+    def test_adapter_manifest_rejects_unrelated_training_datasets(self):
+        model = "Qwen/Qwen3-0.6B"
+        (self.base/"adapter_config.json").write_text(json.dumps({"base_model_name_or_path": model}))
+        (self.base/"noodles-training-manifest.json").write_text(json.dumps({
+            "base_model": model, "mode": "sft", "deployment_status": "not_deployed",
+            "sha256_train": "1"*64, "sha256_eval": "2"*64,
+        }))
+        (self.base/"adapter_model.safetensors").write_bytes(b"synthetic-only")
+        with self.assertRaisesRegex(ValueError, "checksum"):
+            adapter.validate_adapter(self.base, model, self.train, self.holdout)
+
     def test_gpu_status_never_claims_weights_trained(self):
         status = preflight.inspect_hardware()
         self.assertEqual(status["weightsTrained"], False)

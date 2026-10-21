@@ -4,7 +4,7 @@ import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,s
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
 import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS} from "../ai/atuber-control-plane";
-import {getOllamaConfig} from "../ai/ollama";
+import {getOllamaConfig,probeAtuberModel} from "../ai/ollama";
 import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
 
 type Props={
@@ -28,6 +28,20 @@ export default function LocalModelPanel(props:Props){
  const [diagnosing,setDiagnosing]=useState(false);
  const [diagnosis,setDiagnosis]=useState<DownloadDiagnostic[]>([]);
  const [diagnosedModel,setDiagnosedModel]=useState<string|null>(null);
+ const [tierProbe,setTierProbe]=useState<Record<string,{ok:boolean;note:string}>>({});
+ const [probingTier,setProbingTier]=useState<string|null>(null);
+ async function runTierProbe(model:"october:sm"|"october:ml"|"october:lg"){
+  if(probingTier)return;
+  setProbingTier(model);
+  setTierProbe(prev=>({...prev,[model]:{ok:false,note:"正在驗證模型推論…"}}));
+  try{
+   const result=await probeAtuberModel(model);
+   setTierProbe(prev=>({...prev,[model]:{ok:true,note:"已成功推論 · "+(result.elapsedMs/1000).toFixed(1)+" 秒"}}));
+  }catch(error){
+   setTierProbe(prev=>({...prev,[model]:{ok:false,
+    note:"未通過 · "+String(error instanceof Error?error.message:error).slice(0,110)}}));
+  }finally{setProbingTier(null);}
+ }
  const visibleDiagnosis=diagnosedModel===props.selected?diagnosis:[];
  async function checkDownload(){
   if(diagnosing||props.loading)return;
@@ -61,7 +75,15 @@ export default function LocalModelPanel(props:Props){
    {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
    {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="阿土伯模型級距">
     <p className="local-model-note"><strong>阿土伯三層模型</strong> · 下列為自架 Ollama 可選型號；只顯示設定，不代表權重已下載或主機在線。</p>
-    {ATUBER_TIERS.map(t=><p key={t.tier} className="local-model-note"><strong>{t.label}</strong> · {t.model} · 約 {t.approxDownloadGB} GB 權重檔 · {hostModels.has(t.model)?"已登記（尚待連線驗證）":"尚未登記"}</p>)}
+    {ATUBER_TIERS.map(t=><div key={t.tier} className="local-model-note">
+     <strong>{t.label}</strong> · {t.model} · 約 {t.approxDownloadGB} GB 權重檔 · {hostModels.has(t.model)?"已登記（尚待推論驗證）":"尚未登記"}
+     {Boolean(getOllamaConfig().endpoint)&&hostModels.has(t.model)&&<button
+      type="button" disabled={probingTier!==null||!props.online}
+      onClick={()=>void runTierProbe(t.model)}>
+      {probingTier===t.model?"正在測試…":"實際推論測試"}
+     </button>}
+     {tierProbe[t.model]&&<p role="status" aria-live="polite" className={tierProbe[t.model].ok?"local-model-status":"local-model-note"}>{tierProbe[t.model].note}</p>}
+    </div>)}
     <p className="local-model-note">私密模式使用裝置端 0.6B；其他型號需由已授權主機承載，不會自行購買算力或轉用第三方模型。</p>
    </section>}
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}

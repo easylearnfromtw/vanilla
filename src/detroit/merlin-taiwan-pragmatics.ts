@@ -26,7 +26,7 @@ const LAUGH=/(?:笑死|哈哈哈?|ㄏㄏ|XDD?|哭啊|QQ)/i;
 const AMBIGUOUS=/^(?:還好啦?|沒差(?:啦)?|隨便(?:啦)?|都可以|算了(?:啦)?|好喔|可以吧|應該吧|ㄏㄏ)[。！!？?\s]*$/;
 const QUOTE_OR_META=/^(?:翻譯|請翻譯|改寫|潤稿|分析(?:這句|這段|這篇)|解釋(?:這句|這段)|引用|他說|她說|原文|逐字稿|prompt|提示詞)/i;
 const REFERENCE=/(?:上面|剛剛|那個|這個|原本|之前|延續|繼續|接著|上一版|再來|再改|再優化)/;
-const ASK=/[？?]$|^(?:為什麼|怎麼|如何|什麼|是否|請問|有沒有)/;
+const ASK=/[？?]$|(?:為什麼|怎麼會|如何|請問|有沒有)|^(?:怎麼|什麼|是否)/;
 
 /**
  * Emotion cues are possible *communication signals*, not statements about

@@ -248,7 +248,8 @@ class RouteRequest(BaseModel):
 @router.get("/v1/family/slime/status")
 def slime_status(user: FamilyIdentity = Depends(_owner)):
     return {"ready": True, "service": "Slime", "runtime": "registry-only",
-            "inference_enabled": False, "power_control_enabled": False,
+            "inference_enabled": False, "power_control_enabled": True,
+            "power_on_enabled": False, "power_off_requires_device_opt_in": True,
             "heartbeat_seconds": ONLINE_SECONDS}
 
 @router.post("/v1/family/slime/invite")

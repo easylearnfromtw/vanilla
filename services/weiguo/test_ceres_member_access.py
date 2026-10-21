@@ -30,14 +30,12 @@ class MemberAccessTests(unittest.TestCase):
             "CERES_TELEGRAM_CHAT_IDS": str(OWNER_CHAT),
             "CERES_FAMILY_LINKS_JSON": '{"' + str(OWNER_CHAT) + '":"' + OWNER_SUB + '"}',
             "WEIGUO_FAMILY_ACL_JSON": '{"' + OWNER_SUB + '":{"role":"owner"}}',
-            "CERES_MEMBER_DAILY_TOKEN_LIMIT": "2000",
+            "CERES_SHARED_CLOUD_DAILY_TOKENS": "2000",
             "WEIGUO_GMAIL_ACL_ENFORCE": "false",
         })
         env.start()
         self.addCleanup(env.stop)
         grant("member@gmail.com", "member", ["chat","gemini"], OWNER_CHAT)
-        check_identity(MEMBER_SUB, "member@gmail.com", scope="chat", bind=True) if False else None
-
     def _bind_google(self):
         from ceres_admin_policy import _session, _setup
         with _session() as db:

@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 import httpx
 from ceres_gateway import _allowed_chat_ids, _session
 from ceres_admin_policy import (accounts, enforce, grant, revoke, set_enforce,
-                                provider_status, toggle_provider, role_for_sub)
+                                provider_status, toggle_provider, role_for_sub, set_daily_quota)
 from ceres_model_catalog import catalog
 
 def owner_subject(chat_id: int) -> str|None:
@@ -142,7 +142,8 @@ def _guide():
             +"從下方選擇功能，檢視狀態或調整設定。\n\n"
             +"<b>快速指令</b>\n"
             +"<code>/admin allow email@gmail.com member chat,files</code>\n"
-            +"<code>/admin revoke email@gmail.com</code>\n\n"
+            +"<code>/admin revoke email@gmail.com</code>\n"
+            +"<code>/admin quota email@gmail.com 12000</code>\n\n"
             +"🔐 API 金鑰請透過加密表單輸入，勿貼在聊天訊息。\n"
             +"<i>僅供已綁定 Google Owner 使用。</i>")
 
@@ -278,6 +279,9 @@ async def command(chat: int, body: str):
         elif action=="allow" and len(args)==4:
             grant(args[1],args[2],args[3].lower().split(","),chat)
             await say(chat,"已新增／更新 Gmail 白名單。生效時仍必須通過 Google OIDC 驗證。")
+        elif action=="quota" and len(args)==3:
+            set_daily_quota(args[1],int(args[2]),chat)
+            await say(chat,"已更新共用雲端 API + Telegram 合計每日 Token 額度。")
         elif action=="revoke" and len(args)==2:
             target=args[1].lower()
             token=_pending(chat,"revoke",target)

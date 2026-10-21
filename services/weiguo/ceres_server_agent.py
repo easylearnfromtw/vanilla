@@ -65,7 +65,15 @@ def verified_subject(chat: int) -> str | None:
     if not sub:
         return None
     if owner_subject(chat) == sub:
-        # Preserve verified Owner access (including legacy environment ACL).
+        from ceres_admin_policy import enforce, role_for_sub, check_identity
+        if enforce():
+            record=role_for_sub(sub)
+            if not record:
+                return None
+            try:
+                check_identity(sub,record[0],scope="chat")
+            except HTTPException:
+                return None
         return sub
     from ceres_member_access import _allowed_member
     return sub if _allowed_member(sub) else None

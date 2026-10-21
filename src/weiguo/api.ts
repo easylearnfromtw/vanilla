@@ -282,6 +282,24 @@ export async function getWeiGuoLucaSummary():Promise<LucaSnapshot>{
  return request<LucaSnapshot>("/v1/family/luca/summary",undefined,true);
 }
 
+/** Gmail member pairing: code is single-use and expires in five minutes. */
+export type CeresTelegramLinkStatus={memberChatEnabled:boolean;eligible:boolean;linked:boolean};
+export async function getCeresTelegramLinkStatus():Promise<CeresTelegramLinkStatus>{
+ return request<CeresTelegramLinkStatus>("/v1/family/ceres/telegram-link/status",undefined,true);
+}
+export async function startCeresTelegramLink():Promise<{code:string;command:string;expiresInSeconds:number;telegramBot:string}>{
+ return request("/v1/family/ceres/telegram-link/start",{},true);
+}
+/** Whitelisted cloud providers. Provider keys never enter the browser. */
+export async function sharedCloudChat(provider:"gemini"|"openai"|"deepseek",
+ turns:Array<{role:"user"|"assistant";content:string}>):Promise<string>{
+ if(currentChatMode()==="private")throw Error("私密模式禁止雲端服務");
+ const reply=await request<{text:string}>("/v1/family/models/shared/chat",{
+  provider,turns:turns.slice(-12),approved_cloud_send:true
+ },true);
+ return reply.text;
+}
+
 /** Ceres never exposes operator keys or Telegram bot credentials to the PWA. */
 export type CeresFamilyStatus={
  enabled:boolean;linked:boolean;outboundEnabled:boolean;draftEnabled:boolean;

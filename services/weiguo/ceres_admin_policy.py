@@ -17,7 +17,7 @@ from ceres_gateway import _session
 
 _EMAIL = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}$")
 _ROLES = {"owner", "member", "viewer"}
-_SCOPES = {"chat", "files", "nodes", "canva", "gemini", "automation", "studio"}
+_SCOPES = {"chat", "files", "nodes", "canva", "gemini", "openai", "deepseek", "automation", "studio"}
 _PROVIDERS = {"canva", "gemini", "deepseek", "openai"}
 def _setup(db: sqlite3.Connection):
     db.execute("""CREATE TABLE IF NOT EXISTS ceres_admin_accounts(
@@ -32,6 +32,11 @@ def _setup(db: sqlite3.Connection):
     db.execute("""CREATE TABLE IF NOT EXISTS ceres_admin_audit(
       id INTEGER PRIMARY KEY AUTOINCREMENT, actor_chat INTEGER NOT NULL,
       operation TEXT NOT NULL, subject TEXT NOT NULL, created_at INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS ceres_shared_cloud_limits(
+      email TEXT PRIMARY KEY, daily_tokens INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS ceres_shared_cloud_usage(
+      google_sub TEXT NOT NULL, utc_day INTEGER NOT NULL, reserved_tokens INTEGER NOT NULL,
+      PRIMARY KEY(google_sub,utc_day))""")
 
 def enforce() -> bool:
     with _session() as db:
@@ -130,6 +135,78 @@ def check_identity(sub: str, email: str, scope: str|None=None, bind: bool=False)
             db.execute("UPDATE ceres_admin_accounts SET google_sub=?,updated_at=? WHERE email=? AND google_sub IS NULL",
                        (sub,int(time.time()),email))
             db.commit()
+
+def require_scope(sub: str, email: str, scope: str) -> None:
+    """Gated paid services: always require an active Gmail invite.
+
+    Unlike enforce(), this never makes all of Vanilla require a login.
+    """
+    if scope not in _SCOPES:
+        raise HTTPException(403, "Unknown private service permission")
+    try:
+        email = normalize_email(email)
+    except ValueError:
+        raise HTTPException(403, "Gmail 白名單尚未授權") from None
+    with _session() as db:
+        _setup(db)
+        row = db.execute("SELECT * FROM ceres_admin_accounts WHERE email=?", (email,)).fetchone()
+    if (not row or not row["enabled"] or row["google_sub"] != sub
+            or scope not in json.loads(row["scopes"])):
+        raise HTTPException(403, "此 Gmail 帳號未獲得共用服務的權限")
+
+
+def set_daily_quota(email: str, limit: int, actor: int) -> None:
+    email = normalize_email(email)
+    if type(limit) is not int or not 1000 <= limit <= 500000:
+        raise ValueError("Daily token limit must be 1000–500000")
+    with _session() as db:
+        _setup(db)
+        account = db.execute("SELECT 1 FROM ceres_admin_accounts WHERE email=? AND enabled=1",
+                             (email,)).fetchone()
+        if not account:
+            raise ValueError("Account not whitelisted")
+        db.execute("INSERT INTO ceres_shared_cloud_limits VALUES(?,?) "
+                   "ON CONFLICT(email) DO UPDATE SET daily_tokens=excluded.daily_tokens", (email,limit))
+        _audit(db,actor,"shared_cloud_quota",email)
+        db.commit()
+
+
+def reserve_shared_tokens(sub: str, cost: int) -> bool:
+    """Atomic per-Gmail daily budget across Vanilla and Telegram model calls.
+
+    Credits are conservatively reserved in UTF-8-byte upper-bound equivalents.
+    Failed requests stay reserved, preventing unbounded re-try costs. Credits
+    are NOT claimed to be exact provider token metering.
+    """
+    if not isinstance(sub,str) or type(cost) is not int or cost < 1:
+        return False
+    with _session() as db:
+        _setup(db)
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT email,enabled FROM ceres_admin_accounts WHERE google_sub=?",
+                         (sub,)).fetchone()
+        if not row or not row["enabled"]:
+            return False
+        setting=db.execute("SELECT daily_tokens FROM ceres_shared_cloud_limits WHERE email=?",
+                           (row["email"],)).fetchone()
+        try:
+            default=int(os.getenv("CERES_SHARED_CLOUD_DAILY_TOKENS","12000"))
+        except ValueError:
+            return False
+        limit=setting["daily_tokens"] if setting else default
+        if not 1000 <= limit <= 500000:
+            return False
+        day=int(time.time())//86400
+        used=db.execute("SELECT reserved_tokens FROM ceres_shared_cloud_usage "
+                        "WHERE google_sub=? AND utc_day=?", (sub,day)).fetchone()
+        if (used["reserved_tokens"] if used else 0) + cost > limit:
+            return False
+        db.execute("""INSERT INTO ceres_shared_cloud_usage VALUES(?,?,?)
+          ON CONFLICT(google_sub,utc_day) DO UPDATE SET
+          reserved_tokens=reserved_tokens+excluded.reserved_tokens""", (sub,day,cost))
+        db.execute("DELETE FROM ceres_shared_cloud_usage WHERE utc_day<?", (day-31,))
+    return True
+
 
 def provider_status() -> list[dict]:
     with _session() as db:

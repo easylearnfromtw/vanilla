@@ -155,27 +155,9 @@ def reserve_member_tokens(sub: str, content: str, *, output: int = 1024) -> bool
         return False
     if not isinstance(content, str) or len(content) > 1600:
         return False
-    try:
-        cap = int(os.getenv("CERES_MEMBER_DAILY_TOKEN_LIMIT", "10000"))
-    except ValueError:
-        return False
-    if not 1000 <= cap <= 1000000:
-        return False
-    cost = len(content.encode("utf-8")) + 256 + output
-    day = int(time.time()) // _DAY
-    with _session() as db:
-        _setup(db)
-        db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT reserved_tokens FROM ceres_member_usage "
-                         "WHERE google_sub=? AND utc_day=?", (sub, day)).fetchone()
-        spent = row["reserved_tokens"] if row else 0
-        if spent + cost > cap:
-            return False
-        db.execute("""INSERT INTO ceres_member_usage VALUES(?,?,?)
-          ON CONFLICT(google_sub,utc_day) DO UPDATE SET
-          reserved_tokens=reserved_tokens+excluded.reserved_tokens""", (sub, day, cost))
-        db.execute("DELETE FROM ceres_member_usage WHERE utc_day<?", (day-31,))
-    return True
+"    cost = len(content.encode("utf-8")) + 256 + output
+    from ceres_admin_policy import reserve_shared_tokens
+    return reserve_shared_tokens(sub, cost)
 
 
 @router.post("/start")

@@ -10,12 +10,15 @@ import {
  getWeiGuoCeresEvents,getWeiGuoCeresStatus,getCeresBridgeStatus,getCeresServerAgentStatus,
  type CeresBridgeStatus,type CeresServerAgentStatus,
  sendWeiGuoCeresReply,weiGuoApiBase,weiGuoIdentity,
+ getCeresTelegramLinkStatus,startCeresTelegramLink,type CeresTelegramLinkStatus,
  type CeresFamilyEvent,type CeresFamilyStatus
 } from "../weiguo/api";
 
 /** External Telegram messages are always plain text; no markdown/HTML evaluation. */
 export default function CeresPanel(){
  const [info,setInfo]=useState<CeresFamilyStatus|null>(null);
+ const [linkState,setLinkState]=useState<CeresTelegramLinkStatus|null>(null);
+ const [pairCommand,setPairCommand]=useState("");
  const [bridgeStatus,setBridgeStatus]=useState<CeresBridgeStatus|null>(null);
  const [serverAgent,setServerAgent]=useState<CeresServerAgentStatus|null>(null);
  const [bridgeOn,setBridgeOn]=useState(()=>{const person=weiGuoIdentity();return person?bridgePreference(person.email):false;});
@@ -45,6 +48,16 @@ export default function CeresPanel(){
  const selectedCandidate=candidates.find(x=>x.id===modelId);
  const destination=selectedCandidate?ceresDraftDestination(selectedCandidate.source,selectedCandidate.location):"";
 
+ async function pairTelegram(){
+  if(!ready||busy)return;
+  setBusy(true);
+  try{
+   const result=await startCeresTelegramLink();
+   setPairCommand(result.command);
+   setNotice("5 分鐘內在 Telegram 私聊 @SignWell_bot 傳送下方一次性指令。");
+  }catch(e){setNotice("無法建立 Telegram 綁定："+String(e instanceof Error?e.message:e));}
+  finally{setBusy(false);}
+ }
  function cancelDraft(){
   requestController.current?.abort();
   requestController.current=null;
@@ -54,6 +67,8 @@ export default function CeresPanel(){
   if(!ready){setNotice(privateMode?"私密模式不連接 Ceres。":"請先在衞國以家庭帳號登入，並部署 HTTPS 後端。");return;}
   setBusy(true);
   try{
+   const link=await getCeresTelegramLinkStatus().catch(()=>null);
+   setLinkState(link);
    const state=await getWeiGuoCeresStatus();
    setInfo(state);
    setBridgeStatus(state.linked?await getCeresBridgeStatus().catch(()=>null):null);
@@ -131,6 +146,14 @@ export default function CeresPanel(){
   <p>Vanilla 原生雙向通訊：驗證家庭身分、選用已連接的 Vanilla AI 模型產生純文字草稿、人工確認後才回覆 Telegram。LINE／Discord 尚待開發。</p>
   <p>目前登入：{identity?identity.member+"（"+identity.role+"）":"尚未登入衞國"}。Telegram 金鑰只存在 Railway 後端。</p>
   {!identity&&<button type="button" onClick={()=>window.dispatchEvent(new Event("vanilla-open-weiguo"))}>開啟衞國登入</button>}
+  {ready&&linkState?.eligible&&!linkState.linked&&<>
+   <h3>綁定你的 Telegram AI 對話</h3>
+   <p>只有 Gmail 白名單可啟用。綁定後可以直接與 Ceres AI 私聊，不能操作管理員後台。</p>
+   <button type="button" onClick={()=>void pairTelegram()} disabled={busy}>產生一次性 Telegram 綁定碼</button>
+   {pairCommand&&<p><code style={{overflowWrap:"anywhere"}}>{pairCommand}</code>（5 分鐘有效，勿公開）</p>}
+   <a href="https://t.me/SignWell_bot" target="_blank" rel="noreferrer">開啟 @SignWell_bot 私聊</a>
+  </>}
+  {ready&&linkState&&!linkState.memberChatEnabled&&<p>會員 Telegram 對話尚未由後端啟用；公開 Vanilla 不受影響。</p>}
   <button type="button" onClick={()=>void reload()} disabled={!ready||busy}>{busy?"處理中…":"重新整理訊息"}</button>
   <p role="status" aria-live="polite">{notice}</p>
   {info&&<p>Ceres：{info.enabled?"後端啟用":"尚未啟用"} · 帳號：{info.linked?"已綁定":"未綁定"} · Telegram 人工回覆：{info.outboundEnabled?"已啟用":"未啟用"} · Vanilla AI 草稿：選擇下方模型後使用</p>}

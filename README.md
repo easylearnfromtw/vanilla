@@ -18,6 +18,12 @@ Vanilla 是以 React + Vite 開發的家庭 AI PWA，部署在 GitHub Pages，�
 
 這是**本機路由偏好學習**，不會重新訓練模型，也不會自動把投票同步到其他裝置。比較模式可能同時呼叫兩個收費／限額 API；開啟前請確認配置與額度。
 
+## 阿土伯三層模型（4B / 14B / 30B）
+
+中小型、中大型、大型阿土伯使用 Owner 自架 Ollama 別名（`october:sm`、`october:ml`、`october:lg`），會依寫作、研究、程式等任務在已設定的主機模型中選擇。這是分級路由與部署規範，**不是權重訓練或已成功的模型推論**。安裝、硬體要求、安全限制與上線驗證請參閱 [三層部署指南](docs/ATUBER_THREE_TIER_DEPLOYMENT.md)。
+
+財經十題測試可先執行 `npm run eval:atuber-finance` 預覽；要在本人授權 Ollama 主機上真正測試，設定 `ATUBER_EVAL_URL` 後執行 `npm run eval:atuber-finance -- --run`。答題報告不會自動標成滿分，仍須依人工 rubric 評分。
+
 ## Ollama 部署
 
 詳細的 Docker Compose、自架主機、Oracle Always Free ARM 可行性限制及 Tailscale Serve 安全配置參見：

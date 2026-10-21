@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,isAtuberDriver,
- selectAtuberDriver,atuberFallback} from "../src/ai/atuber-control-plane.ts";
+ selectAtuberDriver,atuberFallback,atuberTier,ATUBER_TIERS} from "../src/ai/atuber-control-plane.ts";
 import {vanillaSystemPrompt} from "../src/ai/prompts.ts";
 const models=[
  {id:"local:"+ATUBER_LOCAL_MODEL,source:"local",model:ATUBER_LOCAL_MODEL,label:"阿土伯本機",location:"本機",note:""},
@@ -72,4 +72,40 @@ test("Main chat and selector do not bypass single-driver policy",()=>{
  assert.match(chat,/!ATUBER_SINGLE_DRIVER&&!nativeArtifact/);
  assert.match(chat,/!ATUBER_SINGLE_DRIVER&&automatic/);
  assert.match(picker,/visibleModels=ATUBER_SINGLE_DRIVER/);
+});
+
+test("Three owner-hosted tiers identify exact deployable aliases, never vendor cloud",()=>{
+ assert.deepEqual(ATUBER_TIERS.map(x=>x.model),["october:sm","october:ml","october:lg"]);
+ for(const t of ATUBER_TIERS){
+  const candidate={...models[2],id:"ollama:"+t.model,model:t.model};
+  assert.equal(isAtuberDriver(candidate),true);
+  assert.equal(atuberTier(candidate),t.tier);
+  assert.equal(atuberTier({...candidate,location:"Ollama Cloud"}),null);
+ }
+ assert.equal(atuberTier(models[0]),"phone");
+ assert.equal(atuberTier(models[2]),"custom");
+});
+test("Automatically choose mid-small for writing, mid-large for research, large for code",()=>{
+ const tierModels=ATUBER_TIERS.map(t=>({...models[2],id:"ollama:"+t.model,model:t.model}));
+ const eligible=[models[0],...tierModels,models[4],models[5]];
+ const pick=(task,restrictTinyModel=false)=>selectAtuberDriver(eligible,{task,privateMode:false,localOnly:false,image:false,restrictTinyModel});
+ assert.equal(pick("casual").controller?.model,ATUBER_LOCAL_MODEL);
+ assert.equal(pick("writing").controller?.model,"october:sm");
+ assert.equal(pick("analysis").controller?.model,"october:ml");
+ assert.equal(pick("code").controller?.model,"october:lg");
+ assert.equal(pick("general",true).controller?.model,"october:ml");
+});
+test("A missing tier degrades to an available approved October model only",()=>{
+ const small={...models[2],model:"october:sm",id:"ollama:october:sm"};
+ const medium={...models[2],model:"october:ml",id:"ollama:october:ml"};
+ const decision=selectAtuberDriver([small,medium,models[4],models[5]],
+  {task:"code",privateMode:false,localOnly:false,image:false});
+ assert.equal(decision.controller?.model,"october:ml");
+ assert.equal(decision.specialists.length,2);
+ assert.equal(selectAtuberDriver([models[0],small],{task:"analysis",privateMode:true,localOnly:true,image:false}).controller?.source,"local");
+ assert.equal(selectAtuberDriver([models[0],small],{task:"analysis",privateMode:true,localOnly:true,image:false,restrictTinyModel:true}).controller,null);
+});
+
+test("Unknown legacy October capacity cannot bypass tiny-model safeguards",()=>{
+ assert.equal(selectAtuberDriver([models[0],models[2]],{task:"analysis",privateMode:false,localOnly:false,image:false,restrictTinyModel:true}).controller,null);
 });

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.22.02-atuber-model-pipeline",
-  "description": "Atuber standalone model training, provenance validation and honest bootstrap UI (weights not yet trained)"
+  "build": "2026.10.22.03-atuber-three-tiers",
+  "description": "Three owner-hosted October model tiers plus honest independent-weights training stage and smoke test"
 }

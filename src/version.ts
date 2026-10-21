@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.22.02-atuber-model-pipeline";
+export const VANILLA_BUILD="2026.10.22.03-atuber-three-tiers";

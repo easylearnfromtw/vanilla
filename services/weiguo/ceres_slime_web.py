@@ -274,6 +274,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="metric"><strong id="reward-spent">—</strong><span>累計模型消耗</span></div>
 </div>
 <div class="notice">Token 以 Vanilla 模型使用額度計算，不等同成本或現金。扣款於推論前預留、完成後結算；模型提供可靠 usage 時按實際 input + output Token 計算。節點刪除會追回基本獎勵和 WEEKEN 加碼，負餘額可在 Vanilla 錢包查看。</div>
+<div id="weeken-roster" class="nodes" aria-live="polite" style="margin-top:16px"><p>WEEKEN 參與者清單尚未載入。</p></div>
 <div class="cards"><div class="metric"><strong id="weeken-joined">—</strong><span>WEEKEN 已登記</span></div><div class="metric"><strong id="weeken-gifted">—</strong><span>WEEKEN 加碼 Token</span></div><div class="metric"><strong id="reward-forfeited">—</strong><span>節點刪除追回 Token</span></div></div>
 </div>
 </section>
@@ -338,6 +339,19 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
     $("weeken-joined").textContent=Number(r.weekenJoined).toLocaleString();
     $("weeken-gifted").textContent=Number(r.weekenGifted).toLocaleString();
     $("reward-forfeited").textContent=Number(r.forfeited).toLocaleString();
+    const results=await api("rewards/participants");
+    const root=$("weeken-roster");root.replaceChildren();
+    if(!results.participants.length)root.textContent="尚無 WEEKEN 登記者。";
+    for(const x of results.participants){
+     const el=document.createElement("article");el.className="node";
+     const name=document.createElement("strong");name.textContent="節點 "+x.nodeId.slice(0,12)+"…";
+     const text=document.createElement("p");
+     text.textContent="評分 "+x.score+" · 加碼 "+Number(x.bonusTokens).toLocaleString()+" Token · 狀態 "+x.status+
+       " · 聯絡 "+(x.contactAllowed?"同意":"未同意")+
+       " · 裝置診斷 "+(x.diagnosticsAllowed?"同意":"未同意")+
+       " · VPN 流量轉送 未授權";
+     el.append(name,text);root.append(el);
+    }
    }catch(e){const n=$("reward-notice");n.textContent=e.message;n.hidden=false;}
  }
  async function saveReward(){
@@ -519,6 +533,13 @@ def rewards_snapshot(body:Owner):
     _,sub=_owner(body.init_data)
     from slime_rewards import reward_snapshot
     return reward_snapshot(sub)
+
+
+@router.post("/rewards/participants")
+def rewards_participants(body:Owner):
+    _,sub=_owner(body.init_data)
+    from slime_rewards import weeken_participants
+    return {"participants":weeken_participants(sub)}
 
 
 @router.post("/rewards/config")

@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 48 題 · 已略過 1 題（Q24）
+狀態：決策訪談已完成 · 共 50 題 · 目前已確定 49 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1590,8 +1590,52 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 在真正 Restore 後由 Verifier 核對內容、計數、hash、授權、provenance、索引可重建性、工具可用性及已知相容性限制，不能將部分成功宣稱為完整無損遷移。
 - 測試備份還原的資源成本與 Q38 RPO／RTO 目標，在不同 OS／Slime 節點與授權雲端儲存驗證加密、保留、失聯恢復及來源安全刪除程序，未實測不能承諾目標達成。
 
-### 待決事項
+## Q50 / 50 — D：證據驅動的分階段交付與產品驗收治理（RTM × MVP × Dependency DAG × Backlog × Release Gates）
 
-**Q50 / 50：October 如何將已確認的 50 題產品決策轉成可交付的整體實作計畫，訂定 MVP 範圍、模組依賴、成本／硬體優先級、跨模組整合測試、可驗證交付里程碑與 Owner 上線核准閘門，避免只完成規格卻無法真正運作？** 尚待使用者答覆。
+**決策：D — 證據驅動的分階段交付與產品驗收治理。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採證據驅動的分階段交付與產品驗收治理：把October已確認的前49題決策建立需求追蹤矩陣、模組依賴圖、風險與成本優先級、MVP範圍、可執行Backlog、版本化里程碑和明確DoD。先完成October／Diana／Detroit／Verifier可信核心，再依依賴整合Slime、LUCA、Ceres、記憶與RAG、Retina、多模態、跨應用工具、API、企業及商業模組；以現有硬體和成本限制做階段取捨，每個模組必須通過功能、安全、權限、效能、故障恢復及真實回執驗收。未實作與未部署能力必須標明，禁止假稱成功。正式發布、全域高風險變更與Self-Build候選上線仍需本人Ceres Telegram具體核准；Self-Build只能由可信後端背景排程或經驗證內部品質事件啟動。Q24仍維持略過，未經使用者另行決定不能自動補選。」
+
+### 正式工程基準文件（均已建立於本開發分支）
+
+- **[ARCHITECTURE_DELIVERY_PLAN.md](ARCHITECTURE_DELIVERY_PLAN.md)**：現況證據盤點、整體信任架構與 Mermaid 模組依賴、P0 安全前置、低成本／硬體優先級、MVP 邊界、M0–M7 里程碑、統一 DoD 與正式 Owner 發布閘門。
+- **[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)**：50 個題號槽位的逐題 RTM，其中 49 題已確認，Q24 明確 skipped；每題對應里程碑、最低驗收焦點及 GitHub 可查證證據入口。
+- **[IMPLEMENTATION_BACKLOG.md](IMPLEMENTATION_BACKLOG.md)**：OC-000–OC-023 共 24 個候選工程 Epic，含優先級、相依關係、待交付能力、驗收條件、安全負例及可重現的證據欄位。**候選 Backlog 不代表 GitHub Issue 已建立**。
+
+### 已確定的工程治理規則
+
+1. **確認與交付是不同維度**：所有 Qnn 的 decision、implementation、verification、deployment、approval 必須分開記載；選 D 並不使程式自動完成，GitHub 檔案存在也不等於功能已測試或正式部署。
+2. **49 confirmed + 1 skipped**：本次 50 題設計訪談完成後，Q01–Q23 及 Q25–Q50 共 49 項 confirmed；Q24 明確略過，保留 `skipped`，**不可自動補選、發明 Q24 定義或把它納入已批准交付**。後續如 Owner 明確補選需另立正式變更紀錄。
+3. **架構以可信核心起始**：先建立 October（目標與計畫）→ Diana（受權工具選用）→ 可信後端 Policy Engine → Detroit（typed DAG／執行與回執）→ 獨立 Verifier（事實與執行驗收）→ 使用者可見結果；不得以自然語言模型輸出取代後端授權。
+4. **MVP 的真實垂直切片**：先完成一個真正可授權、可取消、可驗證的唯讀任務，使用真實 provider／tool receipt、合理錯誤與局部結果狀態；其後才逐步開放帶副作用的工具、持久背景任務、授權雲端／Slime，以及企業、金流和外部插件。
+5. **依賴有序落地**：M0 = 實況與信任根；M1 = October／Diana／Detroit／Verifier 核心；M2 = Durable Checkpoint、記憶/RAG、LUCA、Ceres 後端閘門；M3 = Slime 真實有限 Worker、Retina 與效能分級；M4 = 可驗證成果、跨應用工具、定期任務；M5 = API Gateway、企業／SDK／計費沙盒；M6 = 發行簽章、備份／資料可攜、故障注入；M7 = Owner 正式發布 Gate。里程碑為依賴序，不是承諾每階段已部署或固定工期。
+6. **硬體／成本保守路線**：優先使用目前已持有的 RTX 3050 **桌機**（VRAM 尚需真實探測）、較弱 Windows、Raspberry Pi 4，Mac mini 尚非已購設備；初期新增支出的工程規劃上限目標為 **NT$10,000**（非市場報價或採購授權）。不靠額外購置高階 GPU 來證明 MVP，不宣稱多個 3B 相加等同單一 30B；多機能否推論大模型必須實測記憶體、帶寬與 tokens/s。
+7. **驗收與 DoD 強制落地**：每個 Epic 必須有需求 ID、固定程式 SHA、功能正常/異常測試、安全與跨租戶拒絕、輸入不可信、權限撤銷、效能／成本量測、故障及回滾、真實工具回執和使用者可見狀態；只有實際的 CI log、測試報告、部署 trace、Provider receipt 能支持 `passed/deployed` 標籤。
+8. **真實執行與局部存在分離**：已核對 GitHub repository 具有 React/Vite PWA、既有 Detroit/Ceres/Slime/LUCA 專案目錄、October Modelfile、模擬 `policy.mjs` 及測試／Workflow 基礎，但 October README 明言 policy head 尚非 Qwen 基礎模型微調、Detroit 正式 scoped runtime 尚待串接；Slime 文件現階段有候選節點路由但 `executed:false`。本輪**沒有執行跨模組 CI、真實 iPhone/GPU/Telegram/Railway/Cloudflare 發布驗收**，因此不得把 Q01–Q49 所有功能標成 implemented／tested／production。
+9. **M0 與 M1 必須最先核驗**：建立實際 baseline、秘密掃描、後端 Principal/tenant/scope、Ceres owner 可信核准、Self-Build 不可信來源禁止、再建立真實 read-only Agent path 及工具回執；只有通過安全負例與 Verifier 的閉環才可標示 M1 完成。
+10. **持續整合與資料資源**：M2 以真實 checkpoint、事件、索引、資料 ACL 和 LUCA 可稽核狀態為準；M3 先有限節點註冊／租約，再可用 GPU/模型 worker；M4 每個 DOCX/PPTX/XLSX/PDF 或 Connector 都必須有可開啟檔案或可引用 Provider 結果，沒有能力須回 `unsupported`。
+11. **API、企業與商業啟用分離**：Q37 model/key/quota、Q42 workspace、Q43 SSO、Q48 SDK 先經 Sandbox 和跨租戶防護；Q39 選的是 **C 訂閱與按量計費平台（不是 D）**，付款必須維持 OFF，直到本人 Ceres Telegram 對具體商業／金流啟用明確批准且完成支付與合規驗證。
+12. **既有選項維持原決策**：Q40 為 **C 企業法規與稽核治理**、Q43 為 **C 企業 SSO／SCIM**、Q46 為 **C 跨地區在地化**；本題 D 的工程治理選擇不授予將其替換為各題 D 的權力。
+13. **Self-Build 背景信任邊界永不改變**：聊天、Telegram 按鈕、個人排程、外部 API、SDK、Plugin、模型輸出、資料匯入、外部 webhook、Slime 安裝器、User feedback 皆無法直接或間接啟動 Self-Build；只有 Q27–Q30 可信後端獨立排程／已驗證內部品質事件可建立候選，候選後續的高風險合併／部署仍須本人 Ceres Telegram 明確審批。
+14. **唯一 Owner 的管理平面**：Ceres Telegram 私人管理路徑與一般工作空間、企業 SSO、開發者 API、朋友節點等完全分離；所有全域管理、正式發布與高風險變更需透過可信後端核對 Telegram 數字 ID/chat、action、target version／digest、expiry、一次性 nonce 等。缺真實批准則 `blocked`，不因過去宏觀決策等於已核准每次生產部署。
+15. **發布節奏與停損**：模組未通過相關 gate 就停在 candidate／partial；允許在合規和 Owner 審批下發布已完成的部分能力，但不得聲稱 50 題規格都已完成。部署要有可回退版本、schema 兼容、監控與 incident runbook；無法安全回滾則預先聲明需要停機／人工處理。
+16. **Backlog 的可執行轉換**：按 OC-000 → OC-001/002/007 → OC-003/004/005/006 → OC-008/009/... 的依賴建工程 Issue/PR。已建立的 24 個任務是工作拆解，不代表 24 個 Issue 已在 GitHub 開立；建立後應回填真實 Issue/PR ID，並分別註記 owner、測試及部署結果。
+17. **決策文件完結不等於產品交付**：本次完成「50 題決策訪談」的正式規格確認（49 個確認、1 個略過）及工程治理文檔。**未在本次確認** October 全功能上線、模型已 QLoRA 微調、30B 實際運行、跨平台 Installer 可用、Ceres 具備所有管理功能或金流已開通。
+18. **後續狀態報告**：每個里程碑以 `requirements / commit_SHA / runtime evidence / test result / risk blockers / owner approval / deployment status / rollback proof` 彙整，未測試就標未測試、未部署就標未部署，Owner 可以從 GitHub 清楚看出真實進度與下一件事。
+
+### Q50 驗收標準（工程治理已交付；產品功能仍待實作／測試）
+
+- [x] 將已確認的 Q01–Q23、Q25–Q50 完整納入 RTM，包含每項對應 Milestone、最低驗收焦點、證據入口；Q24 維持 skipped。
+- [x] 提供結構化依賴圖、MVP 範圍、風險／成本／硬體優先序、M0–M7 可驗收 Gate 與可執行 Epics（OC-000–OC-023）。
+- [x] 區分 `confirmed`、`partial`、`implemented`、`not_run`、`passed`、`staging`、`production`；不將規格、CI 定義或歷史部署當成本次完整產品成功證據。
+- [x] 規格中納入 Ceres Owner 高風險審批、普通排程與 Self-Build 信任來源完全隔離、跨租戶及資料來源界線。
+- [ ] 真實執行本 branch 的 CI、核心 Release Gate、安全負例與所有外部整合 E2E，保留可重現證據。
+- [ ] 真正落地 October→Diana→Detroit→Verifier 可信執行閉環及 durable execution，完成 M1/M2 實際驗收。
+- [ ] 真實端對端實測 Slime、Retina、Ceres、SDK、SSO、API、付費沙盒與備份還原，依每個階段獨立驗收。
+- [ ] 以正式部署目標取得本人 Ceres Telegram 指定版本核准，通過 M7 發布審批後才能宣稱對應服務已上線。
+
+### 訪談結束及持續實作狀態
+
+**50 題設計訪談：已結束；49 題 confirmed、Q24 skipped。** 後續工作轉為工程 Backlog、測試與交付驗收。設計規格已提交至開發分支，尚未等同正式產品部署。不得因訪談已完成而擅自合併 PR、啟動生產金流或替 Owner 批准任何高風險行為。
 
 ---

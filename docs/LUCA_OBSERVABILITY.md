@@ -23,6 +23,10 @@ LUCA = **Local Unified Context & Analytics**。以 Pydantic Logfire SDK 作為�
 - LUCA 回饋**不需要**啟用 `LUCA_ENABLED` 或部署衞國後端，不自動傳送資料；LUCA 只做記錄與分析，原有 NOODLES／模型排序仍處理本機偏好。回饋不代表模型權重已接受訓練。
 - 現有評價僅對帶有模型來源的可評分 AI 回答開放；一般工具訊息不會被誤算為使用者評分。
 
+## 選用的 Hank × Tracely 資料通道
+
+可透過獨立內網 OTel Collector 將既有 LUCA metadata-only spans 送至**自行架設**的 Tracely；這不授權收集使用者原始對話、模型回答或私人資料，也不能直接形成語意對話的重播測試。預設仍為關閉。詳見 [Hank × Tracely](HANK_TRACELY.md) 的 Collector 配置與安全限制。
+
 ## 設定方式
 
 ```env

@@ -51,6 +51,7 @@ import {searchLinks} from "../search/source-preferences";
 import {driveSession} from "../workspace/cloud-drive";
 import CompareAnswers,{type ComparisonSession} from "../ai/CompareAnswers";
 import {listCandidates,rankedCandidates,topComparisonCandidates,classifyTask,generateCandidate,saveModelChoice,saveAnswerRating,promptBudgetFor,type ModelCandidate} from "../ai/model-orchestrator";
+import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,selectAtuberDriver,atuberFallback,isAtuberDriver} from "../ai/atuber-control-plane";
 import {composeUserPrompt,type PromptContext} from "../ai/context-budget";
 import {compileSmallModelInput} from "../ai/small-model-scaffold";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
@@ -227,7 +228,7 @@ const [busy,setBusy]=useState(false);
 const [generating,setGenerating]=useState(false);
 const [loadingModel,setLoadingModel]=useState(false);
 const [modelProgress,setModelProgress]=useState(0);
-const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(preferredLocalModel);
+const [selectedLocalModel,setSelectedLocalModel]=useState<LocalModelId>(()=>ATUBER_SINGLE_DRIVER?ATUBER_LOCAL_MODEL:preferredLocalModel());
 const [online,setOnline]=useState(()=>navigator.onLine);
 const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"尚未下載模型");
 const [ready,setReady]=useState(()=>isLocalModelReady());
@@ -289,6 +290,7 @@ useEffect(()=>{
 },[capabilities.webgpu,selectedLocalModel,iosDevice]);
 function selectLocalModel(model:LocalModelId){
  if(busy||loadingModel||repairingCache)return;
+ if(ATUBER_SINGLE_DRIVER&&model!==ATUBER_LOCAL_MODEL){setLastRoute("阿土伯單一主控模式：其他模型屬於專家能力，不能直接替換對話主模型。");return;}
  setSelectedLocalModel(model);
  try{localStorage.setItem("vanilla.local.model",model);}catch{}
  const already=isLocalModelReady(model);
@@ -365,7 +367,9 @@ async function repairSelectedModelCache(){
   setStatus(error instanceof Error?error.message:"清除模型快取失敗");setModelError(true);
  }finally{setRepairingCache(false);}
 }
-const canReply=ready||(!privateMode&&(providers.length>0||ollamaConnected));
+const canReply=ATUBER_SINGLE_DRIVER?
+  Boolean(isLocalModelReady(ATUBER_LOCAL_MODEL)||(!privateMode&&listCandidates({localReady:false,localModel:ATUBER_LOCAL_MODEL,image:false,online,privateMode:false}).some(isAtuberDriver))):
+  ready||(!privateMode&&(providers.length>0||ollamaConnected));
 function changeMetered(enabled:boolean){
  setAllowMetered(enabled);
  try{localStorage.setItem("vanilla.models.allow-metered.v1",String(enabled));}catch{}
@@ -1128,7 +1132,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  let activeModel=selectedLocalModel,localReady=ready;
  const upgradeId=LOCAL_MODELS.find(m=>m.recommended&&isLocalModelSupported(m.id))?.id;
- if(!iosDevice&&(privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
+ if(!iosDevice&&!ATUBER_SINGLE_DRIVER&&(privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
     (task==="code"||task==="analysis")&&upgradeId&&sessionStorage.getItem("vanilla.upgrade.asked.v1")!=="yes"){
   sessionStorage.setItem("vanilla.upgrade.asked.v1","yes");
   if(window.confirm("這題比較複雜。手機目前只載入 0.5B 本地模型，品質可能不足。要另外下載並載入 1.5B 本地模型（約 1.6 GB）後再回答嗎？")){
@@ -1146,7 +1150,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  let candidates=automatic&&!allowMetered?discovered.filter(x=>x.source==="local"||(x.source==="ollama"&&x.location==="自架主機")):discovered;
  // Diana / Veritas: 0.5B-class models handle casual / creative work, not knowledge authority.
  candidates=qualifiedFactModels(candidates,classifyFactRequest(question));
- if(automatic&&!allowMetered&&!privateMode&&!localOnly&&online&&providers.length&&task!=="casual"&&sessionStorage.getItem("vanilla.cloud.route.ask")!=="declined"){
+ if(!ATUBER_SINGLE_DRIVER&&automatic&&!allowMetered&&!privateMode&&!localOnly&&online&&providers.length&&task!=="casual"&&sessionStorage.getItem("vanilla.cloud.route.ask")!=="declined"){
   const qualityNeeded=Boolean(image)||task==="analysis"||task==="code"||task==="writing"||classifyFactRequest(question).restrictTinyModel||!candidates.length;
   if(qualityNeeded){
    const accepted=window.confirm("這題適合用能力較高的雲端 AI。要開啟智慧雲端路由，讓 Vanilla 自動使用已連接的 Gemini／DeepSeek 嗎？API 可能有免費額度或計費限制；第一次傳給每個供應商前仍會再確認。");
@@ -1156,8 +1160,19 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  }
  const preference="quality" as const;
  const ranked=rankedCandidates(candidates,task,preference,!privateMode,localOnly?"":question);
- const primary=localOnly?candidates.find(x=>x.source==="local"):ranked[0];
+ const atuberDecision=selectAtuberDriver(candidates,{privateMode,localOnly,image:Boolean(image),task,restrictTinyModel:classifyFactRequest(question).restrictTinyModel});
+ const primary=ATUBER_SINGLE_DRIVER?atuberDecision.controller:(localOnly?candidates.find(x=>x.source==="local"):ranked[0]);
  if(!primary){
+  if(ATUBER_SINGLE_DRIVER){
+   const detail=atuberDecision.reason==="vision-needs-approved-adapter"?
+    "阿土伯目前是文字模型，圖片需要經核准的 Retina／多模態專家提供證據；尚未接通阿土伯專屬的視覺委派，不會把圖片悄悄交給其他模型。":
+    atuberDecision.reason==="fact-needs-stronger-runtime"?
+    "這題需要可靠事實判斷，手機阿土伯 0.6B 不符合品質門檻。請先接好自架 October Ollama 主控，或使用已經核實的工具資料。":
+    "尚未載入阿土伯 Qwen3 0.6B，也沒有連接 October／阿土伯 Ollama 主控。請在模型面板載入阿土伯或設定自架 October；其他模型不會自動接管。";
+   setLastRoute(detail);if(image)setFileStatus(detail);
+   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
+   return;
+  }
   if(image){const reason=retinaUnavailableMessage({privateMode,localOnly,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);markDetroit("retina","error",reason);setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
   if(classifyFactRequest(question).restrictTinyModel){
    toolReply(question,"Diana / Veritas：這題屬於知識或事實性問答，已阻止 0.5B 等極小本地模型編造答案。"+
@@ -1170,7 +1185,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
   return;
  }
- const chosen:ModelCandidate[]=!nativeArtifact&&!nativeOrchestra&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
+ const chosen:ModelCandidate[]=!ATUBER_SINGLE_DRIVER&&!nativeArtifact&&!nativeOrchestra&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
  const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
@@ -1356,8 +1371,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   if(image){const detail=error instanceof Error?error.message:String(error);markDetroit("retina","error","圖片模型失敗："+detail);setFileStatus("Retina 辨識失敗："+detail);}
   // Fail over only to an on-device model, or another model on the already approved Ollama host.
   // Never silently introduce a new remote cloud provider or incur an additional paid API request.
-  const alternative=!image&&automatic?ranked.find(candidate=>candidate.id!==primary.id&&
-   (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama"))):undefined;
+  const alternative=!image&&automatic?(ATUBER_SINGLE_DRIVER?atuberFallback(ranked,primary,{privateMode,localOnly}):
+   ranked.find(candidate=>candidate.id!==primary.id&&
+    (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama")))):undefined;
   if(alternative){
    setLastRoute(primary.label+" 無法回答，正在改用 "+alternative.label);
    const altPrompt=compose(alternative);
@@ -1436,7 +1452,8 @@ function prefill(text:string){setDraft(text);window.setTimeout(()=>{inputRef.cur
 const slash=matchSlashCommands(draft);
 const empty=history.length===0;
 const modelState=loadingModel?"loading":busy?"busy":canReply?"ready":"idle";
-const shortLabel=loadingModel?"下載 "+modelProgress+"%":generating?"回答中":privateMode?"私密":(providers.length||ollamaConnected)?"自動":ready?"本機":"未設定模型";
+const shortLabel=ATUBER_SINGLE_DRIVER?(loadingModel?"阿土伯載入 "+modelProgress+"%":generating?"阿土伯回答中":canReply?"阿土伯 · 主控":"阿土伯 · 未就緒"):
+ loadingModel?"下載 "+modelProgress+"%":generating?"回答中":privateMode?"私密":(providers.length||ollamaConnected)?"自動":ready?"本機":"未設定模型";
 const localEntry=LOCAL_MODELS.find(x=>x.id===selectedLocalModel)||LOCAL_MODELS[0];
 let latestAssistant=-1;for(let i=history.length-1;i>=0;i--){if(history[i].role==="assistant"){latestAssistant=i;break;}}
 const composer=<div className="composer-wrap">
@@ -1477,11 +1494,11 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
   <span className="vh-segmented-capsule" aria-hidden="true"/>
   <button type="button" aria-pressed={!privateMode} disabled={busy} onClick={()=>{if(privateMode)switchPrivacy();}}>一般</button>
   <button type="button" aria-pressed={privateMode} disabled={busy} onClick={()=>{if(!privateMode)switchPrivacy();}}><LockKeyhole size={12}/>私密</button>
- </div> <p className="sheet-hint">{privateMode?"只用手機本地模型；不上網、不寫入雲端。":"自動挑選你已連接的模型；第一次使用雲端前會先問你。"}</p>
+ </div> <p className="sheet-hint">{ATUBER_SINGLE_DRIVER?"阿土伯是唯一對話主控；工具與其他專家僅作受授權的後端能力，不會自行接管。"+(privateMode?" 私密模式只允許裝置端阿土伯。":" 自架 October 需另行同意傳輸。"):(privateMode?"只用手機本地模型；不上網、不寫入雲端。":"自動挑選你已連接的模型；第一次使用雲端前會先問你。")}</p>
  <LocalModelPanel selected={selectedLocalModel} onSelect={selectLocalModel} onLoad={()=>void initialize()} onRepairCache={()=>void repairSelectedModelCache()} repairingCache={repairingCache} status={status} progress={modelProgress} loading={loadingModel} error={modelError} webgpu={capabilities.webgpu} online={online} ready={ready&&isLocalModelReady(selectedLocalModel)} cached={modelCached}/>
  <div className="control-toggles">
   <label className="vh-switch"><input type="checkbox" checked={deepAnalysis} disabled={busy} onChange={e=>{setDeepAnalysis(e.target.checked);try{localStorage.setItem("vanilla.detroit.deep.v1",String(e.target.checked));}catch{}}}/><span><strong>Detroit 深度分析</strong><small>複雜題增加思考預算，顯示處理階段；不公開模型內部推理</small></span></label>
-  <label className="vh-switch"><input type="checkbox" checked={compareMode} disabled={busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/><span><strong>比較兩個答案</strong><small>兩個模型各答一次，選你喜歡的</small></span></label>
+  <label className="vh-switch"><input type="checkbox" checked={compareMode} disabled={ATUBER_SINGLE_DRIVER||busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/><span><strong>比較兩個答案</strong><small>兩個模型各答一次，選你喜歡的</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={allowMetered} disabled={privateMode} onChange={e=>changeMetered(e.target.checked)}/><span><strong>允許計費雲端 API</strong><small>關閉時只用本機與自架 Ollama</small></span></label>
  </div>
  {!privateMode&&<div className="control-toggles">

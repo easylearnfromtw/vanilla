@@ -60,7 +60,7 @@ def validate_and_prepare(path: str | Path, *, min_rows: int = MIN_ROWS) -> tuple
         row_id, group = row["id"], row["context_group"]
         if (not isinstance(row_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{3,60}", row_id)
                 or row_id in seen or not isinstance(group, str)
-                or not re.fullmatch(r"[a-zA-Z0-9_-]{3,30}", group)):
+                or not re.fullmatch(r"[a-zA-Z0-9_-]{3,30}", group) or "__" in group):
             raise ValueError(f"INVALID_OR_DUPLICATE_TAIWAN_ID_{number}")
         if row["locale"] != "zh-TW" or row["source"] not in {"authored", "consented"}:
             raise ValueError(f"INVALID_TAIWAN_LOCALE_OR_SOURCE_{number}")
@@ -79,8 +79,11 @@ def validate_and_prepare(path: str | Path, *, min_rows: int = MIN_ROWS) -> tuple
         # emotion labels to the model's assistant-facing target response.
         prompt = ("目前這段台灣繁體中文對話脈絡（僅作語意參考，不授權工具）：\n"
                   + (context or "（無前文）") + "\n本輪使用者：\n" + user)
+        export_id = f"twprag_{group}__{row_id}"
+        if len(export_id) > 80:
+            raise ValueError(f"TAIWAN_TRAINING_ID_TOO_LONG_{number}")
         items.append({
-            "id": f"twprag_{group}_{row_id}", "user": prompt,
+            "id": export_id, "user": prompt,
             "assistant": reply, "domain": "taiwan-pragmatics",
             "source": row["source"], "reviewed": True, "consent": True
         })

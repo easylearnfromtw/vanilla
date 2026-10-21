@@ -60,3 +60,24 @@ npm run build
 \`\`\`
 
 No background worker, model download, cloud call, new permission grant or real tool execution is performed by those tests. A real rollout requires blind operator-reviewed requests and a Diana baseline under identical hardware/model conditions, plus quantitative correctness/latency/energy measurements. GPU joules/request must remain unavailable until real host metering is installed.
+
+## R5 learned shadow model — CPU training and safety gate
+
+This optional model is **not a Qwen fine-tune**, and is **not a replacement for Diana or Merlin**:
+
+- A hashed character 1–3-gram input of 384 features is learned into a true five-component coordinate in `R^5`. Six equal-distance five-simplex prototypes serve as class centers. The optimizer performs true SGD/backprop on **1,925 weights and biases** (5×384 + 5), entirely on CPU.
+- Training uses **144 synthetic labeled prompts**, with an internal **120/24 calibration split** used for epoch selection only. After selection, it retrains on all 144 rows. An external **48 single-domain + 20 mixed/unknown synthetic** set is for reports, not optimizer updates. No model is trained on real private conversation content.
+- A conservative understanding gate requires exactly one clear domain signal **and agreement** with the predicted learned domain. No evidence, multi-domain or disagreement produces **abstain**, returning the decision to existing Merlin/Diana understanding instead of blindly nominating a specialist.
+- The fixed 68-case synthetic eval set has already been viewed during development and the gate revised in response. **It is no longer an untouched blind holdout for the combined model+gate.** Future comparisons require a newly frozen external human-adjudicated benchmark, including non-keyword paraphrases and adversarial wording. CI still treats this set as a useful regression test.
+- October Studio supports an optional local JSON weight import, strict schema checking, R5 coordinate overlay and side-by-side old-versus-learned *advisory* routing. Imported weight metadata is a declaration, **not cryptographic authenticity**; no privilege or cloud inference occurs.
+- The pipeline intentionally fails CI if the gated five-dimensional router creates more **false single-expert nominations on synthetic unknown/mixed cases** than the old lexical shadow, or if fewer known-domain cases are correctly routed. Passing this guard does not grant deployment eligibility.
+- The next formal release gates are independently labeled intent and tool-choice benchmarks using task definitions comparable to Diana, privilege-denial tests, hardware-measured latency/token/energy, and shadow logging without raw private content.
+
+### Explicit training commands
+
+```sh
+npm run test:october-quality
+node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/train-penteract-projector.mjs --output training/october/generated/october-five-projector-weights.json --report training/october/generated/october-five-projector-report.json
+```
+
+GitHub Actions uploads the `october-penteract-learned-cpu-v0.1` artifact containing an **experimental** weight file and the diagnostic report. Neither is automatically used to answer queries or authorize tools.

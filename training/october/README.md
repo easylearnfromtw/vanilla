@@ -202,7 +202,7 @@ Model classification is never authorization. Backend identity, per-tenant checks
 - Prompt 預算：同一 CI 的五類系統提示詞靜態估算平均減少 38.3% Token；這不是 Ollama 實際計數，也不是推論速度提高 38.3%。
 - Qwen / Claude 真正 A/B：尚未取得具有同題、同硬體、同條件且已完成的推論回執；不可聲稱已勝過其他模型。
 
-訓練資料：teacher-cases.mjs 含 38 筆示範及 10 筆隔離 holdout；teacher-preferences.mjs 含 24 筆 chosen/rejected 偏好及 6 筆隔離驗證題。這些是人工撰寫的實驗級合成資料，尚未經財經、醫療或法律領域專家完整審查，也不是真實使用者資料。CI 中使用 NOODLES --check-only 驗證格式與分割，絕不等於完成 Qwen 權重微調；資料量也不足以主張跨領域高準確率。
+訓練資料：teacher-cases.mjs 含 38 筆示範及 10 筆隔離 holdout；teacher-preferences.mjs 含 24 筆 chosen/rejected 偏好及 6 筆隔離驗證題。這些是 GPT-6 生成的實驗級合成資料，尚未經財經、醫療或法律領域專家完整審查，也不是真實使用者資料。CI 中使用 NOODLES --check-only 驗證格式與分割，絕不等於完成 Qwen 權重微調；資料量也不足以主張跨領域高準確率。
 
 有本機 Ollama 且同時安裝 October/Qwen3 時，才可執行實際比較：
 

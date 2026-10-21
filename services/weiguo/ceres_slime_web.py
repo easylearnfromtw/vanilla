@@ -424,7 +424,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
- function closeConfirm(){pending=null;$("confirm-box").hidden=true;}
+ function closeConfirm(){pending=null;$("delete-code").value="";$("confirm-box").hidden=true;}
  $("cancel").addEventListener("click",closeConfirm);
  // Opening a signed Mini App shows a welcome landing before the white workspace.
  // This is per-open visual state; no credentials or onboarding flags are stored.

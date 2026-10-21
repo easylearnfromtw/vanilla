@@ -37,3 +37,14 @@
 @media(max-width:500px){.october-5d-panel,.october-5d-demo{padding:12px;border-radius:13px}.october-5d-stats{gap:6px}.october-5d-stats>div{padding:10px 8px}.october-5d-stats strong{font-size:19px}.october-5d-routes>div{grid-template-columns:23px 1fr auto}.october-5d-routes small{grid-column:2/4}}
 @media(prefers-reduced-motion:reduce){.october-5d *, .october-5d *::before,.october-5d *::after{animation:none!important;transition:none!important}}
 @media(prefers-color-scheme:dark){.october-5d{--o5-ink:#ececec;--o5-line:#4a4a4a}.october-5d-panel,.october-5d-demo{background:#212121}.october-5d-space,.october-5d-stats>div{background:#292929;border-color:#444}.october-5d-intro>p:last-child,.october-5d-note,.october-5d-heading small,.october-5d-stats small{color:#b9b9b9!important}.october-5d-demo textarea,.october-5d-controls select{background:#252525;color:#eee;border-color:#555}.october-5d-routes>div{border-color:#444}.october-5d-routes>div>span:nth-child(3){color:#ddd}}
+
+/* In-session measurements: no live GPU canvas or automatic background polling. */
+.october-5d-observed{border:1px solid var(--o5-line);border-radius:12px;padding:13px;background:var(--o5-paper)}
+.october-5d-observed h3{font-size:13px;margin:0 0 9px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.october-5d-observed h3 small{font-weight:400;color:#777;font-size:10px}
+.october-5d-observed>p{color:#747474;font-size:11px;line-height:1.6;margin:4px 0}
+.october-5d-observed-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.october-5d-observed-grid>div{min-width:0;display:grid;gap:3px}
+.october-5d-observed-grid strong{font-size:19px;font-variant-numeric:tabular-nums}
+.october-5d-observed-grid small{font-size:10px;color:#777}
+@media(prefers-color-scheme:dark){.october-5d-observed{--o5-paper:#292929}.october-5d-observed>p,.october-5d-observed h3 small,.october-5d-observed-grid small{color:#bbb}}

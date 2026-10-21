@@ -76,7 +76,7 @@ def _listing(sub: str) -> str:
     lines=[f"Slime 網路：{len(rows)} 個已綁定節點，{active} 個心跳在線。"]
     for n in rows[:12]:
         online="在線" if time.time()-n["last_seen"]<=ONLINE_SECONDS else "離線"
-        permitted="可共享" if n["owner_enabled"] and n["share_enabled"] else "暫停"
+        permitted="可共享" if n["owner_enabled"] and n["share_enabled"] else "已暫停"
         inference="推論已授權" if n["inference_enabled"] else "推論未授權"
         temp=(f'{n["gpu_temp_c"]:g}°C' if n["gpu_temp_c"] is not None else "溫度未回報")
         location=(n["geo_area"] or "地區待查") if n["geo_opt_in"] else "位置未授權"

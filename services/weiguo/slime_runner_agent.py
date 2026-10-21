@@ -19,6 +19,9 @@ import re
 import sys
 import time
 from urllib.parse import urlsplit
+import ctypes
+import subprocess
+import shutil
 from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
 from urllib.error import HTTPError,URLError
 
@@ -31,7 +34,10 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-_OPENER=build_opener(ProxyHandler({}),_NoRedirect())
+# Local Ollama must NEVER traverse a system proxy. Remote HTTPS follows the
+# operating system's approved proxy configuration, including enterprise proxy.
+_LOCAL_OPENER=build_opener(ProxyHandler({}),_NoRedirect())
+_NETWORK_OPENER=build_opener(_NoRedirect())
 
 
 def _server():
@@ -56,7 +62,9 @@ def _http(method,url,body=None,authorization=None,timeout=12):
     if authorization:
         headers["Authorization"]="Bearer "+authorization
     request=Request(url,data=raw,headers=headers,method=method)
-    with _OPENER.open(request,timeout=timeout) as response:
+    hostname=urlsplit(url).hostname
+    opener=_LOCAL_OPENER if hostname in ("127.0.0.1","localhost") else _NETWORK_OPENER
+    with opener.open(request,timeout=timeout) as response:
         data=response.read(524288)
     return json.loads(data.decode("utf-8"))
 
@@ -69,9 +77,63 @@ def _models():
                    and _MODEL.fullmatch(x["name"])})[:40]
 
 
+def _ram_gb():
+    """Best-effort read of installed memory; no third-party dependencies."""
+    try:
+        system=platform.system()
+        if system=="Linux":
+            with open("/proc/meminfo",encoding="ascii") as handle:
+                for line in handle:
+                    if line.startswith("MemTotal:"):
+                        return round(int(line.split()[1])/1048576,1)
+        if system=="Darwin":
+            result=subprocess.run(["/usr/sbin/sysctl","-n","hw.memsize"],
+                                  capture_output=True,text=True,timeout=3,check=True)
+            return round(int(result.stdout.strip())/(1024**3),1)
+        if system=="Windows":
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_=[("dwLength",ctypes.c_ulong),("dwMemoryLoad",ctypes.c_ulong),
+                          ("ullTotalPhys",ctypes.c_ulonglong),
+                          ("ullAvailPhys",ctypes.c_ulonglong),
+                          ("ullTotalPageFile",ctypes.c_ulonglong),
+                          ("ullAvailPageFile",ctypes.c_ulonglong),
+                          ("ullTotalVirtual",ctypes.c_ulonglong),
+                          ("ullAvailVirtual",ctypes.c_ulonglong),
+                          ("ullAvailExtendedVirtual",ctypes.c_ulonglong)]
+            m=MEMORYSTATUSEX()
+            m.dwLength=ctypes.sizeof(m)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):
+                return round(m.ullTotalPhys/(1024**3),1)
+    except (OSError,ValueError,AttributeError,subprocess.SubprocessError):
+        pass
+    return 0.0
+
+
+_last_gpu_scan=0.0
+_cached_gpu=""
+def _gpu_name():
+    """Read-only NVIDIA discovery, throttled to avoid repeated GPU wake-ups."""
+    global _last_gpu_scan,_cached_gpu
+    now=time.monotonic()
+    if _last_gpu_scan and now-_last_gpu_scan<300:
+        return _cached_gpu
+    _last_gpu_scan=now
+    if not shutil.which("nvidia-smi"):
+        _cached_gpu=""
+        return _cached_gpu
+    try:
+        result=subprocess.run(["nvidia-smi","--query-gpu=name","--format=csv,noheader"],
+                              capture_output=True,text=True,timeout=3,check=True)
+        _cached_gpu=", ".join(x.strip() for x in result.stdout.splitlines() if x.strip())[:150]
+    except (OSError,ValueError,subprocess.SubprocessError):
+        _cached_gpu=""
+    return _cached_gpu
+
+
 def _heartbeat(server,token):
     return _http("POST",server+"/v1/slime/node/heartbeat",{
-        "capabilities":{"cpu":os.cpu_count() or 1,"ram_gb":0,"gpu":"","os":platform.system()},
+        "capabilities":{"cpu":min(os.cpu_count() or 1,512),"ram_gb":_ram_gb(),
+                        "gpu":_gpu_name(),"os":platform.system()},
         "share_enabled":True},authorization=token)
 
 
@@ -122,6 +184,7 @@ def run():
     token=_token()
     print("Slime Model Runner started (outbound HTTPS + local Ollama only).")
     last_register=0
+    last_model_scan=0
     while True:
         try:
             # Heartbeats and model capabilities are always self-reported; Server
@@ -135,8 +198,12 @@ def run():
                 continue
             now=time.monotonic()
             if now-last_register>=50:
-                _register(server,token,_models())
+                models=_models()
+                _register(server,token,models)
                 last_register=now
+                if models and now-last_model_scan>300:
+                    print("已偵測本機 Ollama 模型數："+str(len(models)))
+                    last_model_scan=now
             for _ in range(20):
                 polled=_http("GET",server+"/v1/slime/node/runner/poll",authorization=token)
                 job=polled.get("job")

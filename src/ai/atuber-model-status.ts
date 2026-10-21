@@ -4,10 +4,11 @@ import modelManifest from "../../models/atuber/manifest.json";
 export const ATUBER_MODEL_ID=modelManifest.model_id;
 export const ATUBER_MODEL_BASE=modelManifest.base_model;
 export const ATUBER_MODEL_RELEASE_STATE=modelManifest.release_state;
+const standaloneWeights:unknown=modelManifest.standalone_weights;
 export const ATUBER_HAS_INDEPENDENT_WEIGHTS=
  modelManifest.release_state==="standalone-packaged"&&
- typeof modelManifest.standalone_weights==="string"&&
- modelManifest.standalone_weights.length>0;
+ typeof standaloneWeights==="string"&&
+ standaloneWeights.length>0;
 
 export function atuberModelStageLabel():string{
  return ATUBER_HAS_INDEPENDENT_WEIGHTS?

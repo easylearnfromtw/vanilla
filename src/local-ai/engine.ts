@@ -229,10 +229,6 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  const currentEngine=engine;
  if(!currentEngine)throw new Error("本地模型尚未就緒，請載入模型後再試。");
  const model=loadedModel||LOCAL_MODEL;
- const startedAt=Date.now();
- let firstTokenMs:number|null=null;
- let completed=false;
- const frameMonitor=startInferenceFrameMonitor();
  const latest=history[history.length-1]?.content||"";
  const structured=options.purpose==="structured";
  const task=options.task??(structured?"code":classifyTask(latest));
@@ -244,6 +240,10 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  const turns=fitHistory(history.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string").map(x=>({role:x.role,content:x.content})),budget,480);
  const messages=buildLocalChatMessages(turns,"",{system,maxTurnChars:Infinity});
  assertLocalMessages(messages);
+ const startedAt=Date.now();
+ let firstTokenMs:number|null=null;
+ let completed=false;
+ const frameMonitor=startInferenceFrameMonitor();
  const abort=()=>{try{void Promise.resolve((currentEngine as unknown as {interruptGenerate?:()=>void|Promise<void>}).interruptGenerate?.()).catch(()=>{});}catch{}};
  options.signal?.addEventListener("abort",abort,{once:true});
 

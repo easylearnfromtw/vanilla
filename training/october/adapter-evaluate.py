@@ -140,7 +140,8 @@ def run_inference(args, cases: list[dict], adapter: Path) -> dict:
         ).to(model.device)
         # Evaluate using ONE loaded model. disable_adapter() yields the exact
         # underlying base without separately allocating another full model.
-        for mode in ("base", "adapter"):
+        # Alternate evaluation order by case to reduce thermal/cache bias.
+        for mode in (("base", "adapter") if case_id % 2 else ("adapter", "base")):
             ctx = model.disable_adapter() if mode == "base" else nullcontext()
             started = time.monotonic()
             with ctx:

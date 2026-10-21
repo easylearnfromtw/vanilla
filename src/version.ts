@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.22.01-atuber-local-planner";
+export const VANILLA_BUILD="2026.10.22.02-atuber-model-pipeline";

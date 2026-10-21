@@ -27,7 +27,10 @@ def _config():
     url = os.getenv("CERES_STORE_WEBHOOK_URL", "")
     if not TOKEN_RE.fullmatch(token) or not SECRET_RE.fullmatch(secret):
         return None
-    parsed = urlsplit(url)
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return None
     if (parsed.scheme != "https" or not parsed.hostname
             or parsed.hostname not in os.getenv("CERES_STORE_ALLOWED_HOSTS", "weiguo-browser-production.up.railway.app").split(",")
             or parsed.port is not None or parsed.username or parsed.password
@@ -44,29 +47,54 @@ async def register_store_webhook() -> bool:
         print("Ceres Store: registration skipped (configuration incomplete)", flush=True)
         return False
     token, secret, url = cfg
+    if token == os.getenv("CERES_TELEGRAM_BOT_TOKEN") or secret == os.getenv("CERES_TELEGRAM_WEBHOOK_SECRET"):
+        print("Ceres Store: registration blocked (credentials overlap admin bot)", flush=True)
+        return False
     api = f"https://api.telegram.org/bot{token}/"
     try:
-        async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
-            identity = (await client.get(api + "getMe")).json()
+        async with httpx.AsyncClient(timeout=httpx.Timeout(20, connect=8), trust_env=False, follow_redirects=False) as client:
+            identity_response = await client.get(api + "getMe")
+            if identity_response.status_code != 200:
+                print(f"Ceres Store: getMe HTTP {identity_response.status_code}", flush=True)
+                return False
+            identity = identity_response.json()
             if identity.get("ok") is not True or identity.get("result", {}).get("username", "").lower() != EXPECTED_USERNAME.lower():
                 print("Ceres Store: bot identity mismatch", flush=True)
                 return False
-            info = (await client.get(api + "getWebhookInfo")).json()
+            info_response = await client.get(api + "getWebhookInfo")
+            if info_response.status_code != 200:
+                print(f"Ceres Store: getWebhookInfo HTTP {info_response.status_code}", flush=True)
+                return False
+            info = info_response.json()
             previous = info.get("result", {}).get("url", "")
             if info.get("ok") is not True or previous not in ("", url):
                 print("Ceres Store: existing different webhook; refusing override", flush=True)
                 return False
-            response = (await client.post(api + "setWebhook", json={
+            set_response = await client.post(api + "setWebhook", json={
                 "url": url, "secret_token": secret,
                 "allowed_updates": ["message"], "drop_pending_updates": False
-            })).json()
+            })
+            if set_response.status_code != 200:
+                print(f"Ceres Store: setWebhook HTTP {set_response.status_code}", flush=True)
+                return False
+            response = set_response.json()
             if response.get("ok") is not True or response.get("result") is not True:
                 raise ValueError("registration failed")
-            verify = (await client.get(api + "getWebhookInfo")).json()
+            verify_response = await client.get(api + "getWebhookInfo")
+            if verify_response.status_code != 200:
+                print(f"Ceres Store: verify HTTP {verify_response.status_code}", flush=True)
+                return False
+            verify = verify_response.json()
             if verify.get("ok") is not True or verify.get("result", {}).get("url") != url:
                 raise ValueError("verification failed")
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
-        print("Ceres Store: webhook registration failed", flush=True)
+    except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout) as exc:
+        print(f"Ceres Store: webhook registration timeout ({type(exc).__name__})", flush=True)
+        return False
+    except httpx.HTTPError as exc:
+        print(f"Ceres Store: webhook transport error ({type(exc).__name__})", flush=True)
+        return False
+    except (ValueError, KeyError, TypeError) as exc:
+        print(f"Ceres Store: webhook response error ({type(exc).__name__})", flush=True)
         return False
     print("Ceres Store: webhook registration verified", flush=True)
     return True

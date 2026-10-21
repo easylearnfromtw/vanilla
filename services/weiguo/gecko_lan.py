@@ -143,30 +143,57 @@ def _stream_cache(manifest:dict, target:Path, stop:threading.Event) -> None:
             temp.unlink(missing_ok=True)
 
 
-def _page(name: str, host: str, manifest: dict|None, cache:Path) -> bytes:
-    items=[]
-    for file in FILES:
-        title={"Slime-Friend.exe":"Windows","Slime-Friend-macos.zip":"macOS",
-               "Slime-Friend-linux.tar.gz":"Linux"}[file]
-        tag=manifest["tag"] if manifest else ""
-        source=(f"/file/{file}" if manifest and (cache/file).is_file()
-                and _sha256(cache/file)==manifest["hashes"][file] else
-                f"{OFFICIAL}/releases/latest")
-        items.append(f'<a href="{html.escape(source,quote=True)}" rel="noopener noreferrer">'+
-                     f'下載 {title} Slime Friend</a>')
+def _page(name:str, manifest:dict|None)->bytes:
+    tag=manifest["tag"] if manifest else "官方 Releases"
     return ("""<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer"><title>Gecko · Slime 區域網路安裝</title>
 <style>:root{font-family:system-ui,-apple-system,sans-serif;background:#f6f6f7;color:#171717}
 main{max-width:500px;background:white;margin:7vh auto;padding:32px;border-radius:24px;border:1px solid #ddd}
-a{display:block;padding:16px;margin:9px 0;border-radius:12px;background:#19191c;color:#fff;text-align:center;text-decoration:none}
+button,a{display:block;width:100%;box-sizing:border-box;padding:16px;margin:10px 0;border:0;border-radius:12px;background:#19191c;color:#fff;text-align:center;text-decoration:none;font-size:14px}
+button.secondary{background:#f0f0f2;color:#171717}
+label{display:flex;align-items:start;gap:9px;font-size:13px;line-height:1.7}
 small,p{color:#73737a;line-height:1.8;font-size:13px}h1{letter-spacing:-.05em}</style></head><body>
-<main><small>VANILLA / GECKO / LAN</small><h1>同一個網路，加入 Slime。</h1>
-<p>這台電腦的主人已自願開啟 Gecko 分享。你可以自行選擇下載官方安裝包；不會自動下載、安裝或啟用任何功能。</p>"""+
-"".join(items)+
-f"""<p>下載完成後開啟 Slime Friend，選擇「附近 Gecko 分享」，確認加入即可；不需向 Telegram 索取配對碼。</p>
-<small>提供裝置：{html.escape(name)} · 僅限已同意的同網路裝置 · {html.escape(tag if manifest else "官方 Releases")}
-· 模型推論預設停用，必須由 Owner 額外核准。</small></main></body></html>""").encode("utf-8")
+<main><small>VANILLA / GECKO / LAN</small><h1>在自己的裝置上決定。</h1>
+<p>這台電腦的主人自願開啟安裝包分享，你可以選擇自行確認，或讓 Telegram Owner 核准下載。不會自動下載、安裝或執行。</p>
+<form action="/download/consent" method="post">
+<label><input name="consent" type="checkbox" value="yes" required>我正在操作這台接收電腦，並同意取得官方 Slime Friend 安裝包。</label>
+<button name="mode" value="receiver" type="submit">由這台電腦確認下載</button>
+<button name="mode" value="owner" type="submit" class="secondary">請 Telegram Owner 核准</button>
+</form><p>下載後，必須由你親自開啟安裝程式並確認加入。配對後模型推論仍預設關閉。</p>
+<small>分享裝置："""+html.escape(name)+""" · 正式來源："""+html.escape(tag)+
+""" · 區網分享不會開啟 VPN／遠端控制</small></main></body></html>""").encode("utf-8")
+
+
+def _download_ready(name:str,token:str,manifest:dict|None,cache:Path)->bytes:
+    from urllib.parse import quote
+    parts=["<h1>已獲得下載授權</h1><p>請在這台電腦點選所需版本。只會下載檔案，不會替你執行或安裝。</p>"]
+    for filename in FILES:
+        title={"Slime-Friend.exe":"Windows","Slime-Friend-macos.zip":"macOS",
+               "Slime-Friend-linux.tar.gz":"Linux"}[filename]
+        if manifest and (cache/filename).is_file() and _sha256(cache/filename)==manifest["hashes"][filename]:
+            target="/file/"+filename+"?grant="+quote(token)
+        else:
+            target=OFFICIAL+"/releases/latest"
+        parts.append('<a href="'+html.escape(target,quote=True)+'" rel="noreferrer noopener">下載 '+title+'</a>')
+    return ("""<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:6vh auto;padding:24px}
+a{display:block;margin:10px 0;padding:16px;background:#171717;color:white;text-align:center;border-radius:12px;text-decoration:none}
+p{color:#696976;line-height:1.8}</style><title>Gecko 授權下載</title></head>
+<body>"""+ "".join(parts)+
+"<p>接收電腦仍需自行開啟安裝程式、閱讀同意事項。此授權限時且只限本裝置。</p></body></html>").encode("utf-8")
+
+
+def _pending_page(request_id:str)->bytes:
+    url="/download/status/"+request_id
+    return ("""<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="7;url="""+url+"""">
+<title>Gecko 等待授權</title></head><body style="font-family:system-ui;max-width:500px;margin:9vh auto;padding:24px">
+<h1>已送出 Telegram 核准申請</h1><p>請 Owner 在 Ceres → Slime → Gecko 核准或拒絕。你不必輸入 Telegram 代碼，也不會在核准前下載檔案。</p>
+<p>本頁會定期檢查；可隨時關閉，不會安裝任何程式。</p>
+<a href="""+url+""">手動確認授權結果</a></body></html>""").encode("utf-8")
 
 
 class GeckoHost:
@@ -179,6 +206,9 @@ class GeckoHost:
         self.manifest=None
         self.http=None
         self.threads=[]
+        self.grants={}
+        self.pending={}
+        self.auth_lock=threading.Lock()
 
     def _http_handler(self):
         host=self

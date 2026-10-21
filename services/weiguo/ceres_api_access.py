@@ -57,7 +57,7 @@ def issue(payload: KeyRequest, x_ceres_admin_secret: str | None = Header(default
         key_id = secrets.token_hex(8)
         digest = hashlib.sha256(raw.encode()).hexdigest()
         db.execute("INSERT INTO api_keys VALUES(?,?,?,?,0,0,?)", (key_id,payload.user_id,digest,payload.quota,int(time.time())))
-    return {"key_id":key_id,"api_key":raw,"quota":payload.quota,"notice":"Save once; model inference not yet enabled"}
+    return {"key_id":key_id,"api_key":raw,"quota":payload.quota,"notice":"Registry-only credential; use vnl_ gateway keys for inference"}
 
 @router.post("/admin/revoke")
 def revoke(payload: RevokeRequest, x_ceres_admin_secret: str | None = Header(default=None)):
@@ -68,4 +68,4 @@ def revoke(payload: RevokeRequest, x_ceres_admin_secret: str | None = Header(def
 
 @router.get("/status")
 def status():
-    return {"mode":"whitelist","key_registry":"implemented","inference":"disabled","metering":"not_connected"}
+    return {"mode":"whitelist","key_registry":"implemented","inference":"disabled","metering":"not_connected","key_scheme":"vna_","gateway_key_scheme":"vnl_","gateway_admin_path":"/v1/ceres/admin/gateway"}

@@ -51,6 +51,9 @@ class LocalModelRunnerTests(unittest.IsolatedAsyncioTestCase):
               (id,owner,token_digest,label,role,last_seen,share_enabled,owner_enabled)
               VALUES(?,?,?,?,?,?,1,1)""",
               (NODEID,SUB,slime._digest(self.node_token),"Owned desktop","friend",time.time()))
+        from ceres_api_access import _db as access_db
+        with access_db() as access:
+            access.execute("INSERT INTO api_access(user_id,approved) VALUES(?,1)",(OWNER_CHAT,))
         project=await new_project(ProjectCreate(init_data="signed_init_from_owner_very_long",label="Owner test"))
         key=await issue_key(KeyCreate(init_data="signed_init_from_owner_very_long",
              project_id=project["id"],label="local-key",models=["vanilla-default"],

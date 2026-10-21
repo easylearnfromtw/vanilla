@@ -77,6 +77,9 @@ class OwnedModelAPITests(unittest.IsolatedAsyncioTestCase):
         MockInference.calls=[]
         self.http=patch("vanilla_public_api.httpx.AsyncClient",MockInference)
         self.http.start();self.addCleanup(self.http.stop)
+        from ceres_api_access import _db as access_db
+        with access_db() as access:
+            access.execute("INSERT INTO api_access(user_id,approved) VALUES(?,1)",(CHAT,))
         self.project=await new_project(ProjectCreate(init_data="signedtelegramdata987654321",label="Friend workspace"))
         self.default_key=await issue_key(KeyCreate(init_data="signedtelegramdata987654321",
             project_id=self.project["id"],label="app-test",models=["vanilla-default"],
@@ -173,6 +176,9 @@ class OwnedModelAPITests(unittest.IsolatedAsyncioTestCase):
                 _origin()
 
     async def test_owner_bound_project_isolation(self):
+        from ceres_api_access import _db as access_db
+        with access_db() as access:
+            access.execute("INSERT INTO api_access(user_id,approved) VALUES(?,1)",(CHAT+1,))
         with patch("vanilla_public_api._verify",return_value=CHAT+1):
             values=_owner_projects(CHAT+1)
             self.assertEqual(values,[])

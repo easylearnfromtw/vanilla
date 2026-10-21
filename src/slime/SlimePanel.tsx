@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useState} from "react";
-import {ArrowUpRight,Check,ChevronRight,Computer,Copy,Download,HelpCircle,Monitor,ShieldCheck,Smartphone,Users} from "lucide-react";
+import {ArrowUpRight,Check,ChevronRight,Computer,Copy,Download,HelpCircle,LockKeyhole,Monitor,ShieldCheck,Smartphone,Users} from "lucide-react";
 import "./slime.css";
 
 type OS="windows"|"macos"|"linux"|"mobile";

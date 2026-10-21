@@ -72,7 +72,7 @@ async def notify_pairing(node_id: str) -> None:
     from ceres_admin_bot import _telegram, owner_subject
     with _db() as db:
         node=db.execute("SELECT * FROM nodes WHERE id=?",(node_id,)).fetchone()
-    if not node or node["notified_at"]!=-1:
+    if not node or node["notified_at"]>=0:
         return
     location="未授權查詢"
     if node["geo_opt_in"]:
@@ -111,6 +111,6 @@ async def notify_pairing(node_id: str) -> None:
                                           "disable_web_page_preview":True}):
             sent=True
     with _db() as db:
-        db.execute("UPDATE nodes SET notified_at=?,geo_area=? WHERE id=? AND notified_at=-1",
+        db.execute("UPDATE nodes SET notified_at=?,geo_area=? WHERE id=? AND notified_at=?",
                    (time.time() if sent else 0, location if node["geo_opt_in"] else "",
-                    node_id))
+                    node_id,node["notified_at"]))

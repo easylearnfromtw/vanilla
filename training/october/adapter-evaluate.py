@@ -88,7 +88,7 @@ def grade(text: str, expected: dict) -> str:
     return "PASS"
 
 
-def validate_adapter(adapter_dir: Path, model_name: str) -> dict:
+def validate_adapter(adapter_dir: Path, model_name: str, train: Path | None = None, eval_set: Path | None = None) -> dict:
     config_path = adapter_dir / "adapter_config.json"
     manifest_path = adapter_dir / "noodles-training-manifest.json"
     if not config_path.is_file() or not manifest_path.is_file():
@@ -103,6 +103,10 @@ def validate_adapter(adapter_dir: Path, model_name: str) -> dict:
         raise ValueError("Local adapter safetensors are missing")
     if not isinstance(manifest.get("sha256_train"), str) or len(manifest["sha256_train"]) != 64:
         raise ValueError("Adapter training manifest lacks provenance checksum")
+    if train is not None and sha256(train.read_bytes()).hexdigest() != manifest["sha256_train"]:
+        raise ValueError("Training data checksum differs from adapter provenance")
+    if eval_set is not None and sha256(eval_set.read_bytes()).hexdigest() != manifest.get("sha256_eval"):
+        raise ValueError("Validation data checksum differs from adapter provenance")
     return {"model": model_name, "sha256_train": manifest["sha256_train"],
             "sha256_eval": manifest.get("sha256_eval")}
 
@@ -185,7 +189,7 @@ def main() -> int:
     cases = load_cases(args.cases)
     verify_isolation(cases, [args.train, args.validation])
     if args.adapter:
-        validate_adapter(args.adapter, args.model)
+        validate_adapter(args.adapter, args.model, args.train, args.validation)
     if args.check_only:
         print(json.dumps({"datasetValidated": True, "cases": len(cases),
                           "trainHeldOut": True, "modelInvoked": False,

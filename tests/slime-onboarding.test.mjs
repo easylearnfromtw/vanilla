@@ -68,12 +68,13 @@ test("all remote revocation paths require Telegram Owner confirmation",()=>{
  const backend=read("services/weiguo/slime.py");
  const web=read("services/weiguo/ceres_slime_web.py");
  const bot=read("services/weiguo/slime_telegram.py");
- assert.match(backend,/Legacy endpoint intentionally fails closed/);
- assert.match(backend,/請至 Ceres Telegram 私聊撤銷此節點/);
- assert.match(web,/if body.operation==="revoke"/);
+ assert.match(backend,/from slime_revoke_gate import consume_revoke/);
+ assert.match(backend,/consume_revoke\(user\.sub, node_id, body\.code\)/);
+ assert.match(web,/if row\["operation"\]=="revoke"/);
  assert.match(web,/Telegram 驗證後撤銷/);
  assert.match(bot,/_CONFIRM = re\.compile/);
  assert.match(bot,/"revoke"/);
  assert.match(bot,/code_hash/);
- assert.match(bot,/hmac\.compare_digest/);
+ assert.match(bot,/consume_revoke/);
+ assert.match(bot,/secrets\.token_hex\(6\) if operation == "revoke"/);
 });

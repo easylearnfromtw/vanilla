@@ -143,7 +143,7 @@ def _stream_cache(manifest:dict, target:Path, stop:threading.Event) -> None:
             temp.unlink(missing_ok=True)
 
 
-def _page(name:str, manifest:dict|None)->bytes:
+def _page(name:str, manifest:dict|None,challenge:str)->bytes:
     tag=manifest["tag"] if manifest else "官方 Releases"
     return ("""<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -157,12 +157,13 @@ small,p{color:#73737a;line-height:1.8;font-size:13px}h1{letter-spacing:-.05em}</
 <main><small>VANILLA / GECKO / LAN</small><h1>在自己的裝置上決定。</h1>
 <p>這台電腦的主人自願開啟安裝包分享，你可以選擇自行確認，或讓 Telegram Owner 核准下載。不會自動下載、安裝或執行。</p>
 <form action="/download/consent" method="post">
+<input type="hidden" name="challenge" value="__CHALLENGE__">
 <label><input name="consent" type="checkbox" value="yes" required>我正在操作這台接收電腦，並同意取得官方 Slime Friend 安裝包。</label>
 <button name="mode" value="receiver" type="submit">由這台電腦確認下載</button>
 <button name="mode" value="owner" type="submit" class="secondary">請 Telegram Owner 核准</button>
 </form><p>下載後，必須由你親自開啟安裝程式並確認加入。配對後模型推論仍預設關閉。</p>
 <small>分享裝置："""+html.escape(name)+""" · 正式來源："""+html.escape(tag)+
-""" · 區網分享不會開啟 VPN／遠端控制</small></main></body></html>""").encode("utf-8")
+""" · 區網分享不會開啟 VPN／遠端控制</small></main></body></html>""").replace("__CHALLENGE__",html.escape(challenge,quote=True)).encode("utf-8")
 
 
 def _download_ready(name:str,token:str,manifest:dict|None,cache:Path)->bytes:
@@ -208,7 +209,21 @@ class GeckoHost:
         self.threads=[]
         self.grants={}
         self.pending={}
+        self.challenges={}
         self.auth_lock=threading.Lock()
+
+    def _challenge(self,ip:str)->str:
+        with self.auth_lock:
+            now=time.monotonic()
+            self.challenges={k:v for k,v in self.challenges.items() if v[1]>now}
+            challenge=secrets.token_urlsafe(24)
+            self.challenges[challenge]=(ip,now+300)
+            return challenge
+
+    def _consume_challenge(self,challenge:str,ip:str)->bool:
+        with self.auth_lock:
+            record=self.challenges.pop(challenge,None)
+            return bool(record and record[0]==ip and record[1]>time.monotonic())
 
     def _grant(self,ip:str)->str:
         with self.auth_lock:
@@ -269,7 +284,7 @@ class GeckoHost:
                 from urllib.parse import urlsplit,parse_qs
                 url=urlsplit(self.path)
                 if url.path=="/":
-                    return self._send(200,_page(host.settings["label"],host.manifest),"text/html; charset=utf-8")
+                    return self._send(200,_page(host.settings["label"],host.manifest,host._challenge(self.client_address[0])),"text/html; charset=utf-8")
                 if url.path.startswith("/download/status/"):
                     rid=url.path.rsplit("/",1)[-1]
                     if not re.fullmatch("[a-f0-9]{48}",rid):
@@ -344,7 +359,8 @@ class GeckoHost:
                             raise ValueError("Invalid form")
                         form=parse_qs(self.rfile.read(n).decode("utf-8","strict"))
                         mode=form.get("mode",[""])[0]
-                        if mode not in ("receiver","owner") or form.get("consent")!=["yes"]:
+                        if (mode not in ("receiver","owner") or form.get("consent")!=["yes"] or
+                            not host._consume_challenge(form.get("challenge",[""])[0],self.client_address[0])):
                             return self._send(403,b"Explicit receiver consent required","text/plain")
                         if mode=="receiver":
                             grant=host._grant(self.client_address[0])

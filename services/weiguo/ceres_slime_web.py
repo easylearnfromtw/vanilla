@@ -273,7 +273,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="metric"><strong id="reward-total">—</strong><span>累計發放 Token</span></div>
 <div class="metric"><strong id="reward-spent">—</strong><span>累計模型消耗</span></div>
 </div>
-<div class="notice">Token 以 Vanilla 模型使用額度計算，不等同成本或現金。扣款於推論前預留、完成後結算；模型提供可靠 usage 時按實際 input + output Token 計算。</div>
+<div class="notice">Token 以 Vanilla 模型使用額度計算，不等同成本或現金。扣款於推論前預留、完成後結算；模型提供可靠 usage 時按實際 input + output Token 計算。節點刪除會追回基本獎勵和 WEEKEN 加碼，負餘額可在 Vanilla 錢包查看。</div>
+<div class="cards"><div class="metric"><strong id="weeken-joined">—</strong><span>WEEKEN 已登記</span></div><div class="metric"><strong id="weeken-gifted">—</strong><span>WEEKEN 加碼 Token</span></div><div class="metric"><strong id="reward-forfeited">—</strong><span>節點刪除追回 Token</span></div></div>
 </div>
 </section>
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>
@@ -334,6 +335,9 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
     $("reward-recipients").textContent=Number(r.recipients).toLocaleString();
     $("reward-total").textContent=Number(r.awarded).toLocaleString();
     $("reward-spent").textContent=Number(r.spent).toLocaleString();
+    $("weeken-joined").textContent=Number(r.weekenJoined).toLocaleString();
+    $("weeken-gifted").textContent=Number(r.weekenGifted).toLocaleString();
+    $("reward-forfeited").textContent=Number(r.forfeited).toLocaleString();
    }catch(e){const n=$("reward-notice");n.textContent=e.message;n.hidden=false;}
  }
  async function saveReward(){

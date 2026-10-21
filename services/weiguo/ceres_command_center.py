@@ -162,7 +162,7 @@ async def _invite_card(chat: int, sub: str) -> None:
     if code_match:
         code=code_match.group(1)
         buttons.append([{"text":"複製配對碼","copy_text":{"text":code}}])
-        link_match=re.search(r"https://[^\\s]+/#slime="+re.escape(code),result)
+        link_match=re.search(r"https://[^\s]+/#slime="+re.escape(code),result)
         if link_match:
             from slime import _pairing_page_url
             if link_match.group(0).startswith(_pairing_page_url()+"#slime="):

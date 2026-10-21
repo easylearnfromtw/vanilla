@@ -1371,9 +1371,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   if(image){const detail=error instanceof Error?error.message:String(error);markDetroit("retina","error","圖片模型失敗："+detail);setFileStatus("Retina 辨識失敗："+detail);}
   // Fail over only to an on-device model, or another model on the already approved Ollama host.
   // Never silently introduce a new remote cloud provider or incur an additional paid API request.
-  const alternative=ATUBER_SINGLE_DRIVER?atuberFallback(ranked,primary,{privateMode,localOnly}):
-   !image&&automatic?ranked.find(candidate=>candidate.id!==primary.id&&
-    (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama"))):undefined;
+  const alternative=!image&&automatic?(ATUBER_SINGLE_DRIVER?atuberFallback(ranked,primary,{privateMode,localOnly}):
+   ranked.find(candidate=>candidate.id!==primary.id&&
+    (candidate.source==="local"||(primary.source==="ollama"&&candidate.source==="ollama")))):undefined;
   if(alternative){
    setLastRoute(primary.label+" 無法回答，正在改用 "+alternative.label);
    const altPrompt=compose(alternative);

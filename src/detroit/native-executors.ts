@@ -9,7 +9,7 @@ import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-template
 import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
 import {lunaPNG,saveLunaFile} from "../luna/export";
 import {recallVictoria,isVictoriaEnabled,type VictoriaRecall} from "./victoria";
-import {longitudinalReport} from "../cream/history-store";
+import {longitudinalReportForVictoria} from "../cream/history-store";
 import {summarizeVictoriaLongitudinal} from "./victoria-longitudinal";
 import {orchestraHandoff,type OrchestraHandoff} from "../orchestra/ai-handoff";
 import {executeOrchestraHandoff} from "../orchestra/agent-executor";
@@ -97,8 +97,15 @@ export function registerDetroitNativeExecutors():void{
   if(!allowed)return recalled;
   // CREAM performs deterministic math on the currently signed-in account's existing data.
   // Victoria only selects a bounded, source-labelled summary; never starts a background job.
-  const report=await longitudinalReport(input.owner);
-  return {...recalled,longitudinal:summarizeVictoriaLongitudinal(input.query,report)} satisfies VictoriaRecall;
+  const report=await longitudinalReportForVictoria(input.owner,{
+   signal:ctx.signal,onProgress:ctx.onProgress
+  });
+  const summary=summarizeVictoriaLongitudinal(input.query,report);
+  const limits=report.coverage;
+  if(limits.truncated)summary.context+=(summary.context?"\n":"")+
+   "資料完整性警告：本輪只檢視 "+limits.examined+"／"+limits.available+
+   " 筆紀錄，超出本機分批處理上限；不得當作全部歷史的統計。";
+  return {...recalled,longitudinal:summary} satisfies VictoriaRecall;
  });
  detroitBus.register("luna",async(raw,ctx)=>{
   const data=assertObject(raw),prompt=limited(data.prompt,300);
@@ -123,7 +130,7 @@ export function registerDetroitNativeExecutors():void{
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
 export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria"|"orchestra",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|OrchestraHandoff,
- context:{privateMode:boolean;signal?:AbortSignal}):Promise<T>{
+ context:{privateMode:boolean;signal?:AbortSignal;onProgress?:(completed:number,total:number)=>void}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);
  return receipt.result as T;

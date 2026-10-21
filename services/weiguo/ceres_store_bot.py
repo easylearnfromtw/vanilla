@@ -137,6 +137,14 @@ async def _learn(chat_id,action):
                 prefix="🎉 很棒！這一課已標記為學會。\\n依照你的程度與尚未完成的篇章，我推薦：\\n\\n"
             else:
                 prefix="🎉 太棒了！你已完成目前所有篇章，可以重新選程度複習。\\n\\n"
+        elif action=="recommend":
+            candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
+            preferred={"0":[0,1,2,3],"1":[1,2,3,0],"2":[2,3,1,0],"3":[3,2,1,0]}.get(level,[0,1,2,3])
+            if candidates:
+                step=next(i for i in preferred if i in candidates)
+                prefix="✨ 根據你的程度及已完成篇章，推薦你閱讀：\\n\\n"
+            else:
+                prefix="你已完成其他篇章；可以重新分級複習。\\n\\n"
         elif action.startswith("go:") and action[3:].isdigit():
             step=min(int(action[3:]),len(LESSONS)-1)
         else:

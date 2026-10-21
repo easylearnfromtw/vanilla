@@ -7,10 +7,11 @@ from unittest.mock import patch
 from urllib.parse import urlsplit, parse_qs
 
 from fastapi import HTTPException
+from starlette.requests import Request
 from auth import FamilyIdentity
 from slime import (
-    Caps, Heartbeat, JoinRequest, Policy, RouteRequest, _db,
-    _digest, heartbeat, issue_invite, join, leave, list_nodes,
+    Caps, Heartbeat, JoinRequest, PairRequest, Policy, RouteRequest, _db,
+    _digest, heartbeat, issue_invite, join, pair, leave, list_nodes,
     policy, revoke, slime_status, suggest_route
 )
 
@@ -38,13 +39,14 @@ class SlimeLifecycle(unittest.TestCase):
         invite = issue_invite(OWNER)["link"]
         self.assertTrue(invite.startswith("https://example.org/#slime="))
         token = parse_qs(urlsplit(invite).fragment)["slime"][0]
-        return join(JoinRequest(invite=token, label="Test Windows", role="friend")), token
+        request=Request({"type":"http","client":("198.51.100.25",443),"headers":[]})
+        return pair(PairRequest(code=token, label="Test Windows", role="friend"),request), token
 
     def test_pairing_heartbeat_and_owner_opt_out(self):
         self.assertFalse(slime_status(OWNER)["inference_enabled"])
         device, invitation = self.pairing()
         with self.assertRaises(HTTPException):
-            join(JoinRequest(invite=invitation, label="Replay", role="friend"))
+            pair(PairRequest(code=invitation, label="Replay", role="friend"),Request({"type":"http","client":("198.51.100.25",443),"headers":[]}))
         headers = "Bearer " + device["token"]
         before = list_nodes(OWNER)["nodes"][0]
         self.assertTrue(before["online"])

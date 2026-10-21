@@ -62,7 +62,7 @@ export default function App(){
 // and removed there before navigating away. Never persist the join secret.
 const [section,setSection]=useState<Section>(()=>{
  const hash=typeof window!=="undefined"?window.location.hash:"";
- return /^#slime=[A-Za-z0-9_-]{24,160}$/.test(hash)?"nodes":"chat";
+ return /^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)?"nodes":"chat";
 });
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);

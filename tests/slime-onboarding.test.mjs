@@ -25,6 +25,7 @@ test("one-time invite launches Slime automatically but never persists the URL se
  assert.match(app,/^.*#slime=/m);
  assert.match(app,/nodes":"chat"/);
  assert.match(panel,/inviteFromURL/);
+ assert.match(panel,/短配對碼/);
  assert.match(panel,/history\.replaceState/);
  assert.match(panel,/navigator\.clipboard\.writeText/);
  assert.doesNotMatch(panel,/localStorage\.setItem|sessionStorage\.setItem/);
@@ -47,6 +48,7 @@ test("desktop runner joins only after explicit consent and never opens remote sh
  const agent=read("services/weiguo/slime_desktop.py");
  assert.match(agent,/if not _confirm/);
  assert.match(agent,/\/v1\/slime\/node\/join/);
+ assert.match(agent,/\/v1\/slime\/node\/pair/);
  assert.match(agent,/\/v1\/slime\/node\/leave/);
  assert.match(agent,/os\.replace/);
  assert.match(agent,/SLIME_NODE_TOKEN/);

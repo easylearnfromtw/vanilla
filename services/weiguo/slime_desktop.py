@@ -19,6 +19,7 @@ from slime_runner_agent import _http, run as run_model
 
 DEFAULT_SERVER="https://weiguo-browser-production.up.railway.app"
 CODE=re.compile(r"^[A-Za-z0-9_-]{24,160}$")
+SHORT_CODE=re.compile(r"^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{12}$")
 NAME=re.compile(r"^[^\x00-\x1f\x7f]{1,64}$")
 
 
@@ -44,17 +45,20 @@ def _server(raw):
 
 
 def _invite(value):
+    """Accept new 4-4-4 pairing code or old long URL/token for compatibility."""
     raw=value.strip()
+    if raw.startswith("https://"):
+        u=urlsplit(raw)
+        if not u.hostname or u.username or u.password or not u.fragment.startswith("slime="):
+            raise ValueError("配對連結格式不正確")
+        raw=u.fragment[len("slime="):]
+    compact=re.sub(r"[-\s]","",raw).upper()
+    if SHORT_CODE.fullmatch(compact):
+        return "-".join((compact[:4],compact[4:8],compact[8:]))
     if CODE.fullmatch(raw):
         return raw
-    url=urlsplit(raw)
-    if (url.scheme!="https" or not url.hostname or
-        not url.fragment.startswith("slime=")):
-        raise ValueError("邀請格式不正確；請貼上 Telegram 私訊的完整邀請連結")
-    code=url.fragment[len("slime="):]
-    if not CODE.fullmatch(code):
-        raise ValueError("邀請碼格式不正確")
-    return code
+    raise ValueError("請輸入 12 位配對碼（XXXX-XXXX-XXXX）或有效的舊邀請連結")
+
 
 
 def _load():
@@ -114,14 +118,18 @@ def setup():
     label=input("這台電腦的顯示名稱：").strip()
     if not NAME.fullmatch(label):
         raise ValueError("請填入 1–64 字的裝置名稱")
-    print("請貼上由 Ceres Telegram 管理者提供、尚未使用的一次性 Slime 邀請。")
-    secret=_invite(input("邀請連結／邀請碼（只在此使用）："))
+    print("請向 Ceres Telegram Owner 取得 10 分鐘有效的短配對碼。")
+    secret=_invite(input("配對碼（例如 XXXX-XXXX-XXXX，亦可貼連結）："))
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
-    response=_http("POST",server+"/v1/slime/node/join",
-                   {"invite":secret,"role":role,"label":label},timeout=12)
+    compact=re.sub(r"[-\s]","",secret).upper()
+    short=bool(SHORT_CODE.fullmatch(compact))
+    endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
+    payload={"code":secret,"role":role,"label":label} if short else {
+        "invite":secret,"role":role,"label":label}
+    response=_http("POST",server+endpoint,payload,timeout=12)
     token=response.get("token")
     nodeid=response.get("node_id")
     if not isinstance(token,str) or not 32<=len(token)<=256 or not isinstance(nodeid,str):

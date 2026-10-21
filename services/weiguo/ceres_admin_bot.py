@@ -1,5 +1,6 @@
 """Ceres owner-only Telegram management. Telegram text is never a model/system instruction."""
 from __future__ import annotations
+import io
 import json
 import os
 from contextvars import ContextVar
@@ -66,6 +67,41 @@ async def _telegram(method: str, data: dict) -> None:
         return False
 
 _edit_target: ContextVar[int | None] = ContextVar("ceres_native_edit", default=None)
+
+async def send_pairing_qr(chat: int, invite_link: str) -> bool:
+    """QR is generated locally, then sent only to the validated Owner private chat.
+
+    Never send pairing secrets to public QR generator websites or logs.
+    Telegram is NOT an end-to-end encrypted secret store.
+    """
+    if owner_subject(chat) is None:
+        return False
+    from slime import _safe_origin
+    if not isinstance(invite_link,str) or len(invite_link)>280:
+        return False
+    try:
+        from qrcode import QRCode
+        if not invite_link.startswith(_safe_origin()+"/#slime="):
+            return False
+        token=os.getenv("CERES_TELEGRAM_BOT_TOKEN","")
+        if not re.fullmatch(r"[0-9]{5,15}:[A-Za-z0-9_-]{30,80}",token):
+            return False
+        qr=QRCode(version=None,error_correction=1,box_size=9,border=4)
+        qr.add_data(invite_link)
+        qr.make(fit=True)
+        payload=io.BytesIO()
+        qr.make_image(fill_color="black",back_color="white").save(payload,format="PNG")
+        payload.seek(0)
+        async with httpx.AsyncClient(timeout=10,follow_redirects=False,trust_env=False) as client:
+            response=await client.post("https://api.telegram.org/bot"+token+"/sendPhoto",
+                data={"chat_id":str(chat),"caption":
+                      "Slime 一次性配對 QR · 10 分鐘失效 / 使用一次後失效。請勿公開轉傳。"},
+                files={"photo":("slime-pair.png",payload,"image/png")})
+        return response.status_code==200 and response.json().get("ok") is True
+    except (ImportError,ValueError,TypeError,httpx.HTTPError):
+        print("Ceres Slime QR: unavailable",flush=True)
+        return False
+
 
 async def say(chat: int, text: str, buttons: list[list[dict]]|None=None, *, html: bool=False):
     data={"chat_id":chat,"text":text[:3500],"disable_web_page_preview":True}

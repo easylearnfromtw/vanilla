@@ -33,3 +33,7 @@
 - 實際 Ollama 執行：`num_predict` 限制輸出長度，`prompt_eval_count` 和 `eval_count` 計入該 API Key KPI；超預留 Token 則不得當作成功。
 - 節點取消共享、離線、管理者停用、憑證撤銷：無法領取新工作。
 - CI 測試包含驗證、跨 Owner 隔離、同一筆 job 不能重複回報、Token 結算、停用與 Docker 模組打包；正式環境部署也需檢查健康、Webhook 與完全隔離的 OFF 開關。
+
+## 一次性短碼與模型推論許可
+
+使用 Telegram `/hub` → Slime 節點 → 產生新節點配對碼，取得 12 位 `XXXX-XXXX-XXXX` 短碼。有效 10 分鐘、單次使用；桌面安裝器會用短碼向 `/v1/slime/node/pair` 換取長期裝置 Token（原始短碼不儲存於伺服器）。Telegram 提供 Owner 專用本地生成 QR 和備用邀請連結。推論權限仍獨立，必須由 Owner 另行核准，且 Vanilla 公開 API 安全開關不會因配對成功而打開。

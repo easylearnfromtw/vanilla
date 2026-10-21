@@ -27,6 +27,7 @@ _AUDIT_TABLE = """CREATE TABLE IF NOT EXISTS slime_telegram_audit (
 )"""
 _STATUS = re.compile(r"^(?:/nodes|/slime(?: status)?|節點狀態|電腦狀態|目前有哪些電腦|目前有幾台電腦|查看(?:所有)?(?:節點|電腦)|查詢(?:所有)?(?:節點|電腦)|有哪些(?:節點|電腦)|看一下(?:節點|電腦)|目前節點|Slime 狀態)$", re.I)
 _INVITE = re.compile(r"^(?:/slime invite|/node invite|(?:請|幫我|麻煩)?(?:建立|產生|生成|給我|新增|創建)(?:一個|新的)?(?:朋友)?(?:加入)?(?:邀請|邀請碼|邀請連結|節點邀請)(?:碼|連結)?(?:給朋友)?|我要邀請朋友(?:加入)?|邀請朋友(?:加入)?|我想邀請朋友(?:加入)?)$", re.I)
+_PAIR_CMD = re.compile(r"^(?:/(?:slime|node) (?:pair|code)|(?:請|幫我|麻煩)?(?:建立|產生|新增|給我)(?:一個|新的)?(?:節點)?(?:配對碼|節點密碼))$",re.I)
 _MUTATE = re.compile(r"^(?:請|幫我|麻煩)?(?:把|將)?\s*(?P<name>.{1,90}?)\s*(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?$", re.I)
 _PREFIX_MUTATE = re.compile(r"^(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?\s+(?P<name>.{1,90})$", re.I)
 _INFER = re.compile(r"^/slime infer ([a-f0-9]{8,48}) (on|off)$",re.I)
@@ -77,25 +78,31 @@ def _listing(sub: str) -> str:
     return "\n".join(lines)[:1200]
 
 
-def _invite(sub: str, chat: int) -> str:
-    origin = _safe_origin()  # fail closed when HTTPS API not configured
-    now = time.time()
-    raw = secrets.token_urlsafe(32)
+def _create_invite(sub: str, chat: int) -> dict | None:
+    """Short-lived pair code, scoped to a verified Google Owner."""
+    from slime import issue_short_pair
+    try:
+        result=issue_short_pair(sub)
+    except Exception:
+        return None
     with _db() as db:
         _setup(db)
-        db.execute("BEGIN IMMEDIATE")
-        db.execute("DELETE FROM invites WHERE expires<?", (now,))
-        count = db.execute("SELECT COUNT(*) FROM invites WHERE owner=?", (sub,)).fetchone()[0]
-        if count >= MAX_ACTIVE_INVITES:
-            db.rollback()
-            return "已有太多未使用邀請；請稍後再建立。"
-        db.execute("INSERT INTO invites(digest,owner,expires) VALUES(?,?,?)",
-                   (_digest(raw), sub, now + INVITE_SECONDS))
-        _audit(db, sub, chat, "invite")
-        db.commit()
-    return (f"已建立 Slime 一次性邀請，有效 {INVITE_SECONDS//60} 分鐘。\n"
-            f"請只私下傳給同意加入的朋友：\n{origin}/#slime={raw}\n"
-            "朋友需自行安裝下載區的 Slime 程式並明確同意。此連結包含配對密鑰，請勿公開轉貼。")
+        _audit(db,sub,chat,"invite")
+    return result
+
+
+def _invite(sub: str, chat: int) -> str:
+    invite=_create_invite(sub,chat)
+    if not invite:
+        return "配對碼建立失敗；可能是邀請數量已達上限或 Slime 後端未就緒。"
+    return ("Slime · 一次性配對碼\n"
+            "節點配對碼（點按可複製）：\n"
+            f"{invite['code']}\n\n"
+            f"有效 {INVITE_SECONDS//60} 分鐘，僅能使用一次。\n"
+            f"備用邀請連結：\n{invite['link']}\n\n"
+            "在 Slime 安裝程式輸入短碼即可，不需要先打開連結。"
+            " 使用朋友電腦前須取得持有人的明確同意。"
+            " 此處不顯示裝置的長期 Token。")
 
 
 def _lookup(db, sub: str, name: str):
@@ -143,7 +150,7 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     source = message.strip()
     if not source or len(source) > 250:
         return None
-    if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source)
+    if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source)
             or source.lower().startswith(("/slime", "/nodes", "/node "))
             or _INFER.fullmatch(source) or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
             or _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
@@ -158,11 +165,11 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     if _STATUS.fullmatch(source):
         return _listing(sub)
     if source.lower() in ("/slime help", "/node help", "/slime 設定", "/slime 設置"):
-        return ("你可以直接說：「目前有哪些電腦」、「建立朋友邀請碼」、"
+        return ("你可以直接說：「目前有哪些電腦」、「產生新配對碼」、"
                 "「把『電腦名稱』暫停」、「恢復『電腦名稱』」、「移除『電腦名稱』」。"
                 "\n核准本地模型：/slime infer <節點ID> on；撤回：/slime infer <節點ID> off。"
                 "\n所有敏感操作都需要確認碼。")
-    if _INVITE.fullmatch(source):
+    if _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source):
         try:
             return _invite(sub, chat)
         except Exception:

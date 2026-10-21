@@ -17,7 +17,7 @@ const cases=[
  ["笑死，又出錯了",{},"undetermined","ambiguous"],
  ["很讚欸，又出錯了",{},"undetermined","ambiguous"],
  ["這又出錯了 傻眼",{},"undetermined","frustration"],
- ["怎麼又壞掉了 有夠扯",{},"undetermined","frustration"],
+ ["怎麼又壞掉了 有夠扯",{},"question","frustration"],
  ["我很擔心這次會不會失敗",{},"undetermined","concern"],
  ["我有點焦慮會不會漏資料",{},"undetermined","concern"],
  ["謝啦",{},"undetermined","appreciation"],

@@ -25,7 +25,7 @@ test("Lite persona stays short and resists fabricated real-world credentials",()
  const lite=vanillaSystemPrompt({task:"general",compact:true,latestUserText:"你好",model:"october:lite"});
  assert.match(lite,/October（阿土伯）/);
  assert.match(lite,/虛構/);
- assert.match(lite,/不能冒充真實證照/);
+ assert.match(lite,/不得冒充真實證照/);
  assert.ok(lite.length<1250);
  assert.ok(OCTOBER_COMPACT_CONTRACT.length<OCTOBER_RUNTIME_CONTRACT.length);
 });

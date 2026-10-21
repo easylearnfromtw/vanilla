@@ -17,7 +17,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from auth import FamilyIdentity, family_user
 
@@ -69,6 +69,21 @@ def _db():
         cols={row["name"] for row in c.execute("PRAGMA table_info(nodes)").fetchall()}
         if "inference_enabled" not in cols:
             c.execute("ALTER TABLE nodes ADD COLUMN inference_enabled INTEGER NOT NULL DEFAULT 0")
+        extras={
+            "paired_at":"REAL NOT NULL DEFAULT 0","pair_number":"INTEGER NOT NULL DEFAULT 0",
+            "notified_at":"REAL NOT NULL DEFAULT 0","geo_opt_in":"INTEGER NOT NULL DEFAULT 0",
+            "public_ip":"TEXT NOT NULL DEFAULT ''","geo_area":"TEXT NOT NULL DEFAULT ''",
+            "cpu_pct":"REAL","gpu_temp_c":"REAL","gpu_util_pct":"REAL",
+            "max_load_pct":"INTEGER NOT NULL DEFAULT 100",
+            "thermal_limit_c":"INTEGER NOT NULL DEFAULT 82",
+            "shutdown_opt_in":"INTEGER NOT NULL DEFAULT 0",
+            "pending_power_off":"REAL NOT NULL DEFAULT 0"
+        }
+        for key,definition in extras.items():
+            if key not in cols:
+                c.execute("ALTER TABLE nodes ADD COLUMN "+key+" "+definition)
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_owner_sequence(
+          owner TEXT PRIMARY KEY,last_number INTEGER NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_short_pair(
           digest TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_failures(
@@ -129,7 +144,7 @@ def issue_short_pair(owner: str) -> dict:
             "notice":"只能配對一次，不是裝置的永久密碼"}
 
 
-def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str) -> dict:
+def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str, geo_opt_in:bool=False, shutdown_opt_in:bool=False) -> dict:
     """Atomically consume code and create a device, with persistent brute-force limits."""
     _enabled()
     now=time.time()
@@ -163,9 +178,17 @@ def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str) -> 
         node_id=secrets.token_hex(12)
         c.execute("DELETE FROM slime_short_pair WHERE digest=?",
                   (_digest("short:"+normalized),))
-        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen)
-            VALUES(?,?,?,?,?,?)""",
-                  (node_id,found["owner"],_digest(token),label.strip(),role,now))
+        c.execute("""INSERT INTO slime_owner_sequence(owner,last_number) VALUES(?,1)
+            ON CONFLICT(owner) DO UPDATE SET last_number=last_number+1""",(found["owner"],))
+        pair_number=c.execute("SELECT last_number FROM slime_owner_sequence WHERE owner=?",
+                              (found["owner"],)).fetchone()[0]
+        from slime_ops import valid_public_ip
+        ip=valid_public_ip(client_address) if geo_opt_in else ""
+        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen,
+          paired_at,pair_number,geo_opt_in,public_ip,shutdown_opt_in)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+          (node_id,found["owner"],_digest(token),label.strip(),role,now,
+           now,pair_number,int(geo_opt_in),ip,int(shutdown_opt_in)))
         c.commit()
     return {"node_id":node_id,"token":token,
             "heartbeat_interval_seconds":60,"inference_enabled":False}
@@ -199,12 +222,17 @@ class JoinRequest(BaseModel):
     invite: str = Field(min_length=24, max_length=160)
     label: str = Field(min_length=1, max_length=64)
     role: str = "friend"
+    geo_opt_in: bool = False
+    shutdown_opt_in: bool = False
 
 class Caps(BaseModel):
     cpu: int = Field(default=0, ge=0, le=512)
     ram_gb: float = Field(default=0, ge=0, le=2048)
     gpu: str = Field(default="", max_length=150)
     os: str = Field(default="", max_length=80)
+    cpu_pct: float | None = Field(default=None,ge=0,le=100)
+    gpu_temp_c: float | None = Field(default=None,ge=0,le=125)
+    gpu_util_pct: float | None = Field(default=None,ge=0,le=100)
 
 class Heartbeat(BaseModel):
     capabilities: Caps
@@ -294,6 +322,8 @@ class PairRequest(BaseModel):
     code: str = Field(min_length=8,max_length=48)
     label: str = Field(min_length=1,max_length=64)
     role: str = "friend"
+    geo_opt_in: bool = False
+    shutdown_opt_in: bool = False
 
 
 @node_router.post("/v1/slime/node/pair")
@@ -301,7 +331,9 @@ def pair(body: PairRequest, request: Request):
     # Never trust caller-controlled X-Forwarded-For for rate limiting.
     address=request.client.host if request.client else "unknown"
     return _redeem_short_pair(code=body.code,label=body.label,
-                              role=body.role,client_address=address)
+                              role=body.role,client_address=address,
+                              geo_opt_in=body.geo_opt_in,
+                              shutdown_opt_in=body.shutdown_opt_in)
 
 
 @node_router.post("/v1/slime/node/join")
@@ -322,9 +354,15 @@ def join(body: JoinRequest):
         if count >= MAX_PER_OWNER:
             raise HTTPException(429, "節點已達上限")
         c.execute("DELETE FROM invites WHERE digest=?", (_digest(body.invite),))
-        c.execute("""INSERT INTO nodes (id,owner,token_digest,label,role,last_seen)
-            VALUES (?,?,?,?,?,?)""", (node_id, invited["owner"], _digest(token),
-                                       body.label.strip(), body.role, now))
+        c.execute("""INSERT INTO slime_owner_sequence(owner,last_number) VALUES(?,1)
+            ON CONFLICT(owner) DO UPDATE SET last_number=last_number+1""",(invited["owner"],))
+        number=c.execute("SELECT last_number FROM slime_owner_sequence WHERE owner=?",
+                         (invited["owner"],)).fetchone()[0]
+        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen,
+          paired_at,pair_number,geo_opt_in,shutdown_opt_in)
+          VALUES(?,?,?,?,?,?,?,?,?,?)""",
+          (node_id,invited["owner"],_digest(token),body.label.strip(),body.role,
+           now,now,number,int(body.geo_opt_in),int(body.shutdown_opt_in)))
         c.commit()
     return {"node_id": node_id, "token": token, "heartbeat_interval_seconds": 60,
             "inference_enabled": False}

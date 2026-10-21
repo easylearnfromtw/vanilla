@@ -273,7 +273,7 @@ benchmark.mjs 限定 loopback Ollama，兩組固定 temperature、top_p、seed�
 
 **可用的互動入口**：Detroit Studio → `October 5D`。`PenteractFunnelPanel.tsx` 透過 `React.lazy` 延遲載入、SVG 繪圖與受限輸入，手機可旋轉平面、觀察專家原型與五層漏斗。零 WebGL/Shader 背景動畫，不上傳輸入、不持久保存問題；採黑白、iOS 系資訊階層、reduced-motion。
 
-**稀疏路由仍為實驗性建議**：將限定長度的題目透過 deterministic character-trigram signed random feature projection 轉成五維座標。專家原型同法投影，按歐氏距離 Top-K≤3 提出候選。這不是 Qwen 學過的語意嵌入、不是已驗證的高準確率模型，也不能把五維幾何的視覺表現當成真實專家決策品質。Diana 和 Ceres 的可信後端授權系統沒有被改寫；目前幾何路由**不直接派工或執行工具**。
+**稀疏路由仍為實驗性建議**：六個專家錨點均勻分布於 R⁵ 的正五維單純形（regular 5-simplex），其頂點範數為 1、任兩不同頂點內積為 -1/5。限定長度問題先以透明領域詞彙映射到這個五維空間，無命中的問題才採 deterministic character-trigram signed random feature projection；再按真正五維歐氏距離 Top-K≤3 提出候選。這不是 Qwen 學過的語意嵌入、不是已驗證的高準確率模型，也不能把五維幾何的視覺表現當成真實專家決策品質。Diana 和 Ceres 的可信後端授權系統沒有被改寫；目前幾何路由**不直接派工或執行工具**。
 
 **五層漏斗**：理解（依問題歧義預留 55%~62%）→ 幾何路由（14%）→ 證據與工具需求核對（剩餘額度的一部分）→ 簡短回答 → 最終驗證（固定 15%）。總額恆為 100%，候選最多 6→3→2→1→1。這是系統設計的**抽象預算規劃**，不是實測 Token、耗電瓦數、NVIDIA GPU 算力或真實時間分配，實際效果需要 LUCA／Ollama 量測。
 

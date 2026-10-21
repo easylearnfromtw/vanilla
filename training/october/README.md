@@ -220,3 +220,30 @@ benchmark.mjs 限定 loopback Ollama，兩組固定 temperature、top_p、seed�
     python training/noodles_train.py --mode dpo --train training/october/generated/october-preference-train.jsonl --eval training/october/generated/october-preference-eval.jsonl --check-only
 
 真正執行 LoRA / DPO 需 GPU、相容基礎模型權重、合法授權、明確 --run-training 與外部基準測試。未經 Owner 審核，不合併或正式部署。
+
+
+## v0.5 數值推理精化套件（開發中）
+
+新增 `quant-benchmark.mjs`：10 類、50 題可精確核算的數學／財金挑戰。每題由固定種子建立，但題目與答案不預先發給待評測模型；只接受最終 JSON `{value, unit}`，核對數值（兩位小數容差）、單位和完整 Schema。它避免以字詞命中率冒充計算正確率。此評測涵蓋營收成長率、毛利率、轉換率、損益平衡、加權平均、中位數、樣本標準差、兩期 NPV、現金可支應月數及絕對風險降低。
+
+新增 `quant-sft.mjs`：運用**可由確定性公式重算**的數學標籤，產生 250 筆 SFT 訓練題與 100 筆獨立亂數種子驗證題；同時檢查題目重複、驗證答案正確性，並排除 50 題 benchmark 的相同完整題目。來源是公式，不是 GPT-6／Qwen 的猜測。
+
+**適用範圍限制：**上述訓練、驗證與 benchmark 共享相似的算式家族及指令格式，僅能評估同類型新數字的內插表現，**不是不同題型的獨立泛化能力證明**。這些資料是實驗性的狹義數值資料集，不能代表醫療、法律、投資決策的完整能力；大量 JSON 計算例若直接混入一般顧問 SFT，可能損害自然對話品質，因此目前預設**不**混入阿土伯一般 QLoRA 訓練，需明確指定不同 adapter。
+
+生成並驗證（僅 CPU / Node，無權重更新）：
+
+    node training/october/quant-sft.mjs
+    node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test training/october/quant-benchmark.test.mjs training/october/quant-sft.test.mjs
+    python training/noodles_train.py --mode sft --train training/october/generated/october-numeric-sft-train.jsonl --eval training/october/generated/october-numeric-sft-eval.jsonl --check-only
+
+若在已準備好的合法授權 CUDA QLoRA 主機嘗試訓練獨立的數值 adapter，請明確選用：
+
+    powershell -ExecutionPolicy Bypass -File training/october/train-qwen-qlora.ps1 -UseVerifiedNumeracyCurriculum
+
+上述指令預設僅驗證；要實際 GPU 訓練還需 `-RunTraining -AcknowledgedModelLicense`，如需下載模型另加 `-AllowModelDownload`。對 Qwen3-0.6B 的可行性仍取決於 CUDA、VRAM、PyTorch 及依賴版本，不能保證在所有 RTX 3050 環境通過。未完成 GPU 訓練、獨立 benchmark、人工驗收前，不應替換正式模型。
+
+對比 October / Qwen3 的窄領域數值能力（**需真正本機 Ollama，沒有執行就沒有得分**）：
+
+    node training/october/quant-benchmark.mjs --models october:0.3,qwen3:4b --cases 50 --output ./october-quant-report.json
+
+輸出只保留任務代碼、精確判分、時間與 token 統計，不會把題目和回答全文放進報表；考慮評測再現性，兩模型套用相同的 `think:false`、seed、輸出上限及 JSON 輸出。計算準確率不等於通用模型評分。

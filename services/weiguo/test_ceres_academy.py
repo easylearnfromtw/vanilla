@@ -62,6 +62,7 @@ class AcademyBotTests(unittest.TestCase):
 
         async def fake_send(chat_id, text, keyboard=None):
             self.sent.append((chat_id, text, keyboard))
+        self.real_sender = bot._send
         self.sender_patch = patch.object(bot, "_send", fake_send)
         self.sender_patch.start()
 
@@ -107,7 +108,7 @@ class AcademyBotTests(unittest.TestCase):
     def test_messages_with_telegram_length_limit(self):
         async def fake_tg(method, data):
             self.sent.append((method, data))
-        with patch.object(bot, "_tg", fake_tg):
+        with patch.object(bot, "_send", self.real_sender), patch.object(bot, "_tg", fake_tg):
             with self.assertRaises(ValueError):
                 asyncio.run(bot._send(1, "a" * 4097))
             asyncio.run(bot._send(1, "正常中文\n第二段"))

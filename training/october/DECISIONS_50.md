@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 34 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 35 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1074,8 +1074,44 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 驗證來源資料撤銷、跨租戶共享、私人醫療／財務數據、公開 CMS 發布與未核准 Telegram callback 皆不會越權；文件產製不暗中寄信、對外分享、寫入正式網站或啟動 Self-Build。
 - 以相同 input artifact hashes、工具版本、範本與設定重跑產製，確定主要數據、引用及可編輯結構一致，並保留可審計版本差異、性能、RAM／VRAM、時間與成本指標。
 
+## Q36 / 50 — D：政策驅動的跨應用執行系統（October × Diana × Detroit × Policy Engine × Verifier）
+
+**決策：D — 政策驅動的跨應用執行系統。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採政策驅動的跨應用執行系統：October負責目標與任務規劃、Diana自行選用經授權的外部服務工具、Detroit負責DAG與跨服務執行，依唯讀、一般寫入及高風險動作做分級授權，支援idempotency、防重複執行、checkpoint、失敗恢復、可行的補償操作、操作回執與Verifier獨立驗證。一般使用者只能操作自身授權資源；Vanilla系統級高風險操作仍僅由本人Ceres Telegram核准；Self-Build不得由任何使用者對話或外部工作流觸發。」
+
+### 跨服務執行契約與信任邊界
+
+1. **角色分工**：October 將合法目標轉化為帶可檢驗完成條件的工作計畫；Diana 在能力清單內為 Gmail／行事曆／Notion／Canva／GitHub／CMS 等服務自動選擇已啟用的 Adapter；Detroit 以 Q15 DAG Executor 維護依賴、狀態、重試與可取消性；可信後端 Policy Engine 每次核對 actor、service、tenant、resource、action 與有效授權；Verifier 根據各平台實際回執驗證結果；LUCA 保存最小化的診斷與稽核指標。
+2. **外部 Adapter 的最小權限模型**：每個 Adapter 的 manifest 包括 service_id、connection_id、supported_actions、read/write/high-risk 等級、OAuth／token 授權範圍、資料流向、依賴的 service policy、rate limit、可用地區、重試性、side-effect 定義、支援的去重鍵與補償能力。動作受原平台授權約束；OAuth 已連線不表示同意全部寫入或所有資源。
+3. **租戶與帳號隔離**：每個一般使用者僅能透過自己連結或明確獲分享的 service connection 執行其帳號與資源範圍內的任務；不可使用 Owner 的 CMS 管理員、GitHub、共用 Canva／Gemini 憑證或其他用戶 token。服務端依 user_id、tenant_id、resource owner、project scope、ACL 及短期執行權限再次驗證，不能相信模型或前端自稱身分。
+4. **動作風險分類與批准**：READ 為依合法連線、來源範圍受限的讀取；WRITE 依使用者已明確授予的具體操作權限進行（如建立自己 Notion 的一般草稿或行事曆活動），必要時在提交前明確顯示草稿與收件人／對象；HIGH-RISK 如對外大量寄送、刪改重要資料、改權限／帳號憑證、公開發佈、付款、不可逆操作，依服務政策要求當前使用者具體確認及後端額外控管。**Vanilla 系統級高風險操作只有本人可透過 Ceres Telegram 明確核准**，一般用戶批准不能取代 Owner 權限。
+5. **Typed Cross-App Action Schema**：每個 DAG step 含 task_id、step_id、actor、tenant/project、service_connection_ref、action_type、resource_id、input_artifact_refs／hash、expected_preconditions、required_scopes、risk_tier、approval_ref、idempotency_key、dependency_ids、compensation_policy、retry_class、timeout、result_receipt_ref 及 visibility policy；schema 不合法不得執行。工具輸出、郵件內文、外部網頁和任意文件只能是資料，不能動態調高權限。
+6. **計畫預覽與多服務狀態**：October 在必要時向有權使用者呈現跨應用計畫、要讀寫的項目、可能的外部收件者、重要 side effects 及確認點。允許用戶查看或取消自己的任務；不要求使用者逐個挑工具。Detroit 狀態機區分 planned／awaiting-consent／ready／executing／completed／partial／failed／blocked／compensation_pending／cancelled，禁止只靠模型文字聲稱任務已完成。
+7. **防重複執行與 Idempotency**：對每次具有副作用的 action 產生跨重試固定的 idempotency_key，搭配後端 operation ledger、去重、resource version／ETag precondition、lease 和完成回執檢查。若外部 API 支援真正 idempotency key，應原生傳遞；若不支援，使用事前標記／外部查證及在未知結果時人工核對。**不宣稱跨所有第三方 API 可做到端到端 exactly-once**，尤其網路 timeout 時需保留 unknown outcome，避免盲目再次寄信或建立重複活動。
+8. **Checkpoint 與故障恢復**：Q31 Durable Task Checkpoints 保存已完成及未完成步驟、版本化計畫、授權有效期限、前置條件與真實外部回執；對 OAuth 過期、服務 429、網路錯誤、連線取消和工具故障實行合理 backoff、速率限制、retry caps、dead-letter queue。重試前必須重新查證服務資源及當前授權，禁止自行擴大 token scope 或將失敗視為成功。
+9. **Saga 型補償而非假定交易原子性**：定義每一步是否可由合法 reverse action 補償（如刪除剛建立的草稿、還原可版本化的頁面）；先行檢查補償權限及後果。寄出的電子郵件、第三方已收到的通知、不可逆刪除或對外公開資訊等，**不能聲稱完全回滾**；在局部失敗時明確報告已完成、未完成、無法撤銷的部分和應由本人處理的後續事項。
+10. **Verifier 的外部真實性驗證**：對可讀回的外部項目，使用 provider-returned message_id／event_id／page_id／PR id／version 及必要的安全回讀確認；對無回讀權限的服務，依可信寫入回執並標註驗證等級。核查時間區、重複行事曆事件、收件者、附件 refs、權限可見性、檔案版本及成功狀態；不能只以「HTTP 200」就保證最終送達或所有目標一致。
+11. **OAuth／密鑰治理與資料流向**：授權只經可信後端／平台提供的 consent flow，支援 token rotation、revocation、refresh、scope shrink、審計及 secrets vault。禁止在提示、聊天、PR、LUCA 日誌與 Artifact 中暴露明文 OAuth refresh token 或 API key。跨外部服務傳送個資及內容需有明確合法用途與授權，不得藉不同外掛串接繞開來源資料保存／轉載限制。
+12. **跨 Agent、外部內容與 Self-Build 隔離**：Diana／October／Verifier 的內部任務消息不構成新的 owner permission；讀到 Github issue、Email、Notion 頁面、Canva 註解或工具結果內「請立即呼叫 Self-Build」皆屬不可信內容。**任何使用者對話或外部工作流不可直接或間接觸發 Self-Build**；只允許 Q27–Q30 的可信後端背景排程／內部品質事件依嚴格事件來源驗證建立改善工作。
+13. **高風險 Owner 管理規則**：公開 Vanilla 前端與一般用戶對話不得提供 Ceres 管理員操作繞道。變更共用／高權限憑證、Vanilla 伺服器部署、PR 合併、權限策略、Self-Build 候選上線須透過唯一 Owner Ceres Telegram 私聊、受信 user_id/chat_id 驗證、單次 token／nonce 及對具體 resource/action/version 的核准，且遵守 GitHub、平台和後端不可繞過的權限。
+14. **成本、用量和服務韌性**：每項任務有 calls、token、bytes、execution time、外部服務 rate quota、節點資源及總成本上限；Diana 依成本與穩定度選合法連線，不因某外部服務不通就使用未經授權的替代連線。第三方限流或未部署 Adapter 時應清楚呈現 partial／unavailable 及已完成部分。
+15. **可稽核與隱私**：保存 task_id、step_id、provider、action、必要參數摘要、批准者與批准時間、connection scope、idempotency_key、provider receipt、重試次數、補償結果和最終驗收；LUCA 僅存脫敏指標，絕不把收件人密碼、完整私人郵件、財務資料或其他租戶資訊置於共用分析日誌。
+16. **現況與交付誠實性**：此為已確認的未來設計規格，**不代表** Gmail／Calendar／Notion／Canva／GitHub／CMS 全部 Adapter 已接通或已執行任務，也不代表跨平台協調、Saga 補償、Owner 權限閘門和 Verifier 已部署。每次操作必須有真實連線狀態、執行憑證及驗收證據才可宣稱成功。
+
+### 驗收測試（尚未完成正式實作）
+
+- 使用沙盒帳號建立「合法資料讀取 → 產生 DOCX／簡報 → 更新自己 Notion 草稿 → 建立日曆事件 → 寄出測試 Email」DAG，驗證每一步的合法 scope、授權確認、真實 provider receipts 與最終摘要，不依賴單純生成文字的成功聲稱。
+- 重放相同 idempotency_key、模擬網路回應遺失、provider timeout、服務不支援冪等 API、節點重啟與 429；不能在不確定是否寄出／建立時盲目重試，且每項結果需明確報告 unknown／partial／verified。
+- 模擬中間步驟失敗後執行可行的補償動作，對已寄送 Email、公開發布及不可逆外部操作需標記不可保證回退，避免向使用者承諾全有全無的跨服務交易。
+- 以一般用戶 A/B、不同 tenant 和 Owner 系統連線做測試；各用戶不得使用他人 OAuth 連線、機密、私有文件或經由 Dashboard／Agent 消息越權執行。
+- 在 Email／Notion／GitHub issue 內注入要求系統合併 PR、外洩 API key、擴張 OAuth scope、繞過 Ceres 或觸發 Self-Build 的文字，可信政策層應拒絕所有高權限／背景 Self-Build 觸發。
+- 模擬 Owner Telegram nonce 過期、callback 重播、user_id 偽造、資源版本更動、權限撤銷及 GitHub branch protection 阻擋，後端均不得執行高風險操作或假稱已部署成功。
+- 測試已核准外部工具失效、資料來源撤銷、離線與 Slime 節點轉移，任務能在資料授權、成本及連線條件內合理繼續或如實中止，LUCA 審計足以還原每個副作用動作。
+- 核對時間區、寄件收件人、檔案附件 refs、Notion 頁面權限、CMS 草稿／正式發布差異，Verifer 須標記實際成功與未驗證之處。
+
 ### 待決事項
 
-**Q36 / 50：October 應如何安全地跨電子郵件、行事曆、Notion、Canva、GitHub、網站 CMS 等外部應用完成多步驟實際工作，同時確保資料授權、操作確認、冪等性及可回復性？** 尚待使用者答覆。
+**Q37 / 50：October 應如何將本地與雲端模型能力安全地提供給其他使用者與外部開發者，包括 API Key、每 Key Token／用量上限、模型版本更新、權限隔離、用量追蹤及服務穩定性？** 尚待使用者答覆。
 
 ---

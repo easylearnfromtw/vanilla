@@ -135,7 +135,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
   if(octoberPlan){extras.options.num_predict=96;extras.options.temperature=0;extras.options.top_p=1;extras.think=false;}
   if(!withThink)delete extras.think;
   // Ollama's grammar-constrained JSON mode makes Sheets/Self-Build drafts parse reliably.
-  return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&withThink?{format:"json"}:{})})},activeToken);
+  return timedFetch(base+"/api/chat",{method:"POST",signal:options.signal,body:JSON.stringify({model,stream:true,messages:[{role:"system",content:system},...turns],...extras,...(structured&&(withThink||octoberPlan)?{format:"json"}:{})})},activeToken);
  };
  let res:Response;
  try{res=await send(true);}

@@ -266,7 +266,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  const tg=window.Telegram?.WebApp;
  const auth=tg?.initData||"";
  const $=id=>document.getElementById(id);
- let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false;
+ let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false,pollTimer=null;
  function haptic(){try{tg?.HapticFeedback?.selectionChanged?.();}catch(e){}}
  function notice(txt){
    const box=$("message");box.hidden=false;box.textContent=String(txt);
@@ -436,6 +436,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
   haptic();
   setTab("overview");
   void reload();
+  if(!pollTimer)pollTimer=setInterval(()=>{if(document.visibilityState==="visible")void reload();},30000);
  });
  $("confirm-box").addEventListener("click",event=>{if(event.target===$("confirm-box"))closeConfirm();});
  document.addEventListener("keydown",event=>{

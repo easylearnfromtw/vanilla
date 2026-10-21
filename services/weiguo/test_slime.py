@@ -11,7 +11,7 @@ from starlette.requests import Request
 from auth import FamilyIdentity
 from slime import (
     Caps, Heartbeat, JoinRequest, PairRequest, Policy, RouteRequest, _db,
-    _digest, heartbeat, issue_invite, join, pair, leave, list_nodes,
+    _digest, heartbeat, issue_invite, issue_short_pair, join, pair, leave, list_nodes,
     policy, revoke, RevokeProof, slime_status, suggest_route
 )
 
@@ -37,7 +37,7 @@ class SlimeLifecycle(unittest.TestCase):
         self.tmp.cleanup()
 
     def pairing(self):
-        invite = issue_invite(OWNER)["link"]
+        invite = issue_short_pair(OWNER.sub)["link"]
         self.assertTrue(invite.startswith("https://example.org/slime/#slime="))
         token = parse_qs(urlsplit(invite).fragment)["slime"][0]
         request=Request({"type":"http","client":("198.51.100.25",443),"headers":[]})
@@ -94,7 +94,7 @@ class SlimeLifecycle(unittest.TestCase):
     def test_disabled_by_default_and_invalid_origin(self):
         with patch.dict(os.environ, {"SLIME_ENABLED": "false"}):
             with self.assertRaises(HTTPException):
-                issue_invite(OWNER)
+                issue_short_pair(OWNER.sub)
         with patch.dict(os.environ, {"SLIME_PUBLIC_API_ORIGIN": "http://example.org"}):
             with self.assertRaises(HTTPException):
                 issue_invite(OWNER)

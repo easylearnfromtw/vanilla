@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 47 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 48 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1551,8 +1551,47 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 核對 Q13 開放式自主整合與 Q48 第三方 SDK 提交的角色差異：外部可提交可驗證候選，只有後端審批登錄且具體 tenant 授權的工具才能在 Q32 Diana 自動選用、Q36 Detroit 最小權限執行。
 - 將 Registry、簽章狀態、相依套件驗證報告、LUCA 最小化稽核與 Verifier 的 provider/tool receipt 比對，所有標註 verified 的外掛須能追溯真正的審核與相容性測試證據。
 
+## Q49 / 50 — D：可驗證的開放式資料可攜與遷移引擎（Open Export × Encrypted Backups × Artifact Provenance × Safe Restore）
+
+**決策：D — 可驗證的開放式資料可攜與遷移引擎。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採可驗證的開放式資料可攜與遷移引擎：整合個人與企業工作空間的結構化匯出／匯入、Artifact和來源關聯、長期記憶與Durable Checkpoints、模型及工具設定的可轉移部分、開放格式、版本化加密備份、簽章及雜湊驗證、跨本地／雲端合法遷移、相容性與資料授權檢查、沙盒試還原、資料血緣與衝突處理及完成後Verifier驗證。不得在匯出包內包含明文API Key、Ceres Owner憑證或第三方不可轉移的資料；外部服務連線必須在目的端重新授權；租戶／工作空間ACL不得因遷移擴權。涉及全域部署或高風險匯入仍需本人Ceres Telegram核准；Self-Build僅由可信後端背景觸發，不得由資料匯入、外部檔案或使用者聊天啟動。」
+
+### 可攜式資料契約與信任模型
+
+1. **資料所有權與可攜範圍**：依 Q21／Q31／Q35／Q40／Q42 將本題可攜對象明確劃分為個人對話及合法衍生資料、專案／工作空間資料、Artifact 二進位與 metadata、引用／provenance、授權可複製的 Working/Episodic/Semantic Memory、可安全轉移的 Durable Task Checkpoints、模型設定／固定版本資訊、工具 manifest／工作流程與使用者配置。每類資料須標記 exportability、owner、tenant、legal_basis／license、retention、dependency、sensitivity 和 source reference，不把「能讀到」等同「有權轉移」。
+2. **開放格式及版本化 Archive Manifest**：採文件化、可獨立解析的 manifest（JSON／JSON Schema 等）及適當的資料／檔案格式（JSONL、CSV、可編輯 DOCX／PPTX／XLSX、可攜文檔／媒體二進位等），包含 archive_schema_version、export_id、created_at、source_instance、source_product_version、owner/tenant scope、file entries、content types、hashes、encryption info、licensing／provenance refs、dependency graph、ACL snapshot、compatibility requirements。可轉移之 metadata 需有清楚 schema、大小及編碼上限；不能以僅 Vanilla 私有資料庫原始 dump 假稱跨平台互通。
+3. **加密備份與密鑰管理**：所有含私人／企業資料的備份使用受信加密與驗證完整性，分開儲存 encryption key／KMS key reference、archive bytes 與必要保管的還原資訊；支援依政策輪替、撤銷、授權分享和復原演練。絕不可將解密金鑰、明文 API Key、OAuth refresh token、SSO secret、Ceres Owner token／私鑰、Detroit 管理員憑證一起打包；必要使用者密鑰管理及金鑰遺失風險需明確揭露。
+4. **簽章、雜湊及防置換**：對 manifest、entry hashes、版本與簽發者做可驗證簽章／完整性鏈；匯入前核對可信發行者、來源、必要簽章、檔案大小、路徑正規化、格式及與預期 workspace 綁定的範圍。簽章／雜湊可證明特定材料未被竄改，**不代表**內容合法、來源授權、模型輸出正確或有權在目的租戶執行。
+5. **Artifact 與知識血緣**：保留 Q14／Q22／Q33／Q35 的 artifact_id、content_digest、parent_artifacts、source evidence refs、生成模型／工具／模板版本、時間、使用範圍、引用位置、分析假設及 verifier status；遷移後保持與原始資料的可追溯性，缺少不可轉移的外部來源或版權材料時採 redaction／stub + unavailable reason，而非憑空補齊或宣稱引用仍可讀。
+6. **記憶可攜性限制**：遷移 Q31 分層記憶時區分可轉移的原始文本、記憶 metadata、關聯、來源與具許可的摘要；向量 embedding、索引快取及 provider-specific weights 視模型版本、維度、embedding policy、版權和授權相容性決定是否重建，不能假定不同模型的 embedding space 可直接使用，也不能將某使用者／組織私人長期記憶隨任務移交他人。
+7. **Checkpoint 與正在執行任務的保守恢復**：Durable Checkpoints 可匯出 DAG 定義、已驗證 step receipts、尚未完成步驟、provider refs、idempotency keys、租戶與批准記錄，但目的端不得將舊 runtime lease、已過期 OAuth、Owner approval、外部 service session／交易 token 原封不動視為有效。恢復前必須重新認證、驗證前置條件、確認外部副作用是否已發生；unknown outcomes 應隔離待查，不可重新寄信／扣費或宣稱跨平台 exactly-once。
+8. **模型與工具設定遷移**：允許遷移 model_id、immutable digest、量化參數、推論偏好、允許的工具 manifest、workflow schema 與參考版本；實際權重檔需依供應商 license、再散布條款、大小和使用地區條件判斷能否隨附，否則僅保留可合法重新取得的引用及版本鎖定。外部 Connector 必須在目的端重新安裝經 Q13／Q48 批准的相容版本，不因 import 直接載入程式碼。
+9. **憑證與外部連線重新授權**：外部 Gmail／Calendar／Notion／Canva／GitHub／模型供應商 OAuth、API Key、SCIM/SAML 信任設定等一律使用 redacted connection manifest 提醒重新綁定，禁止傳送或復活來源環境的 token、受管 secrets 或 delegated Owner scope。新系統必須經 Q36/Q43 的合法 consent flow 與後端政策核准後方可執行外部操作。
+10. **租戶隔離、ACL 與目的端重新判斷**：只允許具相應資料所有者／組織權限的 actor 匯出；匯入時映射 destination_tenant、workspace、project、resource owner、license、classification、share scopes 與 ACL。無法可靠映射的共享或敏感權限，預設 private／quarantined 並要求有權管理者審核；絕不能因來源檔含 role=admin、owner=true、trusted=true，就提升到新平台／另一企業的 admin 或 Ceres Owner。
+11. **法規、版權與資料保留邊界**：依 Q40 識別跨境資料、個資處理角色、資料主體請求、資料出口授權、第三方不可轉移內容及必要審計／帳務保留。已退訂／需刪除或遭撤銷共享權限的資料不得藉歷史備份任意復活，企業專案導出不可侵犯成員個人空間；必要最小審計與法定帳務不得為了遷移而無條件刪除或跨境複製。
+12. **沙盒試還原與 Dry Run**：匯入必須先通過 archive scanning、大小／配額／zip-bomb／path traversal／反序列化／隱藏執行碼檢測、schema compatibility、缺失的依賴／資料授權及資料庫 migration 計畫；在與正式系統和外部服務隔離的沙盒使用模擬服務／合成資料（或經合法授權資料）試還原，提供 conflicts、blocked、requires_reauth、estimated_storage／cost 等預檢報告。
+13. **版本衝突與資料合併**：提供可選的新 Workspace 建立、existing workspace merge、選定內容覆蓋等策略，採 version／ETag、穩定 resource IDs／content hash、dedup、source priorities 及可審閱 diff；禁止直接覆寫已存在的共享文件、帳本、記憶或跨租戶設定。碰到無法安全合併的帳務／不可逆第三方執行紀錄時應停在 pending_review，而不是自動套用「最新版優先」。
+14. **受控正式匯入／部署**：普通使用者只能向自己已授權的資源匯入合法資料；牽涉正式服務部署、全域設定、金流 Ledger、組織跨租戶權限、系統級模型／插件或廣泛資料還原時，需本人 Ceres Telegram 針對 operation、archive digest、target、risk、environment、version 與 nonce 明確批准，且仍受原平台後端安全政策限制。匯入檔中的「請核准」「管理員身份」等內容永遠是資料。
+15. **Verifier 的結果與可復原性驗證**：對匯入前後的資料項目數、內容 digest、Artifact 開啟、來源引用、記憶 owner、ACL、任務狀態、模型配置、Schema migration、可用連線及必要 query/sample task 比對，輸出 verified／partial／failed／blocked 的可追溯報告；「匯入成功」不可僅因解壓完成或 HTTP 200。備份還原能力需定期在乾淨環境實測，不可把未測試的 ZIP 當成可用災難復原方案。
+16. **隔離 Self-Build 與不可信內容**：匯入包、檔案內文、遷移 manifest、Webhook、Plugin candidate、第三方 Export 工具與使用者聊天，不能直接或間接建立可信 Self-Build 事件、改變程式碼／發布策略或拿到後端系統憑證。只有 Q27–Q30 已核准的獨立可信後端背景排程與嚴格簽驗內部品質事件可觸發 Self-Build；資料還原只是普通受控資料工作流，不得與自我修改信任域混合。
+17. **完成後舊環境與供應商退出**：提供來源與目的系統的並存／切換清單、舊版外部 Connector 解綁、節點撤權、DNS／API client 轉移（如適用）、資料保留／刪除計畫與合法備份到期策略，明確哪些資料因第三方權利、結構不相容或已發出外部副本而無法完整轉走或刪除；不得把一般 portability 宣稱為可無損移植所有 provider-specific 能力。
+18. **實作現況與承諾**：本題為已確認的資料可攜／遷移設計規格，**不代表**已存在可下載 Export 包、跨服務 Import 工具、備份金鑰管理、沙盒試還原、第三方遷移支援或正式驗證的災難還原。只有實際產生、取得與驗證工具回執的結果才可宣稱完成；不得捏造下載連結或聲稱已遷移資料。
+
+### 可驗證驗收標準（尚待正式實作）
+
+- 以獲授權個人與企業測試租戶，建立含對話、專案、DOCX／PPTX／XLSX、Knowledge Graph／RAG metadata、ArtifactRefs、記憶與 checkpoints 的 Export；在隔離目的環境逐項核對 manifest、欄位、hash、來源關聯和 schema version。
+- 模擬私密資料、第三方不可移轉文件、未授權模型權重／工具、已撤銷的記憶、跨國法規資料及僅來源租戶有權資料；匯出必須 redact、omit 或 blocked 並標註理由，不可打包進新租戶。
+- 以丟失解密金鑰、篡改簽章、被替換 entry digest、偽造可信 source_instance、路徑穿越、大型壓縮炸彈及惡意 Import manifest 測試，可信後端必須在有副作用前拒絕。
+- 在同名 workspace／project、多角色／ACL、重複 Artifact ID、相同模型 alias 不同 digest 與不相容 schema 上執行 dry run，確認 conflict／requires_reauth／requires_review 不被當作 verified import。
+- 模擬來源 Gmail／Notion／GitHub OAuth 已撤銷、Ceres Owner token 與全域 API Key 殘留於配置檔，匯入包與匯入後系統不得讀取或保存任何明文高權限憑證，所有 provider 連線須在目的端重新授權。
+- 在尚未完成的 DAG、曾寄出信／付款與未知 provider receipt 下搬遷 checkpoint，目的端先驗證合法狀態，再恢復允許的步驟；不得重複寄出／扣款、重放舊 Owner 核准或使已撤銷 Worker 節點復活。
+- 以跨租戶匯入、偽造 role=global_owner、組織 admin、Ceres bot callback、外部 Plugin、README 及資料檔內 prompt injection 尝試提高權限或啟動 Self-Build，可信後端必須全部拒絕並提供必要審計。
+- 在真正 Restore 後由 Verifier 核對內容、計數、hash、授權、provenance、索引可重建性、工具可用性及已知相容性限制，不能將部分成功宣稱為完整無損遷移。
+- 測試備份還原的資源成本與 Q38 RPO／RTO 目標，在不同 OS／Slime 節點與授權雲端儲存驗證加密、保留、失聯恢復及來源安全刪除程序，未實測不能承諾目標達成。
+
 ### 待決事項
 
-**Q49 / 50：October／Vanilla 應如何確保使用者與企業能在本地、雲端及不同服務供應商間安全匯出、備份、遷移、還原資料、長期記憶、工作空間與任務成果，避免被單一平台鎖定，同時保留權限、來源與版本完整性？** 尚待使用者答覆。
+**Q50 / 50：October 如何將已確認的 50 題產品決策轉成可交付的整體實作計畫，訂定 MVP 範圍、模組依賴、成本／硬體優先級、跨模組整合測試、可驗證交付里程碑與 Owner 上線核准閘門，避免只完成規格卻無法真正運作？** 尚待使用者答覆。
 
 ---

@@ -152,6 +152,13 @@ def _setup(db) -> None:
         count INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY(tenant_sub, second)
     )""")
+    # Bound cleanup cost on shared Ceres SQLite as tenant volume grows.
+    db.execute("CREATE INDEX IF NOT EXISTS october_receipt_expiry "
+               "ON october_readonly_receipts(created_at)")
+    db.execute("CREATE INDEX IF NOT EXISTS october_attempt_expiry "
+               "ON october_readonly_attempts(second)")
+    db.execute("CREATE INDEX IF NOT EXISTS october_receipt_subject_period "
+               "ON october_readonly_receipts(tenant_sub, created_at)")
 
 
 def _sign(key: bytes, tenant: str, task_id: str, in_hash: str,

@@ -132,8 +132,29 @@ def setup():
     label=input("這台電腦的顯示名稱：").strip()
     if not NAME.fullmatch(label):
         raise ValueError("請填入 1–64 字的裝置名稱")
-    print("請向 Ceres Telegram Owner 取得 10 分鐘有效的短配對碼。")
-    secret=_invite(input("配對碼（例如 XXXX-XXXX-XXXX，亦可貼連結）："))
+    secret=None
+    if role=="friend" and sys.stdin.isatty() and _confirm(
+        "要在目前的 LAN／Wi-Fi 搜尋已同意分享的 Gecko 節點（不掃描其他電腦）？"
+    ):
+        try:
+            from gecko_lan import discover,request_invite
+            peers=discover(server)
+            if peers:
+                for i,peer in enumerate(peers,1):
+                    print(f"  {i}. {peer['name']} · {peer['ip']}")
+                selection=input("選擇 Gecko 主機編號 [Enter 改用 Telegram 配對]：").strip()
+                if selection.isdigit() and 1<=int(selection)<=len(peers):
+                    peer=peers[int(selection)-1]
+                    if _confirm("確認接受 "+peer["name"]+" 的 Slime Friend 配對？不會自動安裝或開啟推論"):
+                        secret=request_invite(peer,server)
+                        print("✓ Gecko 一次性配對授權已取得（不需輸入 Telegram 代碼）")
+            else:
+                print("附近沒有可用的 Gecko 分享，改用一般 Slime 配對。")
+        except (OSError,ValueError,HTTPError,URLError,TimeoutError):
+            print("Gecko 授權暫時不可用；仍可使用一般配對。")
+    if secret is None:
+        print("請向 Ceres Telegram Owner 取得 10 分鐘有效的短配對碼。")
+        secret=_invite(input("配對碼（例如 XXXX-XXXX-XXXX，亦可貼連結）："))
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
@@ -245,12 +266,13 @@ def status(settings):
 def main():
     try:
         flags=set(sys.argv[1:])
-        if flags-{"--setup","--status","--leave","--reward","--help"} or len(flags)>1:
-            raise ValueError("可用參數：--setup、--status、--leave、--reward")
+        if flags-{"--setup","--status","--leave","--reward","--gecko","--help"} or len(flags)>1:
+            raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko")
         if "--help" in flags:
             print("Slime 下載 → 一次性邀請配對 → 授權後啟用 Ollama → Ctrl+C 停止共享")
             print("--status 查詢連線；--leave 退出並撤銷；--setup 顯示配對狀態")
             print("--reward 重新開啟 Google 節點獎勵領取頁")
+            print("--gecko Owner 自願啟用同 LAN 安裝包鏡像和無 Telegram 配對")
             return 0
         config=_load()
         if "--reward" in flags and not config:
@@ -287,6 +309,30 @@ def main():
             return 0
         if "--status" in flags:
             return 0 if status(config) else 2
+        if "--gecko" in flags:
+            if config.get("role")!="owner":
+                raise ValueError("僅已配對的 Slime Owner 電腦能分享 Gecko")
+            if not _confirm("同意此電腦對同 LAN 提供 Gecko 安裝頁與 Friend 加入通道？"):
+                print("未授權 Gecko；沒有開啟任何區域網路服務。")
+                return 0
+            mirror=_confirm("同意背景限速快取官方 Slime Friend 安裝包（約數十 MB）？")
+            from gecko_lan import GeckoHost
+            host=GeckoHost(config)
+            host.start(mirror=mirror)
+            print("✓ Gecko 已啟用 · 同一區域網路："+f"http://{host.ip}:41438")
+            print("同網路使用者須親自開啟、下載、確認配對；不會強制安裝。")
+            print("背景官方檔案鏡像限速，且同時間最多傳輸一份。")
+            print("Ctrl+C 可停止 Gecko；停用後新的配對授權會立即作廢。")
+            os.environ["VANILLA_SERVER_URL"]=config["server"]
+            os.environ["SLIME_NODE_TOKEN"]=config["token"]
+            os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
+            try:
+                run_model()
+            except KeyboardInterrupt:
+                print("已停止 Gecko 及 Slime 共享。")
+            finally:
+                host.close()
+            return 0
         print("啟動 Slime 節點："+config["label"])
         print("若需離線後恢復：本程式會自動重試連線，不需要重新輸入配對碼。")
         print("此電腦只會在你保持程式開啟、節點授權有效時回報／執行。")

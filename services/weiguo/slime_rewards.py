@@ -246,17 +246,47 @@ class GoogleCredential(BaseModel):
 def balance(body:GoogleCredential):
     _enabled()
     sub=_google(body.credential)
+    now=int(time.time())
     with _session() as db:
         _tables(db)
         wallet=db.execute("SELECT balance,earned,spent,created_at FROM slime_reward_wallet WHERE google_sub=?",
                           (sub,)).fetchone()
         if not wallet:
-            return {"claimed":False,"balance":0,"earned":0,"spent":0,"transactions":[]}
+            return {"claimed":False,"balance":0,"earned":0,"spent":0,
+                    "transactions":[],"usage":{"requests":0,"exactTokens":0,"estimatedTokens":0}}
         transactions=db.execute("""SELECT kind,delta,created_at,model,note
-           FROM slime_reward_ledger WHERE google_sub=? ORDER BY created_at DESC,id DESC LIMIT 30""",
-            (sub,)).fetchall()
+           FROM slime_reward_ledger WHERE google_sub=?
+           ORDER BY created_at DESC,id DESC LIMIT 30""",(sub,)).fetchall()
+        # Include historical keys, including rotated keys, for complete metering.
+        stats=db.execute("""SELECT COUNT(u.id) requests,
+          COALESCE(SUM(u.charged_tokens),0) charged,
+          COALESCE(SUM(CASE WHEN u.status='success' AND
+                            u.prompt_tokens IS NOT NULL AND u.completion_tokens IS NOT NULL
+                       THEN u.charged_tokens ELSE 0 END),0) exact,
+          COALESCE(SUM(CASE WHEN u.status='success' AND
+                            (u.prompt_tokens IS NULL OR u.completion_tokens IS NULL)
+                       THEN u.charged_tokens ELSE 0 END),0) estimated,
+          COALESCE(SUM(COALESCE(u.prompt_tokens,0)),0) input,
+          COALESCE(SUM(COALESCE(u.completion_tokens,0)),0) output,
+          COALESCE(SUM(CASE WHEN u.status='failed' THEN 1 ELSE 0 END),0) failures,
+          COALESCE(SUM(CASE WHEN u.created_at>=? THEN u.charged_tokens ELSE 0 END),0) day_tokens,
+          COALESCE(SUM(CASE WHEN u.created_at>=? THEN u.charged_tokens ELSE 0 END),0) month_tokens
+          FROM slime_reward_key k JOIN vanilla_api_usage u ON u.key_id=k.key_id
+          WHERE k.google_sub=?""",
+          (now-now%86400,now-30*86400,sub)).fetchone() if _usage_exists(db) else None
     return {"claimed":True,"balance":wallet["balance"],"earned":wallet["earned"],
-            "spent":wallet["spent"],"transactions":[dict(x) for x in transactions]}
+            "spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
+            "usage":({
+              "requests":stats["requests"],"chargedTokens":stats["charged"],
+              "exactTokens":stats["exact"],"estimatedTokens":stats["estimated"],
+              "inputTokens":stats["input"],"outputTokens":stats["output"],
+              "failures":stats["failures"],"todayTokens":stats["day_tokens"],
+              "last30DaysTokens":stats["month_tokens"]}
+             if stats else {"requests":0,"exactTokens":0,"estimatedTokens":0})}
+
+
+def _usage_exists(db) -> bool:
+    return db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='vanilla_api_usage'").fetchone() is not None
 
 
 @router.post("/v1/slime/rewards/rotate-key")

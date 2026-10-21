@@ -56,6 +56,7 @@ import {composeUserPrompt,type PromptContext} from "../ai/context-budget";
 import {compileSmallModelInput} from "../ai/small-model-scaffold";
 import {getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
 import {isOctoberModel} from "../ai/october-persona";
+import {auditObservedOctoberFunnel} from "../detroit/penteract-telemetry";
 import {classifyTaiwanTopic,isTaideModel,taiwanEvidenceGuidance,isTaiwanTaideEnabled} from "../ai/taiwan-routing";
 import {learnToneFromMessage,toneFeedback,applyExplicitToneRequest,type ToneFeedback} from "../ai/tone-adaptation";
 import {exportText,parseTable} from "./smart-output";
@@ -1462,15 +1463,15 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
   if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact&&!nativeArtifact)markDetroit("retina","skipped","本題未要求支援格式的本機匯出");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
-  const sawUnderstanding=funnelMeasurements.some(m=>m.stage==="understand");
-  const comprehension=funnelMeasurements.find(m=>m.stage==="understand");
-  const answerMetrics=funnelMeasurements.find(m=>m.stage==="answer");
-  const share=comprehension?.outputTokens!=null&&answerMetrics?.outputTokens!=null&&
-   comprehension.outputTokens+answerMetrics.outputTokens>0?
-   " · 理解輸出占 "+Math.round(100*comprehension.outputTokens/(comprehension.outputTokens+answerMetrics.outputTokens))+"%（非耗電占比）":"";
+  const observed=auditObservedOctoberFunnel(funnelMeasurements);
+  const sawUnderstanding=observed.status!=="no-understanding-pass";
+  const observedShare=observed.status==="measured"?
+   " · 理解生成 Token 佔 "+observed.understandingGeneratedSharePct+"% "+
+   (observed.targetMet?"（達到 55% 參考目標）":"（未達 55% 參考目標）")+
+   "，非實測耗電":"";
   const phaseTokens=funnelMeasurements.length?" · "+(sawUnderstanding?"5D":"Ollama")+" "+
    funnelMeasurements.map(m=>(m.stage==="understand"?"理解":"回答")+" "+(m.outputTokens===null?"Token 未提供":m.outputTokens+" 輸出 Token")).join("／")+
-   share:"";
+   observedShare:"";
   setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒"+phaseTokens+
    (victoriaContext||victoriaDataContext?" · Victoria 已加入已授權資料":""));
  }catch(error){

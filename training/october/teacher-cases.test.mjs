@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {TRAIN,HOLDOUT,audit} from "./teacher-cases.mjs";
+import {reportOctoberPromptBudget} from "./prompt-budget.mjs";
 import {profileFor} from "../../src/ai/model-profiles.ts";
 import {ollamaRequestExtras} from "../../src/ai/generation-config.ts";
 import {vanillaSystemPrompt} from "../../src/ai/prompts.ts";
@@ -49,4 +50,15 @@ test("Dynamic system prompts keep evidence and privilege protections with smalle
  assert.ok(/數字|來源/.test(normal));
  assert.doesNotMatch(normal,/再興中學|哈佛 MBA/);
  assert.match(bio,/哈佛 MBA/);
+});
+
+test("October estimated prompt budget is smaller for every common task",()=>{
+ const snapshot=reportOctoberPromptBudget();
+ assert.equal(snapshot.samples.length,5);
+ assert.match(snapshot.method,/NOT provider token count/);
+ for(const row of snapshot.samples){
+  assert.ok(row.legacyChars>row.newChars,row.task);
+  assert.ok(row.approximateLegacyTokens>row.approximateNewTokens,row.task);
+  assert.ok(row.estimatedSavingPct>0,row.task);
+ }
 });

@@ -262,8 +262,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <strong id="confirm-title">確認操作</strong><p id="confirm-description"></p>
 <div id="delete-code-wrap" class="delete-proof" hidden>
 <label for="delete-code">Telegram 專屬刪除碼</label>
-<input id="delete-code" type="text" inputmode="text" maxlength="8" autocomplete="one-time-code"
- spellcheck="false" autocapitalize="none" placeholder="8 位代碼" aria-describedby="delete-code-help">
+<input id="delete-code" type="text" inputmode="text" maxlength="12" autocomplete="one-time-code"
+ spellcheck="false" autocapitalize="none" placeholder="12 位代碼" aria-describedby="delete-code-help">
 <small id="delete-code-help">先回到 Ceres Bot 私聊輸入「移除 節點ID」取得代碼。
 3 分鐘有效、一次使用、最多可輸錯 5 次。朋友可以自行解除安裝。</small>
 </div>
@@ -394,8 +394,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  async function approve(){
    if(!pending||busy)return;
    const proof=$("delete-code").value.trim();
-   if(pending.revoke&&!/^[a-fA-F0-9]{8}$/.test(proof)){
-    notice("請輸入 Telegram 私聊提供的 8 位刪除碼");$("delete-code").focus();return;
+   if(pending.revoke&&!/^(?:[a-fA-F0-9]{8}|[a-fA-F0-9]{12})$/.test(proof)){
+    notice("請輸入 Telegram 私聊提供的 12 位刪除碼");$("delete-code").focus();return;
    }
    busy=true;$("approve").disabled=true;
    const request={token:pending.token};

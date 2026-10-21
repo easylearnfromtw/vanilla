@@ -1,7 +1,7 @@
 /** On-device WebLLM engine.
  * - WebLLM (several MB) loads only when a local model is actually used, so the app opens fast.
  * - Inference runs in a Web Worker when the browser allows it, keeping scrolling/typing smooth
- *   on iPhone; it falls back to the main thread automatically and remembers a failure.
+ *   on iPhone and desktop; only explicit compatibility mode uses the main thread.
  * - Prompts, sampling and context budgets come from ai/model-profiles for each model size.
  */
 import type {SheetPreviewData} from "./sheet-preview-model";
@@ -100,7 +100,7 @@ export function preferredLocalModel():LocalModelId{
  return LOCAL_MODEL;
 }
 
-/* ---------- worker with bounded, iOS-safe fallback ---------- */
+/* ---------- worker-first inference: never silently block the UI thread ---------- */
 function runningOnIOS():boolean{
  return isIOSWebLLMDevice(navigator.userAgent,navigator.platform,navigator.maxTouchPoints);
 }
@@ -128,9 +128,9 @@ async function createEngine(model:LocalModelId,onProgress:(message:string,progre
  const mod=await webllm();
  const iosDevice=runningOnIOS();
  const mode=localWorkerMode();
- // A failed worker must never silently initialize another copy on the iPhone main thread.
- if(iosDevice&&mode==="broken"){
-  throw new Error("上次背景模型載入未成功，已停止自動切換主執行緒以避免 Safari 閃退。請在模型面板重新勾選「背景執行緒推論」後重試；僅在充分了解風險時才手動關閉它。");
+ // A failed worker must never silently move WebGPU work onto the UI thread on any device.
+ if(mode==="broken"){
+  throw new Error("上次背景模型載入失敗，已避免自動切換到主執行緒，以保護網頁流暢度。請在模型面板重新開啟「背景執行緒推論」後重試；或明確選用可能卡頓的相容模式。");
  }
  if(mode==="auto"&&typeof Worker!=="undefined"){
   let worker:Worker|null=null;
@@ -171,12 +171,12 @@ async function createEngine(model:LocalModelId,onProgress:(message:string,progre
    if(isDownloadStallError(error))throw error;
    console.warn("WebLLM worker unavailable",error);
    if(!mayFallbackToMainThread(iosDevice,mode)){
-    throw new Error("iPhone 背景模型載入失敗，已停止以保護網頁。請檢查網路與儲存空間，重新開啟「背景執行緒推論」再試；也可以在一般模式連接雲端模型。詳細原因："+(error instanceof Error?error.message:String(error)));
+    throw new Error("背景模型載入失敗；為避免網頁卡頓，沒有自動改到主執行緒。請檢查網路、儲存空間與 WebGPU 支援，再於模型面板重試「背景執行緒推論」。詳細原因："+(error instanceof Error?error.message:String(error)));
    }
   }
  }
- if(iosDevice&&!mayFallbackToMainThread(iosDevice,mode)){
-  throw new Error("此 iPhone 瀏覽器無法啟動 WebLLM 背景執行緒，為避免網頁崩潰已取消主執行緒自動備援。");
+ if(!mayFallbackToMainThread(iosDevice,mode)){
+  throw new Error("目前無法啟動 WebLLM 背景執行緒。為避免網頁卡頓，已停止自動切換至主執行緒；若要使用相容模式，請在模型面板明確關閉背景執行緒。");
  }
  usingWorker=false;
  return mod.CreateMLCEngine(model,{initProgressCallback:report=>onProgress(report.text,report.progress)});

@@ -11,7 +11,7 @@ export function shouldAutoLoadCachedModel(iosDevice:boolean):boolean{return !ios
 export function needsMobileMemoryConfirmation(iosDevice:boolean,vramMB:number):boolean{
  return iosDevice&&vramMB>=1400;
 }
-/** A failed worker must not quietly move a large WebGPU runtime onto React's thread. */
-export function mayFallbackToMainThread(iosDevice:boolean,mode:"auto"|"off"|"broken"):boolean{
- return !iosDevice||mode==="off";
+/** Only an explicit compatibility-mode choice may run WebGPU inference on the UI thread. */
+export function mayFallbackToMainThread(_iosDevice:boolean,mode:"auto"|"off"|"broken"):boolean{
+ return mode==="off";
 }

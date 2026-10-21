@@ -97,18 +97,23 @@ test("iPhone cached weights are never auto-initialized and large models require 
  assert.equal(needsMobileMemoryConfirmation(true,1404),true);
  assert.equal(needsMobileMemoryConfirmation(false,3432),false);
 });
-test("iPhone worker failure cannot silently fall back to UI-thread WebGPU",()=>{
+test("all devices require explicit opt-in for UI-thread WebGPU inference",()=>{
  assert.equal(mayFallbackToMainThread(true,"auto"),false);
  assert.equal(mayFallbackToMainThread(true,"broken"),false);
  assert.equal(mayFallbackToMainThread(true,"off"),true);
- assert.equal(mayFallbackToMainThread(false,"broken"),true);
+ assert.equal(mayFallbackToMainThread(false,"auto"),false);
+ assert.equal(mayFallbackToMainThread(false,"broken"),false);
+ assert.equal(mayFallbackToMainThread(false,"off"),true);
  const engine=readFileSync(new URL("../src/local-ai/engine.ts",import.meta.url),"utf8");
  const panel=readFileSync(new URL("../src/local-ai/LocalModelPanel.tsx",import.meta.url),"utf8");
  const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(engine,/if\(!mayFallbackToMainThread\(iosDevice,mode\)\)/);
+ assert.doesNotMatch(engine,/if\(iosDevice&&!mayFallbackToMainThread/);
+ assert.match(engine,/if\(mode==="broken"\)/);
  assert.match(engine,/worker\?\.terminate\(\)/);
  assert.match(engine,/await releaseEngine\(old\)/);
  assert.match(panel,/checked=\{worker==="auto"\}/);
+ assert.match(panel,/所有裝置在背景執行緒失敗時都不會自動回退主執行緒/);
  assert.match(chat,/shouldAutoLoadCachedModel\(iosDevice\)/);
  assert.match(chat,/if\(!iosDevice&&/);
 });

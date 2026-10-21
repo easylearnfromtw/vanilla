@@ -48,14 +48,32 @@ test("Victoria terse follow-ups reuse current user task, not unrelated archives"
  assert.equal(victoriaTaskQuery("請分析 2028 成本",turns),"請分析 2028 成本");
  assert.equal(victoriaTaskQuery("繼續",[]),"繼續");
 });
-test("October invokes Victoria with task query and CREAM evidence only after consent",()=>{
+test("October invokes a single consent-scoped Victoria + CREAM path",()=>{
  const file=fileURLToPath(new URL("../src/local-ai/LocalChat.tsx",import.meta.url));
  const source=readFileSync(file,"utf8");
- assert.match(source,/if\(!privateMode&&victoriaEnabled&&!humanize\)/);
  assert.match(source,/victoriaTaskQuery\(question,history\)/);
  assert.match(source,/executeDetroitNative<VictoriaRecall>\("victoria"/);
+ assert.match(source,/includeLongitudinal:wantsLongitudinal/);
  assert.match(source,/contextPrefs\.cream&&shouldVictoriaAnalyzeLongitudinal\(question\)/);
- assert.match(source,/summarizeVictoriaLongitudinal\(question,report\)/);
  assert.match(source,/Victoria × CREAM 長期數據/);
- assert.match(source,/setLastRoute\("上一則由 "[\s\S]*?Victoria 已加入已授權資料/);
+ assert.match(source,/notice:\[primaryPrompt\.notice,victoriaStatus\]/);
+ assert.match(source,/victoriaEnabled\|\|wantsLongitudinal/);
+ // No silent fallback: the CREAM opt-in is evaluated by the native executor too.
+ const executor=readFileSync(fileURLToPath(new URL("../src/detroit/native-executors.ts",import.meta.url)),"utf8");
+ assert.match(executor,/prefs\.cream!==false/);
+ assert.match(executor,/if\(!input\.includeLongitudinal\|\|ctx\.privateMode\)return recalled/);
+});
+test("Victoria longitudinal date and source are grounded, distinct units remain distinct",()=>{
+ const rows=[
+  trend("體重","kg",76,74,{points:[{date:"2025-01-01",value:76,source:"醫療紀錄CSV"}]}),
+  trend("體重","lb",167,164,{points:[{date:"2025-01-01",value:167,source:"家庭自存紀錄"}]})
+ ];
+ const result=summarizeVictoriaLongitudinal("體重長期變化",{trends:rows,snapshots:[snapshot]});
+ assert.equal(result.matchedMetrics,2);
+ assert.equal(result.from,"2025-01-01");
+ assert.equal(result.to,"2026-01-01");
+ assert.match(result.context,/體重 \(kg\)/);
+ assert.match(result.context,/體重 \(lb\)/);
+ assert.match(result.context,/資料來源：醫療紀錄CSV/);
+ assert.match(result.context,/不作因果推論/);
 });

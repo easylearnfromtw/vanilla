@@ -17,7 +17,7 @@
  var fragment=location.hash;
  var matched=/^#slime=([A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.exec(fragment);
  var raw=matched?matched[1]:"";
- window.__slimePairCode=/^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(raw.toUpperCase())?raw.toUpperCase():"";
+ window.__slimePairCode=/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}(?:-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}){2}$/.test(raw.toUpperCase())?raw.toUpperCase():"";
  window.__slimeLegacyToken=window.__slimePairCode?"":raw;
  if(fragment)history.replaceState(history.state,"",location.pathname+location.search);
 })();

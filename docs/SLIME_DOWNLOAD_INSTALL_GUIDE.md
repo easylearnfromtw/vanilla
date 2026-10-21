@@ -54,3 +54,16 @@ Leaving offline: ask the Owner to revoke the node in Telegram, then rerun --leav
 - 網頁只把短碼存入當次頁面的記憶體，讀取網址片段後立即清除 fragment，無 localStorage/sessionStorage 或第三方 QR/追蹤 SDK。它沒有管理權限，也不能從網頁直接核發長期節點 Token。
 - 後端獨立變數 SLIME_PAIRING_PAGE_URL 只用於建立對外分享的 HTTPS 專屬網頁連結；它與 WeiGuo API 的 SLIME_PUBLIC_API_ORIGIN 不同，請勿混為一談。
 - 真正設備配對仍只由使用者在本人電腦上啟動 Slime Runner，向 WeiGuo HTTPS /v1/slime/node/pair 換取專用裝置 Token。
+
+## Telegram 專用的 Slime 私人管理 Mini App
+
+在已核准的 `@SignWell_bot` Owner 私聊輸入 `/hub`，點「◎ Slime 私人管理頁」，即可在 Telegram 內開啟獨立 Mini App（非 Vanilla 公開下載頁）。網址由已配置的 `CERES_ADMIN_WEBAPP_URL` 同源產生，預設路徑 `/v1/ceres/slime/webapp`，必須以 Telegram 的 `web_app` 按鈕開啟，不能用公開網址登入。
+
+Mini App 分為「總覽／節點／配對」三個分頁：
+- 總覽：註冊、在線與 Owner 核准推論的數量；明確區分心跳和實際模型成功推論。
+- 節點：裝置角色、作業系統、CPU／GPU／RAM（裝置自報）、在線狀態、共享同意與推論授權；停用、推論權限變更、撤銷需要兩階段確認與 2 分鐘一次性確認 Token。
+- 配對：由 Owner 產生 10 分鐘、僅使用一次的 12 位短碼，並提供複製、備用邀請連結和由伺服器**本地生成**的 QR；此 App 不會顯示節點長期憑證。
+
+**權限界線：** 所有資料與操作 API 必須驗證 Telegram 簽名的 `initData`、5 分鐘時效、Owner Telegram chat ID 和伺服器綁定的 Google Owner sub，並依 Owner sub 限制節點。直接用普通瀏覽器開啟網址只會看到要求身分驗證的畫面，不能呼叫私人操作。私密功能**沒有**回填到公開 Slime 網站，且公開頁面不提供 Telegram 管理按鈕。
+
+**部署注意：** WeiGuo Dockerfile 需包含 `ceres_slime_web.py`，應確認 `CERES_ADMIN_WEBAPP_URL`、`SLIME_ENABLED`、`CERES_FAMILY_LINKS_JSON`、`WEIGUO_FAMILY_ACL_JSON` 和持久化的 `SLIME_DB_PATH` 均正確配置。Mini App 不會自動開放 `VANILLA_PUBLIC_API_ENABLED` 或 `VANILLA_SLIME_RUNNER_ENABLED`。打開超過 5 分鐘後，Telegram initData 可能逾時，請從 Bot 重新開啟。

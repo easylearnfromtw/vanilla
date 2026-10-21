@@ -25,6 +25,9 @@ test("one-time invite launches Slime automatically but never persists the URL se
  assert.match(app,/^.*#slime=/m);
  assert.match(app,/nodes":"chat"/);
  assert.match(panel,/inviteFromURL/);
+ assert.match(panel,/copyPairCode/);
+ assert.match(panel,/一次性節點配對碼/);
+ assert.match(panel,/複製備用邀請連結/);
  assert.match(panel,/短配對碼/);
  assert.match(panel,/history\.replaceState/);
  assert.match(panel,/navigator\.clipboard\.writeText/);

@@ -203,6 +203,9 @@ def main():
             print("--reward 重新開啟 Google 節點獎勵領取頁")
             return 0
         config=_load()
+        if "--reward" in flags and not config:
+            print("請先完成 Slime 節點配對，才能領取 Google 獎勵。")
+            return 2
         if "--leave" in flags:
             if config:leave(config)
             else: print("尚未配對。")

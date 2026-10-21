@@ -25,10 +25,15 @@ export async function checkOctoberServerProof(
     r.modelInvoked!==false||r.source!==source||r.rowCount!==local.rowCount||
     JSON.stringify(r.columns)!==JSON.stringify(local.columns)||
     receipt.status!=="verified"||receipt.scope!=="readonly:csv"||
+    receipt.runtime!=="oc-m1-readonly-v1"||
+    typeof receipt.taskId!=="string"||!/^[a-zA-Z0-9_-]{8,80}$/.test(receipt.taskId)||
+    !Number.isInteger(receipt.createdAt)||receipt.createdAt<=0||
+    receipt.createdAt>Math.floor(Date.now()/1000)+60||
     !shaHex.test(String(receipt.inputSha256))||
     !shaHex.test(String(receipt.resultSha256))||
     !shaHex.test(String(receipt.signature))||
-    !Array.isArray(r.metrics)||r.metrics.length!==local.metrics.length){
+    !Array.isArray(r.metrics)||r.metrics.length!==local.metrics.length||
+    new Set(r.metrics.map(m=>m?.key)).size!==r.metrics.length){
   return {ok:false,reason:"INVALID_SERVER_RECEIPT"};
  }
  if(!crypto.subtle)return {ok:false,reason:"WEBCRYPTO_UNAVAILABLE"};

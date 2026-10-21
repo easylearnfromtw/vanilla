@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 28 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 29 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -868,8 +868,42 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 以假資料與小型參考模型比對固定隨機種子、訓練 artifact、推論效果和 Verifier 獨立測試；成本超限、模型漂移或安全指標下降時應中止。
 - 未經本人 Ceres 對具體版本核准，任何 level 都不得合併、發布或替換正式模型；遇到撤銷權限、失聯、測試失敗、部署失敗須產生真實錯誤狀態及可審核回復證據。
 
+## Q30 / 50 — D：分階段發布與自動防護系統（Shadow × Canary × Verification × Rollback）
+
+**決策：D — 分階段發布與自動防護系統。由使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採分階段發布與自動防護系統：整合Shadow Testing、Canary Release、品質與資安閘門、模型及程式版本快照、異常熔斷、回退候選、監控與審計。Self-Build僅由可信後端背景驅動，正式發布、擴大流量及高風險回退需本人透過Ceres Telegram明確批准；不可由使用者對話觸發。」
+
+### 發布治理與正式版保護契約
+
+1. **Self-Build 的背景觸發不變**：承接 Q25、Q27–Q29，只有已核准的可信後端排程／內部事件可啟動 Self-Build；Vanilla 一般對話、公開 API、Telegram 自然語言、Telegram 按鈕及任意文件文字不得直接啟動或偽裝內部觸發。Ceres 僅供本人管理政策、監看進度、批准確定版本及停止執行，不是 Self-Build 聊天式開始入口。
+2. **兩個獨立決策**：成功完成 isolated experiment／benchmark 只能將候選標記為 validated_candidate，**不等於**准許合併、部署、流量擴大或替換正式模型。每個高影響發布階段須另由可信後端驗證本人 Telegram 的特定授權，且必須維持 GitHub branch protection 與其他既有硬限制。
+3. **不變的 Release Manifest**：候選附 release_id、candidate_id、base/head Git SHA、model_weights／adapter_hash、prompt_version、RAG index 與 dataset vintage、schema/tool versions、config policy hash、artifact hashes、target environment／traffic scope、risk tier、required checks、roll-forward／rollback plan、source provenance、owner approval state 和 expiry；部署時須核對 manifest 的精確版本，防測試與實際部署資產不一致（TOCTOU）。
+4. **Shadow Testing（禁止副作用）**：在可信測試環境將候選對照穩定版，以授權／匿名化的重播測試資料或已批准的影子請求驗證輸出，不向正式使用者返回候選答案，也不得令候選對外下單、寄信、寫庫、改設定或調用具副作用的工具。對醫療、財務與私有文件必須符合來源授權及資料外送限制；不因 Shadow 就允許隱私洩漏。
+5. **品質／安全閘門**：按 Q27 固定資料集和可重現評測，核對 domain accuracy、citation grounding、拒答恰當性、hallucination、工具完成率／side-effect 安全、schema compatibility、CI／SAST／dependency scan、延遲、p95/p99、RAM/VRAM、API 成本、任務取消／恢復；絕對風險硬門檻（越權、敏感資料外洩、關鍵數值錯誤）不可被平均分數提升抵消。
+6. **Canary Release 與分批流量授權**：通過 Shadow 且本人 Ceres Telegram 核准具體 release_id、時間、範圍及初始流量後，才能對極小受控用戶群／請求流量啟用 Canary；依實際觀察比較穩定版與候選版，考量樣本量、不同裝置、工具類型、節點差異及監測時間窗。**每次擴大正式流量均須本人再次明確核准**；未獲核准不會自行前進。
+7. **觀測與可解釋統計**：LUCA／Detroit 追蹤 request cohort、release_id、failure/error budgets、工具失敗率、任務成功、拒答與幻覺代理指標、延遲／記憶體／成本及用戶體驗；做最小化、隔離和去識別處理，避免將原始對話或機密回傳至共同日誌。小樣本或測量不足時不得宣稱統計顯著改善，應維持當前發布狀態。
+8. **異常熔斷與安全隔離**：發生受信監控確認的嚴重權限問題、洩漏風險、工具錯誤或回歸超標時，可按 Owner **事先核准的固定防護政策**自動停止擴量、停止候選新請求／隔離 Canary 並通知本人，不得藉此取得超出原權限的高風險修改。切換正式環境指向上一版本、資料恢復、權限或路由規則高風險更動，須本人 Ceres 明確授權，除非其已被獨立且明確地預先授權為可安全執行的低風險保護動作。
+9. **快照與版本一致性**：保留可核對、不可靜默修改的程式／容器映像、Prompt、模型與 Adapter、Tokenizer、RAG 索引／資料版本、工具 Schema、系統設定、必要的相容性資訊和資料遷移記錄；不把快照等同個人敏感資料無限制備份，遵守 Q21 授權、保留期限及租戶政策。加密的部署金鑰不得附在 artifact 中。
+10. **受控回退（Rollback Candidate）**：預先驗證版本切換相容性、資料庫 schema rollback／forward-only migration、feature flags、路由與依賴鎖定；候選版本有安全問題時產生 rollback proposal、影響範圍、目標版本、資料風險與預期停機事項。不可逆 migration 或可能造成資料毀損時應停止自動操作，明確要求本人專項批准。不得宣稱每種發布類型均可零停機或無損還原。
+11. **精確 Telegram Owner Approval**：合併、正式發布、模型切換、每次 Canary 擴量及高風險回退必須透過 Ceres Owner 私聊與可信後端驗證 Telegram user_id／chat_id、一次性 nonce、綁定 release_id + artifact hash + target environment + allowed stage + TTL；重播、變更 manifest、假冒 username、聊天內容中的指示、非 Owner 訊息不得被視為授權。批准一個階段不能推定批准後續全部階段。
+12. **發布狀態機**：候選沿 created → tested → shadow_validated → awaiting_owner → canary_active → monitoring → release_approved → production，另外允許 blocked／paused／isolated／rollback_pending／rejected／failed；狀態轉移要有實際作業證據、CI hash、Owner action、可回放的審計事件，禁止模型自行宣稱「已發布」而更新狀態。
+13. **資源與多節點控制**：部署變更包含不同本地／授權 Slime 節點模型資源、磁碟與記憶體壓力、網路品質以及 iPhone／低 RAM 裝置可用性。Canary 在不同硬體架構及推論後端上要做相容性 smoke test，避免只因高效能節點測試通過就認定全設備安全。
+14. **版本退化閉環**：發生退步時保留去識別的事件與追溯證據，供 Q28 背景巡檢建立下一輪候選；不得讓失敗回饋自行解除 Q29 L1–L4 修改權限或跳過 Owner 驗收。LUCA 報告要區分 blocked-before-release、canary-isolated、actually-rolled-back 與 successfully-deployed。
+15. **現況聲明**：本題僅記錄使用者確認的未來產品規格；並不代表 Shadow、Canary、Release Manifest、LUCA 監控、權限核准及可驗證回退已部署完成，也不代表現有倉庫或正式服務已被修改、合併、切流量或正式發布。所有成功宣稱須有對應可信工具回傳及可查驗事件。
+
+### 驗收測試（尚未完成正式實作）
+
+- 比較受控基線與候選版在完整模型／工具／RAG 回歸、原始引用、專業數值、資安與成本的差異；注入「平均品質上升但工具失敗率惡化」案例，必須由硬門檻阻擋。
+- 使用 Shadow 回放含工具執行意圖的任務，應能得到分析報告但不得真正發送郵件、寫入正式資料庫、交易、調用生產副作用 API 或輸出私有資料至未授權節點。
+- 用合成流量測每階段 Canary 核准、擴量與不同裝置，未獲本人 Telegram 對下一階段授權時停留在已核准的流量比例，不因 time window 到期就自動擴量。
+- 模擬錯誤率升高、越權、CPU／RAM 超限、資料外洩警示與偽造 LUCA 回報，僅經可信驗證且預先核准的防護動作可自動熔斷／隔離；不得無授權變更正式生產設定或執行高風險回退。
+- 測試 Owner 改動發布 manifest 後舊 nonce 失效、重播 Telegram callback、非 Owner、群組與偽造 user_id，必須拒絕部署／擴量／回退，且審計資料能定位拒絕原因。
+- 對模型版本、Prompt、工具 schema、RAG 索引與資料庫 forward-only migration 進行回退演練；不相容或不可逆情形應阻擋並展示真實風險，而非假裝可快速恢復。
+- 從 Candidate、CI、Verifier、Shadow、Canary、Owner approve 到 Production／Rollback，能依 release_id 還原各階段真實輸入、結果、執行時間、授權與 artifacts；未實際執行的階段不能記為成功。
+
 ### 待決事項
 
-**Q30 / 50：Self-Build 經隔離測試產生候選版本後，應如何管理分階段發布、影響範圍、品質監控、版本切換與安全回退，避免新版本破壞正式使用者體驗？** 尚待使用者答覆。
+**Q31 / 50：October 應如何建立可信、可控的跨會話與跨任務持久記憶，使長期專案能接續執行，又不混淆舊資訊、權限與不同使用者的資料？** 尚待使用者答覆。
 
 ---

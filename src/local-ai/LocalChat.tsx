@@ -1132,7 +1132,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const localOnly=privateMode||/只用本地|僅用本地|不要上傳|不傳雲端|離線回答|私密回答/.test(question);
  let activeModel=selectedLocalModel,localReady=ready;
  const upgradeId=LOCAL_MODELS.find(m=>m.recommended&&isLocalModelSupported(m.id))?.id;
- if(!ATUBER_SINGLE_DRIVER&&!iosDevice&&(privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
+ if(!iosDevice&&!ATUBER_SINGLE_DRIVER&&(privateMode||(!providers.length&&!ollamaConnected))&&ready&&selectedLocalModel===LOCAL_MODEL&&!image&&
     (task==="code"||task==="analysis")&&upgradeId&&sessionStorage.getItem("vanilla.upgrade.asked.v1")!=="yes"){
   sessionStorage.setItem("vanilla.upgrade.asked.v1","yes");
   if(window.confirm("這題比較複雜。手機目前只載入 0.5B 本地模型，品質可能不足。要另外下載並載入 1.5B 本地模型（約 1.6 GB）後再回答嗎？")){

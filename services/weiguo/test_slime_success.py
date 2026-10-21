@@ -61,6 +61,8 @@ class SlimeSuccessPageTests(unittest.TestCase):
         with patch.object(slime_desktop,"_load",return_value=None),\
              patch.object(slime_desktop,"setup",return_value=self.profile),\
              patch.object(slime_success,"open_success",return_value=True) as open_page,\
+             patch.object(slime_desktop,"open_reward_claim",return_value=True),\
+             patch.object(slime_desktop,"open_reward_claim",return_value=True),\
              patch.object(slime_desktop,"run_model") as runner,\
              patch.object(slime_desktop.sys,"argv",["Slime-Friend.exe"]):
             self.assertEqual(slime_desktop.main(),0)

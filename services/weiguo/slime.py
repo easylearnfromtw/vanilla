@@ -69,6 +69,8 @@ def _db():
         cols={row["name"] for row in c.execute("PRAGMA table_info(nodes)").fetchall()}
         if "inference_enabled" not in cols:
             c.execute("ALTER TABLE nodes ADD COLUMN inference_enabled INTEGER NOT NULL DEFAULT 0")
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_reward_revocation(
+          node_id TEXT PRIMARY KEY, owner_sub TEXT NOT NULL, revoked_at INTEGER NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_short_pair(
           digest TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_failures(
@@ -356,6 +358,17 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None))
 def leave(authorization: str | None = Header(default=None)):
     _enabled()
     with _db() as c:
+        c.execute("BEGIN IMMEDIATE")
         r = _node(c, authorization)
+        from slime_reward_policy import note_deleted_node
+        note_deleted_node(c,r["id"],r["owner"])
         c.execute("DELETE FROM nodes WHERE id=?", (r["id"],))
-    return {"ok": True}
+        c.commit()
+    # The node holder always retains the right to leave, even when the
+    # reward service is disabled, offline, or cannot complete the follow-up.
+    try:
+        from slime_reward_policy import reconcile_node_revocations
+        reconcile_node_revocations()
+    except Exception:
+        pass  # Durable tombstone is reconciled at next authenticated wallet/API access.
+    return {"ok": True, "notice":"已退出，已發節點獎勵將被追回"}

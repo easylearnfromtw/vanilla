@@ -15,6 +15,9 @@ from __future__ import annotations
 import json
 import os
 import platform
+import subprocess
+from functools import lru_cache
+from pathlib import Path
 import re
 import sys
 import time
@@ -69,10 +72,50 @@ def _models():
                    and _MODEL.fullmatch(x["name"])})[:40]
 
 
+@lru_cache(maxsize=1)
+def _capabilities():
+    """Non-invasive local hardware facts, shared by runtime and reward onboarding."""
+    ram=0.0
+    try:
+        if sys.platform=="win32":
+            import ctypes
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_=[("length",ctypes.c_ulong),("load",ctypes.c_ulong),
+                    ("total",ctypes.c_ulonglong),("available",ctypes.c_ulonglong),
+                    ("page_total",ctypes.c_ulonglong),("page_available",ctypes.c_ulonglong),
+                    ("virtual_total",ctypes.c_ulonglong),("virtual_available",ctypes.c_ulonglong),
+                    ("extended",ctypes.c_ulonglong)]
+            stat=MEMORYSTATUSEX()
+            stat.length=ctypes.sizeof(stat)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                ram=round(stat.total/1024**3,1)
+        elif sys.platform=="darwin":
+            ram=round(int(subprocess.check_output(["sysctl","-n","hw.memsize"],timeout=3))
+                      /1024**3,1)
+        else:
+            line=next((x for x in Path("/proc/meminfo").read_text().splitlines()
+                       if x.startswith("MemTotal:")),"")
+            if line:
+                ram=round(int(line.split()[1])/1024**2,1)
+    except (OSError,ValueError,subprocess.SubprocessError):
+        pass
+    gpu=""
+    try:
+        gpu=subprocess.check_output(
+            ["nvidia-smi","--query-gpu=name,memory.total","--format=csv,noheader"],
+            timeout=3,stderr=subprocess.DEVNULL).decode("utf-8","replace").splitlines()[0][:150]
+    except (OSError,subprocess.SubprocessError,IndexError):
+        pass
+    if not gpu and sys.platform=="darwin" and platform.machine().lower()=="arm64":
+        # Apple unified GPU: identify architecture without guessing VRAM.
+        gpu="Apple Silicon integrated GPU (unified memory)"
+    return {"cpu":min(os.cpu_count() or 1,512),"ram_gb":min(ram,2048.0),
+            "gpu":gpu,"os":platform.system()[:80]}
+
+
 def _heartbeat(server,token):
     return _http("POST",server+"/v1/slime/node/heartbeat",{
-        "capabilities":{"cpu":os.cpu_count() or 1,"ram_gb":0,"gpu":"","os":platform.system()},
-        "share_enabled":True},authorization=token)
+        "capabilities":_capabilities(),"share_enabled":True},authorization=token)
 
 
 def _register(server,token,models):

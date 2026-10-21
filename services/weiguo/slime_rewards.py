@@ -22,8 +22,8 @@ from google.oauth2 import id_token
 from ceres_gateway import _session
 
 router=APIRouter(tags=["slime-rewards"])
-DEFAULT_REWARD=100_000
-MAX_REWARD=10_000_000
+DEFAULT_REWARD=100 # Token per score point
+MAX_REWARD=10_000 # Max configurable multiplier
 TICKET_TTL=600
 ABANDONED_RESERVATION_SECONDS=900  # Above bounded inference execution time.
 _ID=re.compile(r"^[a-f0-9]{24}$")
@@ -64,6 +64,26 @@ def _tables(db):
     db.execute("""CREATE TABLE IF NOT EXISTS slime_reward_admin_audit(
       id INTEGER PRIMARY KEY AUTOINCREMENT, owner_sub TEXT NOT NULL,
       amount INTEGER NOT NULL, enabled INTEGER NOT NULL, at INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS slime_weeken_enrollment(
+      google_sub TEXT PRIMARY KEY, node_id TEXT NOT NULL UNIQUE,
+      score INTEGER NOT NULL, bonus INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('joined','withdrawn','node_removed')),
+      consent_version INTEGER NOT NULL, consent_at INTEGER NOT NULL,
+      changed_at INTEGER NOT NULL, allow_contact INTEGER NOT NULL DEFAULT 0,
+      allow_diagnostics INTEGER NOT NULL DEFAULT 0,
+      allow_relay INTEGER NOT NULL DEFAULT 0)""")
+    from slime_reward_policy import _debt_tables
+    _debt_tables(db)
+    cols={r["name"] for r in db.execute("PRAGMA table_info(slime_reward_config)")}
+    if "score_multiplier" not in cols:
+        db.execute("ALTER TABLE slime_reward_config ADD COLUMN score_multiplier INTEGER NOT NULL DEFAULT 100")
+    if "weeken_enabled" not in cols:
+        db.execute("ALTER TABLE slime_reward_config ADD COLUMN weeken_enabled INTEGER NOT NULL DEFAULT 1")
+    cols={r["name"] for r in db.execute("PRAGMA table_info(slime_reward_claim)")}
+    if "score" not in cols:
+        db.execute("ALTER TABLE slime_reward_claim ADD COLUMN score INTEGER NOT NULL DEFAULT 0")
+    if "bonus" not in cols:
+        db.execute("ALTER TABLE slime_reward_claim ADD COLUMN bonus INTEGER NOT NULL DEFAULT 0")
 
 
 
@@ -96,12 +116,8 @@ def recover_abandoned_reservations(db, now: int | None = None) -> int:
             (row["id"],row["key_id"]))
         if changed.rowcount != 1:
             continue
-        wallet=db.execute("""UPDATE slime_reward_wallet
-            SET balance=balance+?,spent=spent-?
-            WHERE google_sub=? AND spent>=?""",
-            (amount,amount,row["google_sub"],amount))
-        if wallet.rowcount != 1:
-            raise RuntimeError("Reward wallet missing during recovery")
+        from slime_reward_policy import account_credit
+        account_credit(db,row["google_sub"],amount,refund=True)
         db.execute("""INSERT INTO slime_reward_ledger
             (id,google_sub,kind,delta,created_at,model,note)
             VALUES(?,?,?,?,?,?,?)""",
@@ -148,23 +164,30 @@ def _owner_chat(sub: str) -> int:
 def config(owner_sub: str) -> dict:
     with _session() as db:
         _tables(db)
-        row=db.execute("SELECT amount,enabled FROM slime_reward_config WHERE owner_sub=?",
+        row=db.execute("SELECT score_multiplier,enabled,weeken_enabled FROM slime_reward_config WHERE owner_sub=?",
                        (owner_sub,)).fetchone()
-    return {"amount":row["amount"] if row else DEFAULT_REWARD,
-            "enabled":bool(row["enabled"]) if row else True}
+    multiplier=row["score_multiplier"] if row else DEFAULT_REWARD
+    return {"amount":multiplier,"multiplier":multiplier,
+            "enabled":bool(row["enabled"]) if row else True,
+            "weekenEnabled":bool(row["weeken_enabled"]) if row else True}
 
 
-def set_config(owner_sub: str, amount: int, enabled: bool) -> dict:
+def set_config(owner_sub: str, amount: int, enabled: bool,
+               weeken_enabled: bool=True) -> dict:
+    """Legacy 'amount' request parameter now means tokens per score point."""
     if type(amount) is not int or not 0<=amount<=MAX_REWARD:
-        raise HTTPException(422,"獎勵 Token 額度超過允許範圍")
+        raise HTTPException(422,"每評分點的 Token 倍率超出範圍")
     now=int(time.time())
     with _session() as db:
         _tables(db)
         db.execute("BEGIN IMMEDIATE")
-        db.execute("""INSERT INTO slime_reward_config(owner_sub,amount,enabled,changed_at)
-          VALUES(?,?,?,?) ON CONFLICT(owner_sub) DO UPDATE SET
-          amount=excluded.amount,enabled=excluded.enabled,changed_at=excluded.changed_at""",
-                   (owner_sub,amount,int(enabled),now))
+        db.execute("""INSERT INTO slime_reward_config
+          (owner_sub,amount,enabled,changed_at,score_multiplier,weeken_enabled)
+          VALUES(?,?,?,?,?,?) ON CONFLICT(owner_sub) DO UPDATE SET
+          score_multiplier=excluded.score_multiplier,
+          enabled=excluded.enabled,weeken_enabled=excluded.weeken_enabled,
+          changed_at=excluded.changed_at""",
+          (owner_sub,100000,int(enabled),now,amount,int(weeken_enabled)))
         db.execute("INSERT INTO slime_reward_admin_audit(owner_sub,amount,enabled,at) VALUES(?,?,?,?)",
                    (owner_sub,amount,int(enabled),now))
     return config(owner_sub)
@@ -181,6 +204,11 @@ def reward_ticket(authorization: str | None=Header(default=None)):
     with _db() as nodes:
         node=_node(nodes,authorization)
         node_id,owner=node["id"],node["owner"]
+        from slime_reward_policy import score_capabilities
+        try:
+            score=score_capabilities(node["cpu"],node["ram_gb"],node["gpu"])
+        except ValueError:
+            raise HTTPException(409,"節點需先回報 CPU 與 RAM 資訊，才能領取獎勵") from None
     _owner_chat(owner)
     settings=config(owner)
     if not settings["enabled"] or settings["amount"]==0:
@@ -202,6 +230,7 @@ def reward_ticket(authorization: str | None=Header(default=None)):
             expires_at=excluded.expires_at,issued_at=excluded.issued_at""",
             (node_id,owner,hashlib.sha256(ticket.encode()).hexdigest(),now+TICKET_TTL,now))
     return {"url":_safe_origin()+"/v1/slime/rewards#ticket="+ticket,
+            "score":score,"rewardTokens":score*settings["multiplier"],
             "expiresSeconds":TICKET_TTL,
             "note":"一次性領獎連結，請勿轉交；只能由一個 Google 帳號領取"}
 
@@ -219,7 +248,7 @@ def reward_quote(body:Quote):
     now=int(time.time())
     with _session() as db:
         _tables(db)
-        row=db.execute("SELECT owner_sub,expires_at FROM slime_reward_ticket "
+        row=db.execute("SELECT node_id,owner_sub,expires_at FROM slime_reward_ticket "
                        "WHERE code_digest=? AND expires_at>?",
                        (hashlib.sha256(body.ticket.encode()).hexdigest(),now)).fetchone()
     if not row:
@@ -227,7 +256,21 @@ def reward_quote(body:Quote):
     settings=config(row["owner_sub"])
     if not settings["enabled"]:
         raise HTTPException(403,"管理員目前已暫停獎勵")
-    return {"amount":settings["amount"],"expiresIn":max(0,row["expires_at"]-now)}
+    from slime import _db
+    from slime_reward_policy import score_capabilities,bonus_round_up_nine
+    with _db() as nodes:
+        node=nodes.execute("SELECT owner,cpu,ram_gb,gpu FROM nodes WHERE id=?",
+                           (row["node_id"],)).fetchone()
+    if not node or node["owner"]!=row["owner_sub"]:
+        raise HTTPException(409,"配對節點已退出或不可用")
+    try:
+        score=score_capabilities(node["cpu"],node["ram_gb"],node["gpu"])
+    except ValueError:
+        raise HTTPException(409,"節點尚未回報完整硬體資料") from None
+    return {"amount":score*settings["multiplier"],"score":score,
+            "multiplier":settings["multiplier"],
+            "weekenBonus":bonus_round_up_nine(score*100),
+            "expiresIn":max(0,row["expires_at"]-now)}
 
 
 class Claim(BaseModel):
@@ -274,6 +317,8 @@ def claim(body:Claim):
     if not _TICKET.fullmatch(body.ticket):
         raise HTTPException(422,"領獎連結格式無效")
     sub=_google(body.credential)
+    from slime_reward_policy import reconcile_node_revocations,score_capabilities
+    reconcile_node_revocations()
     now=int(time.time())
     with _session() as db:
         _tables(db)
@@ -285,13 +330,18 @@ def claim(body:Claim):
         # Deleting a node invalidates its future tickets, even if it was paired earlier.
         from slime import _db
         with _db() as nodes:
-            active=nodes.execute("SELECT owner FROM nodes WHERE id=?",
+            active=nodes.execute("SELECT owner,cpu,ram_gb,gpu FROM nodes WHERE id=?",
                                  (row["node_id"],)).fetchone()
         if not active or active["owner"]!=row["owner_sub"]:
             raise HTTPException(409,"此節點已退出，不能領取獎勵")
-        settings=db.execute("SELECT amount,enabled FROM slime_reward_config WHERE owner_sub=?",
+        try:
+            score=score_capabilities(active["cpu"],active["ram_gb"],active["gpu"])
+        except ValueError:
+            raise HTTPException(409,"請先讓 Slime 回報有效的裝置能力") from None
+        settings=db.execute("SELECT score_multiplier,enabled FROM slime_reward_config WHERE owner_sub=?",
                             (row["owner_sub"],)).fetchone()
-        amount=settings["amount"] if settings else DEFAULT_REWARD
+        multiplier=settings["score_multiplier"] if settings else DEFAULT_REWARD
+        amount=score*multiplier
         enabled=bool(settings["enabled"]) if settings else True
         if not enabled or not amount:
             raise HTTPException(403,"此管理員已暫停獎勵")
@@ -303,12 +353,14 @@ def claim(body:Claim):
         key=_new_key(db,sub,row["owner_sub"])
         db.execute("INSERT INTO slime_reward_wallet VALUES(?,?,?,?,?,?)",
                    (sub,row["owner_sub"],amount,amount,0,now))
-        db.execute("INSERT INTO slime_reward_claim VALUES(?,?,?,?)",
-                   (row["node_id"],sub,amount,now))
+        db.execute("""INSERT INTO slime_reward_claim
+            (node_id,google_sub,amount,claimed_at,score,bonus)
+            VALUES(?,?,?,?,?,0)""",(row["node_id"],sub,amount,now,score))
         db.execute("INSERT INTO slime_reward_ledger VALUES(?,?,?,?,?,?,?)",
                    (secrets.token_hex(12),sub,"node_signup",amount,now,None,"一次性節點加入獎勵"))
         db.execute("DELETE FROM slime_reward_ticket WHERE node_id=?",(row["node_id"],))
-    return {"claimed":True,"rewardTokens":amount,"balance":amount,
+    return {"claimed":True,"rewardTokens":amount,"score":score,
+            "multiplier":multiplier,"balance":amount,
             "apiKey":key,"keyShownOnce":True,
             "notice":"API Key 僅顯示一次，請勿公開或放入前端程式碼"}
 
@@ -318,9 +370,126 @@ class GoogleCredential(BaseModel):
     credential: str=Field(min_length=100,max_length=8192)
 
 
+class WeekenOptIn(GoogleCredential):
+    consent: bool
+    allow_contact: bool=False
+    allow_diagnostics: bool=False
+
+
+@router.post("/v1/slime/rewards/weeken/join")
+def weeken_join(body:WeekenOptIn):
+    """Independent, withdrawable WEEKEN VPN project interest enrollment.
+
+    No VPN traffic, tunnel, relay, file read, device command, or networking
+    permission is activated by recording this consent.
+    """
+    _enabled()
+    if not body.consent:
+        raise HTTPException(422,"需要獨立且明確的 WEEKEN 同意")
+    from slime_reward_policy import bonus_round_up_nine,account_credit,reconcile_node_revocations
+    reconcile_node_revocations()
+    sub=_google(body.credential)
+    now=int(time.time())
+    with _session() as db:
+        _tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        claim=db.execute("""SELECT c.*,w.owner_sub FROM slime_reward_claim c
+            JOIN slime_reward_wallet w ON w.google_sub=c.google_sub
+            WHERE c.google_sub=?""",(sub,)).fetchone()
+        if not claim:
+            raise HTTPException(403,"請先完成 Slime 節點獎勵領取")
+        settings=db.execute("SELECT weeken_enabled FROM slime_reward_config WHERE owner_sub=?",
+                            (claim["owner_sub"],)).fetchone()
+        if settings and not settings["weeken_enabled"]:
+            raise HTTPException(403,"WEEKEN 目前不接受新增或恢復登記")
+        row=db.execute("SELECT status,bonus FROM slime_weeken_enrollment WHERE google_sub=?",
+                       (sub,)).fetchone()
+        if row:
+            if row["status"]=="node_removed":
+                raise HTTPException(409,"節點已移除，無法加入")
+            if row["status"]=="joined":
+                # Preferences are user-controlled and can be changed anytime.
+                db.execute("""UPDATE slime_weeken_enrollment
+                    SET allow_contact=?,allow_diagnostics=?,allow_relay=0,changed_at=?
+                    WHERE google_sub=?""",
+                    (int(body.allow_contact),int(body.allow_diagnostics),now,sub))
+            if row["status"]=="withdrawn":
+                db.execute("""UPDATE slime_weeken_enrollment SET status='joined',
+                    consent_at=?,changed_at=?,allow_contact=?,allow_diagnostics=?,allow_relay=0
+                    WHERE google_sub=?""",
+                    (now,now,int(body.allow_contact),int(body.allow_diagnostics),sub))
+            return {"joined":True,"alreadyGranted":True,"bonusTokens":row["bonus"],
+                    "consentVersion":1}
+        # Exclude deleted nodes even when the deletion has not been reconciled.
+        from slime import _db
+        with _db() as nodes:
+            live=nodes.execute("SELECT 1 FROM nodes WHERE id=? AND owner=?",
+                               (claim["node_id"],claim["owner_sub"])).fetchone()
+        if not live:
+            raise HTTPException(409,"節點已退出，不能領取 WEEKEN 額度")
+        score=int(claim["score"])
+        if not 1<=score<=1000:
+            raise HTTPException(409,"此節點缺少能力評分，請聯絡管理員")
+        bonus=bonus_round_up_nine(score*100)
+        account_credit(db,sub,bonus)
+        db.execute("""INSERT INTO slime_weeken_enrollment
+            (google_sub,node_id,score,bonus,status,consent_version,consent_at,
+             changed_at,allow_contact,allow_diagnostics,allow_relay)
+            VALUES(?,?,?,?,?,?,?,?,?,?,0)""",
+            (sub,claim["node_id"],score,bonus,"joined",1,now,now,
+             int(body.allow_contact),int(body.allow_diagnostics)))
+        db.execute("UPDATE slime_reward_claim SET bonus=? WHERE node_id=?",
+                   (bonus,claim["node_id"]))
+        db.execute("""INSERT INTO slime_reward_ledger
+          (id,google_sub,kind,delta,created_at,model,note)
+          VALUES(?,?,?,?,?,?,?)""",
+          (claim["node_id"]+":weeken",sub,"weeken_join",bonus,now,None,
+           "獨立同意 WEEKEN VPN 計畫加入獎勵，尾數無條件進位至 9"))
+    return {"joined":True,"alreadyGranted":False,"bonusTokens":bonus,
+            "score":score,"consentVersion":1}
+
+
+@router.post("/v1/slime/rewards/weeken/leave")
+def weeken_leave(body:GoogleCredential):
+    """Withdrawal takes effect immediately; earned signup gift stays until node revocation."""
+    _enabled()
+    sub=_google(body.credential)
+    now=int(time.time())
+    with _session() as db:
+        _tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        changed=db.execute("""UPDATE slime_weeken_enrollment
+          SET status='withdrawn',changed_at=?,allow_contact=0,
+              allow_diagnostics=0,allow_relay=0
+          WHERE google_sub=? AND status='joined'""",(now,sub))
+    return {"withdrawn":True,"changed":bool(changed.rowcount),
+            "notice":"已撤回 WEEKEN 登記及額外資料使用許可"}
+
+
+@router.post("/v1/slime/rewards/weeken/status")
+def weeken_status(body:GoogleCredential):
+    _enabled()
+    sub=_google(body.credential)
+    with _session() as db:
+        _tables(db)
+        row=db.execute("""SELECT status,bonus,score,consent_version,consent_at,
+          allow_contact,allow_diagnostics,allow_relay FROM slime_weeken_enrollment
+          WHERE google_sub=?""",(sub,)).fetchone()
+    return {"joined":bool(row and row["status"]=="joined"),
+            "status":row["status"] if row else "not_joined",
+            "bonusTokens":row["bonus"] if row else 0,
+            "permissions":({"contact":bool(row["allow_contact"]),
+                            "diagnostics":bool(row["allow_diagnostics"]),
+                            "networkRelay":False} if row else
+                           {"contact":False,"diagnostics":False,"networkRelay":False}),
+            "consentVersion":row["consent_version"] if row else 1}
+
+
 @router.post("/v1/slime/rewards/balance")
 def balance(body:GoogleCredential):
     _enabled()
+    from slime_reward_policy import reconcile_node_revocations,signed_balance
+    reconcile_node_revocations()
     sub=_google(body.credential)
     now=int(time.time())
     with _session() as db:
@@ -329,6 +498,8 @@ def balance(body:GoogleCredential):
         recover_abandoned_reservations(db, now)
         wallet=db.execute("SELECT balance,earned,spent,created_at FROM slime_reward_wallet WHERE google_sub=?",
                           (sub,)).fetchone()
+        claim_meta=db.execute("SELECT score,amount,bonus FROM slime_reward_claim WHERE google_sub=?",
+                              (sub,)).fetchone()
         if not wallet:
             return {"claimed":False,"balance":0,"earned":0,"spent":0,
                     "transactions":[],"usage":{"requests":0,"exactTokens":0,"estimatedTokens":0}}
@@ -361,8 +532,15 @@ def balance(body:GoogleCredential):
           FROM slime_reward_key k JOIN vanilla_api_usage u ON u.key_id=k.key_id
           WHERE k.google_sub=? GROUP BY u.model ORDER BY total_tokens DESC LIMIT 20""",
           (sub,)).fetchall() if _usage_exists(db) else []
-    return {"claimed":True,"balance":wallet["balance"],"earned":wallet["earned"],
-            "spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
+        net_balance=signed_balance(db,sub,wallet["balance"])
+    from slime_reward_policy import bonus_round_up_nine
+    return {"claimed":True,"score":claim_meta["score"] if claim_meta else 0,
+            "weekenPotentialBonus":bonus_round_up_nine(claim_meta["score"]*100)
+                if claim_meta and claim_meta["score"]>0 else 0,
+            "baseGift":claim_meta["amount"] if claim_meta else 0,
+            "weekenGift":claim_meta["bonus"] if claim_meta else 0,
+            "balance":net_balance,
+            "earned":wallet["earned"],"spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
             "usageByModel":[dict(x) for x in by_model],
             "usage":({
               "requests":stats["requests"],"chargedTokens":stats["charged"],
@@ -411,14 +589,36 @@ p,small{color:#75757c;font-size:13px;line-height:1.8}small{font-size:11px}
 .metric small{display:block}.metric strong{font-size:31px;letter-spacing:-.04em}
 #google{margin:18px 0;min-height:43px}button{width:100%;border:0;padding:14px 17px;margin:7px 0;border-radius:12px;background:#18181b;color:#fff;font-size:13px;font-weight:750;cursor:pointer}
 button:disabled{opacity:.5}button.secondary{color:#18181b;background:#f1f1f3}
+.weeken-check{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.7;margin:13px 0}
+.weeken-check input{flex-shrink:0;margin-top:5px}
+#thankyou{border-top:1px solid #e7e7e9;padding-top:20px;margin-top:15px}
 #key{font:12px ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f4f5;padding:13px;border-radius:10px}
 [hidden]{display:none!important}#status{border-radius:12px;padding:10px 0;font-size:12px}
 </style></head><body><main>
 <div class="brand">SLIME / VANILLA REWARDS</div><h1>配對完成，<br>領取你的 Token。</h1>
 <p>完成 Google 身分驗證後，可領取由 Slime 管理員提供的一次性模型額度。每個 Google 帳號及每個節點最多領取一次。</p>
+<p><strong>獎勵追回規則：</strong>若節點日後被撤銷或持有人自行退出，已贈送的基本與 WEEKEN Token 將全部收回。若已花掉部分額度，錢包可能顯示負 Token 餘額；但你隨時可以退出並收回裝置權限。</p>
+<div class="metric"><small>裝置能力評分（1–1000）</small><strong id="device-score">—</strong>
+<small>基本獎勵：分數 × <span id="reward-multiplier">100</span> Token／分</small></div>
 <div class="metric"><small>本次新節點加入獎勵</small><strong><span id="reward-amount">—</span> <small style="display:inline">Token</small></strong></div>
 <div id="google"></div>
 <p id="status" role="status" aria-live="polite">登入後會檢查獎勵資格；不會向 Google 傳送節點金鑰。</p>
+<section id="thankyou" hidden aria-label="感謝加入 Slime 及 WEEKEN 邀請">
+<h2 style="font-size:26px;letter-spacing:-.05em">謝謝你加入 Slime！</h2>
+<p>感謝你分享裝置資源。這份 Token 大禮已加入 Vanilla 錢包。你願意再加入 <strong>WEEKEN VPN 企劃</strong>嗎？</p>
+<div class="metric"><small>WEEKEN 加碼：裝置分數 × 100，尾數無條件進位至 9</small>
+<strong id="weeken-bonus">—</strong></div>
+<p>這是與 Slime 獨立的自願加入決定，只記錄 Google 帳號識別碼、節點 ID、評分、同意時間及你指定的許可。
+<strong>加入不會自行啟用 VPN、傳送你的網路流量、查看檔案或賦予遠端控制權。</strong>
+任何實際網路轉送都需另行清楚授權。你可隨時撤回登記及選填許可。</p>
+<label class="weeken-check"><input type="checkbox" id="weeken-consent">我自願加入 WEEKEN VPN 企劃並同意上述必要登記資料</label>
+<label class="weeken-check"><input type="checkbox" id="weeken-contact">同意接收企劃相關聯絡（選填）</label>
+<label class="weeken-check"><input type="checkbox" id="weeken-diag">同意提供基本裝置狀態資料（選填，非瀏覽紀錄）</label>
+<button id="weeken-join" type="button" disabled>同意加入 WEEKEN，領取加碼</button>
+<button id="weeken-skip" type="button" class="secondary">暫不加入，保留原贈禮</button>
+<button id="weeken-leave" type="button" class="secondary" hidden>撤回 WEEKEN 登記</button>
+<p id="weeken-status" role="status" aria-live="polite"></p>
+</section>
 <div id="wallet" hidden><div class="metric"><small>目前可用額度</small><strong id="balance">—</strong></div>
 <div class="metric"><small>累計消耗 · 以實際用量優先</small><strong id="spent">0</strong>
 <p id="usage-detail" style="margin-bottom:0">尚未產生模型請求。</p></div>
@@ -434,6 +634,7 @@ const ticket=window.__slimeTicket||"";delete window.__slimeTicket;
 const $=id=>document.getElementById(id);
 let credential="",issued="";
 function msg(text){$("status").textContent=String(text)}
+function weekenMessage(text){$("weeken-status").textContent=String(text)}
 async function api(route,data){
  const response=await fetch("/v1/slime/rewards/"+route,{method:"POST",credentials:"omit",cache:"no-store",
  headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
@@ -444,6 +645,8 @@ async function api(route,data){
 function showKey(key){issued=key;$("key").textContent=key;$("keybox").hidden=false;}
 function showWallet(data){
  $("wallet").hidden=!data.claimed;
+ if(Number(data.score)>0)$("device-score").textContent=Number(data.score).toLocaleString();
+ if(Number(data.weekenPotentialBonus)>0)$("weeken-bonus").textContent=Number(data.weekenPotentialBonus).toLocaleString();
  $("balance").textContent=Number(data.balance||0).toLocaleString();
  $("spent").textContent=Number(data.spent||0).toLocaleString();
  const u=data.usage||{};
@@ -462,8 +665,11 @@ window.onload=async function(){
   try{
     const quote=await api("quote",{ticket});
     $("reward-amount").textContent=Number(quote.amount).toLocaleString();
+    $("device-score").textContent=Number(quote.score).toLocaleString();
+    $("reward-multiplier").textContent=Number(quote.multiplier).toLocaleString();
+    $("weeken-bonus").textContent=Number(quote.weekenBonus).toLocaleString();
   }catch(error){msg(error.message);}
- }else{$("reward-amount").textContent="100,000（預設）";}
+ }else{$("reward-amount").textContent="依裝置評分計算";}
  if(!window.google?.accounts?.id){msg("Google 登入元件載入失敗，請檢查網路或瀏覽器設定。");return;}
  google.accounts.id.initialize({client_id:__GOOGLE_CLIENT__,callback:async function(auth){
   if(!auth||!auth.credential)return;
@@ -474,15 +680,51 @@ window.onload=async function(){
     msg("已領取 "+result.rewardTokens.toLocaleString()+" Token！");
     showWallet(await api("balance",{credential}));
     showKey(result.apiKey);
+    $("thankyou").hidden=false;
+    $("device-score").textContent=Number(result.score).toLocaleString();
+    $("thankyou").scrollIntoView({behavior:"smooth",block:"start"});
    }else{
     const result=await api("balance",{credential});
     showWallet(result);
+    if(result.claimed){
+      const enrolled=await api("weeken/status",{credential});
+      $("thankyou").hidden=false;
+      $("weeken-join").hidden=enrolled.joined;
+      $("weeken-leave").hidden=!enrolled.joined;
+      weekenMessage(enrolled.joined?"你已加入 WEEKEN，可隨時撤回。":"WEEKEN 完全自願，可以另行決定是否加入。");
+    }
     msg(result.claimed?"Google 身分確認成功，可查詢目前剩餘 Token。":"尚未領取。請由已配對的 Slime 節點開啟專屬領獎連結。");
    }
   }catch(error){msg(error.message)}
  }});
  google.accounts.id.renderButton($("google"),{theme:"outline",size:"large",shape:"pill",text:"continue_with"});
  if(!ticket)msg("Google 登入可查看餘額；新獎勵須從已配對的節點開啟專屬連結。");
+};
+$("weeken-consent").onchange=function(){$("weeken-join").disabled=!this.checked;};
+$("weeken-join").onclick=async function(){
+ if(!credential||!$("weeken-consent").checked)return;
+ const btn=$("weeken-join");btn.disabled=true;
+ try{
+   const result=await api("weeken/join",{credential,consent:true,
+     allow_contact:$("weeken-contact").checked,
+     allow_diagnostics:$("weeken-diag").checked});
+   weekenMessage(result.alreadyGranted?"已恢復 WEEKEN 登記，沒有重複核發。":"已加入 WEEKEN！加碼 "+Number(result.bonusTokens).toLocaleString()+" Token。");
+   showWallet(await api("balance",{credential}));
+   btn.hidden=true;$("weeken-leave").hidden=false;
+ }catch(e){weekenMessage(e.message);btn.disabled=false;}
+};
+$("weeken-skip").onclick=function(){
+ $("thankyou").hidden=true;
+ msg("謝謝你加入 Slime！基本獎勵已保留，可繼續從 Vanilla 查看錢包。");
+};
+$("weeken-leave").onclick=async function(){
+ if(!credential||!confirm("撤回 WEEKEN 登記及額外資料許可？"))return;
+ try{
+   await api("weeken/leave",{credential});
+   weekenMessage("已撤回 WEEKEN 登記；Slime 配對權限不受影響。");
+   $("weeken-leave").hidden=true;$("weeken-join").hidden=false;
+   $("weeken-consent").checked=false;$("weeken-join").disabled=true;
+ }catch(e){weekenMessage(e.message);}
 };
 $("rotate").onclick=async function(){
  if(!credential||!confirm("重新產生 API Key 會立即撤銷舊金鑰，確定繼續？"))return;
@@ -515,6 +757,22 @@ def reward_page():
     return result
 
 
+def weeken_participants(owner_sub: str) -> list[dict]:
+    """Owner-only projection; never expose raw Google sub or Drive data."""
+    with _session() as db:
+        _tables(db)
+        records=db.execute("""SELECT e.node_id,e.score,e.bonus,e.status,
+           e.consent_at,e.changed_at,e.allow_contact,e.allow_diagnostics
+           FROM slime_weeken_enrollment e JOIN slime_reward_wallet w
+           ON e.google_sub=w.google_sub WHERE w.owner_sub=?
+           ORDER BY e.consent_at DESC LIMIT 200""",(owner_sub,)).fetchall()
+    return [{"nodeId":r["node_id"],"score":r["score"],"bonusTokens":r["bonus"],
+             "status":r["status"],"enrolledAt":r["consent_at"],"updatedAt":r["changed_at"],
+             "contactAllowed":bool(r["allow_contact"]),
+             "diagnosticsAllowed":bool(r["allow_diagnostics"]),
+             "networkRelayAllowed":False} for r in records]
+
+
 def reward_snapshot(owner_sub: str) -> dict:
     settings=config(owner_sub)
     with _session() as db:
@@ -524,4 +782,12 @@ def reward_snapshot(owner_sub: str) -> dict:
              WHERE w.owner_sub=?""",(owner_sub,)).fetchone()
         spent=db.execute("SELECT COALESCE(SUM(spent),0) x FROM slime_reward_wallet WHERE owner_sub=?",
                          (owner_sub,)).fetchone()["x"]
-    return {**settings,"recipients":r["recipients"],"awarded":r["awarded"],"spent":spent}
+        weeken=db.execute("""SELECT COUNT(*) enrolled,COALESCE(SUM(bonus),0) gifts
+             FROM slime_weeken_enrollment e JOIN slime_reward_wallet w
+             ON w.google_sub=e.google_sub WHERE w.owner_sub=? AND e.status='joined'""",
+             (owner_sub,)).fetchone()
+        forfeited=db.execute("SELECT COALESCE(SUM(forfeited),0) n FROM slime_reward_forfeiture WHERE owner_sub=?",
+                             (owner_sub,)).fetchone()["n"]
+    return {**settings,"recipients":r["recipients"],"awarded":r["awarded"],
+            "spent":spent,"weekenJoined":weeken["enrolled"],
+            "weekenGifted":weeken["gifts"],"forfeited":forfeited}

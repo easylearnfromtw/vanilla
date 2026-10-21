@@ -9,7 +9,7 @@ export type DetroitStatus="active"|"adapter"|"planned";
 export type DetroitEngineInfo={id:DetroitEngine;label:string;group:"入口與治理"|"執行與運算"|"資料與產出"|"品質與持續任務";status:DetroitStatus;description:string};
 export const DETROIT_ENGINES:readonly DetroitEngineInfo[]=[
  {id:"diana",label:"Diana",group:"入口與治理",status:"active",description:"預設判斷一般對話的工具意圖、派發已就緒工具，並在 CREAM 驗證後觸發 Retina 本機匯出；Zeus 仍負責執行與授權"},
- {id:"merlin",label:"Merlin",group:"入口與治理",status:"active",description:"辨識任務、建立精簡結構化提示、保留原始意圖並核對完成條件"},
+ {id:"merlin",label:"Merlin",group:"入口與治理",status:"active",description:"辨識任務、語意推敲、台灣華語語境與低信心情緒線索，保留原始意圖並核對完成條件（不視為心理診斷或授權）"},
  {id:"victoria",label:"Victoria · 脈絡協調",group:"入口與治理",status:"active",description:"經本機授權，檢索同帳號一般模式的相關舊對話節錄，與 Merlin 的目前對話需求整合；預設關閉跨對話讀取"},
  {id:"athena",label:"Athena",group:"入口與治理",status:"active",description:"檢查不可信輸入、危險檔案與提示注入"},
  {id:"holy-roman-empire",label:"Holy Roman Empire",group:"入口與治理",status:"adapter",description:"保護不可由對話覆寫的管理權限與安全政策"},

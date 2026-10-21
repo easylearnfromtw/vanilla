@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from ceres_academy_curriculum import LESSONS, TOPICS, CHAPTERS
+from ceres_academy_enriched import lesson_text, quiz_text
 from ceres_academy_content import render_lesson
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -87,6 +88,15 @@ def _claim(update_id: int) -> bool:
 
 
 
+
+def _release_claim(update_id: int) -> None:
+    """Allow Telegram to retry a failed delivery after dedupe insertion."""
+    path = Path(os.getenv("CERES_DB_PATH", "/tmp/ceres-events.sqlite3"))
+    with sqlite3.connect(path, timeout=10) as db:
+        db.execute("DELETE FROM ceres_store_updates WHERE update_id=?", (update_id,))
+        db.commit()
+
+
 def _learning_state(chat_id):
     path=Path(os.getenv("CERES_DB_PATH","/tmp/ceres-events.sqlite3"))
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -106,10 +116,36 @@ async def _tg(method,data):
         response=await client.post(f"https://api.telegram.org/bot{token}/{method}",json=data)
         response.raise_for_status()
         if response.json().get("ok") is not True: raise ValueError("Telegram API error")
-async def _send(chat_id,text,keyboard=None):
-    if not isinstance(text, str) or not text.strip() or len(text) > 4096:
-        raise ValueError('Telegram message must contain 1–4096 characters')
-    await _tg("sendMessage",{"chat_id":chat_id,"text":text,"reply_markup":keyboard or _buttons([[("📚 開始學習 AI","learn:start")]])})
+def _message_chunks(text: str, limit: int = 3600) -> list[str]:
+    """Telegram sendMessage supports up to 4096 chars; split on real line breaks."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Empty Telegram message")
+    chunks = []
+    current = ""
+    for line in text.splitlines(keepends=True):
+        if len(line) > limit:
+            if current:
+                chunks.append(current.rstrip("\n"))
+                current = ""
+            while len(line) > limit:
+                chunks.append(line[:limit])
+                line = line[limit:]
+        if len(current) + len(line) > limit and current:
+            chunks.append(current.rstrip("\n"))
+            current = ""
+        current += line
+    if current:
+        chunks.append(current.rstrip("\n"))
+    return chunks
+
+async def _send(chat_id, text, keyboard=None):
+    chunks = _message_chunks(text)
+    for i, chunk in enumerate(chunks):
+        data = {"chat_id": chat_id, "text": chunk}
+        if i == len(chunks) - 1:
+            data["reply_markup"] = keyboard if keyboard is not None else _buttons([[("📚 開始學習 AI", "learn:start")]])
+        await _tg("sendMessage", data)
+
 def _hub_keyboard():
     return _buttons([
         [("◈ Academy · 學習中心","hub:academy"),("◇ Models · 模型","hub:models")],
@@ -135,63 +171,113 @@ async def _hub(chat_id,section="home"):
     else:
         await _send(chat_id,f"{heading}\n━━━━━━━━━━━━\n\n{body}",_buttons([[("〈 返回主選單","hub:home")]]))
 
-async def _learn(chat_id,action):
-    db,row=_learning_state(chat_id)
+def _safe_mastered(raw: str) -> set[int]:
     try:
-        level,step,mastered_raw=row
-        try:
-            parsed=json.loads(mastered_raw)
-            mastered={i for i in parsed if type(i) is int and 0 <= i < len(LESSONS)} if isinstance(parsed,list) else set()
-        except (ValueError,TypeError):
-            mastered=set()
-        step=max(0,min(int(step),len(LESSONS)-1))
-        prefix=''
-        if action=="start":
-            await _send(chat_id,"ACADEMY  /  學習中心\n━━━━━━━━━━━━\n\n選擇你的學習程度\n6 大主題 · 36 章節 · 324 課",_buttons([
-                [("零基礎","learn:level:0"),("入門","learn:level:1")],
-                [("開發者","learn:level:2"),("進階","learn:level:3")],
-                [("〈 返回主選單","hub:home")]]))
+        values = json.loads(raw)
+    except (ValueError, TypeError):
+        return set()
+    if not isinstance(values, list):
+        return set()
+    return {i for i in values if type(i) is int and 0 <= i < len(LESSONS)}
+
+def _next_pending(mastered: set[int], start: int, exclude: int | None = None) -> int | None:
+    for i in list(range(start, len(LESSONS))) + list(range(start)):
+        if i not in mastered and i != exclude:
+            return i
+    return None
+
+def _lesson_keyboard(step: int):
+    return _buttons([
+        [("◀ 上一課", "learn:prev"), ("下一課 ▶", "learn:next")],
+        [("🧩 課後測驗", "learn:quiz"), ("✅ 這我會了", "learn:master")],
+        [("✦ 推薦篇章", "learn:recommend"), ("☷ 課程目錄", "learn:catalog")],
+        [("◈ 更改程度", "learn:start"), ("⌂ 主選單", "hub:home")],
+    ])
+
+async def _learn(chat_id, action):
+    db, row = _learning_state(chat_id)
+    try:
+        level, step, mastered_raw = row
+        mastered = _safe_mastered(mastered_raw)
+        step = max(0, min(int(step), len(LESSONS) - 1))
+        prefix = ""
+        if action == "start":
+            await _send(chat_id,
+                "ACADEMY / 學習中心\n━━━━━━━━━━━━\n\n請選擇你的學習程度。\n"
+                "相同的 324 課，不同的深度提示；切換程度不會清除學習進度。\n"
+                "6 大主題 · 36 章節 · 324 課",
+                _buttons([
+                    [("零基礎", "learn:level:0"), ("入門", "learn:level:1")],
+                    [("開發者", "learn:level:2"), ("進階", "learn:level:3")],
+                    [("☷ 課程目錄", "learn:catalog"), ("⌂ 主選單", "hub:home")],
+                ]))
             return
-        if action.startswith("level:") and action[-1:] in ("0","1","2","3"):
-            level=action[-1]
-            # Skill level changes explanation depth, not the subject. Preserve achievements.
-            step=next((i for i in range(len(LESSONS)) if i not in mastered),0)
-        elif action=="next": step=min(step+1,len(LESSONS)-1)
-        elif action=="prev": step=max(step-1,0)
-        elif action=="master":
+        if action == "catalog":
+            rows = [
+                [(TOPICS[i], f"learn:topic:{i}") for i in range(j, min(j + 2, len(TOPICS)))]
+                for j in range(0, len(TOPICS), 2)
+            ]
+            rows.append([("◈ 返回目前課程", "learn:view")])
+            await _send(chat_id, "ACADEMY / 章節目錄\n\n6 大主題 · 36 章節\n請選擇主題查看各章。", _buttons(rows))
+            return
+        if action.startswith("topic:") and action[6:].isdigit():
+            topic = int(action[6:])
+            if not 0 <= topic < len(TOPICS):
+                return
+            rows = [
+                [(CHAPTERS[topic][j], f"learn:chapter:{topic * 6 + j}")]
+                for j in range(6)
+            ]
+            rows.append([("〈 返回目錄", "learn:catalog")])
+            await _send(chat_id, f"ACADEMY / {TOPICS[topic]}\n\n選擇要學習的章節，每章 9 課。", _buttons(rows))
+            return
+        if action in ("quiz", "answer"):
+            await _send(chat_id, quiz_text(step, reveal=action == "answer"), _buttons([
+                [("✅ 顯示解析", "learn:answer")] if action == "quiz" else [("✅ 我學會了", "learn:master")],
+                [("〈 返回課程", "learn:view"), ("下一課 ▶", "learn:next")],
+            ]))
+            return
+        if action.startswith("level:") and action[6:] in ("0", "1", "2", "3"):
+            level = action[6:]
+            # Level changes alter instruction depth, not topic or prior progress.
+            step = _next_pending(mastered, 0)
+            step = step if step is not None else 0
+        elif action.startswith("chapter:") and action[8:].isdigit():
+            chapter_id = int(action[8:])
+            if not 0 <= chapter_id < 36:
+                return
+            step = chapter_id * 9
+        elif action == "next":
+            step = min(step + 1, len(LESSONS) - 1)
+        elif action == "prev":
+            step = max(step - 1, 0)
+        elif action == "master":
             mastered.add(step)
-            candidates=[i for i in range(len(LESSONS)) if i not in mastered]
-            if candidates:
-                preferred=list(range(step+1,len(LESSONS)))+list(range(0,step+1))
-                step=next(i for i in preferred if i in candidates)
-                prefix="✓ COMPLETED\n很棒！已完成這一課。\n\n為你推薦下一篇章\n\n"
+            following = _next_pending(mastered, (step + 1) % len(LESSONS))
+            if following is not None:
+                step = following
+                prefix = "✅ 本課已標記完成！\n接著學習下一個未完成單元。\n\n"
             else:
-                prefix="✓ ALL COMPLETED\n恭喜完成所有課程。\n\n"
-        elif action=="recommend":
-            candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
-            preferred=list(range(step+1,len(LESSONS)))+list(range(0,step+1))
-            if candidates:
-                step=next(i for i in preferred if i in candidates)
-                prefix="FOR YOU  /  推薦閱讀\n\n"
+                prefix = "🎉 你已完成全部 324 課，可用目錄自由複習。\n\n"
+        elif action == "recommend":
+            recommended = _next_pending(mastered, (step + 1) % len(LESSONS), exclude=step)
+            if recommended is not None:
+                step = recommended
+                prefix = "✦ 根據未完成課程推薦\n\n"
             else:
-                prefix="你已完成其他篇章；可以重新分級複習。\n\n"
-        elif action.startswith("go:") and action[3:].isascii() and action[3:].isdigit() and len(action[3:])<=6:
-            step=max(0,min(int(action[3:]),len(LESSONS)-1))
-        else:
-            step=max(0,min(step,len(LESSONS)-1))
+                prefix = "已沒有其他未完成課程，顯示目前課程。\n\n"
+        elif action.startswith("go:") and action[3:].isdigit():
+            step = min(int(action[3:]), len(LESSONS) - 1)
+
+        body = lesson_text(step, level)
+        message = prefix + body + f"\n\n━━━━━━━━━━━━\n已學會：{len(mastered)} / {len(LESSONS)}"
+        # Do not advance saved progress if sending the lesson failed.
+        await _send(chat_id, message, _lesson_keyboard(step))
         db.execute("UPDATE store_learning SET level=?,lesson=?,mastered=? WHERE chat_id=?",
-                   (level,step,json.dumps(sorted(mastered)),chat_id))
+                   (level, step, json.dumps(sorted(mastered)), chat_id))
         db.commit()
-        title,_,topic_idx,chapter_idx,stage_idx=LESSONS[step]
-        body=render_lesson(step,level)
-        await _send(chat_id,prefix+f"ACADEMY  /  {TOPICS[topic_idx]}\n━━━━━━━━━━━━\n\n第 {chapter_idx+1:02d} / 06 章   ·   第 {stage_idx+1:02d} / 09 課\n{title}\n\n{body}\n\n━━━━━━━━━━━━\n學習進度  {len(mastered)} / {len(LESSONS)} 已學會",
-                    _buttons([[("◀ 上一課","learn:prev"),("下一課 ▶","learn:next")],
-                              [("✅ 這我會了","learn:master")],
-                              [("✦ 推薦篇章","learn:recommend"),("課程分級","learn:start")],
-                              [("⌂ 主選單","hub:home")]]))
     finally:
         db.close()
-
 
 @router.get("/app")
 async def store_app():
@@ -217,26 +303,44 @@ async def store_webhook(request: Request,
         raise HTTPException(400, "Invalid JSON") from None
     if not isinstance(update, dict) or type(update.get("update_id")) is not int:
         raise HTTPException(400, "Invalid update")
-    callback=update.get("callback_query")
-    if isinstance(callback,dict):
-        sender=callback.get("from") or {}
-        msg=callback.get("message") or {}
-        chat=msg.get("chat") or {}
-        chat_id=chat.get("id")
-        if (chat.get("type")=="private" and type(chat_id) is int
-                and sender.get("id")==chat_id and not sender.get("is_bot")
-                and isinstance(callback.get("data"),str) and callback["data"].startswith(("learn:","hub:","api:"))):
+
+    callback = update.get("callback_query")
+    if isinstance(callback, dict):
+        sender = callback.get("from") or {}
+        msg = callback.get("message") or {}
+        chat = msg.get("chat") or {}
+        chat_id = chat.get("id")
+        callback_id = callback.get("id")
+        # Ack immediately: Telegram displays a loading spinner until this returns.
+        if isinstance(callback_id, str):
+            try:
+                await _tg("answerCallbackQuery", {"callback_query_id": callback_id})
+            except (httpx.HTTPError, ValueError):
+                pass
+        data = callback.get("data")
+        if (chat.get("type") == "private" and type(chat_id) is int
+                and sender.get("id") == chat_id and not sender.get("is_bot")
+                and isinstance(data, str) and len(data) <= 64
+                and data.startswith(("learn:", "hub:", "api:"))):
             if _claim(update["update_id"]):
-                if callback["data"]=="api:apply":
-                    await _send(chat_id,"API ACCESS  /  申請說明\n\nTelegram 身分驗證及申請通知尚未啟用，申請暫不受理。",_buttons([[("〈 返回主選單","hub:home")]]))
-                elif callback["data"].startswith("hub:"):
-                    section=callback["data"][4:]
-                    if section=="academy": await _learn(chat_id,"start")
-                    else: await _hub(chat_id,section)
-                else: await _learn(chat_id,callback["data"][6:])
-            if isinstance(callback.get("id"),str):
-                await _tg("answerCallbackQuery",{"callback_query_id":callback["id"]})
-        return {"ok":True}
+                try:
+                    if data == "api:apply":
+                        await _send(chat_id,
+                            "API ACCESS / 申請說明\n\n目前尚未啟用申請，請勿傳送金鑰。",
+                            _buttons([[("〈 返回主選單", "hub:home")]]))
+                    elif data.startswith("hub:"):
+                        destination = data[4:]
+                        if destination == "academy":
+                            await _learn(chat_id, "start")
+                        else:
+                            await _hub(chat_id, destination)
+                    else:
+                        await _learn(chat_id, data[6:])
+                except (httpx.HTTPError, ValueError, sqlite3.Error):
+                    _release_claim(update["update_id"])
+                    raise HTTPException(503, "Telegram lesson delivery failed") from None
+        return {"ok": True}
+
     message = update.get("message")
     if not isinstance(message, dict):
         return {"ok": True}
@@ -248,16 +352,26 @@ async def store_webhook(request: Request,
             or sender.get("id") != chat_id or sender.get("is_bot")):
         return {"ok": True}
     user_text=message.get("text","").strip() if isinstance(message.get("text"),str) else ""
-    actions={"上一課":"prev","下一課":"next","這我會了":"master","推薦":"recommend","教學":"start"}
+    actions={"上一課":"prev","下一課":"next","這我會了":"master","推薦":"recommend","教學":"start","課程目錄":"catalog","測驗":"quiz"}
     if user_text in actions:
         if _claim(update["update_id"]):
-            await _learn(chat_id,actions[user_text])
+            try:
+                await _learn(chat_id, actions[user_text])
+            except (httpx.HTTPError, ValueError, sqlite3.Error):
+                _release_claim(update["update_id"])
+                raise HTTPException(503, "Telegram lesson delivery failed") from None
         return {"ok":True}
     command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
     if command not in ("/start", "/help", "/menu", "/academy"):
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
-    if command=="/academy": await _learn(chat_id,"start")
-    else: await _hub(chat_id,"home")
+    try:
+        if command == "/academy":
+            await _learn(chat_id, "start")
+        else:
+            await _hub(chat_id, "home")
+    except (httpx.HTTPError, ValueError, sqlite3.Error):
+        _release_claim(update["update_id"])
+        raise HTTPException(503, "Telegram response delivery failed") from None
     return {"ok": True}

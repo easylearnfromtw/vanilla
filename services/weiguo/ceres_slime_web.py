@@ -382,7 +382,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const heartbeat=Number.isFinite(n.last_heartbeat_seconds)?n.last_heartbeat_seconds:null;
    const heartbeatText=n.online?"心跳正常"+(heartbeat!==null?"（"+heartbeat+" 秒前）":""):"心跳離線"+(heartbeat!==null?"（"+heartbeat+" 秒前）":"");
    const hardware=(n.os||"系統未偵測")+" · RAM "+(n.ram_gb||0)+" GB · "+(n.gpu||"GPU 未偵測");
-   const thermal=n.gpu_temp_c===null?"溫度未回報":"GPU "+n.gpu_temp_c+"°C";
+   const thermal=n.gpu_temp_c===null?"溫度未回報":n.temperature_stale?
+     "GPU "+n.gpu_temp_c+"°C（感測資料已逾時，暫停派工）":"GPU "+n.gpu_temp_c+"°C";
    const load="負載 "+n.max_load_pct+"% · 上限 "+n.thermal_limit_c+"°C";
    const geo=n.geo_opt_in?((n.public_ip||"IP 無法辨識")+" · "+(n.geo_area||"地區待查")):"IP 位置未授權";
    info.textContent="第 "+n.pair_number+" 個節點 · 配置評分 "+n.hardware_score+"/10000（估算） · "+
@@ -648,6 +649,8 @@ def snapshot(body:Owner):
       "geo_area":r["geo_area"] if r["geo_opt_in"] else "",
       "cpu_pct":r["cpu_pct"],"gpu_temp_c":r["gpu_temp_c"],
       "gpu_util_pct":r["gpu_util_pct"],"max_load_pct":r["max_load_pct"],
+      "gpu_temp_at":r["gpu_temp_at"],
+      "temperature_stale":bool(r["gpu_temp_at"] and now-r["gpu_temp_at"]>180),
       "thermal_limit_c":r["thermal_limit_c"],"shutdown_opt_in":bool(r["shutdown_opt_in"]),
       "gpu":r["gpu"],"ram_gb":r["ram_gb"],"cpu":r["cpu"],
       "online":now-r["last_seen"]<=ONLINE_SECONDS,

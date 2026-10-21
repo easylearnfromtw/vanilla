@@ -76,7 +76,8 @@ import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
 import {runOctoberReadonlyCsv} from "../detroit/october-readonly";
-import {wantsOctoberServerProof,checkOctoberServerProof} from "../detroit/october-proof";
+import {wantsOctoberServerProof,wantsOctoberPlanner,checkOctoberServerProof} from "../detroit/october-proof";
+import {planOctoberCsvWithQwen} from "../detroit/october-planner";
 import {verifyOctoberCsvOnWeiGuo} from "../weiguo/api";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
@@ -864,6 +865,28 @@ async function send(value=draft):Promise<void>{
    const pasted=creamInstruction(question);
    if(!pasted)break;
    try{
+    // Explicit planner path genuinely calls the selected October Ollama model
+    // with METADATA ONLY, never full CSV, private text or credentials.
+    let plannedByQwen=false;
+    if(wantsOctoberPlanner(question)){
+     if(privateMode){
+      toolReply("阿土伯規劃分析CSV","私密模式禁止此 Ollama 模型規劃流程；CSV 尚未傳送，也沒有執行後端分析。","cream");
+      return;
+     }
+     const preliminary=parseCreamCSV(pasted.csv,"聊天貼上的 CSV");
+     setBusy(true);
+     try{
+      const proposal=await planOctoberCsvWithQwen({
+       rows:preliminary.rows.length,columns:preliminary.columns.length,
+       serverRequested:wantsOctoberServerProof(question),privateMode
+      });
+      if(proposal.status!=="proposed"||proposal.capability!=="cream"||proposal.modelInvoked!==true){
+       toolReply("阿土伯規劃分析CSV","October 模型未提出可核准的唯讀計畫（"+proposal.reason+"）；未執行工具或上傳資料。","cream");
+       return;
+      }
+      plannedByQwen=true;
+     }finally{setBusy(false);}
+    }
     // October task contract → Diana allowlist → real Detroit/CREAM receipt →
     // independent Verifier. This runs locally, without an October LLM call.
     const checked=await runOctoberReadonlyCsv({
@@ -926,7 +949,9 @@ async function send(value=draft):Promise<void>{
      exported="\nDiana：沒有可以驗證的數值欄位，因此沒有匯出統計報告。";
     }
     setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
-     {role:"assistant",content:"October → Diana → Detroit → Verifier：已實際執行本機 CREAM，並獨立重算核對數值（未呼叫 October 模型）。\n\n"+summarizeCream(result)+serverReceiptNote+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
+     {role:"assistant",content:(plannedByQwen?
+      "阿土伯／Qwen 已提出唯讀 CREAM 計畫，Diana／Detroit 實際執行且 Verifier 已重算核對。":
+      "October → Diana → Detroit → Verifier：已實際執行本機 CREAM，並獨立重算核對數值（未呼叫 October 模型）。")+"\n\n"+summarizeCream(result)+serverReceiptNote+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
     setDraft("");setLastRoute(serverReceiptNote?"October / Verifier：本機與後端雙重核驗成功":"October / Diana / Detroit / Verifier：本機統計已核對");
    }catch(error){recordClientFault("cream","analysis",error);toolReply("CREAM：分析貼上的 CSV","CREAM 分析失敗：資料格式不符或工具發生錯誤；未儲存或匯出未驗證的報表。","cream");}
    return;

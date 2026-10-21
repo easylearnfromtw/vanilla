@@ -282,6 +282,13 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 </div>
 </section>
 <section id="gecko" role="tabpanel" aria-labelledby="tab-gecko" hidden>
+<div class="card" style="margin-bottom:13px">
+<div class="card-title"><div><span class="eyebrow">GECKO / LAN APPROVAL</span><h2>區網下載及配對核准</h2></div>
+<button type="button" class="btn soft" id="gecko-approval-refresh">重新整理</button></div>
+<p>接收電腦可自行確認，或選擇請你在這裡核准。只有使用者在接收電腦明確操作後，才會產生待審申請；核准不會自動安裝或開啟模型推論。無需傳送 Telegram 代碼。</p>
+<div id="gecko-approval-list" class="nodes" aria-live="polite"><p>正在確認待審請求…</p></div>
+<p role="status" id="gecko-approval-notice" class="result" hidden></p>
+</div>
 <div class="section-head"><span class="eyebrow">05 / GECKO FLEET</span><h2>大量主機叢集</h2><p>批次註冊 · 主機資源池 · 灰度更新</p></div>
 <div class="card">
 <h2>建立批次部署授權</h2>
@@ -678,6 +685,25 @@ def rewards_config(body:RewardConfig):
     _,sub=_owner(body.init_data)
     from slime_rewards import set_config
     return set_config(sub,body.amount,body.enabled,body.weeken_enabled)
+
+
+class GeckoDecision(Owner):
+    request_id: str=Field(pattern=r"^[a-f0-9]{48}$")
+    approve: bool
+
+
+@router.post("/gecko/approvals")
+def gecko_approvals(body:Owner):
+    _chat,sub=_owner(body.init_data)
+    from gecko_approvals import pending_requests
+    return {"requests":pending_requests(sub)}
+
+
+@router.post("/gecko/decide")
+def gecko_decide(body:GeckoDecision):
+    _chat,sub=_owner(body.init_data)
+    from gecko_approvals import decide_request
+    return decide_request(sub,body.request_id,body.approve)
 
 
 class GeckoIssue(Owner):

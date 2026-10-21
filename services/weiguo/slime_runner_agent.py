@@ -13,6 +13,8 @@ Do not embed node tokens in a public installer or check them into source code.
 from __future__ import annotations
 
 import json
+import secrets
+import threading
 import os
 import platform
 import subprocess
@@ -293,11 +295,18 @@ def run():
     print("Slime Model Runner started (outbound HTTPS + local Ollama only).")
     last_register=0
     last_model_scan=0
+    # Spread cache checks across the fleet to avoid reconnect bursts.
+    gecko_next=time.monotonic()+secrets.randbelow(900) if os.getenv("GECKO_FLEET_NODE")=="true" else None
     while True:
         try:
             # Heartbeats and model capabilities are always self-reported; Server
             # Owner policy must grant inference separately.
             state=_heartbeat(server,token)
+            if gecko_next is not None and time.monotonic()>=gecko_next:
+                gecko_next=time.monotonic()+1800+secrets.randbelow(600)
+                from gecko_update import sync_best_effort
+                threading.Thread(target=sync_best_effort,args=(server,token),
+                                 daemon=True,name="GeckoReleasePrefetch").start()
             if os.getenv("SLIME_ALLOW_POWER_OFF")=="1":
                 _handle_power(server,token)
             if not state.get("owner_enabled") or not state.get("inference_enabled"):

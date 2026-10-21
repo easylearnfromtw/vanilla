@@ -213,6 +213,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <button type="button" role="tab" id="tab-devices" aria-selected="false" tabindex="-1" aria-controls="devices" data-tab="devices"><span class="tab-icon" aria-hidden="true">▤</span>節點</button>
 <button type="button" role="tab" id="tab-pairing" aria-selected="false" tabindex="-1" aria-controls="pairing" data-tab="pairing"><span class="tab-icon" aria-hidden="true">＋</span>配對</button>
 <button type="button" role="tab" id="tab-rewards" aria-selected="false" tabindex="-1" aria-controls="rewards" data-tab="rewards"><span class="tab-icon" aria-hidden="true">◇</span>獎勵</button>
+<button type="button" role="tab" id="tab-gecko" aria-selected="false" tabindex="-1" aria-controls="gecko" data-tab="gecko"><span class="tab-icon" aria-hidden="true">▦</span>Gecko</button>
 </nav>
 <main>
 <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
@@ -280,6 +281,37 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="cards"><div class="metric"><strong id="weeken-joined">—</strong><span>WEEKEN 已登記</span></div><div class="metric"><strong id="weeken-gifted">—</strong><span>WEEKEN 加碼 Token</span></div><div class="metric"><strong id="reward-forfeited">—</strong><span>節點刪除追回 Token</span></div></div>
 </div>
 </section>
+<section id="gecko" role="tabpanel" aria-labelledby="tab-gecko" hidden>
+<div class="card" style="margin-bottom:13px">
+<div class="card-title"><div><span class="eyebrow">GECKO / LAN APPROVAL</span><h2>區網下載及配對核准</h2></div>
+<button type="button" class="btn soft" id="gecko-approval-refresh">重新整理</button></div>
+<p>接收電腦可自行確認，或選擇請你在這裡核准。只有使用者在接收電腦明確操作後，才會產生待審申請；核准不會自動安裝或開啟模型推論。無需傳送 Telegram 代碼。</p>
+<div id="gecko-approval-list" class="nodes" aria-live="polite"><p>正在確認待審請求…</p></div>
+<p role="status" id="gecko-approval-notice" class="result" hidden></p>
+</div>
+<div class="section-head"><span class="eyebrow">05 / GECKO FLEET</span><h2>大量主機叢集</h2><p>批次註冊 · 主機資源池 · 灰度更新</p></div>
+<div class="card">
+<h2>建立批次部署授權</h2>
+<p>你的機房或已取得管理權的伺服器，可由 MDM／Ansible／Kubernetes Secret 將授權安全配送到主機。不需要每台電腦輸入 Telegram 短碼，其他未經授權的電腦不會被加入。</p>
+<label for="gecko-name" class="eyebrow" style="display:block;margin:14px 0 5px">主機群名稱</label>
+<input id="gecko-name" type="text" maxlength="50" value="GPU-Rack-A" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)">
+<label for="gecko-capacity" class="eyebrow" style="display:block;margin:14px 0 5px">批次名額（每批最多 2,000 台）</label>
+<input id="gecko-capacity" type="number" min="1" max="2000" value="20" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)">
+<div class="controls"><button type="button" class="btn primary full" id="gecko-create">＋ 建立 1 小時批次授權</button></div>
+<div id="gecko-secret-display" class="result" role="status" hidden></div>
+<div class="controls"><button type="button" class="btn soft" id="gecko-copy" hidden>複製短效憑證</button>
+<button type="button" class="btn soft" id="gecko-clear" hidden>清除憑證</button></div>
+<div class="notice" style="margin-top:10px">憑證只顯示一次，請由安全的部署／秘密管理系統注入受管主機，不要將它放在公開網頁或安裝程式內。</div>
+</div>
+<div class="card">
+<div class="card-title"><div><span class="eyebrow">FLEET CONTROL</span><h2>主機群與更新</h2></div>
+<button type="button" class="btn soft" id="gecko-refresh">重新整理</button></div>
+<div class="cards"><div class="metric"><strong id="gecko-total">—</strong><span>已受管主機</span></div>
+<div class="metric"><strong id="gecko-online">—</strong><span>本頁在線主機</span></div></div>
+<div id="gecko-pools" class="nodes" aria-live="polite">讀取主機群…</div>
+<div class="notice">每個批次可停止新裝置加入；已加入主機由原有 Slime 撤銷程序管理。設定期望版本與灰度比例不會在遠端直接執行程式。</div>
+</div>
+</section>
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>
 <p>請從已授權的 Ceres Owner 私聊使用「Slime 私人管理頁」按鈕開啟。
 一般瀏覽器直接開啟網址不會取得管理權限。</p></div>
@@ -303,7 +335,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  const tg=window.Telegram?.WebApp;
  const auth=tg?.initData||"";
  const $=id=>document.getElementById(id);
- let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false,pollTimer=null;
+ let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false,pollTimer=null,geckoSecret="";
  function haptic(){try{tg?.HapticFeedback?.selectionChanged?.();}catch(e){}}
  function notice(txt){
    const box=$("message");box.hidden=false;box.textContent=String(txt);
@@ -311,13 +343,13 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    flash=setTimeout(()=>{box.hidden=true;},4200);
  }
  function setTab(value){
-   if(!["overview","devices","pairing","rewards"].includes(value))return;
+   if(!["overview","devices","pairing","rewards","gecko"].includes(value))return;
    document.querySelectorAll("[data-tab]").forEach(btn=>{
      const active=btn.dataset.tab===value;
      btn.setAttribute("aria-selected",String(active));btn.tabIndex=active?0:-1;
    });
-   ["overview","devices","pairing","rewards"].forEach(key=>$(key).hidden=key!==value);
-   if(value==="rewards")void loadReward();
+   ["overview","devices","pairing","rewards","gecko"].forEach(key=>$(key).hidden=key!==value);
+   if(value==="rewards")void loadReward();if(value==="gecko")void loadGecko();
    haptic();
  }
  async function api(route,extra){
@@ -329,7 +361,68 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    if(!res.ok)throw Error(typeof obj.detail==="string"?obj.detail:"操作失敗");
    return obj;
  }
- async function loadReward(){
+ function geckoErase(){
+ geckoSecret="";$("gecko-secret-display").textContent="";
+ $("gecko-secret-display").hidden=true;$("gecko-copy").hidden=true;$("gecko-clear").hidden=true;
+}
+async function loadGecko(){
+ try{
+  const r=await api("gecko/snapshot",{page:0});
+  $("gecko-total").textContent=Number(r.totalNodes).toLocaleString();
+  $("gecko-online").textContent=Number(r.members.filter(n=>n.online).length).toLocaleString();
+  const holder=$("gecko-pools");holder.replaceChildren();
+  if(!r.pools.length)holder.textContent="尚未建立受管理主機群。";
+  for(const item of r.pools){
+   const el=document.createElement("div");el.className="node";
+   const name=document.createElement("strong");name.textContent=item.name;
+   const status=document.createElement("small");
+   status.textContent=item.accepted+" / "+item.capacity+" 主機 · "+
+     (item.revoked?"已停止註冊":new Date(item.expiresAt*1000).toLocaleString())+
+     " · 更新 "+(item.desiredVersion||"未指定")+" · "+item.canaryPercent+"% 灰度";
+   el.append(name,status);
+   const buttons=document.createElement("div");buttons.className="controls";
+   const revoke=document.createElement("button");revoke.type="button";revoke.className="btn danger";
+   revoke.textContent="停止新註冊";revoke.disabled=item.revoked;
+   revoke.onclick=async()=>{
+     if(!confirm("停止本批次核發新裝置授權？不會刪除既有節點。"))return;
+     try{await api("gecko/revoke",{pool_id:item.id});notice("已撤銷本批次註冊");await loadGecko();}
+     catch(e){notice(e.message);}
+   };
+   const rollout=document.createElement("button");rollout.type="button";rollout.className="btn soft";
+   rollout.textContent="設定灰度";
+   rollout.onclick=async()=>{
+      const version=prompt("請輸入 Slime 官方 GitHub Release 標籤",item.desiredVersion||"slime-v");
+      if(version===null)return;
+      const percent=prompt("目標主機比例（0–100）",String(item.canaryPercent));
+      if(percent===null)return;
+      if(!/^slime-v[A-Za-z0-9._-]{1,65}$/.test(version)||!/^\\d{1,3}$/.test(percent)||Number(percent)>100){
+        notice("版本或灰度比例格式不正確");return;
+      }
+      try{await api("gecko/rollout",{pool_id:item.id,version,canary_percent:Number(percent)});
+        notice("已設定期望版本，不會在遠端自動執行");await loadGecko();}
+      catch(e){notice(e.message);}
+   };
+   buttons.append(rollout,revoke);el.append(buttons);holder.append(el);
+  }
+ }catch(e){$("gecko-pools").textContent=e.message;}
+}
+async function geckoCreate(){
+ const button=$("gecko-create"),name=$("gecko-name").value.trim();
+ const capacity=Number($("gecko-capacity").value);
+ if(!name||!Number.isSafeInteger(capacity)||capacity<1||capacity>2000){
+   notice("主機群名稱或台數不合法");return;}
+ button.disabled=true;geckoErase();
+ try{
+  const r=await api("gecko/issue",{name,capacity,lifetime_seconds:3600});
+  geckoSecret=r.enrollmentToken;
+  $("gecko-secret-display").textContent="本次短效部署憑證：\n"+geckoSecret+
+   "\n\n此憑證用於受管理主機的部署秘密，切勿放進公開安裝包。";
+  $("gecko-secret-display").hidden=false;$("gecko-copy").hidden=false;$("gecko-clear").hidden=false;
+  await loadGecko();
+ }catch(e){notice(e.message);}
+ finally{button.disabled=false;}
+}
+async function loadReward(){
    try{
     const r=await api("rewards/snapshot");
     $("reward-amount").value=String(r.amount);
@@ -369,6 +462,66 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
      n.hidden=false;await loadReward();
    }catch(e){n.textContent=e.message;n.hidden=false}
    finally{btn.disabled=false}
+ }
+ async function loadGecko(){
+   const approvals=$("gecko-approval-list");approvals.replaceChildren();
+   try{
+     const queue=await api("gecko/approvals");
+     if(!queue.requests.length){
+       const p=document.createElement("p");p.textContent="目前沒有待核准的區網下載或配對。";approvals.append(p);
+     }
+     for(const item of queue.requests){
+       const node=document.createElement("article");node.className="node";
+       const title=document.createElement("strong");
+       title.textContent=(item.purpose==="download"?"安裝包下載":"Slime Friend 加入")+" · "+item.deviceLabel;
+       const details=document.createElement("p");
+       details.textContent="待審 · 剩餘 "+Math.max(0,item.expiresSeconds)+" 秒 · 不需 Telegram 配對碼；接收電腦仍須自行操作";
+       const buttons=document.createElement("div");buttons.className="controls";
+       for(const approved of [true,false]){
+         const btn=document.createElement("button");btn.type="button";
+         btn.className="btn "+(approved?"primary":"soft");
+         btn.textContent=approved?"核准此裝置":"拒絕";
+         btn.addEventListener("click",async()=>{
+           btn.disabled=true;
+           try{
+             const res=await api("gecko/decide",{request_id:item.requestId,approve:approved});
+             const status=$("gecko-approval-notice");
+             status.textContent=(approved?"已核准 ":"已拒絕 ")+res.deviceLabel+" 的"+(res.purpose==="download"?"下載":"配對")+"請求。";
+             status.hidden=false;
+             await loadGecko();
+           }catch(e){notice(e.message);btn.disabled=false;}
+         });
+         buttons.append(btn);
+       }
+       node.append(title,details,buttons);approvals.append(node);
+     }
+   }catch(e){approvals.textContent="無法讀取 Gecko 待審請求："+e.message;}
+   try{
+     const data=await api("gecko/snapshot",{page:0});
+     $("gecko-total").textContent=String(data.totalNodes);
+     $("gecko-online").textContent=String((data.members||[]).filter(n=>n.online).length);
+     const root=$("gecko-pools");root.replaceChildren();
+     if(!(data.pools||[]).length)root.textContent="尚未建立批次受管主機群。";
+     for(const p of data.pools||[]){
+       const card=document.createElement("article");card.className="node";
+       const title=document.createElement("strong");title.textContent=p.name;
+       const desc=document.createElement("p");
+       desc.textContent="已加入 "+p.accepted+"/"+p.capacity+" · "+
+        (p.revoked?"新裝置加入已關閉":"可接受受管主機加入")+" · 灰度 "+p.canaryPercent+"%";
+       card.append(title,desc);
+       if(!p.revoked){
+         const btn=document.createElement("button");btn.className="btn danger";
+         btn.type="button";btn.textContent="停止這批新加入";
+         btn.onclick=async()=>{
+           if(!confirm("停止此主機群接受新成員？已加入裝置不受影響。"))return;
+           try{await api("gecko/revoke",{pool_id:p.id});await loadGecko();}
+           catch(e){notice(e.message);}
+         };
+         card.append(btn);
+       }
+       root.append(card);
+     }
+   }catch(e){$("gecko-pools").textContent="Gecko Fleet 無法載入："+e.message;}
  }
  function nodeCard(n){
    const root=document.createElement("article");root.className="node";
@@ -511,9 +664,34 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  tg.ready();tg.expand();
  document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.tab)));
  document.querySelectorAll("[data-go]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.go)));
+ $("gecko-approval-refresh").addEventListener("click",()=>void loadGecko());
+ $("gecko-refresh").addEventListener("click",()=>void loadGecko());
+ $("gecko-create").addEventListener("click",async()=>{
+   const name=$("gecko-name").value.trim(),capacity=Number($("gecko-capacity").value);
+   if(!name||!Number.isSafeInteger(capacity)||capacity<1||capacity>2000){notice("請填入有效主機群名稱和名額");return;}
+   $("gecko-create").disabled=true;
+   try{
+     const result=await api("gecko/issue",{name,capacity});
+     geckoSecret=result.enrollmentToken;
+     $("gecko-secret-display").hidden=false;
+     $("gecko-secret-display").textContent="短效授權（只顯示一次）："+geckoSecret;
+     $("gecko-copy").hidden=false;$("gecko-clear").hidden=false;
+     await loadGecko();
+   }catch(e){notice(e.message);}
+   finally{$("gecko-create").disabled=false;}
+ });
+ $("gecko-copy").addEventListener("click",()=>{if(geckoSecret)void copy(geckoSecret);});
+ $("gecko-clear").addEventListener("click",()=>{
+   geckoSecret="";$("gecko-secret-display").textContent="";
+   $("gecko-secret-display").hidden=true;$("gecko-copy").hidden=true;$("gecko-clear").hidden=true;
+ });
  $("refresh").addEventListener("click",reload);
  $("refresh-reward").addEventListener("click",()=>void loadReward());
  $("save-reward").addEventListener("click",()=>void saveReward());
+  $("gecko-create").addEventListener("click",()=>void geckoCreate());
+  $("gecko-refresh").addEventListener("click",()=>void loadGecko());
+  $("gecko-copy").addEventListener("click",()=>void copy(geckoSecret));
+  $("gecko-clear").addEventListener("click",geckoErase);
  $("issue").addEventListener("click",issue);
  $("probe-model").addEventListener("click",async()=>{
    const button=$("probe-model"),out=$("probe-output");
@@ -528,7 +706,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
      "。請檢查節點心跳、Ollama、Owner 推論核准與後端 Runner 開關。";}
    finally{button.disabled=false;}
  });
- $("copy-code").addEventListener("click",()=>copy(issued?.code));
+ window.addEventListener("pagehide",geckoErase);
+  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
  function closeConfirm(){pending=null;$("delete-code").value="";$("confirm-box").hidden=true;}
@@ -587,6 +766,72 @@ def rewards_config(body:RewardConfig):
     _,sub=_owner(body.init_data)
     from slime_rewards import set_config
     return set_config(sub,body.amount,body.enabled,body.weeken_enabled)
+
+
+class GeckoDecision(Owner):
+    request_id: str=Field(pattern=r"^[a-f0-9]{48}$")
+    approve: bool
+
+
+@router.post("/gecko/approvals")
+def gecko_approvals(body:Owner):
+    _chat,sub=_owner(body.init_data)
+    from gecko_approvals import pending_requests
+    return {"requests":pending_requests(sub)}
+
+
+@router.post("/gecko/decide")
+def gecko_decide(body:GeckoDecision):
+    _chat,sub=_owner(body.init_data)
+    from gecko_approvals import decide_request
+    return decide_request(sub,body.request_id,body.approve)
+
+
+class GeckoIssue(Owner):
+    name: str=Field(min_length=1,max_length=50)
+    capacity: int=Field(ge=1,le=2000)
+    lifetime_seconds: int=Field(default=3600,ge=60,le=86400)
+
+
+class GeckoAction(Owner):
+    pool_id: str=Field(pattern=r"^[a-f0-9]{24}$")
+
+
+class GeckoRollout(GeckoAction):
+    version: str=Field(pattern=r"^slime-v[A-Za-z0-9._-]{1,65}$")
+    canary_percent: int=Field(ge=0,le=100)
+
+
+class GeckoPage(Owner):
+    page: int=Field(default=0,ge=0,le=100000)
+
+
+@router.post("/gecko/issue")
+def gecko_issue(body:GeckoIssue):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import create_pool
+    return create_pool(sub,body.name,body.capacity,body.lifetime_seconds)
+
+
+@router.post("/gecko/revoke")
+def gecko_revoke(body:GeckoAction):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import revoke_pool
+    return revoke_pool(sub,body.pool_id)
+
+
+@router.post("/gecko/rollout")
+def gecko_rollout(body:GeckoRollout):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import set_rollout
+    return set_rollout(sub,body.pool_id,body.version,body.canary_percent)
+
+
+@router.post("/gecko/snapshot")
+def gecko_snapshot(body:GeckoPage):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import snapshot
+    return snapshot(sub,body.page)
 
 
 class Plan(Owner):

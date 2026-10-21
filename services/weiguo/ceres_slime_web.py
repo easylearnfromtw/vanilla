@@ -226,7 +226,9 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="metric"><span class="metric-top" aria-hidden="true">▤</span><strong id="models">—</strong><span>可用模型</span><small>MODELS</small></div>
 </div>
 <div class="overview-actions"><button class="btn primary" id="refresh">↻ 重新同步</button>
-<button class="btn soft" data-go="devices">查看所有節點 ↗</button></div>
+<button class="btn soft" data-go="devices">查看所有節點 ↗</button>
+<button class="btn soft" id="probe-model">▷ 測試真正模型回覆</button></div>
+<p class="result" id="probe-output" hidden role="status" aria-live="polite"></p>
 <p class="note">數據來自節點心跳與模型登錄；在線不代表模型已完成推論。</p></div>
 <div class="card"><div class="card-title"><div><span class="eyebrow">RUNTIME STATUS</span><h2>服務狀態</h2></div><span aria-hidden="true">◎</span></div>
 <p id="service">正在確認後端服務…</p><div class="separator"></div>
@@ -357,22 +359,41 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    badge.textContent=n.online?"● 在線":"○ 離線";
    head.append(name,badge);root.append(head);
    const info=document.createElement("small");
-   info.textContent=(n.role==="owner"?"我的電腦":"朋友節點")+" · "+
-     (n.os||"未回報系統")+" · "+(n.gpu||"GPU 未回報")+
-     " · "+(n.ram_gb||0)+"GB RAM · "+(n.share_enabled?"同意共享":"共享關閉")+
-     " · "+(n.owner_enabled?"已授權節點":"已停用節點")+
-     " · "+(n.inference_enabled?"推論已核准":"推論關閉");
+   const t=n.gpu_temp_c===null?"溫度未回報":"GPU "+n.gpu_temp_c+"°C";
+   const place=n.geo_opt_in?((n.public_ip||"IP 未取得")+" · "+(n.geo_area||"IP 地區待查")):"IP 位置未授權";
+   info.textContent="第 "+n.pair_number+" 個節點 · 硬體估算分 "+n.hardware_score+"/10000 · "+
+      (n.role==="owner"?"我的電腦":"朋友節點")+" · "+
+      (n.online?"心跳在線":"心跳離線")+" · "+
+      (n.os||"未回報系統")+" · "+(n.gpu||"GPU 未回報")+
+      " · "+(n.ram_gb||0)+" GB RAM · "+t+" · 負載 "+n.max_load_pct+
+      "% · 上限 "+n.thermal_limit_c+"°C · "+place+" · "+
+      (n.share_enabled?"同意共享":"共享關閉")+" · "+
+      (n.owner_enabled?"已授權節點":"已停用節點")+" · "+
+      (n.inference_enabled?"推論已核准":"推論關閉")+" · 模型回覆仍需實測;
    root.append(info);
    const ctr=document.createElement("div");ctr.className="controls";
    const actions=[
     {label:n.owner_enabled?"停用節點":"啟用節點",kind:"node",enable:!n.owner_enabled},
     {label:n.inference_enabled?"停止推論":"核准推論",kind:"inference",enable:!n.inference_enabled},
+    {label:"負載 25%",kind:"load",enable:25},
+    {label:"負載 50%",kind:"load",enable:50},
+    {label:"負載 100%",kind:"load",enable:100},
+    {label:"GPU 保護 75°C",kind:"thermal",enable:75},
     {label:"撤銷配對",kind:"revoke",enable:false}
    ];
+   if(n.shutdown_opt_in)
+      actions.push({label:"Telegram 關機（需再確認）",kind:"power",enable:false});
    actions.forEach(a=>{
     const button=document.createElement("button");button.type="button";
     button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
-    button.addEventListener("click",()=>plan(n,a.kind,a.enable));ctr.append(button);
+    button.addEventListener("click",()=>{
+      if(a.kind==="power"){
+        void copy("/slime power "+n.id+" off");
+        notice("請回到 Ceres Telegram 私聊貼上關機命令，再依 Bot 提示確認。");
+        return;
+      }
+      void plan(n,a.kind,a.enable);
+    });ctr.append(button);
    });
    root.append(ctr);return root;
  }
@@ -421,11 +442,15 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  }
  async function plan(n,kind,enable){
   if(busy)return;
-  const warning=kind==="revoke"?"永久撤銷此裝置配對。原憑證將無法再使用。":
+  const warning=kind==="load"?"調整派工優先序與工作冷卻間隔，非 GPU TDP 限制。":
+   kind==="thermal"?"超過上限將停止新的模型派工。":
+   kind==="revoke"?"永久撤銷此裝置配對。原憑證將無法再使用。":
    kind==="inference"&&enable?"允許這台電腦處理其他使用者的模型提示；須先取得電腦持有人同意。":
    kind==="node"&&!enable?"停止節點承接新工作。":"此動作會修改 Slime 權限。";
   try{
-   const obj=await api("plan",{node_id:n.id,operation:kind,enabled:enable});
+   const obj=await api("plan",{node_id:n.id,operation:kind,
+      enabled:typeof enable==="boolean"?enable:false,
+      level:typeof enable==="number"?enable:0});
    pending={token:obj.token,revoke:kind==="revoke"};
    $("confirm-title").textContent=obj.title;
    $("confirm-description").textContent=warning+(kind==="revoke"?
@@ -469,6 +494,18 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  $("refresh-reward").addEventListener("click",()=>void loadReward());
  $("save-reward").addEventListener("click",()=>void saveReward());
  $("issue").addEventListener("click",issue);
+ $("probe-model").addEventListener("click",async()=>{
+   const button=$("probe-model"),out=$("probe-output");
+   button.disabled=true;out.hidden=false;
+   out.textContent="等待節點實際執行模型（最多約 48 秒）…";
+   try{
+     const data=await api("verify");
+     out.textContent="✓ 模型真正回覆成功 · "+data.model+
+       " · "+data.completion_tokens+" 個輸出 Token";
+     await reload();
+   }catch(e){out.textContent="尚未通過實際模型測試："+e.message;}
+   finally{button.disabled=false;}
+ });
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
@@ -713,3 +750,45 @@ def confirm(body:Confirm):
         # explicit commit is mandatory. Otherwise closing silently rolls back.
         db.commit()
     return {"ok":True,"message":"已完成操作。重新整理節點狀態以確認結果。"}
+
+@router.post("/verify")
+async def verify_inference(body:Owner):
+    """Owner-only smoke test: fixed-prompt inference, no arbitrary commands."""
+    _chat,sub=_owner(body.init_data)
+    _enabled()
+    from slime_runner_bridge import catalog,dispatch,enabled
+    if not enabled():
+        raise HTTPException(503,"Slime Model Runner 服務尚未啟用")
+    now=int(time.time())
+    with _session() as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS ceres_slime_verify_rate (
+          owner_sub TEXT NOT NULL, issued_at INTEGER NOT NULL)""")
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM ceres_slime_verify_rate WHERE issued_at<?",(now-600,))
+        recent=db.execute("SELECT COUNT(*) FROM ceres_slime_verify_rate WHERE owner_sub=?",
+                          (sub,)).fetchone()[0]
+        if recent>=2:
+            raise HTTPException(429,"每 10 分鐘最多進行 2 次真實模型測試")
+        db.execute("INSERT INTO ceres_slime_verify_rate VALUES(?,?)",(sub,now))
+        db.commit()
+    models=catalog(sub)
+    if not models:
+        raise HTTPException(503,"Owner 節點尚未註冊可用模型")
+    model=models[0]
+    result=await dispatch(sub,{
+        "model":model,
+        "messages":[{"role":"user","content":"Reply in one short sentence: Slime model is ready."}],
+        "max_tokens":48,
+        "temperature":0.0,
+    })
+    choices=result.get("choices",[])
+    answer=(choices[0].get("message",{}).get("content","")
+            if choices and isinstance(choices[0],dict) else "")
+    usage=result.get("usage",{})
+    if not isinstance(answer,str) or not answer.strip():
+        raise HTTPException(502,"節點未產生有效模型回覆")
+    if not isinstance(usage,dict) or type(usage.get("completion_tokens")) is not int:
+        raise HTTPException(502,"節點缺少可驗證的實際 Token 數")
+    return {"ok":True,"model":model,
+            "prompt_tokens":usage.get("prompt_tokens",0),
+            "completion_tokens":usage["completion_tokens"]}

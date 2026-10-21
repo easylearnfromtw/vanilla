@@ -76,6 +76,7 @@ def _db():
             "notified_at":"REAL NOT NULL DEFAULT 0","geo_opt_in":"INTEGER NOT NULL DEFAULT 0",
             "public_ip":"TEXT NOT NULL DEFAULT ''","geo_area":"TEXT NOT NULL DEFAULT ''",
             "cpu_pct":"REAL","gpu_temp_c":"REAL","gpu_util_pct":"REAL",
+            "gpu_temp_at":"REAL NOT NULL DEFAULT 0",
             "max_load_pct":"INTEGER NOT NULL DEFAULT 100",
             "thermal_limit_c":"INTEGER NOT NULL DEFAULT 82",
             "shutdown_opt_in":"INTEGER NOT NULL DEFAULT 0",
@@ -390,19 +391,25 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
               background_tasks: BackgroundTasks = None):
     _enabled()
     now=time.time()
-    now=time.time()
     with _db() as c:
         r=_node(c,authorization)
         c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,
-            cpu_pct=?,gpu_temp_c=?,gpu_util_pct=?,share_enabled=? WHERE id=?""",
+            cpu_pct=COALESCE(?,cpu_pct),
+            gpu_temp_c=COALESCE(?,gpu_temp_c),
+            gpu_temp_at=CASE WHEN ? IS NULL THEN gpu_temp_at ELSE ? END,
+            gpu_util_pct=COALESCE(?,gpu_util_pct),share_enabled=? WHERE id=?""",
             (now,body.capabilities.cpu,body.capabilities.ram_gb,body.capabilities.gpu,
              body.capabilities.os,body.capabilities.cpu_pct,body.capabilities.gpu_temp_c,
-             body.capabilities.gpu_util_pct,int(body.share_enabled),r["id"]))
+             body.capabilities.gpu_temp_c,now,body.capabilities.gpu_util_pct,
+             int(body.share_enabled),r["id"]))
         claimed=bool(r["paired_at"]) and c.execute("""UPDATE nodes SET notified_at=? WHERE id=? AND
                    (notified_at=0 OR (notified_at<0 AND notified_at>?))""",
                    (-now,r["id"],-(now-180))).rowcount==1
         owner_allowed=bool(r["owner_enabled"])
-        temp=body.capabilities.gpu_temp_c
+        temp=(body.capabilities.gpu_temp_c if body.capabilities.gpu_temp_c is not None
+              else r["gpu_temp_c"])
+        temp_at=(now if body.capabilities.gpu_temp_c is not None else r["gpu_temp_at"])
+        telemetry_stale=bool(temp_at and now-temp_at>180)
         overheating=temp is not None and temp>=r["thermal_limit_c"]
         c.commit()
     if claimed and background_tasks is not None:
@@ -414,9 +421,11 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
                       (r["id"],-now))
     return {"ok":True,"owner_enabled":owner_allowed,
             "inference_enabled":bool(r["inference_enabled"]) and owner_allowed
-                  and body.share_enabled and not overheating and r["max_load_pct"]>0,
+                  and body.share_enabled and not overheating and not telemetry_stale
+                  and r["max_load_pct"]>0,
             "max_load_pct":r["max_load_pct"],"thermal_limit_c":r["thermal_limit_c"],
-            "thermal_paused":overheating,"commands":[]}
+            "thermal_paused":overheating or telemetry_stale,
+            "temperature_stale":telemetry_stale,"commands":[]}
 
 
 @node_router.post("/v1/slime/node/power/poll")

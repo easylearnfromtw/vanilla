@@ -608,3 +608,141 @@ async def store_analytics(data: StoreAuth):
     return {"ok":True,"owner":owner,"source":"not_connected",
             "total_tokens":None,"request_count":None,"cost_minor":None,
             "note":"API gateway metering is not yet connected; no usage values are fabricated."}
+
+
+class StorePublish(BaseModel):
+    init_data: str = Field(min_length=20,max_length=8192)
+    draft_id: int = Field(gt=0)
+    confirmation: str = Field(pattern="^PUBLISH$")
+
+@router.post("/store/publish")
+async def publish_store_draft(data: StorePublish):
+    owner = _verify(data.init_data)
+    now = int(time.time())
+    with _session() as db:
+        _store_schema(db)
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("""SELECT kind,starts_at,ends_at,state FROM ceres_store_drafts
+                           WHERE id=? AND owner_id=?""",(data.draft_id,owner)).fetchone()
+        if row is None:
+            raise HTTPException(404,"Draft not found")
+        if row["state"] != "draft":
+            raise HTTPException(409,"Already published")
+        if row["ends_at"] is not None and row["ends_at"] <= now:
+            raise HTTPException(422,"Expired content cannot be published")
+        db.execute("UPDATE ceres_store_drafts SET state='published' WHERE id=? AND owner_id=?",
+                   (data.draft_id,owner))
+    return {"ok":True,"id":data.draft_id,"state":"published",
+            "scheduled":row["starts_at"] is not None and row["starts_at"]>now,
+            "broadcast":False}
+
+@router.get("/store/public")
+async def public_store_content():
+    now=int(time.time())
+    with _session() as db:
+        _store_schema(db)
+        rows=db.execute("""SELECT id,kind,title,body,reason,image_url,price_minor,
+                          discount_percent,starts_at,ends_at FROM ceres_store_drafts
+                          WHERE state='published' AND (starts_at IS NULL OR starts_at<=?)
+                          AND (ends_at IS NULL OR ends_at>?)
+                          ORDER BY id DESC LIMIT 30""",(now,now)).fetchall()
+    return {"ok":True,"items":[dict(row) for row in rows]}
+
+class StoreWithdraw(BaseModel):
+    init_data: str = Field(min_length=20,max_length=8192)
+    draft_id: int = Field(gt=0)
+
+@router.post("/store/withdraw")
+async def withdraw_store_content(data: StoreWithdraw):
+    owner=_verify(data.init_data)
+    with _session() as db:
+        _store_schema(db)
+        db.execute("BEGIN IMMEDIATE")
+        changed=db.execute("""UPDATE ceres_store_drafts SET state='withdrawn'
+                    WHERE id=? AND owner_id=? AND state='published'""",
+                    (data.draft_id,owner)).rowcount
+    if not changed:
+        raise HTTPException(404,"Published content not found")
+    return {"ok":True,"id":data.draft_id,"state":"withdrawn"}
+
+@router.get("/store/control",response_class=HTMLResponse)
+async def store_control():
+    nonce=secrets.token_urlsafe(18)
+    page=_STORE_CONTROL_PAGE.replace("__NONCE__",nonce)
+    response=HTMLResponse(page,headers={"Cache-Control":"no-store, private",
+        "X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
+        "X-Frame-Options":"DENY"})
+    response.headers["Content-Security-Policy"]=(
+        "default-src 'none'; script-src 'nonce-"+nonce+"' https://telegram.org; "
+        "style-src 'nonce-"+nonce+"'; connect-src 'self'; frame-ancestors 'none'; "
+        "base-uri 'none'; form-action 'none'")
+    return response
+
+_STORE_CONTROL_PAGE = """<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vanilla · Store Control</title><script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style nonce="__NONCE__">
+:root{font:15px -apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;color-scheme:light dark}
+*{box-sizing:border-box}body{margin:0;background:#f5f5f7;color:#18181b}
+main{max-width:650px;margin:auto;padding:24px 18px 100px}
+h1{font-size:29px;letter-spacing:-1px}h2{font-size:19px}
+nav{display:flex;gap:7px;overflow:auto;padding:10px 0 20px}
+button,input,textarea,select{font:inherit}button{cursor:pointer}
+nav button,.action{border:0;background:#e8e8ec;padding:12px 15px;border-radius:13px}
+nav button.active,.primary{background:#19191c;color:white}
+.panel{background:white;border:1px solid #e8e8ed;border-radius:22px;padding:20px;margin:12px 0}
+label{display:block;font-size:12px;font-weight:700;margin:13px 0 6px}
+input,textarea,select{display:block;width:100%;border:1px solid #d8d8de;border-radius:12px;padding:12px;background:transparent;color:inherit}
+textarea{min-height:110px}.primary{border:0;border-radius:13px;padding:13px 18px;font-weight:700}
+small,p{color:#777981;line-height:1.65}.hidden{display:none}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+@media(prefers-color-scheme:dark){body{background:#111113;color:#f5f5f7}.panel{background:#202024;border-color:#34343a}nav button,.action{background:#34343a;color:#f5f5f7}nav button.active,.primary{background:#f5f5f7;color:#171719}input,textarea,select{border-color:#444}}
+</style></head><body><main><small>OWNER ONLY · VANILLA</small><h1>Store Control</h1>
+<p>此頁只接受 SignWell 管理 Bot 的 Telegram 身分驗證。付款與群發預設停用。</p>
+<nav><button data-page="offers" class="active">定價優惠</button><button data-page="messages">訊息中心</button><button data-page="keys">API Keys</button><button data-page="analytics">Token 數據</button></nav>
+<section id="offers"><div class="panel"><h2>建立優惠或公告</h2>
+<label>類型</label><select id="kind"><option value="offer">定價／優惠</option><option value="announcement">公告</option></select>
+<label>主題</label><input id="title" maxlength="120" required>
+<label>說明</label><textarea id="body" maxlength="2000"></textarea>
+<label>原因</label><textarea id="reason" maxlength="500"></textarea>
+<label>圖片 HTTPS 網址</label><input id="image" type="url" placeholder="https://">
+<label>價格（NT$，僅展示，未啟用付款）</label><input id="price" type="number" min="0" step="1">
+<label>折扣（%）</label><input id="discount" type="number" min="0" max="100">
+<label>開始時間</label><input id="start" type="datetime-local">
+<label>結束時間</label><input id="end" type="datetime-local">
+<button id="save" class="primary">儲存草稿</button></div>
+<div class="panel"><h2>草稿與已發佈內容</h2><button id="refresh" class="action">重新整理</button><div id="drafts"></div></div></section>
+<section id="messages" class="hidden"><div class="panel"><h2>訊息中心</h2>
+<p>公告可先在「定價優惠」建立、預覽與發佈。群發必須具備收件者明確訂閱同意、退訂機制與發送佇列；目前不會向任何人群發。</p></div></section>
+<section id="keys" class="hidden"><div class="panel"><h2>Gmail · API Key</h2>
+<p>此工作區尚未啟用金鑰發行。須先完成 Google 身分驗證、金鑰雜湊保存、額度強制執行與撤銷流程。</p></div></section>
+<section id="analytics" class="hidden"><div class="panel"><h2>Token Analytics</h2><button id="load-usage" class="action">讀取用量</button><pre id="usage">等待連線至真實 API Gateway 計量資料。</pre></div></section>
+<p id="feedback" role="status" aria-live="polite"></p></main>
+<script nonce="__NONCE__">
+const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
+const by=id=>document.getElementById(id),init=()=>tg?.initData||"";
+async function api(path,data){if(!init())throw Error("請從管理 Telegram Mini App 開啟，且確認已登入 Owner");
+const r=await fetch("/v1/ceres/admin/store/"+path,{method:"POST",
+headers:{"Content-Type":"application/json"},body:JSON.stringify({init_data:init(),...data})});
+if(!r.ok)throw Error("HTTP "+r.status+" · "+(await r.text()).slice(0,180));return r.json()}
+function notice(x){by("feedback").textContent=x}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));
+["offers","messages","keys","analytics"].forEach(id=>by(id).classList.toggle("hidden",id!==b.dataset.page))});
+by("save").onclick=async()=>{try{const time=id=>by(id).value?Math.floor(new Date(by(id).value).getTime()/1000):null;
+const data={kind:by("kind").value,title:by("title").value,body:by("body").value,reason:by("reason").value,
+image_url:by("image").value,price_minor:by("price").value?Number(by("price").value)*100:null,
+discount_percent:by("discount").value?Number(by("discount").value):null,
+starts_at:time("start"),ends_at:time("end")};const r=await api("drafts",data);notice("草稿已儲存 #"+r.id);await refresh()}catch(e){notice(e.message)}};
+async function refresh(){try{const r=await api("drafts/list",{});by("drafts").replaceChildren();
+for(const item of r.drafts){const card=document.createElement("div");card.className="panel";
+const title=document.createElement("h3");title.textContent="#"+item.id+" · "+item.title;
+const desc=document.createElement("p");desc.textContent=item.body+" · "+item.state;
+card.append(title,desc);if(item.state==="draft"){const btn=document.createElement("button");btn.className="action";btn.textContent="確認發佈";
+btn.onclick=async()=>{if(!confirm("確認將內容公開至商店？不會群發訊息或收款。"))return;
+try{await api("publish",{draft_id:item.id,confirmation:"PUBLISH"});notice("已發佈 #"+item.id);await refresh()}catch(e){notice(e.message)}};card.append(btn)}
+if(item.state==="published"){const btn=document.createElement("button");btn.className="action";btn.textContent="下架";
+btn.onclick=async()=>{if(!confirm("確認下架？"))return;try{await api("withdraw",{draft_id:item.id});await refresh()}catch(e){notice(e.message)}};card.append(btn)}
+by("drafts").append(card)}}catch(e){notice(e.message)}}
+by("refresh").onclick=refresh;by("load-usage").onclick=async()=>{try{const r=await api("analytics",{});by("usage").textContent=r.note||JSON.stringify(r,null,2)}catch(e){notice(e.message)}};
+if(init())refresh();else notice("此頁需由 Owner 的 Telegram Mini App 開啟");
+</script></body></html>"""

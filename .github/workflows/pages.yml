@@ -52,6 +52,7 @@ jobs:
       - run: npm run test:cream-weiguo
       - run: npm run test:detroit-studio
       - run: npm run test:node-fabric
+      - run: npm run test:slime-onboarding
       - run: npm run test:retina
       - run: npm run test:detroit-notifications
       - run: npm run test:cream-longitudinal

@@ -39,6 +39,7 @@ jobs:
           npm run test:cream-weiguo
           npm run test:detroit-studio
           npm run test:node-fabric
+          npm run test:slime-onboarding
           npm run test:luca
           npm run test:detroit-factory
           npm run test:retina

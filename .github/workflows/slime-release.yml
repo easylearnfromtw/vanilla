@@ -1,0 +1,104 @@
+name: Slime Installer Release
+on:
+  workflow_dispatch:
+  push:
+    tags: ['slime-v*']
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify source and build standalone executables
+        shell: pwsh
+        run: |
+          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python -m pip install "pyinstaller==6.16.0"
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --paths services/weiguo services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --paths services/weiguo services/weiguo/slime_desktop.py
+          if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slime-windows-build
+          path: |
+            dist/Slime-Owner.exe
+            dist/Slime-Friend.exe
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prepare macOS archive
+        run: |
+          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          mkdir -p dist
+          cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py dist/
+          for role in Owner Friend; do
+            cp "deployment/slime/Slime-${role}.command" "dist/Slime-${role}.command"
+            chmod +x "dist/Slime-${role}.command"
+            cd dist
+            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py
+            cd ..
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slime-macos-build
+          path: dist/*-macos.zip
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prepare Linux archive
+        run: |
+          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          mkdir -p dist
+          for role in Owner Friend; do
+            mkdir -p "tmp-$role"
+            cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py "tmp-$role/"
+            role_lower=$(echo "$role" | tr '[:upper:]' '[:lower:]')
+            cp "deployment/slime/launch-${role_lower}.sh" "tmp-$role/start-slime.sh"
+            chmod +x "tmp-$role/start-slime.sh"
+            tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slime-linux-build
+          path: dist/*-linux.tar.gz
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/slime-v')
+    needs: [windows,macos,linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slime-*-build
+          merge-multiple: true
+          path: release
+      - name: Check assets and hashes
+        run: |
+          cd release
+          for item in Slime-Owner.exe Slime-Friend.exe Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz; do
+            test -s "$item"
+          done
+          sha256sum Slime-* > SHA256SUMS.txt
+      - name: Publish GitHub release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" \
+            --title "Slime $GITHUB_REF_NAME" --generate-notes --verify-tag

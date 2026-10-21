@@ -73,7 +73,7 @@ async def register_store_webhook() -> bool:
             set_response = await client.post(api + "setWebhook", json={
                 "url": url, "secret_token": secret,
                 "allowed_updates": ["message"], "drop_pending_updates": False
-            }))
+            })
             if set_response.status_code != 200:
                 print(f"Ceres Store: setWebhook HTTP {set_response.status_code}", flush=True)
                 return False

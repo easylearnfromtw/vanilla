@@ -9,6 +9,8 @@ import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-template
 import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
 import {lunaPNG,saveLunaFile} from "../luna/export";
 import {recallVictoria,isVictoriaEnabled,type VictoriaRecall} from "./victoria";
+import {longitudinalReport} from "../cream/history-store";
+import {summarizeVictoriaLongitudinal} from "./victoria-longitudinal";
 import {orchestraHandoff,type OrchestraHandoff} from "../orchestra/ai-handoff";
 import {executeOrchestraHandoff} from "../orchestra/agent-executor";
 
@@ -17,7 +19,7 @@ type CreamInput={csv:string;source?:string};
 type RetinaInput={title:string;body:string;format:RetinaFormat;download:boolean};
 type JanusInput={kind:EmailTemplateKind;title:string;body:string;brand:string;download:boolean};
 type LunaInput={prompt:string;owner:string;download:boolean;save:boolean};
-type VictoriaInput={query:string;owner:string};
+type VictoriaInput={query:string;owner:string;includeLongitudinal?:boolean};
 export type NativeRetinaResult={filename:string;format:RetinaFormat;sections:number};
 export type NativeJanusResult={filename:string;format:"html";bytes:number};
 export type NativeLunaResult={filename:string;format:"png";layers:number;savedEditable:boolean};
@@ -79,8 +81,24 @@ export function registerDetroitNativeExecutors():void{
  });
  detroitBus.register("victoria",async(raw,ctx)=>{
   const data=assertObject(raw);
-  const input:VictoriaInput={query:limited(data.query,16000),owner:limited(data.owner,150)};
-  return recallVictoria(input.query,{owner:input.owner,enabled:isVictoriaEnabled(input.owner),privateMode:ctx.privateMode});
+  const input:VictoriaInput={query:limited(data.query,16000),owner:limited(data.owner,150),
+    includeLongitudinal:data.includeLongitudinal===true};
+  // Archive consent and private-mode checks occur before any IndexedDB archive read.
+  const recalled=await recallVictoria(input.query,{
+    owner:input.owner,enabled:isVictoriaEnabled(input.owner),privateMode:ctx.privateMode
+  });
+  if(!input.includeLongitudinal||ctx.privateMode)return recalled;
+  // Respect the existing CREAM opt-out even if a caller asks for longitudinal data.
+  let allowed=false;
+  try{
+    const prefs=JSON.parse(localStorage.getItem("vanilla.chat.context-prefs.v1")||"{}") as {cream?:boolean};
+    allowed=prefs.cream!==false;
+  }catch{allowed=false;}
+  if(!allowed)return recalled;
+  // CREAM performs deterministic math on the currently signed-in account's existing data.
+  // Victoria only selects a bounded, source-labelled summary; never starts a background job.
+  const report=await longitudinalReport(input.owner);
+  return {...recalled,longitudinal:summarizeVictoriaLongitudinal(input.query,report)} satisfies VictoriaRecall;
  });
  detroitBus.register("luna",async(raw,ctx)=>{
   const data=assertObject(raw),prompt=limited(data.prompt,300);

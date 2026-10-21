@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 36 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 37 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1146,8 +1146,45 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 使用偽造 Telegram Owner username、群組、過期 nonce、重放 callback、一般前端 API 與受限開發者 Key 操作建立／撤銷全域金鑰、加額度、修改模型政策，可信後端全部拒絕並保留必要稽核。
 - 稽核 LUCA／API 日誌、服務錯誤、模型 Registry、開發者頁及 export，確保不顯示明文 Key、秘密、未經授權的 prompt、其他用戶內容，且能依 task_id／request_id 追溯實際 tokens 與輸出狀態。
 
+## Q38 / 50 — D：自適應高可靠性運算系統（SRE × Slime × Failover × Checkpoint × Disaster Recovery）
+
+**決策：D — 自適應高可靠性運算系統。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採自適應高可靠性運算系統：整合健康監測、SLI／SLO、錯誤預算、負載與容量預測、已授權Slime／雲端節點容錯、模型相容性檢查、熔斷與安全降級、Durable Checkpoint、冪等恢復、備份與RPO／RTO目標、故障演練及審計。LUCA負責監控與告警，Diana負責候選路由，Detroit負責可信執行，Verifier獨立確認；不得越權外傳資料或重複副作用，高風險系統更動僅由本人Ceres Telegram核准；Self-Build只允許可信後端背景觸發。」
+
+### 可靠性工程與安全執行契約
+
+1. **可靠性與安全目標分開**：依 Q37 外部模型 Gateway、Q15 多節點 DAG 及 Q31 checkpoint 建立可靠性保障；容錯不得違反 Q02 節點／資料授權、Q21 隱私與資料所在地、Q25–Q30 後端修改政策或 Q36 副作用限制。「保持服務可用」不是擴權、解密、資料外送或換模型的充分理由。
+2. **可量測 SLI／SLO**：至少定義 Gateway 可用性、合法請求成功率、p50/p95/p99 首 token 與端到端延遲、推論完成率、串流中斷率、執行任務成功率、checkpoint 成功恢復率、quota consistency、資料安全違規與禁止重複副作用率；以已實測事件計算 SLI，並明確記錄樣本數、觀察時窗、排除規則與每項服務的 SLO。尚未確認真實服務成本與用戶要求前，不預先宣稱特定 99.9% 等商業 SLA 承諾。
+3. **Error Budget 和發布閘門**：對 SLO 設可量化 error budget；持續耗盡或資安硬門檻不達標時，依經 Owner 核准的政策停止不必要 Canary 擴量、背景高成本實驗與非緊急變更，並要求 Q27／Q30 驗證。安全違規不得以可用性或錯誤預算剩餘抵銷。
+4. **LUCA 監控與真實健康檢查**：採 service/instance/model/node 分層主動 readiness/liveness 與真實探針，結合 GPU VRAM/RAM、磁碟、CPU、熱狀態（可觀測時）、queue depth、token throughput、429/5xx、網路 RTT、Slime lease/heartbeat、模型載入失敗、secret/OAuth 失效及節點關機。只讀健康檢查不可當作正式任務已可完成的證據。
+5. **容量預測與排程**：對每個模型的 context size、KV cache、prefill/decode 工作量、工作併發、模型載入時間、VRAM、CPU memory、磁碟／頻寬及 provider TPM/RPM 配額建立容量模型；使用趨勢與近期實測負載做短中期預估，避免把多台低 VRAM 設備誤視為必然可以無縫合併成單一大模型。資源不足時採 admission control、排隊、限流、延後或經批准的降級路徑。
+6. **Diana 容錯候選選擇**：每次 failover 選擇必須檢查節點本人／朋友同意、租戶及資料處理範圍、雲端提供者權利、模型 immutable version、tokenizer、能力與輸出介面相容性、剩餘配額、地理／資料政策、延遲和費用；嚴禁把被撤銷授權的朋友節點、未知路由器或不相容雲端模型當作隱藏備援。
+7. **Model Compatibility Gate**：區分固定 model digest/pinned version 與可變 alias；固定版本不可偷偷改用近似模型，若無相同版本合法備援應回報 unavailable 或等候。使用別名路由時也要核對能力、上下文長度、JSON／tool schema、token 計數和 Q30 發布治理，不將降級回覆冒稱原本模型推論。
+8. **熔斷與分層安全降級**：對節點錯誤、OOM、API 429、time-out 與連續錯誤使用 cooldown/circuit breaker、jitter backoff、負載丟棄、排隊與最小可用功能；按已核准政策可切至同權限且相容的備援。資安風險或資料處理政策不符合時 fail closed，維持部分完成／等待狀態，禁止將私密請求外傳以維持表面可用率。
+9. **Durable Checkpoint 與真正恢復**：Detroit 只在可信後端持久化經驗證的 DAG step、input hash、artifact refs、lease owner、version, retry count、idempotency key、tool execution receipt、side-effect class、approval state；節點重啟後必須先確認步驟先前是否真實完成以及授權仍有效，才排入剩餘工作。不能因 crash 恢復而重送郵件、重開 PR、重複扣 Token 或重作不可逆任務。
+10. **冪等性與未知結果處理**：對 Q36 外部寫入及 Q37 quota reserve/settle 使用持久 operation ledger、request_id、provider receipt、可查詢狀態與有限重試策略；外部 API 不支援 idempotency 時不得宣稱 globally exactly-once。若請求超時但副作用可能已成功，標記 unknown，先回讀或轉人工查證，禁止盲重試造成重複寄信、支付、部署或配額計帳。
+11. **資料與狀態備份治理**：明確區分可重建模型權重／索引、不可重建的任務與審計狀態、API Key 驗證材料及保密 secrets；備份採加密、權限隔離、版本保留、完整性校驗及離線／異地副本（依合法資料所在地限制）。備份不能自動包含沒有許可的私人對話與第三方資料；秘密不透過模型 prompt 或一般 Artifact 暴露。
+12. **RPO／RTO 分級與演練**：對 Gateway 設定、Key/quota ledger、DAG checkpoint、模型 registry、Artifact metadata、審計及必要狀態庫分別指定 RPO（可接受資料損失）、RTO（恢復時間）和恢復優先序，具體數值待實際服務 SLO 與容量測試確認；定期做備份驗證、還原演練、節點消失、磁碟損壞與區域不可用測試。不能因有備份檔就宣稱已達 RTO。
+13. **故障分級與事件處置**：依安全影響、使用者影響、持續時間、資料一致性和受影響租戶將 incident 分級，建立告警去重、runbook、處理時限、升級通知及事故後檢討。LUCA 發送脫敏診斷與 Owner Telegram 通知；Quirinus 針對可疑外洩／提權風險進行檢查；Verifier 根據真實工具回執和恢復後測試決定 verified_recovered／degraded／unresolved。
+14. **高風險恢復與 Ceres Owner 權限**：只有本人可透過可信 Ceres Telegram 核准正式環境部署、機密與權限變更、資料庫重大恢復、高風險回退、改動全域節點政策及新增資料目的地；採 Owner user_id／私聊 chat_id、一次性 action token、resource/version/target 綁定並遵守後端及原平台政策。已事先合法核准的唯讀探針、熔斷與隔離不等同「可以自動執行所有高風險修復」。
+15. **Self-Build 獨立於 SRE 故障恢復**：Q27–Q30 仍適用；使用者聊天、API request、故障回報文字、外部 webhook 或任意 Agent 不能直接／間接啟動 Self-Build。LUCA／CI 經受信後端確認的獨立品質事件可依既定背景政策列為 Self-Build 候選，但故障恢復自動化必須使用獨立、已預先授權的 SRE task type，不得偷偷改寫程式、合併 PR 或觸發模型微調。
+16. **成本與硬體現實性**：針對授權 RTX 3050 桌機、Raspberry Pi 4、較弱 Windows 節點、可能的 Mac mini 或雲端端點，採真實硬體能力探測，避免以尚未購置或不可用的設備當作存在的容錯容量；隨機斷電的朋友節點僅能在授權、風險與資料處理政策允許下承擔可中斷任務。
+17. **服務狀態與實作聲明**：區分 live／ready／degraded／rate_limited／failed／recovering／unknown／verified_recovered；不虛稱完成備份、達成 SLA、完成故障切換、節點真正在線或災難復原測試通過。**本題只確認產品架構規格**，不代表 SRE 系統、監控 Agent、Backup/Restore、跨節點 Failover 或 Owner Runbook 已實作／正式部署。
+
+### 驗收條件（尚待開發及正式驗收）
+
+- 在具有可驗證流量與基線的 Sandbox 中量測 availability、request success、TTFT／p95/p99、工具成功率與 token 計帳一致性，確認 SLI 與 SLO 時窗、錯誤預算計算及 LUCA 事件回報不會隨意排除失敗樣本。
+- 模擬本地 RTX 3050 OOM／重啟、Slime 朋友節點突然離線、網路分區、雲端 429、模型載入失敗和 Secret 失效；Diana 僅選同等合法且版本／能力相容的備援，否則適當排隊／停機，不能將私人任務丟到未授權節點。
+- 對 pinned model version 與 alias version 分別模擬失聯、容量不足及路由改變，測試 digest／tokenizer／Tool Schema／context window 一致性；不得在固定模型請求下偷偷回傳不同模型。
+- 將含一次性外部副作用（寄信、建立日曆、扣配額、候選 PR）的任務於多個狀態點中斷，重啟 DAG 和多節點 failover 後不得造成重複操作；unknown outcome 保持可審核查證狀態，不能偽造 exactly-once 成果。
+- 對 API key／quota ledger、checkpoints、模型 registry 和 Artifact refs 做備份加密、還原、一致性及 RPO／RTO 演練，模擬備份過期、密鑰丟失、跨區法規限制與資料庫 schema 不相容，失敗時必須報告未達標。
+- 驗證熔斷與資安隔離可依事先核准政策低風險執行，涉及高風險改動／正式部署／敏感恢復則必須取得 Ceres Owner 的特定明確批准；重播舊 nonce 或用非 Owner、群組與外部 API Key 操作均遭後端拒絕。
+- 嘗試以對話、外部工具輸出、事件假冒及由使用者控制的 webhook 觸發 Self-Build，皆不得通過可信事件邊界；服務故障與 Self-Build 改進生命週期不可混淆。
+- 定期故障演練確認 incident runbook、告警去重、Quirinus 安全檢查、LUCA 診斷與 Verifier 恢復確認，並測量 MTTR、誤報率、成本、效能退化與實際恢復率，不得以宣稱恢復取代測試證據。
+
 ### 待決事項
 
-**Q38 / 50：October／Vanilla 在對外提供模型 API 與多節點運算後，應如何建立服務可靠性（SLO／SLA）、故障偵測、容量管理、跨節點容錯及災難復原，並保證故障時安全降級、不越權與不重複執行？** 尚待使用者答覆。
+**Q39 / 50：October／Vanilla 在提供外部模型 API、跨本地與雲端節點運算後，應如何管理服務成本、使用者方案、商業計價與收入風險，同時維持 Token 配額、租戶隔離、可查核帳務及唯一 Owner Ceres 管理權限？** 尚待使用者答覆。
 
 ---

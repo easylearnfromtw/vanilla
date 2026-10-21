@@ -1,4 +1,35 @@
-# October（阿土伯）v0.3 — Sign Well autonomous model
+# October（阿土伯）v0.4 — Sign Well autonomous model
+
+## v0.4：GPT-6 教師精化、節省 Token 與實測對照（2026-10-21）
+
+**三種交付須嚴格區分：**
+
+1. **推論行為調校**：october-persona.ts / prompts.ts 依任務產生精簡的證據優先提示詞；只有被問到人物背景才提供虛構履歷。model-profiles.ts 將 october:0.3 判定為 Qwen3 4B、october:lite 判定為 0.6B，依任務限制輸出長度。ollama.ts 增加實際 token/耗時的 onMetrics callback（不蒐集聊天內容）。Modelfile 也已精簡；使用者自己的 Ollama 主機仍需重新 create，**這不是微調基礎模型權重**。
+2. **教師資料與 CPU 路由訓練**：teacher-cases.mjs 產生 **38 個 GPT-6 撰寫的 SFT 範例**及 **10 個獨立驗證題**，含財金、統計、工程、醫療證據、法遵與 UX。GitHub Actions 已用 NOODLES check-only 驗證 schema 與題目不重疊。另有 PyTorch 2,600 參數 Policy Head 真正完成 CPU 訓練，合成路由任務盲測正確率 **99.5%**；該分數不代表 Qwen 財金或醫學答題正確率。
+3. **公平 A/B 測試工具**：benchmark.mjs 可在本地 Ollama 對 october:0.3 與 qwen3:4b 以相同參數、同一批 holdout 題、預熱流程進行比較，採用 provider 回傳的 prompt_eval_count / eval_count、經過時間、tokens/s 與簡單安全概念 rubric；後者僅為啟發式檢查，不能取代人工審核。
+
+### 重現資料驗證（不需要 GPU）
+
+~~~sh
+npm run test:october-quality
+npm run test:october-persona
+npm run build
+node training/october/teacher-cases.mjs
+python training/noodles_train.py --mode sft --train training/october/generated/october-teacher-sft-train.jsonl --eval training/october/generated/october-teacher-sft-eval.jsonl --check-only
+~~~
+
+### 在使用者已安裝 Qwen3:4b 與 October 的本機執行真實模型比較
+
+~~~sh
+node training/october/benchmark.mjs --models october:0.3,qwen3:4b --cases 10 --output training/october/generated/october-benchmark.json
+~~~
+
+Benchmark 預設只允許本機 loopback Ollama API，不自動下載模型、不送到雲端，也不儲存完整 prompt／completion。數值須來自真實 Ollama 服務執行紀錄，不能把離線 mock 測試數字當作模型品質。
+
+Windows PowerShell 的 train-qwen-qlora.ps1 已改用 October 專用 SFT，預設只做格式檢查。真正的 QLoRA 必須明確指定 -RunTraining -AcknowledgedModelLicense，需可用 CUDA 設備、授權模型權重與套件；訓練完成後需另行評估 adapter，不能自動上線。38 題遠不足以證明廣泛領域能力，更不能宣稱「最強 AI」。
+
+正式的 Claude 比較須使用同一時間的專業新題、同等工具權限、盲法人工審查、引用來源稽核、延遲與費用數據。沒有上述實驗回執時，兩者優劣**尚未驗證**。
+
 
 ## 阿土伯、爾雅、維納斯角色契約（2026-10-21）
 

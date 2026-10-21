@@ -137,3 +137,16 @@ test("task classification",()=>{
  assert.equal(classifyTask("說明光合作用"),"general");
  assert.equal(classifyTask("看看這張",true),"vision");
 });
+
+
+test("modern Tongcheng prose: compact and full prompts require substance, order and natural speech",()=>{
+ const full=vanillaSystemPrompt({task:"general",compact:false,latestUserText:"說明 CPU 與 GPU 的差別"});
+ const compact=vanillaSystemPrompt({task:"general",compact:true,latestUserText:"說明 CPU 與 GPU 的差別"});
+ for(const prompt of [full,compact]){
+  assert.match(prompt,/言有物/);
+  assert.match(prompt,/言有序/);
+  assert.match(prompt,/白話/);
+ }
+ assert.match(full,/如使用者指定其他風格/);
+ assert.ok(estimateTokens(compact)<230,"small-device prompt must remain compact");
+});

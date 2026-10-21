@@ -155,23 +155,27 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 <div class="hero-foot"><span>SLIME / CONTROL STUDIO</span><span>OWNER ONLY</span></div>
 </header>
 <nav class="tabs" role="tablist" aria-label="Slime 管理分頁">
-<button role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">總覽</button>
-<button role="tab" aria-selected="false" aria-controls="devices" data-tab="devices">節點</button>
-<button role="tab" aria-selected="false" aria-controls="pairing" data-tab="pairing">配對</button>
+<button type="button" role="tab" id="tab-overview" aria-selected="true" tabindex="0" aria-controls="overview" data-tab="overview"><span class="tab-icon" aria-hidden="true">◫</span>總覽</button>
+<button type="button" role="tab" id="tab-devices" aria-selected="false" tabindex="-1" aria-controls="devices" data-tab="devices"><span class="tab-icon" aria-hidden="true">▤</span>節點</button>
+<button type="button" role="tab" id="tab-pairing" aria-selected="false" tabindex="-1" aria-controls="pairing" data-tab="pairing"><span class="tab-icon" aria-hidden="true">＋</span>配對</button>
 </nav>
 <main>
-<section id="overview" role="tabpanel">
-<div class="card"><h2>網路概況</h2><p>統計來自 Slime 節點心跳；在線不代表實際推論成功。</p>
-<div class="cards" style="margin-top:14px">
-<div class="metric"><strong id="total">—</strong><span>已註冊裝置</span></div>
-<div class="metric"><strong id="online">—</strong><span>目前在線</span></div>
-<div class="metric"><strong id="approved">—</strong><span>已核准推論</span></div>
-<div class="metric"><strong id="models">—</strong><span>已登錄可用模型</span></div>
+<section id="overview" role="tabpanel" aria-labelledby="tab-overview">
+<div class="section-head"><span class="eyebrow">01 / OVERVIEW</span><h2>網路總覽</h2><p>當前 Slime 節點的即時摘要</p></div>
+<div class="card">
+<div class="card-title"><div><span class="eyebrow">NETWORK PULSE</span><h2>裝置運行</h2></div><span class="status-pill" id="sync-pill">● 同步中</span></div>
+<div class="cards">
+<div class="metric"><span class="metric-top" aria-hidden="true">▦</span><strong id="total">—</strong><span>已加入裝置</span><small>DEVICES</small></div>
+<div class="metric"><span class="metric-top" aria-hidden="true">●</span><strong id="online">—</strong><span>目前在線</span><small>ONLINE</small></div>
+<div class="metric"><span class="metric-top" aria-hidden="true">◇</span><strong id="approved">—</strong><span>推論已授權</span><small>APPROVED</small></div>
+<div class="metric"><span class="metric-top" aria-hidden="true">▤</span><strong id="models">—</strong><span>可用模型</span><small>MODELS</small></div>
 </div>
-<div class="controls"><button class="btn primary" id="refresh">↻ 重新整理</button>
-<button class="btn" data-go="devices">管理節點 →</button></div></div>
-<div class="card"><h2>執行狀態</h2><p id="service">正在確認後端服務…</p>
-<p style="margin-top:8px">推論與公開 API 是不同的開關；新節點預設不會被授予推論權限。</p></div>
+<div class="overview-actions"><button class="btn primary" id="refresh">↻ 重新同步</button>
+<button class="btn soft" data-go="devices">查看所有節點 ↗</button></div>
+<p class="note">數據來自節點心跳與模型登錄；在線不代表模型已完成推論。</p></div>
+<div class="card"><div class="card-title"><div><span class="eyebrow">RUNTIME STATUS</span><h2>服務狀態</h2></div><span aria-hidden="true">◎</span></div>
+<p id="service">正在確認後端服務…</p><div class="separator"></div>
+<div class="notice">ⓘ 推論與公開 API 採獨立開關；新加入的電腦不會自動取得推論權限。</div></div>
 </section>
 <section id="devices" role="tabpanel" hidden>
 <div class="card"><h2>我的節點</h2><p>每台節點需要經過 Owner 授權。撤銷後原裝置 Token 立即失效。</p>

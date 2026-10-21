@@ -48,9 +48,10 @@ class GeckoApprovalTests(unittest.TestCase):
     def test_self_confirmed_download_does_not_need_telegram_join_code(self):
         self.assertTrue(_same_lan("192.168.1.52","192.168.1.18"))
         self.assertFalse(_same_lan("192.168.2.52","192.168.1.18"))
-        page=_page("Trusted Host",None).decode("utf8")
+        page=_page("Trusted Host",None,"csrf-demo").decode("utf8")
         self.assertIn("由這台電腦確認下載",page)
         self.assertIn("請 Telegram Owner 核准",page)
+        self.assertIn("csrf-demo",page)
         self.assertNotIn('href="/file/Slime-Friend.exe"',page)
         ready=_download_ready("Trusted Host","onlyafterconsent",None,
                               Path("/nonexistent")).decode("utf8")

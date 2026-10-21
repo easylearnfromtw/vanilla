@@ -77,26 +77,31 @@ def _listing(sub: str) -> str:
     return "\n".join(lines)[:1200]
 
 
-def _invite(sub: str, chat: int) -> str:
-    origin = _safe_origin()  # fail closed when HTTPS API not configured
-    now = time.time()
-    raw = secrets.token_urlsafe(32)
+def _create_invite(sub: str, chat: int) -> dict | None:
+    """Short-lived pair code, scoped to a verified Google Owner."""
+    from slime import issue_short_pair
+    try:
+        result=issue_short_pair(sub)
+    except Exception:
+        return None
     with _db() as db:
         _setup(db)
-        db.execute("BEGIN IMMEDIATE")
-        db.execute("DELETE FROM invites WHERE expires<?", (now,))
-        count = db.execute("SELECT COUNT(*) FROM invites WHERE owner=?", (sub,)).fetchone()[0]
-        if count >= MAX_ACTIVE_INVITES:
-            db.rollback()
-            return "已有太多未使用邀請；請稍後再建立。"
-        db.execute("INSERT INTO invites(digest,owner,expires) VALUES(?,?,?)",
-                   (_digest(raw), sub, now + INVITE_SECONDS))
-        _audit(db, sub, chat, "invite")
-        db.commit()
-    return (f"已建立 Slime 一次性邀請，有效 {INVITE_SECONDS//60} 分鐘。\n"
-            f"節點配對碼（點按可複製）：\n{raw}\n\n"
-            f"完整邀請連結：\n{origin}/#slime={raw}\n"
-            "朋友需自行安裝下載區的 Slime 程式並明確同意。此連結包含配對密鑰，請勿公開轉貼。")
+        _audit(db,sub,chat,"invite")
+    return result
+
+
+def _invite(sub: str, chat: int) -> str:
+    invite=_create_invite(sub,chat)
+    if not invite:
+        return "配對碼建立失敗；可能是邀請數量已達上限或 Slime 後端未就緒。"
+    return ("Slime · 一次性配對碼\n"
+            "節點配對碼（點按可複製）：\n"
+            f"{invite['code']}\n\n"
+            f"有效 {INVITE_SECONDS//60} 分鐘，僅能使用一次。\n"
+            f"備用邀請連結：\n{invite['link']}\n\n"
+            "在 Slime 安裝程式輸入短碼即可，不需要先打開連結。"
+            " 使用朋友電腦前須取得持有人的明確同意。"
+            " 此處不顯示裝置的長期 Token。")
 
 
 def _lookup(db, sub: str, name: str):

@@ -369,7 +369,7 @@ def join(body: JoinRequest):
 
 @node_router.post("/v1/slime/node/heartbeat")
 def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
-              background_tasks: BackgroundTasks | None = None):
+              background_tasks: BackgroundTasks = None):
     _enabled()
     now=time.time()
     with _db() as c:
@@ -379,9 +379,9 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
             (now,body.capabilities.cpu,body.capabilities.ram_gb,body.capabilities.gpu,
              body.capabilities.os,body.capabilities.cpu_pct,body.capabilities.gpu_temp_c,
              body.capabilities.gpu_util_pct,int(body.share_enabled),r["id"]))
-        claimed=c.execute("""UPDATE nodes SET notified_at=-1 WHERE id=? AND
+        claimed=c.execute("""UPDATE nodes SET notified_at=? WHERE id=? AND
                    (notified_at=0 OR notified_at<?)""",
-                   (r["id"],-(now-180))).rowcount==1
+                   (-now,r["id"],-(now-180))).rowcount==1
         owner_allowed=bool(r["owner_enabled"])
         temp=body.capabilities.gpu_temp_c
         overheating=temp is not None and temp>=r["thermal_limit_c"]
@@ -391,8 +391,8 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
         background_tasks.add_task(notify_pairing,r["id"])
     elif claimed:
         with _db() as c:
-            c.execute("UPDATE nodes SET notified_at=0 WHERE id=? AND notified_at=-1",
-                      (r["id"],))
+            c.execute("UPDATE nodes SET notified_at=0 WHERE id=? AND notified_at=?",
+                      (r["id"],-now))
     return {"ok":True,"owner_enabled":owner_allowed,
             "inference_enabled":bool(r["inference_enabled"]) and owner_allowed
                   and body.share_enabled and not overheating and r["max_load_pct"]>0,

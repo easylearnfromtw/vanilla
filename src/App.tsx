@@ -59,7 +59,8 @@ function Loading(){return <div className="vh-loading" role="status"><span classN
 export default function App(){
 // Legacy invitation deep links are redirected to a dedicated, lightweight
 // Slime pairing page. The fragment stays client-only; no login boot required.
-const [section,setSection]=useState<Section>("chat");
+// Direct, read-only lab link for browser automation: /vanilla/?lab=5d.
+const [section,setSection]=useState<Section>(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("lab")==="5d"?"detroit":"chat");
 useEffect(()=>{
  const hash=window.location.hash;
  if(/^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)){
@@ -69,7 +70,7 @@ useEffect(()=>{
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);
-const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"|"nodes">("retina");
+const [detroitStartTab,setDetroitStartTab]=useState<"retina"|"bard"|"luna"|"medusa"|"luca"|"notion"|"nodes"|"penteract">(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("lab")==="5d"?"penteract":"retina");
 const [orchestraSeed,setOrchestraSeed]=useState<string|null>(null);
 const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream"|"ai">("manual");
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);

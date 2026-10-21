@@ -213,6 +213,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <button type="button" role="tab" id="tab-devices" aria-selected="false" tabindex="-1" aria-controls="devices" data-tab="devices"><span class="tab-icon" aria-hidden="true">▤</span>節點</button>
 <button type="button" role="tab" id="tab-pairing" aria-selected="false" tabindex="-1" aria-controls="pairing" data-tab="pairing"><span class="tab-icon" aria-hidden="true">＋</span>配對</button>
 <button type="button" role="tab" id="tab-rewards" aria-selected="false" tabindex="-1" aria-controls="rewards" data-tab="rewards"><span class="tab-icon" aria-hidden="true">◇</span>獎勵</button>
+<button type="button" role="tab" id="tab-gecko" aria-selected="false" tabindex="-1" aria-controls="gecko" data-tab="gecko"><span class="tab-icon" aria-hidden="true">▦</span>Gecko</button>
 </nav>
 <main>
 <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
@@ -280,6 +281,30 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="cards"><div class="metric"><strong id="weeken-joined">—</strong><span>WEEKEN 已登記</span></div><div class="metric"><strong id="weeken-gifted">—</strong><span>WEEKEN 加碼 Token</span></div><div class="metric"><strong id="reward-forfeited">—</strong><span>節點刪除追回 Token</span></div></div>
 </div>
 </section>
+<section id="gecko" role="tabpanel" aria-labelledby="tab-gecko" hidden>
+<div class="section-head"><span class="eyebrow">05 / GECKO FLEET</span><h2>大量主機叢集</h2><p>批次註冊 · 主機資源池 · 灰度更新</p></div>
+<div class="card">
+<h2>建立批次部署授權</h2>
+<p>你的機房或已取得管理權的伺服器，可由 MDM／Ansible／Kubernetes Secret 將授權安全配送到主機。不需要每台電腦輸入 Telegram 短碼，其他未經授權的電腦不會被加入。</p>
+<label for="gecko-name" class="eyebrow" style="display:block;margin:14px 0 5px">主機群名稱</label>
+<input id="gecko-name" type="text" maxlength="50" value="GPU-Rack-A" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)">
+<label for="gecko-capacity" class="eyebrow" style="display:block;margin:14px 0 5px">批次名額（每批最多 2,000 台）</label>
+<input id="gecko-capacity" type="number" min="1" max="2000" value="20" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)">
+<div class="controls"><button type="button" class="btn primary full" id="gecko-create">＋ 建立 1 小時批次授權</button></div>
+<div id="gecko-secret-display" class="result" role="status" hidden></div>
+<div class="controls"><button type="button" class="btn soft" id="gecko-copy" hidden>複製短效憑證</button>
+<button type="button" class="btn soft" id="gecko-clear" hidden>清除憑證</button></div>
+<div class="notice" style="margin-top:10px">憑證只顯示一次，請由安全的部署／秘密管理系統注入受管主機，不要將它放在公開網頁或安裝程式內。</div>
+</div>
+<div class="card">
+<div class="card-title"><div><span class="eyebrow">FLEET CONTROL</span><h2>主機群與更新</h2></div>
+<button type="button" class="btn soft" id="gecko-refresh">重新整理</button></div>
+<div class="cards"><div class="metric"><strong id="gecko-total">—</strong><span>已受管主機</span></div>
+<div class="metric"><strong id="gecko-online">—</strong><span>本頁在線主機</span></div></div>
+<div id="gecko-pools" class="nodes" aria-live="polite">讀取主機群…</div>
+<div class="notice">每個批次可停止新裝置加入；已加入主機由原有 Slime 撤銷程序管理。設定期望版本與灰度比例不會在遠端直接執行程式。</div>
+</div>
+</section>
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>
 <p>請從已授權的 Ceres Owner 私聊使用「Slime 私人管理頁」按鈕開啟。
 一般瀏覽器直接開啟網址不會取得管理權限。</p></div>
@@ -303,7 +328,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  const tg=window.Telegram?.WebApp;
  const auth=tg?.initData||"";
  const $=id=>document.getElementById(id);
- let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false,pollTimer=null;
+ let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false,pollTimer=null,geckoSecret="";
  function haptic(){try{tg?.HapticFeedback?.selectionChanged?.();}catch(e){}}
  function notice(txt){
    const box=$("message");box.hidden=false;box.textContent=String(txt);
@@ -311,13 +336,13 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    flash=setTimeout(()=>{box.hidden=true;},4200);
  }
  function setTab(value){
-   if(!["overview","devices","pairing","rewards"].includes(value))return;
+   if(!["overview","devices","pairing","rewards","gecko"].includes(value))return;
    document.querySelectorAll("[data-tab]").forEach(btn=>{
      const active=btn.dataset.tab===value;
      btn.setAttribute("aria-selected",String(active));btn.tabIndex=active?0:-1;
    });
-   ["overview","devices","pairing","rewards"].forEach(key=>$(key).hidden=key!==value);
-   if(value==="rewards")void loadReward();
+   ["overview","devices","pairing","rewards","gecko"].forEach(key=>$(key).hidden=key!==value);
+   if(value==="rewards")void loadReward();if(value==="gecko")void loadGecko();
    haptic();
  }
  async function api(route,extra){

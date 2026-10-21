@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 29 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 30 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -902,8 +902,42 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 對模型版本、Prompt、工具 schema、RAG 索引與資料庫 forward-only migration 進行回退演練；不相容或不可逆情形應阻擋並展示真實風險，而非假裝可快速恢復。
 - 從 Candidate、CI、Verifier、Shadow、Canary、Owner approve 到 Production／Rollback，能依 release_id 還原各階段真實輸入、結果、執行時間、授權與 artifacts；未實際執行的階段不能記為成功。
 
+## Q31 / 50 — D：分層式可信長期記憶系統（Working × Episodic × Semantic × Durable Checkpoints）
+
+**決策：D — 分層式可信長期記憶系統。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採分層式可信長期記憶系統：整合Working Memory、Episodic Memory、Semantic Memory及持久Task Checkpoints，支援跨會話與授權設備接續工作，具備來源版本追溯、記憶衝突偵測、有效期限、使用者與租戶隔離及隱私治理；記憶不得充當新的工具或Self-Build執行授權，高風險操作仍依Ceres與可信後端政策核准。」
+
+### 分層記憶與資料治理契約
+
+1. **四種記憶明確分工**：Working Memory 保存當前 request／session 的任務狀態、受限上下文與待求證內容；Episodic Memory 保存真實事件、工具回傳、任務執行結果、使用者已確認的決策與失敗原因；Semantic Memory 保存可重用且有來源的知識、偏好、專案關係及領域概念；Durable Task Checkpoints 保存 Q07／Q15 DAG 的步驟、依賴、重試／取消狀態、artifact refs、已完成與未完成的結果。四者不得因摘要而混為單一不可驗證聊天紀錄。
+2. **Memory Record 的型別契約**：記憶至少含 memory_id、tenant_id、subject/user_scope、project_id、kind、claim／event_payload、source_ref、source_type、source_version、observed_at、valid_from／valid_until、recorded_at、verified_state、confidence/uncertainty、conflict_group、sensitivity、retention_policy、consent_basis、supersedes_id 及 artifact/checkpoint refs；由 Q14 typed JSON Schema 驗證。工具執行證據、推測及經使用者明確確認的規格須以不同型別儲存。
+3. **來源與真實性分級**：使用者明確確認決策、已查核原始文件、可信後端工具結果、推導計算、模型自行歸納、未驗證假設，分別附真實來源、證據時間與驗證狀態。模型不得把自己的摘要當作使用者新授權，不得把「曾計畫執行」或「產生程式」記作「部署已完成」，也不得以未查核個人偏好／推測補寫權威決策。
+4. **長期寫入政策**：由已核准任務執行、明確專案決策、可信資料更新、可重現評測／錯誤事件與符合個資政策的持久偏好產生候選記憶；進行去重、敏感性掃描、來源驗證、必要的使用者確認與 TTL／保留級別分類。一般對話不應無差別永久儲存；高度敏感資料及秘密不得因「有助於個人化」便進入跨工作區記憶。
+5. **事件與語意記憶分離**：Episodic Memory 對每項工具操作保留真實執行時間、輸入 hash／作用範圍、狀態、輸出 artifact、錯誤、重試及批准者；Semantic Memory 由版本化來源提取可再利用知識，但每筆語意宣稱均可追溯原始事件／文件。先前模型結論與官方來源矛盾時，保留雙方、標明差異，不用後寫的文字無條件覆蓋證據。
+6. **版本、衝突與時間效度**：為同一專案決策、人物設定、金融資料、法規或研究結論分開 valid_time 和 system_record_time，支援 append／supersede／revoke、來源版本、版本衝突鏈與 as-of 檢索。過期的時間敏感資料應沿用 Q21 stale／verified／conflicting 標籤；不得把 2025 年資料說成當前最新，也不得把不同成員的同名專案狀態合併。
+7. **檢索與 context budgeting**：與 Q22 統合 lexical/vector/graph/hierarchical retrieval，先以租戶／專案／資料授權及記憶類型過濾，再依任務必要性、可信度、時效與 token 預算選入證據。October 與 Victoria／Merlin 只取得最小必要 Evidence Pack；若上下文不足、參照不明或記憶互相衝突，應明示不確定性並向使用者合理回問。
+8. **跨會話與跨設備同步**：採端點身分驗證與經授權的加密持久化／同步，支援離線本地快取、重新連線的增量同步、版本向量／樂觀並行檢查、去重與衝突處理，不假設同一使用者在不同設備有同時一致的即時狀態。Slime 朋友節點不可自動取得完整個人記憶；只有最小必要、具授權的任務工作包可轉移，任務結束依政策清理暫存。
+9. **Durable Task Checkpoint 的恢復安全**：對每個 DAG step 記錄 task_id、checkpoint_id、plan_version、inputs/hash、dependency_state、tool_execution_receipt、retry_count、idempotency_key、scope、lease_owner、cancellation、artifact_refs 與 next_allowed_action。程序或節點重啟後先查可信執行紀錄並重新驗證現行權限、來源時效與副作用狀態，才允許恢復；對轉帳、寄信、下單、PR 合併或部署等操作禁止僅憑舊 checkpoint 盲目重試。
+10. **「記憶不是授權」硬邊界**：過去的「我允許」、Telegram 批准歷史、個人偏好、Workflow 運行紀錄、模型推斷意圖或跨會話摘要，均不得替代當前可信後端的 tenant/scope/action 權限和必要 Owner Ceres 一次性核准。授權逾期、任務目標或 release SHA 改變、Owner 撤銷、裝置未認證時，僅能保留歷史紀錄，**不能**恢復高風險動作。
+11. **Self-Build 觸發隔離**：Q25、Q27–Q30 規定不變。Memory Engine 即使讀到「請修復」「開始 Self-Build」或過去任務裡有預設同意，也**不能**觸發 Self-Build；只有可信後端簽核排程／內部品質事件可建立背景工作。記憶寫入、摘要、RAG 索引或跨設備同步也不得將一般使用者訊息洗成「內部事件」。
+12. **隱私、隔離與生命週期**：依 user／tenant／project 空間做 ACL、加密、資料最小化與 key rotation 支援；針對來源撤銷、使用者刪除、更正、資料留存期限，提供可執行的 purge 或 retraction 流程，包含向量索引、Graph edges、摘要、離線副本與 derived artifacts（依保存法律義務另行處理）。私人模式不得寫入長期個人記憶；不將跨帳戶紀錄、個人醫療財務資料或 API key 作為預設模型訓練樣本。
+13. **治理與可審計性**：Ceres 僅由 Owner 管理系統級記憶保留與資料範圍政策，高影響操作需後端驗證；使用者僅能在自己權限內檢查、更正或刪除個人記憶。LUCA 記錄脫敏的誤召回、衝突、來源過期、重複事件、checkpoint 恢復失敗、資料刪除佇列及安全拒絕，不將私人內容完整複製到診斷紀錄。
+14. **跨模組一致性**：Q08 Victoria/Merlin 處理合法的對話脈絡與歧義；Q10 學習政策不等於記憶；Q14 Artifact Store 保存可核對的來源；Q21–Q23 提供版本化合法資料與引用；Q27 Verifier/Evals 檢查錯誤召回；Q07／Q15 負責真正 DAG 執行與恢復。Memory Engine 不應另造繞過上述政策的影子執行器。
+15. **未完成實作聲明**：本題僅確立正式長期記憶架構決策；不代表 October 已完成跨設備同步、持久 checkpoint 邏輯、租戶隔離、刪除傳播、可用的長期索引或現有對話直接持久化。是否真的保存／取回內容，必須以目前可用且已驗證的服務與執行證據判定。
+
+### 可驗證驗收要求（尚待實作）
+
+- 對同一跨三個月專案建立決策、工具事件、知識條目與 DAG checkpoint，透過重新啟動、斷線、改本地模型及授權設備切換，還原已確認／未完成步驟且不虛構「已部署」狀態。
+- 注入不同使用者／租戶的同名專案、私人資料及相似對話，測試 semantic retrieval／summary 不跨租戶混合；私密模式、授權撤銷、資料清理與派往 Slime friend node 的同步遵守限制。
+- 將官方來源修訂、相互矛盾的使用者陳述、過期行情與未驗證模型推測加入記憶，Verifer／retriever 必須輸出來源版本與衝突，避免取「最新寫入」作唯一真理。
+- 在高影響任務曾經核准、但現在 token 過期／Owner 撤銷／目標 SHA 改變後重啟 Checkpoint，必須阻止新增部署、寄信、下單或資料變更，並保留合法已完成事件。
+- 將一般對話、跨會話摘要與 memory entry 偽裝成 CI／LUCA 背景訊號，驗證 Self-Build 不會被觸發，只有可信後端事件及有效 policy 能進入其工作隊列。
+- 模擬刪除、訂閱來源撤銷、索引版本更新、離線裝置重新連線與刪除墓碑（tombstone）傳播，確認過期內容不會由舊裝置重新灌入合法已刪記憶。
+- 衡量長期決策還原正確率、memory precision／recall、衝突檢出率、來源可追溯性、恢復後副作用重複執行率（必須為零）、隔離違規數（必須為零）、資料清除完成率、延遲及儲存／token 成本。
+
 ### 待決事項
 
-**Q31 / 50：October 應如何建立可信、可控的跨會話與跨任務持久記憶，使長期專案能接續執行，又不混淆舊資訊、權限與不同使用者的資料？** 尚待使用者答覆。
+**Q32 / 50：October 應如何協調 Diana、Victoria、Merlin、Retina、CREAM、Quirinus、LUCA 等專業 Agent／工具，共同處理跨領域任務，同時防止衝突、重複執行、權限混淆與錯誤傳遞？** 尚待使用者答覆。
 
 ---

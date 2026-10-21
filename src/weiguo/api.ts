@@ -434,3 +434,33 @@ export async function generateWeiGuoGemini(turns:Array<{role:"user"|"assistant";
  if(!response.text.trim())throw Error("Gemini 後端沒有回傳文字");
  return response.text;
 }
+
+/** October opt-in CSV server proof.
+ * Only explicitly requested uploads enter this function. The Google family
+ * session bearer lives in WeiGuo's in-memory auth closure, never in the
+ * chat transcript or localStorage. Caller must compare against local CREAM.
+ */
+export type OctoberServerMetric={
+ key:string;n:number;missing:number;sum:number;mean:number;
+ median:number;min:number;max:number;sampleStdDev:number|null;
+};
+export type OctoberServerProof={
+ receipt:{taskId:string;status:"verified";inputSha256:string;resultSha256:string;
+  createdAt:number;signature:string;scope:"readonly:csv";runtime:string};
+ replayed:boolean;
+ result:{source:string;rowCount:number;columns:string[];metrics:OctoberServerMetric[];
+  verification:"independent-python-statistics";modelInvoked:false};
+};
+export async function verifyOctoberCsvOnWeiGuo(payload:{
+ task_id:string;kind:"csv-descriptive-statistics";source:string;csv:string;
+}):Promise<OctoberServerProof>{
+ if(currentChatMode()==="private")throw Error("私密模式不會上傳 CSV 至伺服器");
+ const identity=weiGuoIdentity();
+ if(!identity||identity.role==="viewer")throw Error("請先使用具有分析權限的 Google 帳號登入衞國");
+ if(!/^[a-zA-Z0-9_-]{8,80}$/.test(payload.task_id)||
+    payload.kind!=="csv-descriptive-statistics"||
+    !payload.source.trim()||payload.source.length>120||
+    !payload.csv.trim()||new TextEncoder().encode(payload.csv).length>200000)
+  throw Error("CSV 超出伺服器 200 KB 限制，或任務格式不合法");
+ return request<OctoberServerProof>("/v1/family/october/csv",payload,true);
+}

@@ -186,3 +186,83 @@
 @media(max-width:360px){.venus-metrics{grid-template-columns:1fr}.venus-switch button{min-width:46px;padding:6px}.venus-gallery{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){.venus-progress span,.venus-gallery .venus-thumb-button img{transition:none!important}}
 @media(print){.venus-lightbox{display:none}.venus-widget{border:1px solid #ccc;box-shadow:none}.venus-switch{display:none}.venus-chart svg{max-height:none}}
+
+/* Venus design system — Bauhaus × iOS restraint × subtle Liquid Glass.
+ * Deliberately quiet, data-first and accessible. No decorative gradients.
+ * Applied only within rendered Venus components. */
+.venus-presentations{
+  --venus-surface:#fcfcfd;
+  --venus-soft:#f5f5f6;
+  --venus-border:rgba(31,41,55,.12);
+  --venus-text:#17191c;
+  --venus-muted:#5d6470;
+  --venus-accent:#285d82;
+  --venus-accent-soft:#e8f0f5;
+  --venus-focus:#1b66a1;
+  --venus-grid:8px;
+  color:var(--venus-text);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.005em;
+}
+.venus-widget{
+  border-radius:18px;
+  background:var(--venus-surface);
+  border:1px solid var(--venus-border);
+  box-shadow:0 2px 14px rgba(13,20,28,.035);
+  padding:clamp(16px,3.2vw,24px);
+}
+.venus-title{font-weight:670!important;letter-spacing:-.018em;line-height:1.4}
+.venus-metrics{gap:12px}
+.venus-metrics article,.venus-cards article{
+  background:var(--venus-soft);
+  border:1px solid var(--venus-border);
+  border-radius:12px;
+}
+.venus-metrics strong{
+  font-weight:680;
+  letter-spacing:-.035em;
+  font-feature-settings:"tnum" 1;
+}
+.venus-chart,.venus-map-position,.venus-tab-panel{font-variant-numeric:tabular-nums}
+.venus-chart svg{max-width:100%;color:var(--venus-text)}
+.venus-check input{accent-color:var(--venus-accent)}
+.venus-presentations button:focus-visible,
+.venus-presentations a:focus-visible,
+.venus-presentations input:focus-visible{
+  outline:3px solid var(--venus-focus);
+  outline-offset:3px;
+}
+@supports ((backdrop-filter:blur(12px)) or (-webkit-backdrop-filter:blur(12px))){
+  .venus-widget{
+    background:rgba(252,252,253,.88);
+    backdrop-filter:blur(12px) saturate(1.08);
+    -webkit-backdrop-filter:blur(12px) saturate(1.08);
+  }
+}
+@media (prefers-color-scheme:dark){
+  .venus-presentations{
+    --venus-surface:#191b1e;--venus-soft:#25282c;
+    --venus-border:rgba(244,246,249,.15);
+    --venus-text:#f2f3f5;--venus-muted:#b7bec8;
+    --venus-accent:#9acbe8;--venus-accent-soft:#223944;
+    --venus-focus:#aed7f2;
+  }
+  @supports ((backdrop-filter:blur(12px)) or (-webkit-backdrop-filter:blur(12px))){
+    .venus-widget{background:rgba(25,27,30,.87)}
+  }
+}
+@media (prefers-reduced-transparency:reduce){
+  .venus-widget{background:var(--venus-surface)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+}
+@media (prefers-contrast:more){
+  .venus-presentations{--venus-border:currentColor}
+  .venus-widget{box-shadow:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .venus-presentations *, .venus-presentations *::before,.venus-presentations *::after{
+    animation:none!important;transition-duration:0ms!important;
+  }
+}
+@media print{
+  .venus-widget{background:#fff!important;color:#000;backdrop-filter:none!important;box-shadow:none!important}
+}

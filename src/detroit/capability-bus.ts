@@ -31,7 +31,7 @@ export const DETROIT_CAPABILITIES:readonly DetroitCapability[]=Object.freeze(lis
 export function findDetroitCapability(id:string):DetroitCapability|undefined{
  return DETROIT_CAPABILITIES.find(c=>c.id===id);
 }
-export type DetroitCallContext={privateMode:boolean;approved?:boolean;signal?:AbortSignal};
+export type DetroitCallContext={privateMode:boolean;approved?:boolean;signal?:AbortSignal;onProgress?:(completed:number,total:number)=>void};
 export type DetroitExecutor=(input:unknown,context:DetroitCallContext)=>Promise<unknown>;
 export type DetroitReceipt={
  capability:string;status:"completed";result:unknown;

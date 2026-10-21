@@ -56,6 +56,7 @@ from pdfcraft_remote import combine_pdfs, remote_requested, remote_ready
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
+from october_readonly import router as october_readonly_router
 from luca import enabled as luca_enabled, initialize as luca_initialize, record_http as luca_record_http, record as luca_record, summary as luca_summary
 
 class PlanRequest(BaseModel):
@@ -188,6 +189,7 @@ app.include_router(ceres_slime_web_router)
 app.include_router(ceres_model_router)
 app.include_router(ceres_ops_router)
 app.include_router(family_model_router)
+app.include_router(october_readonly_router)
 app.include_router(vanilla_public_router)
 app.include_router(slime_runner_router)
 app.include_router(vanilla_admin_router)

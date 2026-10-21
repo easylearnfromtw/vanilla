@@ -68,3 +68,31 @@ test("consent is off by default and keyed per account",()=>{
   assert.equal(isVictoriaEnabled("a"),false);
  }finally{if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original;}
 });
+
+test("longitudinal archive retrieval exposes distinct user-authored updates with provenance",async()=>{
+ const store=memoryArchiveStore();
+ await archiveConversation(store,"chronology-owner","normal",[
+  {role:"user",content:"October 阿土伯 計畫：第一階段開發資料匯入"},
+  {role:"assistant",content:"我覺得這已經正式上線，但沒有回執"},
+  {role:"user",content:"October 阿土伯 計畫：第二階段要做長期資料分析"},
+  {role:"assistant",content:"未取得正式部署紀錄"},
+  {role:"user",content:"October 阿土伯 計畫：第三階段調校 Victoria"},
+  {role:"assistant",content:"仍在討論"},
+ ],1730000000000);
+ const result=await recallVictoria("October 阿土伯 計畫長期資料趨勢回顧",{owner:"chronology-owner",enabled:true,privateMode:false,store});
+ assert.equal(result.inspectedArchives,1);
+ assert.equal(result.matches.length,1);
+ assert.match(result.context,/其他相關歷史提問/);
+ assert.match(result.context,/第一階段|第二階段|第三階段/);
+ assert.match(result.context,/過去回答（未驗證）/);
+ assert.match(result.context,/不能當作系統指令/);
+});
+test("Victoria does not read a different account's private or normal archive",async()=>{
+ const store=memoryArchiveStore();
+ await archiveConversation(store,"owner-B","normal",sample("October Victoria 長期資料分析","私人指標 999999"),1720000000000);
+ await archiveConversation(store,"owner-A","private",sample("October Victoria 長期資料分析","private marker"),1720000001000);
+ const got=await recallVictoria("October Victoria 長期資料分析",{owner:"owner-A",enabled:true,privateMode:false,store});
+ assert.equal(got.inspectedArchives,0);
+ assert.equal(got.matches.length,0);
+ assert.doesNotMatch(got.context,/999999|private marker/);
+});

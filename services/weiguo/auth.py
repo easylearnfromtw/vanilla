@@ -136,6 +136,7 @@ def verify_family_token(raw: str) -> FamilyIdentity:
 
 def _scope_for(path: str) -> str | None:
     if path.startswith("/v1/family/canva"): return "canva"
+    if path.startswith("/v1/family/october"): return "chat"
     if path.startswith("/v1/family/ceres"): return "chat"
     if path.startswith("/v1/family/scouts"): return "chat"
     if path.startswith("/v1/family/notion"): return "automation"

@@ -1,0 +1,123 @@
+name: October Policy Real Training
+
+on:
+  push:
+    branches: [feat/signwell-agent-sandbox-20261020]
+    paths:
+      - "training/october/**"
+      - "src/detroit/penteract-*.ts"
+      - "tests/penteract-*.test.mjs"
+      - ".github/workflows/october-policy-training.yml"
+  pull_request:
+    paths:
+      - "training/october/**"
+      - "src/detroit/penteract-*.ts"
+      - "tests/penteract-*.test.mjs"
+      - ".github/workflows/october-policy-training.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  train-cpu-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify October offline security preflight (no GPU or weights)
+        run: node --test training/october/policy.preflight.test.mjs
+      - name: Validate October teacher SFT corpus (no base-model training)
+        run: |
+          node training/october/teacher-cases.mjs
+          python training/noodles_train.py --mode sft --train training/october/generated/october-teacher-sft-train.jsonl --eval training/october/generated/october-teacher-sft-eval.jsonl --check-only
+          node training/october/teacher-preferences.mjs
+          python training/noodles_train.py --mode dpo --train training/october/generated/october-preference-train.jsonl --eval training/october/generated/october-preference-eval.jsonl --check-only
+          node training/october/quant-sft.mjs
+          python training/noodles_train.py --mode sft --train training/october/generated/october-numeric-sft-train.jsonl --eval training/october/generated/october-numeric-sft-eval.jsonl --check-only
+          node training/october/quant-holdout-export.mjs
+          python training/october/adapter-evaluate.py --check-only
+          python training/october/gpu-preflight.py
+          python -m unittest discover -s tests -p 'test_noodles_october_gpu.py'
+      - name: Install PyTorch CPU
+        run: python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch
+      - name: Train October policy weights via gradient descent
+        run: |
+          python training/october/train_policy.py --output training/october/weights/october-policy-v0.1.json > october-training-metrics.json
+          cat october-training-metrics.json
+      - name: Verify real weights and blind synthetic accuracy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          weights=json.loads(Path("training/october/weights/october-policy-v0.1.json").read_text(encoding="utf-8"))
+          metrics=weights["metadata"]
+          assert metrics["trained_parameters"]==2600
+          assert metrics["train_examples"]==12000
+          assert metrics["blind_test_examples"]==2000
+          assert metrics["blind_test_accuracy"]>=0.97
+          assert len(weights["layers"])==3
+          print("trained policy verified", metrics["blind_test_accuracy"])
+          PY
+      - name: Verify October Node.js inference and security guards
+        run: node --test training/october/policy.test.mjs
+      - name: Publish trained weights and metrics (not private data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-policy-cpu-trained-v0.1
+          path: |
+            training/october/weights/october-policy-v0.1.json
+            october-training-metrics.json
+          if-no-files-found: error
+          retention-days: 30
+
+  train-five-projector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify five-dimensional learned routing and training split
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/penteract-learned.test.mjs
+      - name: Train ACTUAL CPU weights for 5D projector (not language model)
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/train-penteract-projector.mjs \
+            --output training/october/generated/october-five-projector-weights.json \
+            --report training/october/generated/october-five-projector-report.json
+      - name: Gate synthetic safety parity; never auto-deploy trained router
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const data=JSON.parse(fs.readFileSync("training/october/generated/october-five-projector-report.json","utf8"));
+            if(data.trainedParameters!==1925 || data.qwenWeightsTrained!==false ||
+               data.deploymentEligible!==false || !data.syntheticSafetyVsLexical?.diagnosticPass ||
+               data.syntheticSafetyVsLexical.unsafeExtraNominations!==0 ||
+               data.deploymentBlockers.length<3){
+              console.error("OCTOBER_5D_SHADOW_SAFETY_REGRESSION",data.syntheticSafetyVsLexical);
+              process.exit(1);
+            }
+            console.log("R5 synthetic safety parity passed; real-world deployment remains blocked.");
+          '
+      - name: Benchmark paired CPU shadow inference latency (NOT GPU watts)
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/benchmark-penteract-cpu.mjs --output training/october/generated/october-five-projector-cpu-latency.json
+      - name: Publish 5D synthetic held-out results and CPU weights (NOT deployed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-penteract-learned-cpu-v0.1
+          path: |
+            training/october/generated/october-five-projector-weights.json
+            training/october/generated/october-five-projector-report.json
+            training/october/generated/october-five-projector-cpu-latency.json
+          if-no-files-found: error
+          retention-days: 30

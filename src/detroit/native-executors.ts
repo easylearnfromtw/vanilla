@@ -9,6 +9,8 @@ import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-template
 import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
 import {lunaPNG,saveLunaFile} from "../luna/export";
 import {recallVictoria,isVictoriaEnabled,type VictoriaRecall} from "./victoria";
+import {longitudinalReportForVictoria} from "../cream/history-store";
+import {summarizeVictoriaLongitudinal} from "./victoria-longitudinal";
 import {orchestraHandoff,type OrchestraHandoff} from "../orchestra/ai-handoff";
 import {executeOrchestraHandoff} from "../orchestra/agent-executor";
 
@@ -17,7 +19,7 @@ type CreamInput={csv:string;source?:string};
 type RetinaInput={title:string;body:string;format:RetinaFormat;download:boolean};
 type JanusInput={kind:EmailTemplateKind;title:string;body:string;brand:string;download:boolean};
 type LunaInput={prompt:string;owner:string;download:boolean;save:boolean};
-type VictoriaInput={query:string;owner:string};
+type VictoriaInput={query:string;owner:string;includeLongitudinal?:boolean};
 export type NativeRetinaResult={filename:string;format:RetinaFormat;sections:number};
 export type NativeJanusResult={filename:string;format:"html";bytes:number};
 export type NativeLunaResult={filename:string;format:"png";layers:number;savedEditable:boolean};
@@ -79,8 +81,31 @@ export function registerDetroitNativeExecutors():void{
  });
  detroitBus.register("victoria",async(raw,ctx)=>{
   const data=assertObject(raw);
-  const input:VictoriaInput={query:limited(data.query,16000),owner:limited(data.owner,150)};
-  return recallVictoria(input.query,{owner:input.owner,enabled:isVictoriaEnabled(input.owner),privateMode:ctx.privateMode});
+  const input:VictoriaInput={query:limited(data.query,16000),owner:limited(data.owner,150),
+    includeLongitudinal:data.includeLongitudinal===true};
+  // Archive consent and private-mode checks occur before any IndexedDB archive read.
+  const recalled=await recallVictoria(input.query,{
+    owner:input.owner,enabled:isVictoriaEnabled(input.owner),privateMode:ctx.privateMode
+  });
+  if(!input.includeLongitudinal||ctx.privateMode)return recalled;
+  // Respect the existing CREAM opt-out even if a caller asks for longitudinal data.
+  let allowed=false;
+  try{
+    const prefs=JSON.parse(localStorage.getItem("vanilla.chat.context-prefs.v1")||"{}") as {cream?:boolean};
+    allowed=prefs.cream!==false;
+  }catch{allowed=false;}
+  if(!allowed)return recalled;
+  // CREAM performs deterministic math on the currently signed-in account's existing data.
+  // Victoria only selects a bounded, source-labelled summary; never starts a background job.
+  const report=await longitudinalReportForVictoria(input.owner,{
+   signal:ctx.signal,onProgress:ctx.onProgress
+  });
+  const summary=summarizeVictoriaLongitudinal(input.query,report);
+  const limits=report.coverage;
+  if(limits.truncated)summary.context+=(summary.context?"\n":"")+
+   "資料完整性警告：本輪只檢視 "+limits.examined+"／"+limits.available+
+   " 筆紀錄，超出本機分批處理上限；不得當作全部歷史的統計。";
+  return {...recalled,longitudinal:summary} satisfies VictoriaRecall;
  });
  detroitBus.register("luna",async(raw,ctx)=>{
   const data=assertObject(raw),prompt=limited(data.prompt,300);
@@ -105,7 +130,7 @@ export function registerDetroitNativeExecutors():void{
 }
 /** No implicit cloud, email sending or arbitrary plugins. Execution receipts only follow real tool completion. */
 export async function executeDetroitNative<T>(id:"scouts"|"cream"|"retina"|"janus"|"luna"|"victoria"|"orchestra",input:ScoutInput|CreamInput|RetinaInput|JanusInput|LunaInput|VictoriaInput|OrchestraHandoff,
- context:{privateMode:boolean;signal?:AbortSignal}):Promise<T>{
+ context:{privateMode:boolean;signal?:AbortSignal;onProgress?:(completed:number,total:number)=>void}):Promise<T>{
  registerDetroitNativeExecutors();
  const receipt=await detroitBus.execute(id,input,context);
  return receipt.result as T;

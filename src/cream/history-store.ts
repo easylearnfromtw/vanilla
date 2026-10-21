@@ -74,3 +74,45 @@ export function exportCreamHistory(report:{observations:CreamObservation[]}):str
  return ["日期,指標,單位,數值,來源,原始列號",...report.observations.map(x=>
   [x.date,x.metric,x.unit,String(x.value),x.source,String(x.sourceRow)].map(quote).join(","))].join("\r\n")+"\r\n";
 }
+
+/** Victoria's bounded, cancellable foreground history scan.
+ * We intentionally do not claim that this is a background worker or that it
+ * scans unbounded history. No data is sent to a network by this routine.
+ */
+export async function longitudinalReportForVictoria(
+ owner:string,opts:{signal?:AbortSignal;onProgress?:(completed:number,total:number)=>void;maxObservations?:number}={}
+):Promise<{snapshots:CreamSnapshot[];trends:CreamTrend[];coverage:{examined:number;available:number;truncated:boolean}}> {
+ if(!owner.trim())throw Error("Victoria 缺少已登入的資料擁有者");
+ const [snapshots,goals]=await Promise.all([listCreamSnapshots(owner),getCreamGoals(owner)]);
+ const valid=snapshots.filter(s=>s.owner===owner);
+ const available=valid.reduce((count,s)=>count+s.observations.length,0);
+ const limit=Math.max(1,Math.min(40000,Math.floor(opts.maxObservations??40000)));
+ const observations:CreamObservation[]=[];
+ const total=Math.min(available,limit);
+ for(const snapshot of valid){
+  for(const observation of snapshot.observations){
+   if(observations.length>=limit)break;
+   if(opts.signal?.aborted)throw Error("Victoria 長期資料工作已取消");
+   observations.push(observation);
+   if(observations.length%600===0){
+    opts.onProgress?.(observations.length,total);
+    await new Promise<void>(resolve=>setTimeout(resolve,0));
+   }
+  }
+  if(observations.length>=limit)break;
+ }
+ if(opts.signal?.aborted)throw Error("Victoria 長期資料工作已取消");
+ opts.onProgress?.(observations.length,total);
+ // The CREAM engine computes observations; Victoria only selects the bounded briefing.
+ const trends=analyzeLongitudinal(observations);
+ for(const trend of trends){
+  const goal=goals.find(g=>g.metric.trim().toLowerCase()===trend.metric.toLowerCase()&&
+   g.unit.trim().toLowerCase()===trend.unit.toLowerCase());
+  if(goal){
+   const relevant=observations.filter(o=>o.metric.trim().toLowerCase()===trend.metric.toLowerCase()&&o.unit.trim().toLowerCase()===trend.unit.toLowerCase());
+   trend.goal=analyzeLongitudinal(relevant,goal)[0]?.goal;
+  }
+ }
+ if(opts.signal?.aborted)throw Error("Victoria 長期資料工作已取消");
+ return {snapshots:valid,trends,coverage:{examined:observations.length,available,truncated:observations.length<available}};
+}

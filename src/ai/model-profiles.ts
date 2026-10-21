@@ -94,6 +94,16 @@ function localProfile(model:string):ModelProfile{
 
 function ollamaProfile(model:string):ModelProfile{
  const name=model.toLowerCase();
+ // October is an alias over Qwen3:4b (or Qwen3:0.6b for lite), not a
+ // 7B model. Version tags like ':0.3' MUST NOT be mistaken for params.
+ if(/^october(?::[\w.-]+)?$/.test(name)){
+  const lite=/^october:(?:lite|0\.6b|tiny)/.test(name);
+  const out=lite?T(128,320,480,640,1024,0):T(192,640,1024,1280,2048,0);
+  return {source:"ollama",model,family:"october-qwen3",contextTokens:lite?4096:ollamaContextSetting(),
+   tier:lite?35:74,paramsB:lite?0.6:4,compactPrompt:lite,thinking:"ollama-think",maxOutput:out,
+   temperature:temp(0.45,0.32,0.6,0.18,0.12,null),topP:0.85,
+   frequencyPenalty:0,presencePenalty:0};
+ }
  const paramsB=parseParamsB(name)||(/taide/.test(name)?8:7);
  const thinking:ThinkingStyle=/deepseek-r1|qwq/.test(name)?"always":/qwen3|magistral/.test(name)?"ollama-think":"none";
  const scale=paramsB>=27?14:paramsB>=12?11:paramsB>=7?8:paramsB>=3?4:paramsB>=1.5?1:-5;

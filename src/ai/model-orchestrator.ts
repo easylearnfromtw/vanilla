@@ -1,5 +1,5 @@
 import {getConfigs} from "../vault/providers";
-import {getOllamaConfig,isOllamaConfigured,generateOllamaReply} from "./ollama";
+import {getOllamaConfig,isOllamaConfigured,generateOllamaReply,type OllamaInferenceMetrics} from "./ollama";
 import {generateCloudReply,type ImageInput} from "../vault/providers";
 import {generateLocalReply,loadLocalModel,type ChatTurn} from "../local-ai/engine";
 import {retryDisposedLocalInference} from "../local-ai/webllm-compat";
@@ -120,7 +120,7 @@ export function promptBudgetFor(candidate:ModelCandidate,task:TaskKind):number{
  if(candidate.source==="ollama")return Math.max(1200,profile.contextTokens-profile.maxOutput[task]-900-1200);
  return 24000;
 }
-export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal;deep?:boolean;toolGrounding?:string};
+export type GenerateOptions={task:TaskKind;privateMode:boolean;signal?:AbortSignal;deep?:boolean;toolGrounding?:string;onFunnelMetrics?:(stage:"understand"|"answer",metrics:OllamaInferenceMetrics)=>void};
 export async function generateCandidate(candidate:ModelCandidate,history:ChatTurn[],image?:ImageInput,onText?:(text:string)=>void,optimization?:GenerateOptions):Promise<string>{
  const start=Date.now();
  const task=optimization?.task;
@@ -136,7 +136,7 @@ export async function generateCandidate(candidate:ModelCandidate,history:ChatTur
    ()=>report(""),
    watchdog.signal
   );
-  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding});
+  else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding,onFunnelMetrics:optimization?.onFunnelMetrics});
   else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding});
   watchdog.assertCompleted();
   assertUsableModelAnswer(result);

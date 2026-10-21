@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/vanilla-core-pwa]
+    branches: [feature/vanilla-core-pwa, feat/signwell-agent-sandbox-20261020]
 permissions:
   contents: read
 jobs:
@@ -29,6 +29,10 @@ jobs:
           npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:detroit-bus
+          npm run test:model-reply
+          npm run test:october-readonly
+          npm run test:october-quality
+          npm run test:october-persona
           npm run test:diana
           node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres
@@ -76,6 +80,22 @@ jobs:
           npm run test:reliability
           npm run test:archive
           npm run test:providers
+      - name: Measure October approximate prompt token budget (not GPU inference)
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/prompt-budget.mjs
+      - name: Archive October prompt budget report
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-prompt-budget
+          path: training/october/generated/october-prompt-budget.json
+          if-no-files-found: error
+      - name: Audit October 5D shadow routing on fixed synthetic cases
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/penteract-routing-audit.mjs --output training/october/generated/october-penteract-shadow-audit.json
+      - name: Save October synthetic routing report (not real-model accuracy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-penteract-shadow-synthetic
+          path: training/october/generated/october-penteract-shadow-audit.json
+          if-no-files-found: error
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Slime secure pairing and reconnect regression tests

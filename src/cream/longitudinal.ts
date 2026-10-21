@@ -93,7 +93,9 @@ export function analyzeLongitudinal(observations:CreamObservation[],goal?:CreamG
  for(const o of observations){
   if(!parseDate(o.date)||!Number.isFinite(o.value)||!o.metric.trim())continue;
   const key=o.metric.trim().toLowerCase()+"\u0000"+o.unit.trim().toLowerCase();
-  groups.set(key,[...(groups.get(key)||[]),o]);
+  const existing=groups.get(key);
+  if(existing)existing.push(o);
+  else groups.set(key,[o]);
  }
  const output:CreamTrend[]=[];
  for(const data of groups.values()){

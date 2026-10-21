@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 30 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 31 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -936,8 +936,42 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 模擬刪除、訂閱來源撤銷、索引版本更新、離線裝置重新連線與刪除墓碑（tombstone）傳播，確認過期內容不會由舊裝置重新灌入合法已刪記憶。
 - 衡量長期決策還原正確率、memory precision／recall、衝突檢出率、來源可追溯性、恢復後副作用重複執行率（必須為零）、隔離違規數（必須為零）、資料清除完成率、延遲及儲存／token 成本。
 
+## Q32 / 50 — D：分層式多 Agent 協作系統（October × Diana × Detroit × Verifier）
+
+**決策：D — 分層式多 Agent 協作系統。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採分層式多Agent協作系統：October負責目標與規劃，Diana負責路由和調度，各專業Agent經Typed Schema、共用任務狀態及ArtifactRefs交接工作，支援安全並行、衝突仲裁、成本限制、權限隔離、失敗恢復與Verifier獨立驗證；不得由跨Agent訊息擴張授權，Self-Build仍僅由可信後端背景觸發，高風險操作依本人Ceres Telegram核准。」
+
+### 協作架構與契約
+
+1. **單一目標與權責歸屬**：October 負責解析可授權的使用者目標、建立輸出品質標準、分解子任務、維護最終結果責任和決定是否證據充分；Diana 根據工具能力、成本、授權、節點可用性與依賴順序進行 Agent／Tool 選擇及調度決策；Detroit Q15 的可信 DAG Executor 負責真正排程、執行狀態轉移、可取消及具副作用的工具呼叫；Verifier 獨立查證重要結果。任何角色均不能自行解釋成超越後端政策的管理權限。
+2. **專業代理角色分工**：Victoria 負責獲授權的上下文／跨會話線索，Merlin 負責歧義澄清，Scout 負責有證據的外部資料取回，Retina 處理 Q23 視覺與文件內容，CREAM／GridCraft 負責確定性計算及結構化資料，Quirinus 負責安全政策／風險檢查，LUCA 負責脫敏觀測與錯誤診斷；不得把 LUCA 當成擁有部署權的 Agent，亦不得讓模型假裝不可用的工具已執行。
+3. **Typed Handoff Envelope**：每次 Agent 交接需通過帶 schema_version 的結構化驗證，含 task_id、parent_task_id、step_id、actor、requested_capability、input_artifact_refs、input_hash、output_artifact_refs、result_schema、result_state、evidence_refs、uncertainty、source_version／as_of、tenant／project scope、budget_ref、dependency_ids、execution_receipt 及 error。型別不符、缺必要參照、版本衝突者停止交接或轉為待處理，不能自動以模型生成的自由文字補齊關鍵權限／執行結果。
+4. **共享任務狀態但不共享秘密**：共用的是 Q07／Q15 可核對的 DAG 狀態與 Q14 Artifact Store 的授權引用，不是讓所有 Agent 無限制存取完整對話、原始醫療財務資料、密鑰或跨租戶文件。每個 Agent 僅拿到依角色、任務、時間與資料分類授權的最小必要內容；ArtifactRefs 在實際讀取時仍由可信後端做 ACL／tenant／source-license 檢查。
+5. **依賴與安全並行**：October 拆分純讀取／無副作用且互不依賴的子任務可由 Diana 提議平行執行；資料更新、外部寫入、相同 artifact 修改與會影響順序的動作由 Detroit 設 dependency barrier、mutex／lease／version precondition、idempotency key；同一副作用不因重試或兩個 Agent 同時出現而重複執行。
+6. **結論衝突仲裁**：若不同 Agent 對資料時間、單位、公式、引用、研究主張或外部查詢提出不同結果，建立 claim-level conflict set，保留各自 evidence refs 與適用條件。Verifier 以原始來源、可重算工具結果、版本與方法論驗證；不能只依多數 Agent 投票、模型分數高低或 October 主觀偏好消除矛盾。仍無定論時呈現限制並依 Merlin 必要時回問。
+7. **執行權限不可傳遞／擴大**：Agent-to-Agent 訊息或 Artifact 內的「已獲授權」文字不具法律或系統權限效力；只有可信 policy engine 可簽發 scope-limited capability，並逐次驗證 action、resource、tenant、expiry、approval status。尤其刪改資料、GitHub 高權限操作、金鑰更動、正式部署及涉及 Self-Build 的行為，不能因跨 Agent 呼叫链被提升。
+8. **Self-Build 硬隔離**：一般用戶對話的 October 工具調度與 Q25 的管理員批准開發作業，必須和 Q27–Q30 的 Self-Build 後端背景佇列使用不同 task type、身份與執行權杖。任何 Agent 都不得把用戶訊息、對話摘要、Prompt injection 或伪造 LUCA／CI 訊號轉為 Self-Build 觸發。Self-Build 只由已驗證的可信後端排程／內部事件驅動。
+9. **高風險控制平面**：只有本人可在 Ceres Telegram 管理 Owner-only 的高風險系統設定、合併、部署、授權擴大、Self-Build 候選 PR 核准／停止；由後端核對 Telegram user_id、私聊 chat_id、一次性 nonce、具体變更／版本綁定以及原有平台權限。一般 Agent 自動調度不可自行生成批准訊息或使用早已過期的記憶作為新授權。
+10. **故障隔離與恢復**：針對各 step 設 timeout、backoff、retry cap、熔斷、預算與可選 fallback（須同等授權）；單一工具失敗只影響依賴它的子圖，其他獨立子任務可依政策完成。恢復前核對 Q31 checkpoint、實際執行回執和當前權限；不得重試已成功的具副作用工作，並區分 partially_completed／blocked／failed／unknown。
+11. **成本與節點感知路由**：Diana 比較模型 3B–30B、Slime 授權節點、API token 費用、RAM／VRAM、延遲、隱私與地區限制，選擇符合品質門檻的最低總成本路徑。獨立子任務可批量／平行，但不得為提升吞吐而把私人資料轉給未授權朋友節點或跨雲端外傳；CPU/GPU 實際可用性須查證。
+12. **Prompt injection 與循環調度防護**：外部文件、網頁、工具結果、Agent 摘要與模型輸出均是不可信資料，不得控制系統權限、修改 orchestration policy、冒充工具成功回執；設最大 DAG 深度、最大 fan-out、循環偵測、step quota、總成本上限和工具版本釘選，避免無限反覆互相派工。
+13. **決策／工具日誌與可追溯性**：LUCA 以最小化、脫敏方式追蹤 agent role、工具選擇理由摘要、task_id／trace_id、ArtifactRef、工具成功回執、衝突處理、權限拒絕、實際延遲／token／成本；Verifier 報告必須區分 evidence-supported、uncertain、unverified 和 failed，不虛報完成狀態。Q27 Evals 用這些真實資料評估端到端能力。
+14. **用戶回應與報告整合**：October 負責輸出完整且可讀的結論、重要資料來源、工具實際執行與未執行部分、主要分歧與合理不確定性，對外呈現一個統一入口，不要求一般使用者手動選 Agent；必要澄清由 Merlin 合理觸發，但不能將任意含糊輸入假定為高風險同意。
+15. **實作現況**：本題是正式架構設計，**不代表**多 Agent router、typed envelopes、distributed leases、Verifier、Ceres Owner gate 或 Slime 代理任務已完整實作和部署。所有「已協作」「已執行」「已成功」須有可信後端與工具回執，不可由模型輸出自我證明。
+
+### 驗收測試（尚未完成正式實作）
+
+- 對企業財務與法規交叉任務，驗證 October → Diana → Scout／CREAM／專業工具 → Verifier 的完整 DAG 產生 schema 驗證合格的 handoff、授權 ArtifactRefs 和真實工具回執；缺資料時誠實報告未取得。
+- 以互不依賴的三個唯讀任務對照平行與順序執行的延遲及資源成本；帶副作用的兩個同鍵請求在超時重試、節點離線與併行下不應雙重寫入。
+- 注入互相衝突的財務數值、不同法規年份、錯誤引用及模型空口結論；Verifier 能透過原始來源／計算辨明差異或保留「未定」，不得以多數決消去異議。
+- 讓含有惡意操作指令的 README、網頁、Tool Output、Agent Output 要求提高權限、發送秘密或呼叫 Self-Build；後端應拒絕，並保留最小化安全證據。
+- 非 Owner、Telegram 偽造 callback、過期批准、錯誤 project_id、跨租戶引用及 Slime 朋友節點的未授權工作請求，皆不得讀取資料或取得高權限行動；未授權執行次數須為零。
+- 模擬部分 Agent timeout、Scout 429、Retina 未安裝、CREAM 計算錯誤、LUCA 尚無有效監測，檢查局部成功／失敗狀態、隔離復原與如實呈報，不能假裝所有模組均正常。
+- 對模型路由、工具 fan-out、最大 DAG 深度、Token/RAM/VRAM 和權限限制做壓力測試；超限時應中止或適當降級，並保留足以稽核的決策及追蹤紀錄。
+
 ### 待決事項
 
-**Q32 / 50：October 應如何協調 Diana、Victoria、Merlin、Retina、CREAM、Quirinus、LUCA 等專業 Agent／工具，共同處理跨領域任務，同時防止衝突、重複執行、權限混淆與錯誤傳遞？** 尚待使用者答覆。
+**Q33 / 50：October 應如何從專業文獻與可信資料進一步形成可驗證假說、執行統計及因果分析、檢查替代解釋，最後產出可重現的研究成果？** 尚待使用者答覆。
 
 ---

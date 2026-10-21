@@ -8,7 +8,7 @@ from pathlib import Path
 
 BASE = "Qwen/Qwen3-0.6B"
 MIN_TRAINING_ROWS = 100
-ALLOWED_DOMAINS = {"general", "code", "research", "writing", "tool-use", "abstention"}
+ALLOWED_DOMAINS = {"general", "code", "research", "writing", "tool-use", "abstention", "taiwan-pragmatics"}
 SECRET = re.compile(
     r"(?:sk-proj-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|"
     r"AIza[A-Za-z0-9_-]{25,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
@@ -72,7 +72,10 @@ def to_conversations(rows: list[dict]) -> tuple[list[dict], list[dict]]:
             {"role": "user", "content": row["user"]},
             {"role": "assistant", "content": row["assistant"]},
         ]}
-        bucket = int(hashlib.sha256(row["id"].encode()).hexdigest()[:8], 16) % 10
+        # Taiwan expression paraphrases from the same reviewed situation must never
+        # leak between train and evaluation splits.
+        split_id = row["id"].split("__", 1)[0] if row["domain"] == "taiwan-pragmatics" else row["id"]
+        bucket = int(hashlib.sha256(split_id.encode()).hexdigest()[:8], 16) % 10
         (evaluation if bucket == 0 else train).append(transcript)
     if not train or not evaluation:
         raise ValueError("HOLDOUT_SPLIT_EMPTY")

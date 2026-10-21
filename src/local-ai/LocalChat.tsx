@@ -1182,7 +1182,11 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
  const nativeOrchestra=!image&&!nativeArtifact?planOrchestraAutoDraft(question):null;
- const merlin=optimizeMerlinPrompt(question,detroit);
+ const lastAssistant=history.slice(-3).reverse().find(turn=>turn.role==="assistant");
+ const merlin=optimizeMerlinPrompt(question,detroit,{
+  hasConversation:history.length>0,
+  previousAssistantOffered:Boolean(lastAssistant&&/(?:要不要|是否需要|需要我|要我|想要我|如果你願意|我可以|要幫你)/.test(lastAssistant.content.slice(-700)))
+ });
  const humanize=prepareHumanization(question);
  setDetroitPlan(detroit.depth==="quick"?null:detroit);
  if(detroit.depth!=="quick"){
@@ -1345,7 +1349,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const compact=candidate.source==="local"||candidate.source==="ollama"?
    compileSmallModelInput({question:modelQuestion,model:candidate.model,task,contexts,budgetTokens:budget,
     tableRequested:tableExpected,artifactRequested:Boolean(nativeOrchestra||nativeArtifact),
-    toolGuidance:candidate.source==="local"?trustedToolGrounding:""}):null;
+    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):""}):null;
   const prepared=compact?.reduced?compact:null;
   const finalGuidance=prepared?.guidance??(
    guidance+(candidate.source==="local"?trustedToolGrounding:"")+

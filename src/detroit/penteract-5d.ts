@@ -33,7 +33,7 @@ export function distance5D(a:Vec5,b:Vec5):number{
 }
 const normalize=(values:number[]):Vec5=>{
  const size=Math.hypot(...values)||1;
- return values.map(x=>x/size) as Vec5;
+ return values.map(x=>x/size) as unknown as Vec5;
 };
 /** Stable five-dimensional random feature map of bounded character trigrams.
  * This does NOT imply that five coordinates preserve all semantic meaning.
@@ -107,7 +107,7 @@ export function planPenteractFunnel(question:string,opts:{budget?:number;private
   distance:Number(distance5D(q,x.prototype).toFixed(5))}))
   .sort((a,b)=>a.distance-b.distance||a.id.localeCompare(b.id)).slice(0,limit);
  return {version:"penteract-funnel-v0.1",spaceDimensions:5,projectionDimensions:3,
-  geometry:{vertices:32,edges:80,rotationPlanes:ROTATION_PLANES.length},
+  geometry:{vertices:32,edges:80,rotationPlanes:10},
   mode:"advisory",modelInvoked:false,actualEnergyMeasured:false,
   understandingEffortPct:understand,ambiguity,confidence:"not-calibrated",
   budgetUnit:"planned-abstract-compute-units",queryPosition:q,routes,stages:staged,

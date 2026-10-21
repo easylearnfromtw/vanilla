@@ -48,18 +48,18 @@ export function summarizeVictoriaLongitudinal(
   from:null,to:null,observations:0};
  const safe=(v:string,max:number)=>v.replace(/[\r\n<>]/g," ").replace(/\s+/g," ").slice(0,max);
  const lines=selected.map((t,i)=>{
-  if(inspectExternalText(t.metric+" "+t.unit+" "+t.points.slice(0,2).map(p=>p.source).join(" "),"memory").blocked)return "";
+  const sources=[...new Set(t.points.map(p=>p.source).filter(Boolean))].slice(0,2);
+  if(inspectExternalText(t.metric+" "+t.unit+" "+sources.join(" "),"memory").blocked)return "";
   const enough=t.uniqueDates>=2;
   const span=t.firstDate+" → "+t.lastDate;
   const basis=count(t.count)+" 筆觀察／"+count(t.uniqueDates)+" 個日期";
   const measured="起點 "+formatValue(t.first)+"，終點 "+formatValue(t.latest)+
-    (t.unit?" "+t.unit:"")+", 差異 "+formatValue(t.change)+
-    (t.unit?" "+t.unit:"");
+    (t.unit?" "+safe(t.unit,24):"")+", 差異 "+formatValue(t.change)+
+    (t.unit?" "+safe(t.unit,24):"");
   const trend=enough?", 30 天線性斜率 "+
-    (t.slopePer30Days===null?"資料不足":formatValue(t.slopePer30Days)+(t.unit?" "+t.unit:"")):
+    (t.slopePer30Days===null?"資料不足":formatValue(t.slopePer30Days)+(t.unit?" "+safe(t.unit,24):"")):
     "；不同日期不足兩個，不可判斷趨勢";
   const quality=t.quality.length?"；品質註記："+t.quality.slice(0,2).join("、").slice(0,150):"";
-  const sources=[...new Set(t.points.map(p=>p.source).filter(Boolean))].slice(0,2);
   const provenance=sources.length?"；資料來源："+safe(sources.join("、"),120):"；資料來源名稱缺失";
   return "[CREAM 指標 "+(i+1)+"] "+safe(t.metric,90)+(t.unit?" ("+safe(t.unit,24)+")":"")+
     "，區間 "+span+"，"+basis+"，"+measured+trend+quality+provenance;

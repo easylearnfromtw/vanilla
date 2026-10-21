@@ -387,6 +387,7 @@ def join(body: JoinRequest):
 def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
               background_tasks: BackgroundTasks = None):
     _enabled()
+    now=time.time()
     with _db() as c:
         r=_node(c,authorization)
         c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,

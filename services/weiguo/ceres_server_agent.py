@@ -39,9 +39,13 @@ def enabled() -> bool:
 
 def ready() -> bool:
     # Owner can manage Slime even if the chat's remote model is unavailable.
-    return enabled() and (model_settings() is not None or
-                          (os.getenv("SLIME_ENABLED", "").lower() == "true"
-                           and len(_allowed_chat_ids()) == 1))
+    if not enabled():
+        return False
+    if model_settings() is not None:
+        return True
+    from ceres_admin_bot import owner_subject
+    return (os.getenv("SLIME_ENABLED", "").lower() == "true"
+            and any(owner_subject(chat) for chat in _allowed_chat_ids()))
 
 
 def ensure_history(db: sqlite3.Connection) -> None:
@@ -52,37 +56,19 @@ def ensure_history(db: sqlite3.Connection) -> None:
 
 
 def verified_subject(chat: int) -> str | None:
-    """Recheck ACL and Telegram link on EVERY execution, not just at startup."""
+    """Require a live Google-subject binding and chat grant on every job."""
     if chat not in _allowed_chat_ids():
         return None
-    try:
-        links = json.loads(os.getenv("CERES_FAMILY_LINKS_JSON", "{}"))
-        acl = json.loads(os.getenv("WEIGUO_FAMILY_ACL_JSON", "{}"))
-    except (TypeError, ValueError):
+    from ceres_member_access import subject_for_chat
+    from ceres_admin_bot import owner_subject
+    sub = subject_for_chat(chat)
+    if not sub:
         return None
-    if not isinstance(links, dict) or not isinstance(acl, dict):
-        return None
-    if len(links) > 30 or len(acl) > 30:
-        return None
-    sub = links.get(str(chat))
-    if not isinstance(sub, str) or not _SUB.fullmatch(sub):
-        return None
-    role = acl.get(sub)
-    if not isinstance(role, dict) or role.get("role") not in ("owner", "member"):
-        return None
-    if (os.getenv("CERES_OWNER_ONLY", "").lower() == "true"
-        or os.getenv("SLIME_ENABLED", "").lower() == "true") and role.get("role") != "owner":
-        return None
-    if enforce():
-        account=role_for_sub(sub)
-        if not account:
-            return None
-        try:
-            check_identity(sub,account[0],scope="chat")
-        except HTTPException:
-            return None
-    return sub
-
+    if owner_subject(chat) == sub:
+        # Preserve verified Owner access (including legacy environment ACL).
+        return sub
+    from ceres_member_access import _allowed_member
+    return sub if _allowed_member(sub) else None
 
 def set_job_state(event_id: int, state: str) -> None:
     with _session() as db:
@@ -186,7 +172,9 @@ async def process_one() -> bool:
     settings = model_settings()
     source = job["text"]
     # Call at most once: invitation creation is a side-effecting operation.
-    slime_reply = handle_slime(chat, subject, source)
+    from ceres_admin_bot import owner_subject
+    is_owner = owner_subject(chat) == subject
+    slime_reply = handle_slime(chat, subject, source) if is_owner else None
     # Non-Slime messages still require the configured model.
     if settings is None and slime_reply is None:
         set_job_state(event_id, "model_not_configured")
@@ -202,6 +190,11 @@ async def process_one() -> bool:
             except ToolDenied:
                 reply, tool, page = ("此操作未授權。請使用已支援的 Slime 對話設定。", "diana", "")
             if reply is None:
+                if not is_owner:
+                    from ceres_member_access import reserve_member_tokens
+                    if not reserve_member_tokens(subject, source):
+                        set_job_state(event_id, "member_quota_exceeded")
+                        return True
                 from ceres_maintenance import model_call_allowed
                 if not model_call_allowed(chat):
                     reply = ("Ceres 已暫停額外模型請求：已記錄且可計價的 30 日費用"

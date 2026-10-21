@@ -28,7 +28,11 @@ _RETENTION_SECONDS = 7 * 86400
 
 
 def _linked_chat(user: FamilyIdentity) -> int | None:
-    """Links are operator-owned configuration; never trusted from client payloads."""
+    """Immutable Google-subject link, including short-lived verified member pairing."""
+    from ceres_member_access import member_chat
+    paired = member_chat(user.sub)
+    if paired is not None and paired in _allowed_chat_ids():
+        return paired
     raw = os.getenv("CERES_FAMILY_LINKS_JSON", "{}")
     try:
         links = json.loads(raw)

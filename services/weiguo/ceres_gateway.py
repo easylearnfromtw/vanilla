@@ -40,11 +40,13 @@ def _allowed_chat_ids() -> set[int]:
     if len(values) > 30 or any(not re.fullmatch(r"[0-9]{1,20}", v) for v in values):
         raise HTTPException(503, "Ceres allowlist is misconfigured")
     listed = {int(v) for v in values if int(v) > 0}
-    # Restrict the personal Telegram bot to the SINGLE verified owner.
-    # Enabling Slime makes this fail-closed restriction mandatory.
+    # Existing owner-only Slime/admin boundary applies to legacy entries.
+    # Opted-in member links are conversation-only and never grant owner tools.
     if (os.getenv("CERES_OWNER_ONLY", "").lower() != "true"
             and os.getenv("SLIME_ENABLED", "").lower() != "true"):
-        return listed
+        owners = listed
+    else:
+        owners = None
     try:
         links = json.loads(os.environ.get("CERES_FAMILY_LINKS_JSON", "{}"))
         acl = json.loads(os.environ.get("WEIGUO_FAMILY_ACL_JSON", "{}"))
@@ -59,7 +61,10 @@ def _allowed_chat_ids() -> set[int]:
                 and isinstance(acl.get(subject), dict)
                 and acl[subject].get("role") == "owner"):
             verified.append(int(chat))
-    return {verified[0]} if len(verified) == 1 else set()
+    if owners is None:
+        owners = {verified[0]} if len(verified) == 1 else set()
+    from ceres_member_access import linked_members
+    return owners | set(linked_members())
 
 
 def _secret() -> str:
@@ -200,13 +205,25 @@ async def telegram_webhook(request: Request,
     chat_id, user_id = chat.get("id"), sender.get("id")
     # Private chats ONLY in v1: no group member can hijack a trusted group id.
     if (chat.get("type") != "private" or type(chat_id) is not int
-            or type(user_id) is not int or chat_id != user_id or chat_id not in allowed
+            or type(user_id) is not int or chat_id != user_id
             or sender.get("is_bot") is True):
         return {"ok": True, "accepted": False}
     body = message.get("text")
     if not isinstance(body, str) or not 1 <= len(body.strip()) <= MAX_TEXT:
         return {"ok": True, "accepted": False}
     text=body.strip()
+    # Pairing is the only accepted pre-whitelist command: high-entropy,
+    # one-time Google-authenticated challenge, in a signed private webhook.
+    if text.startswith("/link "):
+        from ceres_member_access import redeem_code
+        from ceres_admin_bot import say
+        if _claim_admin_update(payload["update_id"]):
+            ok = redeem_code(chat_id, text[6:].strip())
+            await say(chat_id, "Ceres AI 對話綁定成功，現在可以直接提問。"
+                      if ok else "綁定碼無效或已過期，請在 Vanilla 重新產生。")
+        return {"ok":True,"accepted":True}
+    if chat_id not in allowed:
+        return {"ok":True,"accepted":False}
     # Owner-only command center stays out of the AI job queue and is
     # deduplicated like /admin. Natural-language shortcuts are deterministic.
     hub_text = None
@@ -218,6 +235,13 @@ async def telegram_webhook(request: Request,
         from ceres_command_center import welcome
         if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
             await welcome(chat_id)
+            return {"ok":True,"accepted":True}
+        from ceres_member_access import subject_for_chat
+        if subject_for_chat(chat_id):
+            from ceres_admin_bot import say
+            if _claim_admin_update(payload["update_id"]):
+                await say(chat_id, "Ceres AI 私人對話已開啟。直接輸入問題即可使用白名單模型。"
+                          "系統管理功能僅供 Owner。")
             return {"ok":True,"accepted":True}
         return {"ok":True,"accepted":False}
     elif prefix == "/menu" or text in ("控制中心", "開啟控制中心", "打開控制中心", "開始使用"):

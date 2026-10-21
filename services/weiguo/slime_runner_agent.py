@@ -70,7 +70,7 @@ def _models():
 
 
 def _heartbeat(server,token):
-    _http("POST",server+"/v1/slime/node/heartbeat",{
+    return _http("POST",server+"/v1/slime/node/heartbeat",{
         "capabilities":{"cpu":os.cpu_count() or 1,"ram_gb":0,"gpu":"","os":platform.system()},
         "share_enabled":True},authorization=token)
 
@@ -126,7 +126,13 @@ def run():
         try:
             # Heartbeats and model capabilities are always self-reported; Server
             # Owner policy must grant inference separately.
-            _heartbeat(server,token)
+            state=_heartbeat(server,token)
+            if not state.get("owner_enabled") or not state.get("inference_enabled"):
+                if last_register:
+                    print("Slime 推論權限已關閉；仍可回報節點心跳。")
+                last_register=0
+                time.sleep(20)
+                continue
             now=time.monotonic()
             if now-last_register>=50:
                 _register(server,token,_models())

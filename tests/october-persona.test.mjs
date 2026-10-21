@@ -14,7 +14,7 @@ test("October persona matches only explicit October Ollama models",()=>{
 });
 test("October runtime keeps its manager decision and Detroit execution separate",()=>{
  const full=vanillaSystemPrompt({task:"analysis",compact:false,latestUserText:"分析公司財報",model:"october:0.3"});
- for(const token of ["阿土伯","再興中學","哈佛 MBA","上海光華管理學院","臺灣大學法律碩士","里長","立法委員","Victoria","Detroit","Verifier","Ceres","Self-Build"])assert.ok(full.includes(token),token);
+ for(const token of ["阿土伯","再興中學","哈佛 MBA","上海光華管理學院","臺大法律碩士","里長","立法委員","Victoria","Detroit","Verifier","Ceres","Self-Build"])assert.ok(full.includes(token),token);
  assert.match(full,/虛構/);
  assert.match(full,/不能把它們宣稱為真實/);
  assert.match(full,/不表示你有權替使用者做高風險/);

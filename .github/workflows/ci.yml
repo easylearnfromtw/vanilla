@@ -43,6 +43,7 @@ jobs:
           npm run test:node-fabric
           npm run test:slime-onboarding
           npm run test:slime-standalone
+          node --test tests/slime-startup-policy.test.mjs
           npm run test:luca
           npm run test:detroit-factory
           npm run test:retina

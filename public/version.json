@@ -1,4 +1,4 @@
 {
   "build": "2026.10.21.08-atuber-single-driver",
-  "description": "Read-only October 5D lab entry, test JSON contract and on-demand Detroit Studio preview"
+  "description": "Atuber-only main chat controller with guarded tools and no other-model fallback"
 }

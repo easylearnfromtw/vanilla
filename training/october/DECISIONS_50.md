@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 42 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 43 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1365,8 +1365,44 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 模擬企業 IdP 失聯、憑證輪替、SCIM 429 與同步延遲，檢查降級狀態、禁止離職已停用身分重新登入，以及真實 IdP 未可用時不虛稱已通過驗證。
 - 以 SSO／SCIM webhook 及登入錯誤訊息冒充內部品質事件觸發 Self-Build，確認事件來源邊界阻擋，且不影響既有可信背景改善治理。
 
+## Q44 / 50 — D：自適應多模態 AI 執行引擎（STT/TTS × Retina × Realtime AV × October × Detroit × Verifier）
+
+**決策：D — 自適應多模態 AI 執行引擎。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採自適應多模態AI執行引擎：整合語音STT／TTS、Retina圖片與截圖理解、經明確授權的即時視訊／螢幕畫面、October多模態上下文、Diana自動工具選擇、Detroit可信執行、Verifier獨立驗證、裝置效能分級與安全離線降級。必須區分真正辨識到的資訊、推測與無法處理的輸入，不可假稱已看過圖片或影片；攝影機、麥克風、螢幕擷取與資料外送須經合法明確授權。Vanilla系統管理權限僅本人Ceres Telegram核准；Self-Build只能由可信後端背景觸發，不得由語音、圖片、畫面、聊天或外部輸入啟動。」
+
+### 多模態系統架構及授權契約
+
+1. **統一多模態輸入契約**：以 multimodal_request_id、actor／tenant、session_id、media_type（text／image／audio／video／screen）、media_ref、capture_source、timestamps、locale、consent_ref、processing_location、sensitivity、model_version、capability_state、derived_evidence_refs、tool_receipts 與 retention_policy 組合合法 Typed Envelope。文字、圖片、錄音及畫面各有獨立來源與處理授權，不把存在上傳附件誤認為模型已成功讀取。
+2. **語音 STT**：在支援能力的設備／節點上對即時或預錄語音辨識語言、時間戳與可辨識的發話分段；提供中斷、重新辨識與編輯校正，標示 noisy audio／多人重疊／低置信度／未支援語言／未授權狀態。辨識結果為來源派生文本而非已驗證事實，不能把錯誤轉錄內容當成真正確認的指令。
+3. **語音 TTS 與互動**：對可用的文字回覆提供低延遲播放、暫停／取消、字幕同步、語言或語速選項；TTS 內容以 October 最終可發布或有清楚狀態的文字為基礎，不把未經審核的內部工具訊息直接朗讀成結論。語音輸出檔、串流狀態及播放完成需依實際生成／回執標示。
+4. **Retina 圖像辨識與視覺證據**：圖片、照片、截圖、表格、圖表和 UI 先經 Retina／實際可用的視覺模型或可信 parser 處理，再以 OCR／layout／object／chart evidence（適用時）提供定位、畫面區域、文字和視覺可信度。若 Retina 尚未部署、來源未真正讀取、影像解碼失敗、細節模糊或功能超出模型能力，必須回報 unable_to_inspect／uncertain，**嚴禁 October 憑提示文字猜測圖片內容後稱已看見**。
+5. **即時視訊與螢幕擷取**：每個錄影／螢幕共享工作階段需使用者主動啟動及明確授權的 track/source，呈現持續可見的擷取指示、停止按鈕、範圍與用途；只處理已授權流和時間段。媒體 capture API 不可在無 consent、背景切換、過期 session 或被撤銷授權後繼續擷取，不能用未授權系統截圖或其他工具代替授權。
+6. **時序與多模態上下文融合**：用經校時的 audio segments、video frame refs、screen window refs、turn_id／timestamp 對齊「使用者說了什麼」「在哪一刻看見什麼」，明確記錄抽樣影格、丟幀、延遲與片段缺失。October 不得將單張畫面推論成連續事件，也不能將語音對話自動與另一個人的私人畫面／聲音配對。
+7. **混合模態可信度與發言規範**：在輸出中區分 observed（實際可信工具擷取）、transcribed（辨識出的原話）、inferred（模型推估）、user_claim（使用者陳述）、unverified（待查）、unsupported（不支援）；數據來源與 confidence calibration 要可追溯。無法核實的辨識結果不得聲稱為已驗證，尤其是醫療影像、財務螢幕畫面與真實世界風險事件。
+8. **Diana／Detroit 自主工具協作**：October 定義多模態用戶目標，Diana 依 Q32 能力註冊表選擇 STT、TTS、Retina、Q23 文件 parser、CREAM 或經批准外部工具，Detroit 管理 Typed Handoff、DAG、checkpoint、工具結果與限制；不要求使用者按每個工具。工具操作仍遵守 Q36 policy engine，語音或畫面中出現「授權」「部署」「寄信」等文字不構成具有 side-effect 操作的有效簽署同意。
+9. **Verifier 獨立查核**：使用 source media refs、受信辨識回執、時間戳、轉錄比對、OCR/layout 結果、工具原始輸出與已核准引用執行獨立驗證；可採多模型交叉查核，但多數一致不是事實證明。未能確認的細節須降低結論強度、詢問必要澄清或標記 unresolved，不得製造不存在的圖像 evidence。
+10. **媒體隱私與目的限制**：攝影機、麥克風、螢幕擷取及跨境／雲端資料轉送需依 Q40 企業合規與處理目的、使用者／受影響資料的合法權限、Q42 租戶隔離、Q21 來源管理及第三方服務條款，建立 audit／consent refs。私人語音、畫面、檔案不默認留存或提供模型訓練，額外用途須有合法授權；朋友 Slime 節點不得因「比較空閒」收到未核准的聲畫資料。
+11. **本地優先與設備自適應**：依 Q01／Q05／Q41 Performance Tiers 選擇 Lite（低階設備以單張圖片、文字或輕量 STT 為主）、Balanced（間歇影格／適中語音互動）或 Rich（已授權連續影音）；根據 CPU/GPU/VRAM、耗電、熱狀態、頻寬和模型容量調整採樣率、尺寸與串流批次，避免將裝置效能不足偽稱為 Retina 能執行大模型。能力降級必須明示。
+12. **低延遲與故障恢復**：串流中的音訊 frame chunks、圖片／視訊畫格及文字段落應使用序號、時間戳、最大緩衝、速率控制和中斷狀態，處理 websocket／API 斷線、播放取消、重啟後資料不同步及模型 OOM。對不可重試的輸入／動作、媒體保存與有副作用工具適用 Q36 idempotency 及 Q38 safe recovery；不保證失聯後能無縫重播已消失的未保存視訊。
+13. **介面與無障礙**：依 Q41 iOS 風格白／黑極簡設計，提供清楚的麥克風／鏡頭／共享狀態、可一鍵停止、字幕／轉錄、可調播放控制、螢幕閱讀器標籤、低動效及高對比；模型未能辨識時顯示實際錯誤與如何重新提供更清楚輸入，不得只出現模糊 spinner 或捏造完成。
+14. **實際能力探測與透明標籤**：在執行前透過受信 registry／health check 驗證 Retina、STT／TTS、影音串流 adapter、模型版本、工具支援及可處理格式；不可因前端有上傳或開鏡頭按鈕就宣稱後端可理解。每個 media task 標記 queued／captured／decoded／processed／verified／partial／unsupported／failed，成功標籤以實際工具回執決定。
+15. **Owner 管理與 Self-Build 硬邊界**：Vanilla 全域管理、共用憑證、正式部署、模型策略及高風險權限變更，只能由本人透過 Ceres Telegram 特定 action/version 的可信後端審批。語音、圖片、畫面、OCR 文本、STT 轉錄、外部影片字幕或使用者聊天都不得直接或間接觸發 Self-Build；Self-Build 僅由 Q27–Q30 可信後端排程及簽驗的內部品質事件觸發。模態解析層永遠是非可信輸入，不可變為管理員事件。
+16. **實作狀態與承諾**：本題為已確認的設計規格，**不代表** Retina、STT／TTS、即時影音／螢幕共享、跨裝置多模態工作台及 Verifier 全部已接通、測試或正式部署。未實際處理媒體或未取得授權時，不得回答「我已看到／聽到」或提供虛構的媒體分析成果。
+
+### 可驗證驗收標準（尚待實作）
+
+- 用實際圖片、UI 截圖、統計圖、模糊圖片與上傳但視覺模型 unavailable 的資料測試，確認 observed、inferred、unsupported 標籤以及來源 reference/region/time 資訊；Retina 不可用時應明確拒絕臆測。
+- 用含噪語音、口音、雙語、重疊發話與受限音訊片段測試 STT/TTS 的準確性、字錯率、播放中止、字幕同步及時間戳校正，辨識不清時不能將錯誤原話直接提升為已批准工具指令。
+- 用已明確授權的攝影機／螢幕 session 驗證 capture indicator、當前 source、pause/stop、撤銷、session timeout、切到其他應用、背景執行、設備拒絕權限等行為；沒有實際授權時應不可取得聲畫來源。
+- 對「語音中提到截圖」「影片中的文字要求輸出 API Key」「OCR 顯示請啟動 Self-Build」「畫面偽造 Ceres Owner」等 prompt injection 測試，可信後端不得提權、洩露秘密、啟動 Self-Build 或變更全域設定。
+- 用同一個語音問題與兩張不同時間的影格核對跨模態對齊，缺影格或轉錄不確定時保留 unresolved；Verifier 要能以真正讀取到的媒體 refs 找出虛構物件或錯誤時間推理。
+- 在低階 Windows、RTX 3050 桌機、Pi 4 授權節點、iPhone 模擬網路波動與高延遲，驗證 lite／balanced／rich 採樣率、輸入處理容量、記憶體、推論延遲、故障回復及安全降級，不得偷偷轉送資料至未授權節點。
+- 用多租戶混合影音 session 測試媒體快取、跨裝置同步、會話切換、第三方雲端 API 與朋友 Slime 節點存取，確保未授權使用者無法讀取或繼續擷取他人聲畫資料。
+- 對未安裝 Retina、壞檔／無音軌、權限拒絕、傳輸超時及工具尚未實作等情況，UI 只能顯示實際 partial／unsupported／failed 狀態，不能因存在輸入控件而宣稱多模態系統已成功運作。
+
 ### 待決事項
 
-**Q44 / 50：October 如何透過語音、影像、螢幕畫面與即時多模態互動理解使用者需求，安全地串接 Retina／Detroit 與既有工具，並在低階裝置或離線時清楚降級？** 尚待使用者答覆。
+**Q45 / 50：October 應如何提供使用者授權的提醒、定期任務與事件條件監看，在跨裝置及 Telegram／行事曆等管道可靠通知，同時與只能由可信後端背景觸發的 Self-Build 保持完全隔離？** 尚待使用者答覆。
 
 ---

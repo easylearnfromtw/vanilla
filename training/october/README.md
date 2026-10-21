@@ -55,7 +55,7 @@ The training script exports portable JSON weights. Download the verified, alread
 
 - `POST /v1/family/october/csv`：以衞國短效 Google 家庭 Bearer session 驗證真正 `sub`；只允許 `owner/member`，Ceres Gmail ACL 強制開啟時須具備 `chat` scope。只接受固定 `csv-descriptive-statistics`、`task_id`、`source`、最多 200 KB CSV；不接受前端自報 tenant/role/tool/script。CSV 不會當程式碼執行。
 - `GET /v1/family/october/receipts/{task_id}`：只允許相同經驗證 `sub` 查詢任務 metadata，跨租戶回 404；DB 僅保存原始 CSV 的 SHA-256、報表 digest、任務 ID、時間與 HMAC 簽章，**不持久保存原始 CSV／統計輸出**。
-- 同一 `sub+task_id` 相同內容重送回覆 `replayed: true` 及相同回執，不生成第二筆；使用相同 ID 傳不同資料回 409。每位使用者每分鐘最多 12 筆新回執，保留期 30 日。
+- 同一 `sub+task_id` 相同內容重送回覆 `replayed: true` 及相同回執，不生成第二筆；使用相同 ID 傳不同資料回 409。每位使用者每分鐘最多 **12 筆新回執**、**60 次總 POST 請求**（包括同任務重送及資料衝突），兩個額度分別依後端驗證的身分計算；入站限流在 CPU 密集 CSV 計算前完成，使用 SQLite 跨 worker 共用計數。回執保留期 30 日，過期不得查詢或以舊 ID 重播。為減少 SQLite 長期運作掃描成本，建立回執時間、租戶＋時間及請求計數時間索引。
 - 結果來自後端 Python 標準程式的真正本機數值核算並核對，並非根據瀏覽器回傳的 `verified`、模型文字或虛構 provider receipt。這是 server-authenticated receipt，**不代表多步 durable DAG、完整工具授權或 24/7 背景運作**。
 
 必要伺服器配置（僅後端環境／secret manager；切勿放進瀏覽器或 Git）：

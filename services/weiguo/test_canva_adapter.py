@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
 from fastapi import HTTPException
 from auth import FamilyIdentity
+from ceres_admin_policy import grant
+from ceres_gateway import _session
 import canva_adapter as canva
 
 
@@ -17,12 +20,22 @@ class CanvaAdapterTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         canva._recent.clear()
         canva._jobs.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
         self.env = patch.dict(os.environ, {
+            "CERES_DB_PATH": self.tmp.name + "/test.sqlite3",
             "WEIGUO_CANVA_ENABLED": "true",
             "WEIGUO_CANVA_ACCESS_TOKEN": "fake-for-tests-not-real-canva-oauth-token",
         })
         self.env.start()
         self.addCleanup(self.env.stop)
+        grant(OWNER.email, "owner", ["canva"], 1)
+        grant(MEMBER.email, "member", ["chat"], 1)
+        with _session() as db:
+            db.execute("UPDATE ceres_admin_accounts SET google_sub=? WHERE email=?",
+                       (OWNER.sub, OWNER.email))
+            db.execute("UPDATE ceres_admin_accounts SET google_sub=? WHERE email=?",
+                       (MEMBER.sub, MEMBER.email))
 
     async def test_owner_can_submit_image_without_passing_credentials_to_browser(self):
         data = {"id": "00000000-0000-4000-8000-000000000001", "status": "in_progress"}
@@ -36,7 +49,7 @@ class CanvaAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("token", str(result).lower())
         self.assertIn(result["id"], canva._jobs)
 
-    async def test_only_owner_and_explicit_consent_can_generate(self):
+    async def test_member_without_canva_scope_and_explicit_consent(self):
         request = canva.GenerationRequest(kind="presentation", prompt="Marketing slides",
                                            approved_cloud_send=True)
         with self.assertRaises(HTTPException) as err:
@@ -45,6 +58,16 @@ class CanvaAdapterTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPException) as err:
             await canva.generate(request.model_copy(update={"approved_cloud_send": False}), OWNER)
         self.assertEqual(err.exception.status_code, 400)
+
+    async def test_member_with_canva_scope_may_generate_without_admin_rights(self):
+        from ceres_admin_policy import grant
+        grant(MEMBER.email, "member", ["chat","canva"], 1)
+        with patch.object(canva, "_canva_call", new_callable=AsyncMock,
+                          return_value={"id":"00000000-0000-4000-8000-000000000090","status":"in_progress"}):
+            result = await canva.generate(canva.GenerationRequest(
+                kind="image", prompt="Minimal geometric cover",
+                approved_cloud_send=True), MEMBER)
+        self.assertEqual(result["status"],"in_progress")
 
     async def test_no_live_credential_fails_closed(self):
         with patch.dict(os.environ, {"WEIGUO_CANVA_ACCESS_TOKEN": ""}):

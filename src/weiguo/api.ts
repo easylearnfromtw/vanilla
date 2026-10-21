@@ -39,7 +39,7 @@ async function request<T>(path:string,body?:unknown,withAuth=false):Promise<T>{
    cache:"no-store",credentials:"omit",mode:"cors",referrerPolicy:"no-referrer"});
  }catch{throw Error("無法連線到衞國後端，請檢查 HTTPS、CORS 和服務狀態");}
  if(response.status===401){clearWeiGuoSession();throw Error("衞國登入已過期，請重新授權");}
- if(response.status===403){clearWeiGuoSession();throw Error("這個 Google 帳號沒有對應的家庭任務權限");}
+ if(response.status===403){throw Error("此 Google 帳號尚未取得這項專屬功能權限");}
  if(!response.ok){const data=await response.json().catch(()=>({})) as {detail?:string};throw Error(typeof data.detail==="string"?data.detail:"衞國後端錯誤："+response.status);}
  return await response.json() as T;
 }
@@ -55,7 +55,7 @@ export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIde
  if(!reply.token||!Number.isFinite(reply.expiresIn)||reply.expiresIn<60)throw Error("無效的後端工作階段");
  auth={token:reply.token,expiresAt:Date.now()+Math.min(reply.expiresIn,900)*1000,
   member:reply.member,role:reply.role,email:reply.email.trim().toLowerCase()};
- // Register server-proxied Gemini only when the backend verifies account access.
+ // Register only Owner-proxied models permitted by this verified Gmail account.
  try{
   const service=await request<{ready:boolean;model:string}>("/v1/family/models/status",undefined,true);
   if(service.ready){
@@ -64,6 +64,16 @@ export async function signInWeiGuo(googleIdentityToken:string):Promise<WeiGuoIde
     setProvider({provider:"gemini",key:"managed:weiguo",model:service.model});
   }
  }catch{/* Optional provider status must not block login. */}
+ try{
+  const services=await request<{providers:Array<{provider:string;ready:boolean;model:string}>}>(
+   "/v1/family/models/shared/status",undefined,true);
+  const {setProvider,getConfigs}=await import("../vault/providers");
+  for(const service of services.providers){
+   if(service.provider!=="deepseek"||!service.ready||!service.model)continue;
+   if(!getConfigs().some(c=>c.provider==="deepseek"&&c.key!=="managed:weiguo"))
+    setProvider({provider:"deepseek",key:"managed:weiguo",model:service.model});
+  }
+ }catch{/* Shared provider discovery is optional. */}
  return {member:auth.member,role:auth.role,email:auth.email};
 }
 /** Scouts public research uses the already verified family identity.
@@ -280,6 +290,24 @@ export async function getWeiGuoLucaSummary():Promise<LucaSnapshot>{
  const identity=weiGuoIdentity();
  if(!identity||identity.role!=="owner")throw Error("LUCA 總覽僅供已登入的家庭擁有者使用");
  return request<LucaSnapshot>("/v1/family/luca/summary",undefined,true);
+}
+
+/** Gmail member pairing: code is single-use and expires in five minutes. */
+export type CeresTelegramLinkStatus={memberChatEnabled:boolean;eligible:boolean;linked:boolean};
+export async function getCeresTelegramLinkStatus():Promise<CeresTelegramLinkStatus>{
+ return request<CeresTelegramLinkStatus>("/v1/family/ceres/telegram-link/status",undefined,true);
+}
+export async function startCeresTelegramLink():Promise<{code:string;command:string;expiresInSeconds:number;telegramBot:string}>{
+ return request("/v1/family/ceres/telegram-link/start",{},true);
+}
+/** Whitelisted cloud providers. Provider keys never enter the browser. */
+export async function sharedCloudChat(provider:"gemini"|"openai"|"deepseek",
+ turns:Array<{role:"user"|"assistant";content:string}>):Promise<string>{
+ if(currentChatMode()==="private")throw Error("私密模式禁止雲端服務");
+ const reply=await request<{text:string}>("/v1/family/models/shared/chat",{
+  provider,turns:turns.slice(-12),approved_cloud_send:true
+ },true);
+ return reply.text;
 }
 
 /** Ceres never exposes operator keys or Telegram bot credentials to the PWA. */

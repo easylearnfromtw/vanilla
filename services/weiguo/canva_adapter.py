@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import FamilyIdentity, family_user
-from ceres_admin_policy import check_identity, enforce, provider_key, provider_enabled
+from ceres_admin_policy import require_scope, provider_key, provider_enabled
 
 router = APIRouter(prefix="/v1/family/canva", tags=["canva"])
 _API = "https://api.canva.com/rest/v1"
@@ -35,10 +35,7 @@ class GenerationRequest(BaseModel):
 
 
 def _owner(user: FamilyIdentity) -> None:
-    if enforce():
-        check_identity(user.sub,user.email,scope="canva")
-    elif user.role != "owner":
-        raise HTTPException(403, "Canva 雲端生成僅開放已驗證的家庭擁有者")
+    require_scope(user.sub,user.email,"canva")
 
 
 def _token() -> str:

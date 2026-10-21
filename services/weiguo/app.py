@@ -30,6 +30,7 @@ from ceres_server_agent import router as ceres_server_router, worker_loop as cer
 from ceres_telegram_registration import register_telegram_webhook
 from ceres_store_bot import router as ceres_store_router, register_store_webhook
 from ceres_api_access import router as ceres_api_access_router
+from ceres_member_access import router as ceres_member_link_router
 from ceres_maintenance import monitor_loop as ceres_maintenance_loop
 from ceres_admin_web import router as ceres_admin_web_router
 from ceres_slime_web import router as ceres_slime_web_router
@@ -179,6 +180,7 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 app.include_router(ceres_telegram_router)
 app.include_router(ceres_store_router)
 app.include_router(ceres_api_access_router)
+app.include_router(ceres_member_link_router)
 app.include_router(ceres_admin_web_router)
 app.include_router(ceres_slime_web_router)
 app.include_router(ceres_model_router)

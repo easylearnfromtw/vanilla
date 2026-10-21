@@ -109,9 +109,9 @@ export async function generateCloudReply(provider:Provider,history:ChatTurn[],im
  if(image&&provider!=="gemini")throw new Error("圖片辨識目前僅支援 Gemini，請切換至 Gemini API");
  const config=configs.get(provider);if(!config)throw new Error("尚未連接 "+provider+" API");
  if(config.key==="managed:weiguo"){
-  if(provider!=="gemini"||image)throw new Error("目前受控雲端代理只支援 Gemini 純文字");
-  const {generateWeiGuoGemini}=await import("../weiguo/api");
-  return toTaiwanese(cleanModelOutput(await generateWeiGuoGemini(history.map(t=>({
+  if(image)throw new Error("受控共用 API 目前僅支援文字，圖片請使用自己的模型");
+  const {sharedCloudChat}=await import("../weiguo/api");
+  return toTaiwanese(cleanModelOutput(await sharedCloudChat(provider,history.map(t=>({
    role:t.role,content:t.content
   })))));
  }

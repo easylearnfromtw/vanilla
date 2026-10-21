@@ -124,6 +124,9 @@ async def _hub(chat_id,section="home"):
         "settings":("SETTINGS  /  偏好設定","可在 Academy 選擇學習程度。\\n其他設定將在後端權限與儲存機制完成後開放。")
     }
     heading,body=pages.get(section,pages["home"])
+    if section=="api":
+        await _send(chat_id,"API STORE  /  邀請制測試\\n━━━━━━━━━━━━\\n\\n目前僅接受白名單測試，模型推論尚未開放。\\n請勿在聊天室傳送 API Key。",_buttons([[("✦ 測試資格說明","api:apply")],[("〈 返回主選單","hub:home")]]))
+        return
     if section=="home":
         await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_hub_keyboard())
     else:
@@ -215,9 +218,11 @@ async def store_webhook(request: Request,
         chat_id=chat.get("id")
         if (chat.get("type")=="private" and type(chat_id) is int
                 and sender.get("id")==chat_id and not sender.get("is_bot")
-                and isinstance(callback.get("data"),str) and callback["data"].startswith(("learn:","hub:"))):
+                and isinstance(callback.get("data"),str) and callback["data"].startswith(("learn:","hub:","api:"))):
             if _claim(update["update_id"]):
-                if callback["data"].startswith("hub:"):
+                if callback["data"]=="api:apply":
+                    await _send(chat_id,"API ACCESS  /  申請說明\\n\\nTelegram 身分驗證及申請通知尚未啟用，申請暫不受理。",_buttons([[("〈 返回主選單","hub:home")]]))
+                elif callback["data"].startswith("hub:"):
                     section=callback["data"][4:]
                     if section=="academy": await _learn(chat_id,"start")
                     else: await _hub(chat_id,section)

@@ -27,7 +27,7 @@ function trustedAsset(release:GitHubRelease|undefined,role:Role,os:OS):Asset|und
 }
 function inviteFromURL():string|null{
  if(typeof window==="undefined")return null;
- const code=window.location.hash.match(/^#slime=([A-Za-z0-9_-]{24,160})$/)?.[1];
+ const code=window.location.hash.match(/^#slime=((?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2}))$/)?.[1];
  return code?window.location.origin+window.location.pathname+window.location.search+"#slime="+code:null;
 }
 const LABELS:Record<Exclude<OS,"mobile">,string>={windows:"Windows",macos:"macOS",linux:"Linux"};
@@ -80,7 +80,7 @@ export default function SlimePanel(){
   </header>
   {invite&&<article className="slime-card slime-invite-ready">
    <div className="slime-heading"><div><span className="slime-kicker">INVITE DETECTED</span><h3>收到 Slime 一次性邀請</h3></div><LockKeyhole size={20}/></div>
-   <p>這個邀請不會儲存在瀏覽器。請在要加入的電腦上開啟 Slime，於首次配對時貼上邀請連結。邀請有期限，使用後會失效。</p>
+   <p>這個邀請不會儲存在瀏覽器。請在要加入的電腦上開啟 Slime，於首次配對時輸入短配對碼（亦可貼連結）。配對碼有效 10 分鐘，使用後即失效。</p>
    <button className="slime-outline-action" type="button" onClick={()=>void copyInvite()}><Copy size={16}/> 複製這次邀請連結</button>
    <small role="status" aria-live="polite">{copyResult||"不要公開此連結，也不要將邀請碼貼到客服或社群。"}</small>
   </article>}
@@ -109,7 +109,7 @@ export default function SlimePanel(){
    <div className="slime-heading"><div><span className="slime-kicker">STEP 02–04 · CONNECT</span><h3>首次執行與配對</h3></div><Monitor size={19}/></div>
    <ol className="slime-steps">
     <li><span className="slime-step-number">01</span><div><strong>開啟安裝檔</strong><p>Windows 雙擊 Slime 程式；macOS 解壓後開啟對應 .command，Linux 解壓後執行 start-slime.sh。不要執行來源不明的同名檔案。</p></div></li>
-    <li><span className="slime-step-number">02</span><div><strong>貼上一次性邀請</strong><p>由 <a href={BOT} target="_blank" rel="noopener noreferrer">@SignWell_bot</a> 的 Owner 私聊建立邀請，將連結交給要加入的電腦使用者。首次配對時填寫電腦名稱並同意共享。</p></div></li>
+    <li><span className="slime-step-number">02</span><div><strong>輸入一次性短配對碼</strong><p>由 <a href={BOT} target="_blank" rel="noopener noreferrer">@SignWell_bot</a> 的 Owner 私聊產生配對碼，將短碼交給要加入的電腦使用者。首次配對時填寫電腦名稱並同意共享。</p></div></li>
     <li><span className="slime-step-number">03</span><div><strong>確認節點上線</strong><p>裝置會安全儲存專用 Token，以 HTTPS 回報心跳。Owner 在 Telegram 的 /hub → Slime 節點核對裝置；重開程式會連回相同節點，不需重新索取邀請。</p></div></li>
     <li><span className="slime-step-number">04</span><div><strong>需要 AI 推論時才核准</strong><p>安裝並啟動本機 Ollama；Owner 另外同意推論後，才允許外部 Vanilla API 模型任務傳入此電腦。一般節點心跳不等於開放模型。</p></div></li>
    </ol>

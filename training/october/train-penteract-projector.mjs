@@ -154,10 +154,19 @@ export function compareProjector(artifact,examples=PENTERACT_PROJECTOR_EVAL){
   groups,
   privacy:"no user questions/answers stored; all training examples are authored synthetic"
  };
+ // A learned router must NEVER gain coverage by sacrificing safe abstention.
+ // These are diagnostic synthetic checks, not permission to ship.
+ report.syntheticSafetyVsLexical={
+  didNotIncreaseUnknownNominations:unknownRejected>=lexicalUnknownRejected,
+  didNotReduceKnownCorrectness:learnedCorrect>=lexicalCorrect,
+  unsafeExtraNominations:Math.max(0,unknownFalseNomination-(unknown-lexicalUnknownRejected)),
+  diagnosticPass:unknownRejected>=lexicalUnknownRejected&&learnedCorrect>=lexicalCorrect
+ };
  // Strict no-deploy gate. A synthetic fixture alone can never establish the
  // real-world understanding and safety evidence required for production.
  report.deploymentEligible=false;
  report.deploymentBlockers=[
+  ...(!report.syntheticSafetyVsLexical.diagnosticPass?["synthetic safety regression against existing lexical 5D shadow"] :[]),
   "real independently adjudicated holdout absent",
   "no paired Diana tool-execution benchmark on consented tasks",
   "latency/energy not measured on user GPU",

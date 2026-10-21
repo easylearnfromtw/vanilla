@@ -299,10 +299,20 @@ def inference_policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(
             "notice":"啟用後，外部使用者的模型提示可能傳送至這個受信任的節點。"}
 
 
+class RevokeProof(BaseModel):
+    # Requested separately from Ceres Telegram; never generated on the public web.
+    code: str = Field(min_length=8, max_length=64)
+
+
 @router.post("/v1/family/slime/nodes/{node_id}/revoke")
-def revoke(node_id: str, user: FamilyIdentity = Depends(_owner)):
-    """Legacy endpoint intentionally fails closed: remote revocation requires a Telegram challenge."""
-    raise HTTPException(403, "請至 Ceres Telegram 私聊撤銷此節點，並輸入獨立確認碼")
+def revoke(node_id: str, body: RevokeProof, user: FamilyIdentity = Depends(_owner)):
+    """Owner remote revocation cannot bypass the bot-issued, node-bound OTP."""
+    from slime_revoke_gate import consume_revoke, RevokeDenied
+    try:
+        consume_revoke(user.sub, node_id, body.code)
+    except RevokeDenied as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"ok": True, "verified_by": "telegram", "node_id": node_id}
 
 @router.post("/v1/family/slime/route")
 def suggest_route(body: RouteRequest, user: FamilyIdentity = Depends(_owner)):
@@ -372,7 +382,6 @@ def join(body: JoinRequest):
 def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
               background_tasks: BackgroundTasks = None):
     _enabled()
-    now=time.time()
     with _db() as c:
         r=_node(c,authorization)
         c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,
@@ -420,6 +429,7 @@ def power_poll(authorization: str | None = Header(default=None)):
 @node_router.post("/v1/slime/node/leave")
 def leave(authorization: str | None = Header(default=None)):
     _enabled()
+    now=time.time()
     with _db() as c:
         r = _node(c, authorization)
         c.execute("DELETE FROM nodes WHERE id=?", (r["id"],))

@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useState} from "react";
-import {ArrowUpRight,Check,ChevronRight,Computer,Copy,Download,HelpCircle,LockKeyhole,Monitor,ShieldCheck,Smartphone,Users} from "lucide-react";
+import {ArrowUpRight,Check,ChevronRight,Computer,Copy,Download,HelpCircle,Monitor,ShieldCheck,Smartphone,Users} from "lucide-react";
 import "./slime.css";
 
 type OS="windows"|"macos"|"linux"|"mobile";
@@ -9,7 +9,6 @@ type GitHubRelease={tag_name:string;html_url:string;published_at:string;assets:A
 type ReleaseStatus="loading"|"ready"|"missing"|"error";
 const RELEASE_API="https://api.github.com/repos/easylearnfromtw/vanilla/releases?per_page=20";
 const RELEASES="https://github.com/easylearnfromtw/vanilla/releases";
-const BOT="https://t.me/SignWell_bot";
 function detectOS():OS{
  const ua=typeof navigator==="undefined"?"":navigator.userAgent.toLowerCase();
  if(/iphone|ipad|ipod|android|mobile/.test(ua))return "mobile";
@@ -125,11 +124,10 @@ export default function SlimePanel(){
    <div className="slime-heading"><div><span className="slime-kicker">STEP 02–04 · CONNECT</span><h3>首次執行與配對</h3></div><Monitor size={19}/></div>
    <ol className="slime-steps">
     <li><span className="slime-step-number">01</span><div><strong>開啟安裝檔</strong><p>Windows 雙擊 Slime 程式；macOS 解壓後開啟對應 .command，Linux 解壓後執行 start-slime.sh。不要執行來源不明的同名檔案。</p></div></li>
-    <li><span className="slime-step-number">02</span><div><strong>輸入一次性短配對碼</strong><p>由 <a href={BOT} target="_blank" rel="noopener noreferrer">@SignWell_bot</a> 的 Owner 私聊產生配對碼，將短碼交給要加入的電腦使用者。首次配對時填寫電腦名稱並同意共享。</p></div></li>
+    <li><span className="slime-step-number">02</span><div><strong>輸入一次性短配對碼</strong><p>由 管理者私人的 Ceres 控制介面 的 Owner 私聊產生配對碼，將短碼交給要加入的電腦使用者。首次配對時填寫電腦名稱並同意共享。</p></div></li>
     <li><span className="slime-step-number">03</span><div><strong>確認節點上線</strong><p>裝置會安全儲存專用 Token，以 HTTPS 回報心跳。Owner 在 Telegram 的 /hub → Slime 節點核對裝置；重開程式會連回相同節點，不需重新索取邀請。</p></div></li>
     <li><span className="slime-step-number">04</span><div><strong>需要 AI 推論時才核准</strong><p>安裝並啟動本機 Ollama；Owner 另外同意推論後，才允許外部 Vanilla API 模型任務傳入此電腦。一般節點心跳不等於開放模型。</p></div></li>
    </ol>
-   <a className="slime-outline-action" href={BOT} target="_blank" rel="noopener noreferrer"><LockKeyhole size={16}/> 開啟 Telegram Owner 管理 <ArrowUpRight size={14}/></a>
   </article>
   <article className="slime-card">
    <div className="slime-heading"><div><span className="slime-kicker">PRIVACY · CONTROL</span><h3>隨時停止與退出</h3></div><ShieldCheck size={19}/></div>

@@ -19,7 +19,8 @@ from slime import _db, _digest, _safe_origin, MAX_ACTIVE_INVITES, INVITE_SECONDS
 TTL = 180
 STATE_TABLE = """CREATE TABLE IF NOT EXISTS slime_telegram_confirm (
     chat_id INTEGER PRIMARY KEY, owner TEXT NOT NULL, node_id TEXT NOT NULL,
-    operation TEXT NOT NULL, code_hash TEXT NOT NULL, expires REAL NOT NULL
+    operation TEXT NOT NULL, code_hash TEXT NOT NULL, expires REAL NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
 )"""
 _AUDIT_TABLE = """CREATE TABLE IF NOT EXISTS slime_telegram_audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, chat_id INTEGER NOT NULL,
@@ -113,6 +114,20 @@ def _lookup(db, sub: str, name: str):
 
 
 def _confirm(sub: str, chat: int, code: str) -> str:
+    # One gate is shared by Telegram, REST and the signed private Mini App.
+    with _db() as db:
+        _setup(db)
+        pending = db.execute(
+            "SELECT node_id,operation FROM slime_telegram_confirm WHERE chat_id=? AND owner=?",
+            (chat, sub),
+        ).fetchone()
+    if pending and pending["operation"] == "revoke":
+        from slime_revoke_gate import consume_revoke, RevokeDenied
+        try:
+            consume_revoke(sub, pending["node_id"], code, chat)
+        except RevokeDenied as exc:
+            return str(exc) + "；沒有刪除節點。"
+        return "Telegram 驗證成功。已撤銷節點憑證並記錄操作。"
     with _db() as db:
         _setup(db)
         db.execute("BEGIN IMMEDIATE")
@@ -126,7 +141,8 @@ def _confirm(sub: str, chat: int, code: str) -> str:
         db.execute("DELETE FROM slime_telegram_confirm WHERE chat_id=?", (chat,))
         operation, node_id = row["operation"], row["node_id"]
         if operation == "revoke":
-            cur = db.execute("DELETE FROM nodes WHERE id=? AND owner=?", (node_id, sub))
+            db.rollback()
+            return "刪除必須使用 Telegram 一次性代碼驗證。"
         elif operation in ("inference_on","inference_off"):
             cur = db.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
                              (int(operation=="inference_on"),node_id,sub))
@@ -148,6 +164,9 @@ def _confirm(sub: str, chat: int, code: str) -> str:
 def handle_slime(chat: int, sub: str, message: str) -> str | None:
     """None => normal Ceres conversation; str => fully handled Slime response."""
     source = message.strip()
+    cmd = re.fullmatch(r"/slime (?:delete|remove|revoke) ([a-f0-9]{24})", source, re.I)
+    if cmd:
+        source = "移除 " + cmd.group(1).lower()
     if not source or len(source) > 250:
         return None
     if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source)
@@ -220,7 +239,9 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
                        (chat, sub, nodes[0]["id"], operation,
                         hashlib.sha256(code.encode()).hexdigest(), time.time()+TTL))
         labels = {"pause": "暫停", "resume": "恢復", "revoke": "永久撤銷"} 
+        extra = ("\n此 Telegram 刪除碼也可輸入 Slime 私人 Mini App 的撤銷配對視窗；"
+                 "最多錯誤 5 次，並綁定此節點。" if operation == "revoke" else "")
         return (f"準備{labels[operation]}節點「{nodes[0]['label']}」。\n"
                 f"請在 {TTL//60} 分鐘內回覆「確認 {code}」執行，"
-                "或回覆「取消」。目前尚未更動。")
+                "或回覆「取消」。目前尚未更動。" + extra)
     return "Slime 可以用自然語言操作。試著說「目前有哪些電腦」或「建立朋友邀請碼」。"

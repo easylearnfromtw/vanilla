@@ -539,3 +539,72 @@ async def vault(request: VaultRequest):
             error=True
     return {"ok":True,"provider":request.provider,"secretReturned":False,
             "model":info,"discoveryError":error}
+
+
+# Store operations P0: owner-only drafts and reporting, no billing or public broadcast.
+class StoreDraft(BaseModel):
+    init_data: str = Field(min_length=20, max_length=8192)
+    kind: str = Field(pattern=r"^(offer|announcement)$")
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=2000)
+    reason: str = Field(default="", max_length=500)
+    image_url: str = Field(default="", max_length=512)
+    price_minor: int | None = Field(default=None, ge=0, le=100000000)
+    discount_percent: int | None = Field(default=None, ge=0, le=100)
+    starts_at: int | None = None
+    ends_at: int | None = None
+
+def _store_schema(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS ceres_store_drafts(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL,
+        kind TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+        reason TEXT NOT NULL, image_url TEXT NOT NULL,
+        price_minor INTEGER, discount_percent INTEGER,
+        starts_at INTEGER, ends_at INTEGER,
+        state TEXT NOT NULL DEFAULT 'draft', created_at INTEGER NOT NULL)""")
+
+@router.post("/store/drafts")
+async def create_store_draft(data: StoreDraft):
+    owner = _verify(data.init_data)
+    if data.starts_at is not None and data.ends_at is not None and data.ends_at <= data.starts_at:
+        raise HTTPException(422, "End must follow start")
+    if data.image_url:
+        from urllib.parse import urlsplit
+        try:
+            url = urlsplit(data.image_url)
+            if url.scheme != "https" or not url.hostname or url.username or url.password:
+                raise ValueError()
+        except ValueError:
+            raise HTTPException(422, "HTTPS image URL required") from None
+    with _session() as db:
+        _store_schema(db)
+        db.execute("BEGIN IMMEDIATE")
+        cursor = db.execute("""INSERT INTO ceres_store_drafts
+            (owner_id,kind,title,body,reason,image_url,price_minor,discount_percent,
+             starts_at,ends_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (owner,data.kind,data.title,data.body,data.reason,data.image_url,
+             data.price_minor,data.discount_percent,data.starts_at,data.ends_at,int(time.time())))
+        draft_id = cursor.lastrowid
+    return {"ok": True, "id": draft_id, "state": "draft", "public": False}
+
+class StoreAuth(BaseModel):
+    init_data: str = Field(min_length=20,max_length=8192)
+
+@router.post("/store/drafts/list")
+async def list_store_drafts(data: StoreAuth):
+    owner = _verify(data.init_data)
+    with _session() as db:
+        _store_schema(db)
+        rows = db.execute("""SELECT id,kind,title,body,reason,image_url,price_minor,
+            discount_percent,starts_at,ends_at,state,created_at FROM ceres_store_drafts
+            WHERE owner_id=? ORDER BY id DESC LIMIT 100""",(owner,)).fetchall()
+    columns = ("id","kind","title","body","reason","image_url","price_minor",
+               "discount_percent","starts_at","ends_at","state","created_at")
+    return {"ok":True,"drafts":[dict(zip(columns,row)) for row in rows]}
+
+@router.post("/store/analytics")
+async def store_analytics(data: StoreAuth):
+    owner = _verify(data.init_data)
+    return {"ok":True,"owner":owner,"source":"not_connected",
+            "total_tokens":None,"request_count":None,"cost_minor":None,
+            "note":"API gateway metering is not yet connected; no usage values are fabricated."}

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.53-ceres-telegram-admin",
-  "description": "Ceres Telegram administrator controls, owner-verified Gmail scopes, secure API key vault and Slime-preserving deployment"
+  "build": "2026.10.21.01-slime-installer-onboarding",
+  "description": "Slime desktop downloads, consent-first one-time pairing, safe Owner/Friend installers and Ollama runner integration"
 }

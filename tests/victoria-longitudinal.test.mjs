@@ -77,3 +77,50 @@ test("Victoria longitudinal date and source are grounded, distinct units remain 
  assert.match(result.context,/資料來源：醫療紀錄CSV/);
  assert.match(result.context,/不作因果推論/);
 });
+
+test("Victoria cancellable CREAM scanner honors account separation and count limit",async()=>{
+ const {indexedDB,IDBKeyRange}=await import("fake-indexeddb");
+ const {fromCreamRows}=await import("../src/cream/core.ts");
+ const {persistCreamDataset,longitudinalReportForVictoria}=await import("../src/cream/history-store.ts");
+ const oldDb=globalThis.indexedDB,oldKeyRange=globalThis.IDBKeyRange,oldWindow=globalThis.window;
+ globalThis.indexedDB=indexedDB;globalThis.IDBKeyRange=IDBKeyRange;
+ globalThis.window={dispatchEvent(){}};
+ try{
+  const records=[["日期","營收 (TWD)"]];
+  for(let i=1;i<=12;i++)records.push(["2026-10-"+String(i).padStart(2,"0"),String(i*100)]);
+  await persistCreamDataset(fromCreamRows(records,"test-owner-A.csv"),"victoria-test-owner-A");
+  await persistCreamDataset(fromCreamRows([
+   ["日期","秘密指標"],["2026-10-01","901"],["2026-10-02","902"],["2026-10-03","903"]
+  ],"test-owner-B.csv"),"victoria-test-owner-B");
+  const checkpoints=[];
+  const limited=await longitudinalReportForVictoria("victoria-test-owner-A",{
+   maxObservations:5,onProgress:(done,total)=>checkpoints.push([done,total])
+  });
+  assert.equal(limited.coverage.available,12);
+  assert.equal(limited.coverage.examined,5);
+  assert.equal(limited.coverage.truncated,true);
+  assert.equal(limited.snapshots.every(x=>x.owner==="victoria-test-owner-A"),true);
+  assert.equal(limited.trends.some(x=>x.metric==="秘密指標"),false);
+  assert.deepEqual(checkpoints.at(-1),[5,5]);
+  const controller=new AbortController();
+  controller.abort();
+  await assert.rejects(()=>longitudinalReportForVictoria("victoria-test-owner-A",{
+   signal:controller.signal
+  }),/已取消/);
+ }finally{
+  if(oldDb===undefined)delete globalThis.indexedDB;else globalThis.indexedDB=oldDb;
+  if(oldKeyRange===undefined)delete globalThis.IDBKeyRange;else globalThis.IDBKeyRange=oldKeyRange;
+  if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;
+ }
+});
+test("Victoria foreground long job uses numeric-only progress and supports user stop",async()=>{
+ const source=readFileSync(fileURLToPath(new URL("../src/local-ai/LocalChat.tsx",import.meta.url)),"utf8");
+ const native=readFileSync(fileURLToPath(new URL("../src/detroit/native-executors.ts",import.meta.url)),"utf8");
+ assert.match(source,/setVictoriaProcessing\(true\)/);
+ assert.match(source,/onProgress:\(done,total\)=>/);
+ assert.match(source,/victoriaController=new AbortController/);
+ assert.match(source,/victoriaController\?\.signal\.aborted/);
+ assert.match(source,/\(generating\|\|victoriaProcessing\)/);
+ assert.match(native,/longitudinalReportForVictoria\(input\.owner/);
+ assert.match(native,/signal:ctx\.signal,onProgress:ctx\.onProgress/);
+});

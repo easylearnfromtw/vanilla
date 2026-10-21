@@ -114,6 +114,14 @@ def _select(owner:str,model:str):
             state={r["id"]:r for r in registry.execute(
                 "SELECT id,max_load_pct,cpu_pct,gpu_util_pct,gpu_temp_c FROM nodes WHERE owner=?",
                 (owner,)).fetchall()}
+        # When the owner limits a node to 25% / 50%, do not enqueue
+        # another task while the reported machine is already above that mark.
+        possible=[node for node in possible if node in state and (
+             state[node]["max_load_pct"]==100 or
+             max(state[node]["cpu_pct"] or 0,state[node]["gpu_util_pct"] or 0)
+                <state[node]["max_load_pct"])]
+        if not possible:
+            raise HTTPException(503,"所有節點的負載已超過 Owner 設定上限")
         def cost(node):
             caps=state[node]
             load=max(caps["cpu_pct"] or 0,caps["gpu_util_pct"] or 0)

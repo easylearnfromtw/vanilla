@@ -133,7 +133,7 @@ export function summarizeCream(result:CreamResult):string{
 export function creamInstruction(text:string):{kind:CreamChartKind|"auto";csv:string}|null{
  const source=text.trim(),explicit=/^(?:CREAM|分析資料|繪製圖表)\s*[：:]\s*([\s\S]+)$/i.exec(source);
  // Dedicated opt-in command; never infer server consent from CSV cell contents.
- const backend=/^(?:阿土伯|October)伺服器驗證CSV\s*[：:]?\s*\r?\n([\s\S]+)$/i.exec(source);
+ const backend=/^(?:阿土伯|October)(?:伺服器驗證CSV|規劃分析CSV|規劃並伺服器驗證CSV)\s*[：:]?\s*\r?\n([\s\S]+)$/i.exec(source);
  let raw=backend?.[1].trim()||explicit?.[1].trim()||"";
  // Recognize ordinary chat instructions only when actual table rows follow.
  if(!explicit&&/(?:分析|圖表|統計|視覺化|整理|趨勢|圓餅|數線|折線|畫圖|繪圖)/.test(source.slice(0,100))){

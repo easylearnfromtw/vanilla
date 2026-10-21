@@ -30,6 +30,7 @@ jobs:
           npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:detroit-bus
+          npm run test:october-readonly
           npm run test:diana
           node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres

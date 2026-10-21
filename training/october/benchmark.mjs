@@ -9,7 +9,7 @@
  */
 import {HOLDOUT,audit} from "./teacher-cases.mjs";
 import {writeFileSync,mkdirSync} from "node:fs";
-import {dirname,join} from "node:path";
+import {dirname,join,resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 
 const EXPECTED=[
@@ -125,6 +125,6 @@ async function main(){
  console.log(JSON.stringify(report.summary,null,2));
  console.log("Note: rubric pass rate is keyword/safety-heuristic coverage, NOT semantic accuracy or superiority.");
 }
-if(process.argv[1]&&fileURLToPath(import.meta.url)===new URL("file://"+process.argv[1]).pathname){
+if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
  main().catch(err=>{console.error("October bench failed: "+String(err.message||err));process.exitCode=1;});
 }

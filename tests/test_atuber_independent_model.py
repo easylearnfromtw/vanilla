@@ -89,7 +89,8 @@ class TestAtuberIndependentModel(unittest.TestCase):
         self.assertIsNone(state["training_dataset_sha256"])
         code=(ROOT/"src"/"ai"/"atuber-model-status.ts").read_text(encoding="utf-8")
         self.assertIn("ATUBER_HAS_INDEPENDENT_WEIGHTS",code)
-        self.assertIn("bootstrap",code.lower() if "bootstrap" in code.lower() else "bootstrap")
+        self.assertIn("Qwen3 0.6B 基底",code)
+        self.assertIn("獨立微調權重",code)
 
 if __name__=="__main__":
     unittest.main()

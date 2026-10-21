@@ -210,6 +210,44 @@ class GeckoHost:
         self.pending={}
         self.auth_lock=threading.Lock()
 
+    def _grant(self,ip:str)->str:
+        with self.auth_lock:
+            now=time.monotonic()
+            self.grants={k:v for k,v in self.grants.items() if v[1]>now}
+            ticket=secrets.token_urlsafe(24)
+            self.grants[ticket]=(ip,now+600)
+            return ticket
+
+    def _grant_valid(self,ticket:str,ip:str)->bool:
+        with self.auth_lock:
+            record=self.grants.get(ticket)
+            return bool(record and record[0]==ip and record[1]>time.monotonic())
+
+    def _approval_request(self,ip:str,purpose:str)->str:
+        from slime_runner_agent import _http
+        record=_http("POST",self.settings["server"]+"/v1/slime/node/gecko/request",
+                     {"purpose":purpose,"device_label":"LAN "+ip},
+                     authorization=self.settings["token"],timeout=12)
+        rid=record.get("requestId")
+        if not isinstance(rid,str) or not re.fullmatch("[a-f0-9]{48}",rid):
+            raise ValueError("Gecko 後端核准請求無效")
+        with self.auth_lock:
+            self.pending[rid]=(ip,purpose,time.monotonic()+240)
+        return rid
+
+    def _approval_status(self,rid:str,ip:str,purpose:str)->dict:
+        with self.auth_lock:
+            record=self.pending.get(rid)
+        if not record or record[0]!=ip or record[1]!=purpose or record[2]<time.monotonic():
+            raise ValueError("此裝置無待確認申請")
+        from slime_runner_agent import _http
+        reply=_http("POST",self.settings["server"]+"/v1/slime/node/gecko/check",
+                    {"request_id":rid},authorization=self.settings["token"],timeout=12)
+        if reply.get("status") in ("approved","rejected"):
+            with self.auth_lock:
+                self.pending.pop(rid,None)
+        return reply
+
     def _http_handler(self):
         host=self
         class Handler(BaseHTTPRequestHandler):
@@ -228,15 +266,43 @@ class GeckoHost:
                 self.wfile.write(content)
             def do_GET(self):
                 if not self._allowed():return self._send(403,b"Forbidden","text/plain")
-                if self.path=="/":
-                    return self._send(200,_page(host.settings["label"],host.ip,host.manifest,host.cache),"text/html; charset=utf-8")
+                from urllib.parse import urlsplit,parse_qs
+                url=urlsplit(self.path)
+                if url.path=="/":
+                    return self._send(200,_page(host.settings["label"],host.manifest),"text/html; charset=utf-8")
+                if url.path.startswith("/download/status/"):
+                    rid=url.path.rsplit("/",1)[-1]
+                    if not re.fullmatch("[a-f0-9]{48}",rid):
+                        return self._send(404,b"Not Found","text/plain")
+                    try:
+                        result=host._approval_status(rid,self.client_address[0],"download")
+                        if result.get("status")=="pending":
+                            return self._send(202,_pending_page(rid),"text/html; charset=utf-8")
+                        if result.get("status")=="approved":
+                            grant=host._grant(self.client_address[0])
+                            return self._send(200,_download_ready(host.settings["label"],grant,host.manifest,host.cache),"text/html; charset=utf-8")
+                        return self._send(403,b"Owner denied this download","text/plain")
+                    except (OSError,ValueError,HTTPError,URLError,TimeoutError):
+                        return self._send(410,b"Approval expired or unavailable","text/plain")
+                if url.path.startswith("/invite/status/"):
+                    rid=url.path.rsplit("/",1)[-1]
+                    if not re.fullmatch("[a-f0-9]{48}",rid):
+                        return self._send(404,b"Not Found","text/plain")
+                    try:
+                        result=host._approval_status(rid,self.client_address[0],"join")
+                        return self._send(200,json.dumps(result).encode("utf-8"))
+                    except (OSError,ValueError,HTTPError,URLError,TimeoutError):
+                        return self._send(410,b'{"status":"expired"}')
                 if self.path=="/manifest":
                     data={"type":"vanilla-gecko-v1","label":host.settings["label"],
                           "server":host.settings["server"],"cached":[x for x in FILES if host.manifest and (host.cache/x).is_file()
                                    and _sha256(host.cache/x)==host.manifest["hashes"][x]]}
                     return self._send(200,json.dumps(data).encode("utf-8"))
-                name=self.path.removeprefix("/file/")
-                if self.path.startswith("/file/") and name in FILES and host.manifest:
+                name=url.path.removeprefix("/file/")
+                if url.path.startswith("/file/") and name in FILES and host.manifest:
+                    grant=parse_qs(url.query).get("grant",[""])[0]
+                    if not host._grant_valid(grant,self.client_address[0]):
+                        return self._send(403,b"Recipient download approval required","text/plain")
                     file=host.cache/name
                     if (not file.is_file() or file.stat().st_size>MAX_INSTALLER_BYTES
                         or _sha256(file)!=host.manifest["hashes"][name]):
@@ -267,24 +333,46 @@ class GeckoHost:
                     return
                 return self._send(404,b"Not Found","text/plain")
             def do_POST(self):
-                if not self._allowed():return self._send(403,b"Forbidden","text/plain")
-                if self.path!="/invite" or self.headers.get("X-Gecko-Consent")!="v1" or self.headers.get("Content-Type")!="application/json":
-                    return self._send(403,b'{"error":"explicit recipient consent required"}')
+                if not self._allowed():
+                    return self._send(403,b"Forbidden","text/plain")
                 try:
                     n=int(self.headers.get("Content-Length","0"))
-                    if n<2 or n>512:raise ValueError()
+                    if n<2 or n>768:raise ValueError("Payload too large")
+                    if self.path=="/download/consent":
+                        from urllib.parse import parse_qs
+                        if "application/x-www-form-urlencoded" not in self.headers.get("Content-Type",""):
+                            raise ValueError("Invalid form")
+                        form=parse_qs(self.rfile.read(n).decode("utf-8","strict"))
+                        mode=form.get("mode",[""])[0]
+                        if mode not in ("receiver","owner") or form.get("consent")!=["yes"]:
+                            return self._send(403,b"Explicit receiver consent required","text/plain")
+                        if mode=="receiver":
+                            grant=host._grant(self.client_address[0])
+                            return self._send(200,_download_ready(host.settings["label"],grant,host.manifest,host.cache),"text/html; charset=utf-8")
+                        rid=host._approval_request(self.client_address[0],"download")
+                        return self._send(202,_pending_page(rid),"text/html; charset=utf-8")
+                    if self.path!="/invite" or self.headers.get("X-Gecko-Consent")!="v1":
+                        return self._send(403,b'{"error":"explicit recipient consent required"}')
+                    if self.headers.get("Content-Type")!="application/json":
+                        raise ValueError("Invalid content type")
                     obj=json.loads(self.rfile.read(n))
-                    if obj!={"consent":True}:raise ValueError()
-                    # Parent-only bearer is sent to WeiGuo over HTTPS, never LAN.
+                    if (not isinstance(obj,dict) or obj.get("consent") is not True or
+                        obj.get("mode") not in ("receiver","owner") or
+                        set(obj)!={"consent","mode"}):
+                        return self._send(403,b'{"error":"explicit consent and mode required"}')
+                    if obj["mode"]=="owner":
+                        rid=host._approval_request(self.client_address[0],"join")
+                        return self._send(202,json.dumps({"status":"pending","requestId":rid}).encode("utf-8"))
                     from slime_runner_agent import _http
                     out=_http("POST",host.settings["server"]+"/v1/slime/node/gecko/invite",
                               {},authorization=host.settings["token"],timeout=12)
                     ticket=out.get("ticket")
                     if not isinstance(ticket,str) or not TICKET.fullmatch(ticket):
-                        raise ValueError()
-                    return self._send(200,json.dumps({"ticket":ticket}).encode("utf-8"))
-                except (OSError,ValueError,URLError,HTTPError,TimeoutError):
-                    return self._send(503,b'{"error":"Gecko pairing unavailable"}')
+                        raise ValueError("Backend Gecko ticket invalid")
+                    return self._send(200,json.dumps({"status":"approved","ticket":ticket}).encode("utf-8"))
+                except (OSError,ValueError,UnicodeError,URLError,HTTPError,TimeoutError,TypeError):
+                    return self._send(503,b'{"error":"Gecko authorization unavailable"}')
+
         return Handler
 
     def start(self,mirror=True):

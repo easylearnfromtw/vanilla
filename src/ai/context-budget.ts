@@ -36,15 +36,28 @@ export function composeUserPrompt(question:string,contexts:PromptContext[],guida
  let remaining=budgetTokens-estimateTokens(head)-estimateTokens(guidance)-24;
  const included:ComposeResult["included"]=[],omitted:string[]=[];
  const parts:string[]=[];
+ // Blackhole: skip the exact same source ID and original text only after it was included.
+ // Different sources remain distinct, even if their text happens to match.
+ const includedExact=new Map<string,Set<string>>();
+ const remembered=(id:string,text:string)=>{
+  let texts=includedExact.get(id);
+  if(!texts){texts=new Set<string>();includedExact.set(id,texts);}
+  texts.add(text);
+ };
  for(const ctx of [...contexts].filter(x=>x.text.trim()).sort((a,b)=>a.priority-b.priority)){
+  if(ctx.id&&includedExact.get(ctx.id)?.has(ctx.text)){
+   omitted.push(ctx.label+"（同一來源重複，已省略）");
+   continue;
+  }
   const cost=estimateTokens(ctx.text);
-  if(cost<=remaining){parts.push(ctx.text);included.push({id:ctx.id,label:ctx.label,chars:ctx.text.length,truncated:false});remaining-=cost;continue;}
+  if(cost<=remaining){parts.push(ctx.text);included.push({id:ctx.id,label:ctx.label,chars:ctx.text.length,truncated:false});remembered(ctx.id,ctx.text);remaining-=cost;continue;}
   // Only worth including a slice if it can carry real content.
   if(remaining>160&&ctx.priority<=2){
    const slice=truncateToTokens(ctx.text,remaining-60);
    if(slice.length>80){
     parts.push(slice+TRUNC_NOTE(ctx.label,slice.length,ctx.text.length));
     included.push({id:ctx.id,label:ctx.label,chars:slice.length,truncated:true});
+    remembered(ctx.id,ctx.text);
     remaining=0;continue;
    }
   }

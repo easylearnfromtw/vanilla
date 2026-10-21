@@ -58,6 +58,23 @@ class SlimeOpsTests(unittest.TestCase):
         self.assertEqual(node["public_ip"],"")
         self.assertEqual(node["gpu_temp_c"],63)
 
+    def test_claimed_public_ip_is_only_stored_with_consent(self):
+        token=issue_short_pair(self.owner)["code"]
+        request=Request({"type":"http","client":("127.0.0.1",443),"headers":[]})
+        node=pair(PairRequest(code=token,label="Public IP opt-in",
+                              role="owner",geo_opt_in=True,public_ip="8.8.4.4"),request)
+        with slime._db() as db:
+            row=db.execute("SELECT public_ip FROM nodes WHERE id=?",
+                           (node["node_id"],)).fetchone()
+        self.assertEqual(row["public_ip"],"8.8.4.4")
+        token=issue_short_pair(self.owner)["code"]
+        node=pair(PairRequest(code=token,label="Without consent",
+                              role="owner",geo_opt_in=False,public_ip="8.8.8.8"),request)
+        with slime._db() as db:
+            row=db.execute("SELECT public_ip FROM nodes WHERE id=?",
+                           (node["node_id"],)).fetchone()
+        self.assertEqual(row["public_ip"],"")
+
     def test_location_and_shutdown_are_opt_in_only(self):
         no=self.enroll()
         with slime._db() as db:

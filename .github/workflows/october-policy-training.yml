@@ -1,6 +1,13 @@
 name: October Policy Real Training
 
 on:
+  push:
+    branches: [feat/signwell-agent-sandbox-20261020]
+    paths:
+      - "training/october/**"
+      - "src/detroit/penteract-*.ts"
+      - "tests/penteract-*.test.mjs"
+      - ".github/workflows/october-policy-training.yml"
   pull_request:
     paths:
       - "training/october/**"

@@ -78,7 +78,8 @@ def _save(settings):
     # Atomic replacement and restrictive permissions wherever the OS supports them.
     handle,name=tempfile.mkstemp(prefix=".slime-",dir=path.parent)
     try:
-        os.fchmod(handle,0o600)
+        if hasattr(os,'fchmod'):
+            os.fchmod(handle,0o600)
         with os.fdopen(handle,"w",encoding="utf-8") as output:
             json.dump(settings,output,ensure_ascii=False)
             output.flush()

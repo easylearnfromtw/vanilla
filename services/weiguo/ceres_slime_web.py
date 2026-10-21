@@ -589,6 +589,53 @@ def rewards_config(body:RewardConfig):
     return set_config(sub,body.amount,body.enabled,body.weeken_enabled)
 
 
+class GeckoIssue(Owner):
+    name: str=Field(min_length=1,max_length=50)
+    capacity: int=Field(ge=1,le=2000)
+    lifetime_seconds: int=Field(default=3600,ge=60,le=86400)
+
+
+class GeckoAction(Owner):
+    pool_id: str=Field(pattern=r"^[a-f0-9]{24}$")
+
+
+class GeckoRollout(GeckoAction):
+    version: str=Field(pattern=r"^slime-v[A-Za-z0-9._-]{1,65}$")
+    canary_percent: int=Field(ge=0,le=100)
+
+
+class GeckoPage(Owner):
+    page: int=Field(default=0,ge=0,le=100000)
+
+
+@router.post("/gecko/issue")
+def gecko_issue(body:GeckoIssue):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import create_pool
+    return create_pool(sub,body.name,body.capacity,body.lifetime_seconds)
+
+
+@router.post("/gecko/revoke")
+def gecko_revoke(body:GeckoAction):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import revoke_pool
+    return revoke_pool(sub,body.pool_id)
+
+
+@router.post("/gecko/rollout")
+def gecko_rollout(body:GeckoRollout):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import set_rollout
+    return set_rollout(sub,body.pool_id,body.version,body.canary_percent)
+
+
+@router.post("/gecko/snapshot")
+def gecko_snapshot(body:GeckoPage):
+    _,sub=_owner(body.init_data)
+    from gecko_fleet import snapshot
+    return snapshot(sub,body.page)
+
+
 class Plan(Owner):
     node_id: str=Field(pattern=r"^[a-f0-9]{24}$")
     operation: str=Field(pattern=r"^(node|inference|revoke|load|thermal)$")

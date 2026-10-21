@@ -38,6 +38,7 @@ def _menu() -> list[list[dict]]:
         [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
         [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
         [_button("◈ 我的模型 API","myapi"),_button("✦ 進階運維","operations")],
+        [_button("⚙️ Ceres 安裝巡檢","install")],
     ]
 
 
@@ -252,6 +253,12 @@ async def command(chat: int, body: str) -> None:
         await _home(chat)
     elif action in ("status", "狀態"):
         await say(chat, _title("SYSTEM / 系統配置")+"<pre>"+escape(_status_text())+"</pre>\n<i>配置快照並非端對端回覆測試。</i>", _page_buttons("status"),html=True)
+    elif action in ("install", "setup", "installer", "安裝"):
+        from ceres_installer import redacted_summary
+        await say(chat, _title("INSTALLER / 安裝配置")
+                  +"<pre>"+escape(redacted_summary())+"</pre>"
+                  +"\n<i>本頁只讀、不會建立金鑰、重新註冊 Webhook 或執行安裝。</i>",
+                  _page_buttons("install"),html=True)
     elif action in ("tools", "skills", "功能", "工具"):
         await say(chat, _title("TOOLS / Detroit 工具")+"<pre>"+escape(_tools_text())+"</pre>", _page_buttons("tools"),html=True)
     elif action in ("nodes", "slime", "節點"):
@@ -449,7 +456,7 @@ async def callback(chat: int, callback_id: str, data: str, message_id: int | Non
 
 async def _handle_callback(chat: int, action: str) -> None:
     if action in {"home", "status", "tools", "nodes", "sources",
-                  "accounts", "providers"}:
+                  "accounts", "providers", "install"}:
         await command(chat, "/hub " + action)
     elif re.fullmatch(r"infer_(on|off):[a-f0-9]{24}",action):
         from slime_telegram import handle_slime

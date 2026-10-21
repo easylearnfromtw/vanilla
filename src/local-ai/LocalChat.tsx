@@ -68,7 +68,8 @@ import {CHAT_MODE_KEY,CHAT_ARCHIVE_EVENT,startNewConversation,recentConversation
 import type {ArchiveSummary} from "../library/conversation-archive";
 import {merlinParse,stageUpdate,settleDetroitStages,cloudDetroitBrief,type DetroitPlan,type DetroitEngine} from "../detroit/core";
 import {optimizeMerlinPrompt} from "../detroit/merlin-optimizer";
-import {isVictoriaEnabled,setVictoriaEnabled} from "../detroit/victoria";
+import {isVictoriaEnabled,setVictoriaEnabled,victoriaTaskQuery} from "../detroit/victoria";
+import {shouldVictoriaAnalyzeLongitudinal,summarizeVictoriaLongitudinal} from "../detroit/victoria-longitudinal";
 import {detectMerlinClarification,resolveMerlinClarification,type MerlinClarification} from "../detroit/merlin-clarifier";
 import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
@@ -1206,7 +1207,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(!privateMode&&!humanize&&contextPrefs.project&&/(?:專案|程式碼|原始碼|CITYMUS|citymusic|musiccity|musictown|稜角|Signwell|Github|GitHub|Builder)/i.test(question)){
   try{projectExtra=await projectContext(attachmentOwner(signedChatAccount()),question);}catch{}
  }
- if(!privateMode&&!humanize&&contextPrefs.cream&&/(?:CREAM|長期|趨勢|歷史數據|數據追蹤|資料分析|成長|變化幅度|量測|體重|血壓|心率)/i.test(question)){
+ if(!privateMode&&!humanize&&contextPrefs.cream&&(!victoriaEnabled||!shouldVictoriaAnalyzeLongitudinal(question))&&/(?:CREAM|長期|趨勢|歷史數據|數據追蹤|資料分析|成長|變化幅度|量測|體重|血壓|心率)/i.test(question)){
   try{
    const report=await longitudinalReport(attachmentOwner(signedChatAccount()));
    creamExtra="CREAM 已保存的歷史觀察（真實持久記錄；不等同預測）：\n"+
@@ -1222,17 +1223,41 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const memoryRequested=!privateMode&&!humanize&&contextPrefs.memory&&driveSession()&&/(?:我的|我們|家裡|家人|家庭|家族|小孩|孩子|爸|媽|之前|以前|上次|記得|記憶|健康|運動|旅行|旅遊|紀錄|計畫|偏好|預算)/.test(question);
  let recalled="";
  if(memoryRequested)try{recalled=await knowledgeContext(question);}catch{}
- let victoriaContext="";
+ let victoriaContext="",victoriaDataContext="",victoriaStatus="";
  if(!privateMode&&victoriaEnabled&&!humanize){
+  if(detroit.depth!=="quick")markDetroit("victoria","running","正在核對同帳號對話與已授權的歷史資料");
+  let recalledCount=0,metricCount=0;
   try{
-   const recalledChats=await executeDetroitNative<VictoriaRecall>("victoria",{owner:victoriaOwner,query:question},{privateMode});
+   // Current-turn follow-ups resolve against the CURRENT chat only; old archives
+   // remain lower-trust and scoped to the signed-in account's normal mode.
+   const query=victoriaTaskQuery(question,history);
+   const recalledChats=await executeDetroitNative<VictoriaRecall>("victoria",{owner:victoriaOwner,query},{privateMode});
    victoriaContext=recalledChats.context;
-   if(detroit.depth!=="quick")markDetroit("victoria",recalledChats.matches.length?"done":"skipped",
-    recalledChats.matches.length?"已找到 "+recalledChats.matches.length+" 段同帳號的相關封存對話":"沒有找到足夠相關的舊對話，不進行猜測");
+   recalledCount=recalledChats.matches.length;
   }catch(error){
-   if(detroit.depth!=="quick")markDetroit("victoria","error","無法讀取裝置舊對話，已退回目前對話");
    recordClientFault("detroit","tool",error);
+   victoriaStatus="封存對話讀取失敗";
   }
+  if(contextPrefs.cream&&shouldVictoriaAnalyzeLongitudinal(question)){
+   try{
+    if(detroit.depth!=="quick")markDetroit("victoria","running","正在由 CREAM 計算歷史指標，Victoria 核對期間、來源與品質");
+    // Foreground-only. Yield once to show real progress; never claim a durable
+    // background task or continuous operation when the browser is closed.
+    await new Promise<void>(resolve=>setTimeout(resolve,0));
+    const report=await longitudinalReport(victoriaOwner);
+    const summary=summarizeVictoriaLongitudinal(question,report);
+    victoriaDataContext=summary.context;
+    metricCount=summary.matchedMetrics;
+    victoriaStatus=summary.matchedMetrics?
+     "已核對 "+summary.matchedMetrics+" 項長期指標、"+summary.snapshots+" 份快照":
+     "此帳號沒有與本題相關且可驗證的長期數據";
+   }catch(error){
+    recordClientFault("detroit","tool",error);
+    victoriaStatus="長期數據讀取未完成，不能視為已核對";
+   }
+  }
+  if(detroit.depth!=="quick")markDetroit("victoria",recalledCount||metricCount?"done":"skipped",
+   "同帳號對話 "+recalledCount+" 段"+(victoriaStatus?"；"+victoriaStatus:"；沒有符合條件的舊對話"));
  }
  const noodlesExtra=!privateMode?noodlesGuidance(readNoodles(),task):"";
  const teacherExtra=!privateMode?teacherStyleHint(readTeacherState(),task):"";
@@ -1241,6 +1266,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(webContext)contexts.push({id:"web",label:"網頁 "+webSources.length+" 筆",priority:1,text:"以下是實際取得的公開網頁內容／摘要。請只引用這些資料回答，使用 [1]、[2] 編號標明依據，不要把搜尋摘要說成已讀全文；無法確認時請明說。\n"+webContext});
  if(recalled)contexts.push({id:"memory",label:"Drive 記憶",priority:2,text:"使用者 Google Drive 授權的個人記憶節錄（來源可能不完整，勿假稱已再次驗證）：\n"+recalled});
  if(victoriaContext)contexts.push({id:"victoria",label:"Victoria 舊對話",priority:2,text:victoriaContext});
+  if(victoriaDataContext)contexts.push({id:"victoria-longitudinal",label:"Victoria × CREAM 長期數據",priority:2,text:victoriaDataContext});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
@@ -1346,7 +1372,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
   if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact&&!nativeArtifact)markDetroit("retina","skipped","本題未要求支援格式的本機匯出");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
-  setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒");
+  setLastRoute("上一則由 "+primary.label+" 回答 · "+((Date.now()-started)/1000).toFixed(1)+" 秒"+(victoriaContext||victoriaDataContext?" · Victoria 已加入已授權資料":""));
  }catch(error){
   if(detroit.depth!=="quick")markDetroit("dionysus","error",controller.signal.aborted?"使用者已中止任務":"主模型推論失敗，檢查備援");
   if(controller.signal.aborted){
@@ -1487,7 +1513,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  </div>
  {!privateMode&&<div className="control-toggles">
   <span className="vh-section-label">自動附加資料</span>
-  <label className="vh-switch"><input type="checkbox" checked={victoriaEnabled} disabled={busy} onChange={toggleVictoriaConsent}/><span><strong><Brain size={13}/> Victoria · 跨對話脈絡</strong><small>預設關閉；經同意只檢索本裝置、同帳號一般模式的相關舊對話，並交給 Merlin 輔助回答</small></span></label>
+  <label className="vh-switch"><input type="checkbox" checked={victoriaEnabled} disabled={busy} onChange={toggleVictoriaConsent}/><span><strong><Brain size={13}/> Victoria · 跨對話與長期數據</strong><small>{victoriaEnabled?"已授權：主動檢索同帳號一般對話，長期數據交由 CREAM 真實統計，再由 Victoria 核對來源、期間與品質；僅本分頁執行。":"尚未授權：點此啟用同帳號一般模式封存對話與 CREAM 長期資料的脈絡協調；不同帳號與私密資料不可讀取。"}</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={contextPrefs.memory} onChange={()=>toggleContext("memory")}/><span><strong><Brain size={13}/> Drive 記憶</strong><small>問到家人、計畫、偏好時附上相關記憶</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={contextPrefs.cream} onChange={()=>toggleContext("cream")}/><span><strong><BarChart3 size={13}/> CREAM 歷史</strong><small>問到趨勢、體重、數據時附上長期紀錄</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={contextPrefs.project} onChange={()=>toggleContext("project")}/><span><strong><Code2 size={13}/> 專案程式碼</strong><small>問到專案或程式時附上 PROJECT HUB 索引</small></span></label>

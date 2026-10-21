@@ -463,6 +463,66 @@ async function loadReward(){
    }catch(e){n.textContent=e.message;n.hidden=false}
    finally{btn.disabled=false}
  }
+ async function loadGecko(){
+   const approvals=$("gecko-approval-list");approvals.replaceChildren();
+   try{
+     const queue=await api("gecko/approvals");
+     if(!queue.requests.length){
+       const p=document.createElement("p");p.textContent="目前沒有待核准的區網下載或配對。";approvals.append(p);
+     }
+     for(const item of queue.requests){
+       const node=document.createElement("article");node.className="node";
+       const title=document.createElement("strong");
+       title.textContent=(item.purpose==="download"?"安裝包下載":"Slime Friend 加入")+" · "+item.deviceLabel;
+       const details=document.createElement("p");
+       details.textContent="待審 · 剩餘 "+Math.max(0,item.expiresSeconds)+" 秒 · 不需 Telegram 配對碼；接收電腦仍須自行操作";
+       const buttons=document.createElement("div");buttons.className="controls";
+       for(const approved of [true,false]){
+         const btn=document.createElement("button");btn.type="button";
+         btn.className="btn "+(approved?"primary":"soft");
+         btn.textContent=approved?"核准此裝置":"拒絕";
+         btn.addEventListener("click",async()=>{
+           btn.disabled=true;
+           try{
+             const res=await api("gecko/decide",{request_id:item.requestId,approve:approved});
+             const status=$("gecko-approval-notice");
+             status.textContent=(approved?"已核准 ":"已拒絕 ")+res.deviceLabel+" 的"+(res.purpose==="download"?"下載":"配對")+"請求。";
+             status.hidden=false;
+             await loadGecko();
+           }catch(e){notice(e.message);btn.disabled=false;}
+         });
+         buttons.append(btn);
+       }
+       node.append(title,details,buttons);approvals.append(node);
+     }
+   }catch(e){approvals.textContent="無法讀取 Gecko 待審請求："+e.message;}
+   try{
+     const data=await api("gecko/snapshot",{page:0});
+     $("gecko-total").textContent=String(data.totalNodes);
+     $("gecko-online").textContent=String((data.members||[]).filter(n=>n.online).length);
+     const root=$("gecko-pools");root.replaceChildren();
+     if(!(data.pools||[]).length)root.textContent="尚未建立批次受管主機群。";
+     for(const p of data.pools||[]){
+       const card=document.createElement("article");card.className="node";
+       const title=document.createElement("strong");title.textContent=p.name;
+       const desc=document.createElement("p");
+       desc.textContent="已加入 "+p.accepted+"/"+p.capacity+" · "+
+        (p.revoked?"新裝置加入已關閉":"可接受受管主機加入")+" · 灰度 "+p.canaryPercent+"%";
+       card.append(title,desc);
+       if(!p.revoked){
+         const btn=document.createElement("button");btn.className="btn danger";
+         btn.type="button";btn.textContent="停止這批新加入";
+         btn.onclick=async()=>{
+           if(!confirm("停止此主機群接受新成員？已加入裝置不受影響。"))return;
+           try{await api("gecko/revoke",{pool_id:p.id});await loadGecko();}
+           catch(e){notice(e.message);}
+         };
+         card.append(btn);
+       }
+       root.append(card);
+     }
+   }catch(e){$("gecko-pools").textContent="Gecko Fleet 無法載入："+e.message;}
+ }
  function nodeCard(n){
    const root=document.createElement("article");root.className="node";
    const head=document.createElement("div");head.className="node-top";
@@ -604,6 +664,27 @@ async function loadReward(){
  tg.ready();tg.expand();
  document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.tab)));
  document.querySelectorAll("[data-go]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.go)));
+ $("gecko-approval-refresh").addEventListener("click",()=>void loadGecko());
+ $("gecko-refresh").addEventListener("click",()=>void loadGecko());
+ $("gecko-create").addEventListener("click",async()=>{
+   const name=$("gecko-name").value.trim(),capacity=Number($("gecko-capacity").value);
+   if(!name||!Number.isSafeInteger(capacity)||capacity<1||capacity>2000){notice("請填入有效主機群名稱和名額");return;}
+   $("gecko-create").disabled=true;
+   try{
+     const result=await api("gecko/issue",{name,capacity});
+     geckoSecret=result.enrollmentToken;
+     $("gecko-secret-display").hidden=false;
+     $("gecko-secret-display").textContent="短效授權（只顯示一次）："+geckoSecret;
+     $("gecko-copy").hidden=false;$("gecko-clear").hidden=false;
+     await loadGecko();
+   }catch(e){notice(e.message);}
+   finally{$("gecko-create").disabled=false;}
+ });
+ $("gecko-copy").addEventListener("click",()=>{if(geckoSecret)void copy(geckoSecret);});
+ $("gecko-clear").addEventListener("click",()=>{
+   geckoSecret="";$("gecko-secret-display").textContent="";
+   $("gecko-secret-display").hidden=true;$("gecko-copy").hidden=true;$("gecko-clear").hidden=true;
+ });
  $("refresh").addEventListener("click",reload);
  $("refresh-reward").addEventListener("click",()=>void loadReward());
  $("save-reward").addEventListener("click",()=>void saveReward());

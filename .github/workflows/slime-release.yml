@@ -2,18 +2,21 @@ name: Slime Installer Release
 on:
   workflow_dispatch:
   push:
+    branches: ['main']
     tags: ['slime-v*']
-    branches: [main]
     paths:
       - '.github/workflows/slime-release.yml'
       - 'services/weiguo/slime_desktop.py'
       - 'services/weiguo/slime_runner_agent.py'
       - 'services/weiguo/slime_success.py'
       - 'deployment/slime/**'
-      - 'services/weiguo/slime.py'
-      - 'services/weiguo/slime_runner_bridge.py'
 permissions:
   contents: read
+
+# Multiple code pushes do not race to publish mismatched installer binaries.
+concurrency:
+  group: slime-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   windows:
@@ -76,7 +79,6 @@ jobs:
         run: |
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
           python3 -m unittest discover -s tests -p test_slime_desktop.py
-          python3 -m unittest discover -s tests -p test_slime_desktop.py
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
@@ -115,17 +117,17 @@ jobs:
       - name: Publish GitHub release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            tag="$GITHUB_REF_NAME"
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "Verified existing release $tag"
-              exit 0
-            fi
-            gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
-              --title "Slime $tag" --generate-notes --verify-tag
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/slime-v* ]]; then
+            release_tag="$GITHUB_REF_NAME"
+            target_args=(--verify-tag)
           else
-            tag="slime-v$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}"
-            gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
-              --title "Slime $tag" --target "$GITHUB_SHA" --generate-notes
+            # No write-capable create-tag connector is required: gh release
+            # creates this unique immutable tag at the exact tested commit.
+            release_tag="slime-v$(date -u +%Y%m%d)-${GITHUB_SHA:0:12}"
+            target_args=(--target "$GITHUB_SHA")
           fi
+          gh release create "$release_tag" release/* --repo "$GITHUB_REPOSITORY" \
+            --title "Slime $release_tag" --generate-notes "${target_args[@]}"

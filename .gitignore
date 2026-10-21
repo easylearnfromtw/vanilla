@@ -27,3 +27,9 @@ adapters/
 # Ceres local bootstrap contains generated operator secrets
 private/
 ceres.env
+
+# Atuber independent model checkpoints, training secrets and multi-GB weights
+.venv-atuber/
+artifacts/atuber-*/
+models/atuber/releases/
+*.gguf

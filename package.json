@@ -33,6 +33,7 @@
     "test:chat-router": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/chat-router.test.mjs tests/veritas-gate.test.mjs",
     "test:tool-knowledge": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/tool-knowledge.test.mjs",
     "test:model-tuning": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/model-tuning.test.mjs tests/atuber-single-driver.test.mjs",
+    "test:atuber-model": "python3 -m unittest discover -s tests -p 'test_atuber_independent_model.py'",
     "test:small-model": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/small-model-scaffold.test.mjs",
     "test:reliability": "node --experimental-strip-types --test tests/generation-reliability.test.mjs",
     "test:archive": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/conversation-archive.test.mjs",

@@ -135,7 +135,7 @@ _metrics=(None,None)
 def _gpu_metrics():
     global _last_metrics_at,_metrics
     now=time.monotonic()
-    if now-_last_metrics_at<25:
+    if now-_last_metrics_at<60:
         return _metrics
     _last_metrics_at=now
     if not shutil.which("nvidia-smi"):

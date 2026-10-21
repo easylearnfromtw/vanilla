@@ -105,6 +105,33 @@ def _account_for(email: str|None=None, sub: str|None=None):
             return db.execute("SELECT * FROM ceres_admin_accounts WHERE google_sub=?",(sub,)).fetchone()
     return None
 
+def bind_verified_invitation(sub: str, email: str) -> None:
+    """Bind a verified OIDC identity to an invited Gmail even in public mode.
+
+    This helper is called only after Google's ID token was verified by auth.
+    Absence of an invitation does NOT block the public/legacy family login;
+    private service scope validation remains mandatory at every paid call.
+    """
+    email = normalize_email(email)
+    with _session() as db:
+        _setup(db)
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT google_sub,enabled FROM ceres_admin_accounts "
+                         "WHERE email=?", (email,)).fetchone()
+        if not row or not row["enabled"]:
+            return
+        if row["google_sub"] and row["google_sub"] != sub:
+            raise HTTPException(403, "Gmail 邀請已綁定其他 Google 身分")
+        if not row["google_sub"]:
+            collision = db.execute("SELECT 1 FROM ceres_admin_accounts WHERE google_sub=?",
+                                   (sub,)).fetchone()
+            if collision:
+                raise HTTPException(403, "Google 身分已被其他白名單帳號使用")
+            db.execute("UPDATE ceres_admin_accounts SET google_sub=?,updated_at=? "
+                       "WHERE email=? AND google_sub IS NULL",
+                       (sub,int(time.time()),email))
+
+
 def role_for_sub(sub: str):
     row=_account_for(sub=sub)
     if row and row["enabled"]:

@@ -38,6 +38,15 @@ class CeresAdminTests(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
 
+    def test_optional_invitation_links_verified_sub_without_global_lock(self):
+        from ceres_admin_policy import bind_verified_invitation, require_scope
+        grant("publicmember@gmail.com","member",["chat","gemini"],self.chat)
+        self.assertFalse(enforce())
+        bind_verified_invitation("987654321098765432109","publicmember@gmail.com")
+        require_scope("987654321098765432109","publicmember@gmail.com","gemini")
+        with self.assertRaises(HTTPException):
+            require_scope("987654321098765432109","publicmember@gmail.com","canva")
+
     def test_allowlist_binds_google_subject_and_revokes(self):
         grant("Person@Gmail.com","owner",["chat","gemini"],self.chat)
         set_enforce(True,self.chat)

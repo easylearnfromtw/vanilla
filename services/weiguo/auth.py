@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from fastapi import Header, HTTPException, Request
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2 import id_token
-from ceres_admin_policy import check_identity, role_for_sub, enforce
+from ceres_admin_policy import check_identity, bind_verified_invitation, role_for_sub, enforce
 
 SESSION_SECONDS = 15 * 60
 _SUB = re.compile(r"^[0-9]{8,40}$")
@@ -93,6 +93,7 @@ def google_login(credential: str) -> tuple[str, FamilyIdentity]:
     # Google has already verified email_verified + immutable subject.
     # New invited accounts are linked to that subject exactly once.
     check_identity(sub,email,bind=True)
+    bind_verified_invitation(sub,email)
     family = _member_for(sub)
     if family is None:
         raise HTTPException(403, "此 Google 帳號尚未獲得家庭權限")

@@ -175,6 +175,26 @@ class OctoberReceiptTests(unittest.TestCase):
             count = db.execute("SELECT COUNT(*) FROM october_readonly_receipts").fetchone()[0]
         self.assertEqual(count, 0)
 
+    def test_expired_receipt_is_not_replayed_or_readable(self):
+        import october_readonly
+        self.assertEqual(self.http("POST", "/v1/family/october/csv",
+                                   headers=self.token(ALICE), json=self.sample).status_code, 200)
+        old = int(time.time()) - 31 * 86400
+        with _session() as db:
+            row = db.execute("SELECT * FROM october_readonly_receipts").fetchone()
+            sig = october_readonly._sign(RECEIPT_KEY.encode(), ALICE,
+                                         row["task_id"], row["input_sha256"],
+                                         row["result_sha256"], old)
+            db.execute("UPDATE october_readonly_receipts SET created_at=?, signature=?",
+                       (old, sig))
+        get = self.http("GET", "/v1/family/october/receipts/october_task_0001",
+                        headers=self.token(ALICE))
+        self.assertEqual(get.status_code, 404)
+        replay = self.http("POST", "/v1/family/october/csv",
+                           headers=self.token(ALICE), json=self.sample)
+        self.assertEqual(replay.status_code, 200)
+        self.assertFalse(replay.json()["replayed"])
+
     def test_per_subject_rate_limit(self):
         for i in range(12):
             req = dict(self.sample, task_id=f"october_rate_{i:04d}")

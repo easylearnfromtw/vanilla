@@ -24,6 +24,10 @@ jobs:
           node-version: "22"
       - name: Verify October offline security preflight (no GPU or weights)
         run: node --test training/october/policy.preflight.test.mjs
+      - name: Validate October teacher SFT corpus (no base-model training)
+        run: |
+          node training/october/teacher-cases.mjs
+          python training/noodles_train.py --mode sft --train training/october/generated/october-teacher-sft-train.jsonl --eval training/october/generated/october-teacher-sft-eval.jsonl --check-only
       - name: Install PyTorch CPU
         run: python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch
       - name: Train October policy weights via gradient descent

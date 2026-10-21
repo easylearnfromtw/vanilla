@@ -79,7 +79,7 @@ export function forwardLearnedFive(
  const max=Math.max(...scores);
  const probs=scores.map(s=>Math.exp(s-max));
  const denom=probs.reduce((a,b)=>a+b,0);
- return {coordinate:coord as Vec5,probabilities:probs.map(p=>p/denom)};
+ return {coordinate:coord as unknown as Vec5,probabilities:probs.map(p=>p/denom)};
 }
 export type LearnedFiveRoute={
  status:"candidate"|"abstain";candidateId:string|null;

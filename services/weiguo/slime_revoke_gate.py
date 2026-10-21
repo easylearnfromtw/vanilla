@@ -32,11 +32,12 @@ def consume_revoke(owner: str, node_id: str, code: str, chat_id: int | None = No
         raise RevokeDenied()
     with _db() as db:
         _setup(db)
-        # Migration for existing installs; no downtime or wiping old codes.
+        # Lock before migrating and checking the proof; parallel requests
+        # cannot both consume a code or race to add the attempts column.
+        db.execute("BEGIN IMMEDIATE")
         fields = {r["name"] for r in db.execute("PRAGMA table_info(slime_telegram_confirm)")}
         if "attempts" not in fields:
             db.execute("ALTER TABLE slime_telegram_confirm ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
-        db.execute("BEGIN IMMEDIATE")
         sql = ("SELECT * FROM slime_telegram_confirm "
                "WHERE owner=? AND node_id=? AND operation='revoke'")
         params: tuple = (owner, node_id)

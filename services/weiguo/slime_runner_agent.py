@@ -202,12 +202,12 @@ def run():
                     models=_models()
                 except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError):
                     print("Ollama 本地模型尚未就緒；30 秒後重試，不影響 Slime 心跳。")
-                    last_register=now
+                    last_register=0
                     time.sleep(30)
                     continue
                 if not models:
                     print("Ollama 沒有已下載的模型；30 秒後重試，不輪詢遠端任務。")
-                    last_register=now
+                    last_register=0
                     time.sleep(30)
                     continue
                 _register(server,token,models)

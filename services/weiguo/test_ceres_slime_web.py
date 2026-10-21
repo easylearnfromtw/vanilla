@@ -153,8 +153,15 @@ class SlimeTelegramMiniAppTests(unittest.TestCase):
         destruction=self.send("plan",{"init_data":auth,"node_id":node_id,
                                      "operation":"revoke"})
         self.assertEqual(destruction.status_code,200)
-        result=self.send("confirm",{"init_data":auth,"token":destruction.json()["token"]})
-        self.assertEqual(result.status_code,200)
+        # Mini App confirmation without a Telegram-issued code must fail closed.
+        missing=self.send("confirm",{"init_data":auth,"token":destruction.json()["token"]})
+        self.assertEqual(missing.status_code,403)
+        from slime_telegram import handle_slime
+        import re
+        message=handle_slime(CHAT,SUB,"移除 "+node_id)
+        proof=re.search(r"確認 ([a-f0-9]{12})",message).group(1)
+        result=self.send("confirm",{"init_data":auth,"token":destruction.json()["token"],"code":proof})
+        self.assertEqual(result.status_code,200,result.text)
         self.assertEqual(self.send("snapshot",{"init_data":auth}).json()["nodes"],[])
 
     def test_owner_hub_uses_web_app_not_public_download_link(self):

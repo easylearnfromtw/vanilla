@@ -89,6 +89,12 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 .confirm{border:1px solid var(--line);padding:14px;border-radius:13px;margin-top:11px}
 .confirm strong{font-size:13px}
 .confirm p{margin:8px 0}
+.delete-proof{margin:16px 0 12px;padding:15px;border:1px solid var(--line);border-radius:16px;background:var(--soft)}
+.delete-proof label{display:block;font-size:12px;font-weight:720;margin:0 0 8px}
+.delete-proof input{width:100%;height:52px;padding:0 15px;letter-spacing:.22em;font-size:21px;
+ font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--paper);
+ border:1px solid var(--line);border-radius:12px;text-transform:lowercase}
+.delete-proof small{display:block;color:var(--muted);margin:8px 0 0;font-size:11px;line-height:1.7}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
@@ -254,6 +260,13 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div id="confirm-box" class="sheet-backdrop" hidden><div class="sheet-body" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-description">
 <div class="sheet-handle" aria-hidden="true"></div><span class="eyebrow">SECURE ACTION / REVIEW</span>
 <strong id="confirm-title">確認操作</strong><p id="confirm-description"></p>
+<div id="delete-code-wrap" class="delete-proof" hidden>
+<label for="delete-code">Telegram 專屬刪除碼</label>
+<input id="delete-code" type="text" inputmode="text" maxlength="12" autocomplete="one-time-code"
+ spellcheck="false" autocapitalize="none" placeholder="12 位代碼" aria-describedby="delete-code-help">
+<small id="delete-code-help">先回到 Ceres Bot 私聊輸入「移除 節點ID」取得代碼。
+3 分鐘有效、一次使用、最多可輸錯 5 次。朋友可以自行解除安裝。</small>
+</div>
 <div class="sheet-actions"><button type="button" id="approve" class="btn danger solid">確認執行</button>
 <button type="button" id="cancel" class="btn soft">取消，返回</button></div></div></div>
 <div id="message" class="toast" role="status" aria-live="polite" hidden></div>
@@ -367,22 +380,35 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    kind==="node"&&!enable?"停止節點承接新工作。":"此動作會修改 Slime 權限。";
   try{
    const obj=await api("plan",{node_id:n.id,operation:kind,enabled:enable});
-   pending=obj.token;
+   pending={token:obj.token,revoke:kind==="revoke"};
    $("confirm-title").textContent=obj.title;
-   $("confirm-description").textContent=warning+" 確認後才會寫入後端。";
+   $("confirm-description").textContent=warning+(kind==="revoke"?
+      " 請先回到 Telegram 私聊，輸入「移除 "+n.id+"」取得專屬刪除碼。":
+      " 確認後才會寫入後端。");
+    $("delete-code-wrap").hidden=kind!=="revoke";
+    $("delete-code").value="";
    $("confirm-box").hidden=false;
-   $("cancel").focus();
+   (kind==="revoke"?$("delete-code"):$("cancel")).focus();
   }catch(e){notice(e.message);}
  }
  async function approve(){
-  if(!pending||busy)return;
-  busy=true;$("approve").disabled=true;
-  const token=pending;pending=null;
-  try{const obj=await api("confirm",{token});notice(obj.message);await reload();}
-  catch(e){notice(e.message);}
-  finally{busy=false;$("approve").disabled=false;$("confirm-box").hidden=true;}
- }
- if(!auth){
+   if(!pending||busy)return;
+   const proof=$("delete-code").value.trim();
+   if(pending.revoke&&!/^(?:[a-fA-F0-9]{8}|[a-fA-F0-9]{12})$/.test(proof)){
+    notice("請輸入 Telegram 私聊提供的 12 位刪除碼");$("delete-code").focus();return;
+   }
+   busy=true;$("approve").disabled=true;
+   const request={token:pending.token};
+   if(pending.revoke)request.code=proof;
+   try{
+    const obj=await api("confirm",request);
+    pending=null;$("delete-code").value="";
+    $("confirm-box").hidden=true;notice(obj.message);await reload();
+   }
+   catch(e){notice(e.message);}
+   finally{busy=false;$("approve").disabled=false;}
+  }
+  if(!auth){
   $("welcome-splash").hidden=true;
   $("auth-block").hidden=false;
   $("service").textContent="需要 Telegram 簽署驗證";
@@ -398,7 +424,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
- function closeConfirm(){pending=null;$("confirm-box").hidden=true;}
+ function closeConfirm(){pending=null;$("delete-code").value="";$("confirm-box").hidden=true;}
  $("cancel").addEventListener("click",closeConfirm);
  // Opening a signed Mini App shows a welcome landing before the white workspace.
  // This is per-open visual state; no credentials or onboarding flags are stored.
@@ -436,6 +462,7 @@ class Plan(Owner):
 
 class Confirm(Owner):
     token: str=Field(pattern=r"^[a-f0-9]{48}$")
+    code: str | None=Field(default=None,max_length=64)
 
 
 def _owner(init_data: str) -> tuple[int,str]:
@@ -551,8 +578,9 @@ def plan(body:Plan):
         db.execute("DELETE FROM ceres_slime_approval WHERE expires_at<?",(now,))
         db.execute("INSERT INTO ceres_slime_approval VALUES(?,?,?,?,?,?,?)",
                    (hashlib.sha256(token.encode()).hexdigest(),chat,sub,body.node_id,
-                    body.operation,int(body.enabled),now+120))
-    return {"token":token,"title":title+" · "+row["label"],"expiresSeconds":120}
+                    body.operation,int(body.enabled),now+(240 if body.operation=="revoke" else 120)))
+    return {"token":token,"title":title+" · "+row["label"],
+            "expiresSeconds":240 if body.operation=="revoke" else 120}
 
 
 @router.post("/confirm")
@@ -565,16 +593,25 @@ def confirm(body:Confirm):
         row=db.execute("""SELECT * FROM ceres_slime_approval
                WHERE digest=? AND chat_id=? AND owner_sub=? AND expires_at>?""",
                (hashlib.sha256(body.token.encode()).hexdigest(),chat,sub,now)).fetchone()
-        if row:
+        if row and row["operation"] != "revoke":
             db.execute("DELETE FROM ceres_slime_approval WHERE digest=?",(row["digest"],))
     if not row:
         raise HTTPException(409,"操作確認已過期、已使用或無權限")
     _enabled()
+    if row["operation"]=="revoke":
+        if not body.code:
+            raise HTTPException(403,"請先在 Telegram 私聊取得刪除碼")
+        from slime_revoke_gate import consume_revoke, RevokeDenied
+        try:
+            consume_revoke(sub,row["node_id"],body.code,chat)
+        except RevokeDenied as exc:
+            raise HTTPException(exc.status,str(exc)) from exc
+        with _session() as db:
+            db.execute("DELETE FROM ceres_slime_approval WHERE digest=?",(row["digest"],))
+        return {"ok":True,"message":"Telegram 驗證成功，已撤銷節點憑證。"}
     with _db() as db:
         db.execute("BEGIN IMMEDIATE")
-        if row["operation"]=="revoke":
-            changed=db.execute("DELETE FROM nodes WHERE id=? AND owner=?",(row["node_id"],sub))
-        elif row["operation"]=="node":
+        if row["operation"]=="node":
             changed=db.execute("UPDATE nodes SET owner_enabled=? WHERE id=? AND owner=?",
                                (row["enabled"],row["node_id"],sub))
         elif row["operation"]=="inference":

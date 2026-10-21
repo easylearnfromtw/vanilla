@@ -12,7 +12,7 @@ from auth import FamilyIdentity
 from slime import (
     Caps, Heartbeat, JoinRequest, PairRequest, Policy, RouteRequest, _db,
     _digest, heartbeat, issue_invite, join, pair, leave, list_nodes,
-    policy, revoke, slime_status, suggest_route
+    policy, revoke, RevokeProof, slime_status, suggest_route
 )
 
 OWNER = FamilyIdentity(sub="12345678901234567890", member="Owner",
@@ -83,7 +83,11 @@ class SlimeLifecycle(unittest.TestCase):
         self.assertEqual(suggest_route(RouteRequest(workload="tools"), OWNER)["candidate_nodes"], [])
         with self.assertRaises(HTTPException):
             policy(d["node_id"], Policy(enabled=False), OTHER)
-        revoke(d["node_id"], OWNER)
+        with self.assertRaises(HTTPException):
+            revoke(d["node_id"], RevokeProof(code="deadbeefdead"), OWNER)
+        self.assertEqual(len(list_nodes(OWNER)["nodes"]),1)
+        # A consenting device always retains its ability to leave voluntarily.
+        leave(authorization="Bearer "+d["token"])
         with self.assertRaises(HTTPException):
             heartbeat(Heartbeat(capabilities=Caps()), authorization="Bearer "+d["token"])
 

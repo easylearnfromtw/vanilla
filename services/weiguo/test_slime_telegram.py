@@ -69,7 +69,7 @@ class SlimeTelegramTests(unittest.TestCase):
         code = re.search(r"確認 ([a-f0-9]{8})", resume).group(1)
         self.assertIn("已恢復", handle_slime(OWNER_CHAT, OWNER_SUB, "確認 " + code))
         revoke = handle_slime(OWNER_CHAT, OWNER_SUB, "移除 " + node)
-        code = re.search(r"確認 ([a-f0-9]{8})", revoke).group(1)
+        code = re.search(r"確認 ([a-f0-9]{12})", revoke).group(1)
         self.assertIn("已撤銷", handle_slime(OWNER_CHAT, OWNER_SUB, "確認 " + code))
         self.assertIn("沒有已配對", handle_slime(OWNER_CHAT, OWNER_SUB, "目前有哪些電腦"))
 

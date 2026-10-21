@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 
 router = APIRouter(prefix="/v1/ceres/store", tags=["ceres-store"])
 PATH = "/v1/ceres/store/telegram/webhook"
@@ -87,10 +88,15 @@ async def _send(chat_id: int, text: str):
     token = os.environ["CERES_STORE_BOT_TOKEN"]
     async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
         result = await client.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                                   json={"chat_id": chat_id, "text": text})
+                                   json={"chat_id": chat_id, "text": text, "reply_markup": {"inline_keyboard": [[{"text": "開啟 Vanilla API Store", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app"}}]]}})
         result.raise_for_status()
         if result.json().get("ok") is not True:
             raise ValueError("send failed")
+
+
+@router.get("/app")
+async def store_app():
+    return FileResponse(Path(__file__).with_name("ceres_store_app.html"), media_type="text/html", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/telegram/webhook")

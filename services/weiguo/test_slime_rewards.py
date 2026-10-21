@@ -249,6 +249,13 @@ class SlimeRewardWalletTests(unittest.TestCase):
             with self.assertRaises(HTTPException):
                 _google("x"*120)
 
+    def test_reward_api_key_cannot_spend_while_rewards_disabled(self):
+        gift=self.claim_reward(self.ticket())
+        with patch.dict(os.environ,{"SLIME_REWARDS_ENABLED":"false"}):
+            with self.assertRaises(HTTPException) as exc:
+                _key_from_header("Bearer "+gift["apiKey"])
+            self.assertEqual(exc.exception.status_code,503)
+
     def test_feature_flag_fails_closed(self):
         with patch.dict(os.environ,{"SLIME_REWARDS_ENABLED":"false"}):
             with self.assertRaises(HTTPException):

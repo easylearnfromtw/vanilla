@@ -396,7 +396,7 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
              body.capabilities.os,body.capabilities.cpu_pct,body.capabilities.gpu_temp_c,
              body.capabilities.gpu_util_pct,int(body.share_enabled),r["id"]))
         claimed=bool(r["paired_at"]) and c.execute("""UPDATE nodes SET notified_at=? WHERE id=? AND
-                   (notified_at=0 OR notified_at<?)""",
+                   (notified_at=0 OR (notified_at<0 AND notified_at>?))""",
                    (-now,r["id"],-(now-180))).rowcount==1
         owner_allowed=bool(r["owner_enabled"])
         temp=body.capabilities.gpu_temp_c

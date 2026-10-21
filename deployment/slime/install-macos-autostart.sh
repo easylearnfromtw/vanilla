@@ -25,10 +25,11 @@ IFS= read -r answer
 mkdir -p "$target" "$HOME/Library/LaunchAgents"
 cp "$script_dir/slime_desktop.py" "$script_dir/slime_runner_agent.py" "$target/"
 # Fixed user-owned path is XML escaped for plist string attributes.
-python3 - "$plist" "$target/slime_desktop.py" "$role" "$label" <<'PY'
+python_bin=$(command -v python3)
+python3 - "$plist" "$target/slime_desktop.py" "$role" "$label" "$python_bin" <<'PY'
 import sys,plistlib
-path,script,role,label=sys.argv[1:]
-obj={"Label":label,"ProgramArguments":["/usr/bin/env","python3",script],
+path,script,role,label,python_bin=sys.argv[1:]
+obj={"Label":label,"ProgramArguments":[python_bin,script],
      "EnvironmentVariables":{"SLIME_INSTALL_ROLE":role},"RunAtLoad":True,
      "KeepAlive":{"SuccessfulExit":False},"ThrottleInterval":30}
 with open(path,"wb") as out: plistlib.dump(obj,out)

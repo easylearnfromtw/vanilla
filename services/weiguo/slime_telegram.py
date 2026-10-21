@@ -32,6 +32,9 @@ _PAIR_CMD = re.compile(r"^(?:/(?:slime|node) (?:pair|code)|(?:請|幫我|麻煩)
 _MUTATE = re.compile(r"^(?:請|幫我|麻煩)?(?:把|將)?\s*(?P<name>.{1,90}?)\s*(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?$", re.I)
 _PREFIX_MUTATE = re.compile(r"^(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?\s+(?P<name>.{1,90})$", re.I)
 _INFER = re.compile(r"^/slime infer ([a-f0-9]{8,48}) (on|off)$",re.I)
+_LOAD = re.compile(r"^/slime load ([a-f0-9]{24}) (10|25|50|75|100)$",re.I)
+_TEMP = re.compile(r"^/slime temp ([a-f0-9]{24}) ([0-9]{2})$",re.I)
+_POWER = re.compile(r"^/slime power ([a-f0-9]{24}) (off|on)$",re.I)
 _CONFIRM = re.compile(r"^確認\s+([A-Fa-f0-9]{8}|[A-Fa-f0-9]{12})$")
 _CANCEL = re.compile(r"^(?:取消|算了|不要了)$")
 
@@ -61,22 +64,32 @@ def _audit(db, sub: str, chat: int, operation: str, node_id: str = ""):
 
 
 def _listing(sub: str) -> str:
+    from slime_ops import score
     with _db() as db:
-        rows = db.execute("SELECT id,label,role,last_seen,share_enabled,owner_enabled,inference_enabled,ram_gb,gpu"
-                          " FROM nodes WHERE owner=? ORDER BY label", (sub,)).fetchall()
+        rows=db.execute("""SELECT id,label,role,last_seen,share_enabled,owner_enabled,
+            inference_enabled,cpu,ram_gb,gpu,os,pair_number,max_load_pct,thermal_limit_c,
+            gpu_temp_c,geo_opt_in,geo_area,public_ip FROM nodes
+            WHERE owner=? ORDER BY pair_number,label""",(sub,)).fetchall()
     if not rows:
-        return "Slime 目前沒有已配對的電腦。你可以說「幫我建立朋友邀請碼」。"
-    active = sum(time.time() - x["last_seen"] <= ONLINE_SECONDS for x in rows)
-    lines = [f"Slime 目前 {len(rows)} 台節點，{active} 台有心跳（不代表正在推論）。"]
-    for x in rows[:25]:
-        online = "在線" if time.time() - x["last_seen"] <= ONLINE_SECONDS else "離線"
-        allowed = "可參與" if x["owner_enabled"] and x["share_enabled"] else "已暫停"
-        inference = "已核准推論" if x["inference_enabled"] else "推論關閉"
-        lines.append(f"• {x['label']}｜{online}｜{allowed}｜{inference}｜RAM {x['ram_gb']:g}GB｜ID {x['id']}")
-    if len(rows) > 25:
-        lines.append(f"另有 {len(rows)-25} 台；目前只顯示前 25 台。")
-    lines.append("目前只有節點註冊／心跳，尚未啟用 30B 分散式推論。")
-    return "\n".join(lines)[:1200]
+        return "Slime 目前沒有已配對的電腦。請按「＋ 產生新節點配對碼」。"
+    active=sum(time.time()-n["last_seen"]<=ONLINE_SECONDS for n in rows)
+    lines=[f"Slime 網路：{len(rows)} 個已綁定節點，{active} 個心跳在線。"]
+    for n in rows[:12]:
+        online="在線" if time.time()-n["last_seen"]<=ONLINE_SECONDS else "離線"
+        permitted="可共享" if n["owner_enabled"] and n["share_enabled"] else "暫停"
+        inference="推論已授權" if n["inference_enabled"] else "推論未授權"
+        temp=(f'{n["gpu_temp_c"]:g}°C' if n["gpu_temp_c"] is not None else "溫度未回報")
+        location=(n["geo_area"] or "地區待查") if n["geo_opt_in"] else "位置未授權"
+        lines.append(
+            f'第{n["pair_number"]}個：{n["label"]}｜{online}｜{permitted}｜{inference}\n'
+            f'裝置評分 {score(n["cpu"],n["ram_gb"],n["gpu"])}/10000（估算）'
+            f'｜RAM {n["ram_gb"]:g}GB｜GPU {temp}｜負載 {n["max_load_pct"]}%'
+            f'｜IP約略位置 {location}\nID {n["id"]}'
+        )
+    if len(rows)>12:
+        lines.append(f"尚有 {len(rows)-12} 台，可從 Telegram Mini App 查看全部。")
+    lines.append("即使在線，也必須實際模型測試成功才算可用。")
+    return "\n".join(lines)[:2600]
 
 
 def _create_invite(sub: str, chat: int) -> dict | None:
@@ -143,6 +156,15 @@ def _confirm(sub: str, chat: int, code: str) -> str:
         if operation == "revoke":
             db.rollback()
             return "刪除必須使用 Telegram 一次性代碼驗證。"
+        elif operation.startswith("load_"):
+            cur=db.execute("UPDATE nodes SET max_load_pct=? WHERE id=? AND owner=?",
+                           (int(operation[5:]),node_id,sub))
+        elif operation.startswith("temp_"):
+            cur=db.execute("UPDATE nodes SET thermal_limit_c=? WHERE id=? AND owner=?",
+                           (int(operation[5:]),node_id,sub))
+        elif operation=="power_off":
+            cur=db.execute("""UPDATE nodes SET pending_power_off=? WHERE id=? AND owner=?
+                               AND shutdown_opt_in=1""",(time.time()+90,node_id,sub))
         elif operation in ("inference_on","inference_off"):
             cur = db.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
                              (int(operation=="inference_on"),node_id,sub))
@@ -154,6 +176,12 @@ def _confirm(sub: str, chat: int, code: str) -> str:
             return "節點已不存在或不屬於目前帳號，操作未執行。"
         _audit(db, sub, chat, operation, node_id)
         db.commit()
+    if operation.startswith("load_"):
+        return "已將派工負載設定為 "+operation[5:]+"%，節點會降低優先權與執行頻率。"
+    if operation.startswith("temp_"):
+        return "GPU 過熱保護門檻已改為 "+operation[5:]+"°C。"
+    if operation=="power_off":
+        return "已排入短效關機請求；裝置須已同意且仍在線，收到後保留 60 秒中止期。"
     return {"pause": "已暫停節點；目前不會接受此節點的新計畫。",
             "resume": "已恢復節點的管理端允許狀態；仍由朋友自行決定是否共享。",
             "revoke": "已撤銷節點憑證；此設備必須重新取得邀請才能加入。",
@@ -171,7 +199,9 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
         return None
     if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source)
             or source.lower().startswith(("/slime", "/nodes", "/node "))
-            or _INFER.fullmatch(source) or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
+            or _INFER.fullmatch(source) or _LOAD.fullmatch(source)
+            or _TEMP.fullmatch(source) or _POWER.fullmatch(source)
+            or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
             or _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
             or "slime" in source.lower()
             or ("節點" in source and any(x in source for x in ("管理", "設定", "GPU", "RAM", "上限", "查看", "查詢", "邀請", "移除")))
@@ -187,6 +217,9 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
         return ("你可以直接說：「目前有哪些電腦」、「產生新配對碼」、"
                 "「把『電腦名稱』暫停」、「恢復『電腦名稱』」、「移除『電腦名稱』」。"
                 "\n核准本地模型：/slime infer <節點ID> on；撤回：/slime infer <節點ID> off。"
+                "\n調整負載：/slime load <節點ID> 25|50|100；溫控：/slime temp <節點ID> 75"
+                "\n關機：/slime power <節點ID> off（須本機事先同意）"
+                "\n開機需要另有已核准的 WoL 中繼，不能憑空開啟已關機主機。"
                 "\n所有敏感操作都需要確認碼。")
     if _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source):
         try:
@@ -202,6 +235,35 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     confirm = _CONFIRM.fullmatch(source)
     if confirm:
         return _confirm(sub, chat, confirm.group(1))
+    control=_LOAD.fullmatch(source) or _TEMP.fullmatch(source) or _POWER.fullmatch(source)
+    if control:
+        node_id=control.group(1).lower()
+        number=control.group(2).lower()
+        is_load=bool(_LOAD.fullmatch(source))
+        is_temp=bool(_TEMP.fullmatch(source))
+        if is_temp and not 60<=int(number)<=95:
+            return "溫控上限須在 60–95°C 之間。"
+        if not is_load and not is_temp and number=="on":
+            return "無法直接遠端開機：主機已關機時沒有連線。需事先安裝並授權同網段 WoL 中繼或管理設備；目前不提供假開機按鈕。"
+        operation=("load_"+number if is_load else "temp_"+number if is_temp else "power_off")
+        with _db() as db:
+            _setup(db)
+            record=db.execute("SELECT id,label,shutdown_opt_in FROM nodes WHERE owner=? AND id=?",
+                              (sub,node_id)).fetchone()
+            if not record:
+                return "找不到該 Owner 的節點。請先查看 /nodes。"
+            if operation=="power_off" and not record["shutdown_opt_in"]:
+                return "這台裝置尚未在本機同意遠端關機，Telegram 無法強行關閉它。"
+            code=secrets.token_hex(4)
+            db.execute("""INSERT OR REPLACE INTO slime_telegram_confirm
+                 (chat_id,owner,node_id,operation,code_hash,expires)
+                 VALUES(?,?,?,?,?,?)""",
+                 (chat,sub,node_id,operation,hashlib.sha256(code.encode()).hexdigest(),
+                  time.time()+TTL))
+        label=("負載 "+number+"%" if is_load else "GPU 溫控 "+number+"°C"
+               if is_temp else "遠端關機（本機同意，60 秒取消期）")
+        return (f"準備調整「{record['label']}」：{label}。\n"
+                f"請於 {TTL//60} 分鐘內回覆「確認 {code}」，或回覆「取消」。尚未執行。")
     request=_INFER.fullmatch(source)
     if request:
         node_id,mode=request.group(1).lower(),request.group(2).lower()

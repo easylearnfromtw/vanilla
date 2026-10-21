@@ -129,11 +129,10 @@ class SlimeRewardWalletTests(unittest.TestCase):
 
     def test_invalid_google_claim_is_not_accepted(self):
         from slime_rewards import _google as verify
-        with patch("slime_rewards._google",side_effect=None):
-            with patch("slime_rewards.id_token.verify_oauth2_token",
-                       return_value={"sub":GOOGLE,"email_verified":False,"iss":"accounts.google.com"}):
-                with self.assertRaises(HTTPException):
-                    verify("x"*120)
+        with patch("slime_rewards.id_token.verify_oauth2_token",
+                   return_value={"sub":GOOGLE,"email_verified":False,"iss":"accounts.google.com"}):
+            with self.assertRaises(HTTPException):
+                verify("x"*120)
 
     def test_feature_flag_fails_closed(self):
         with patch.dict(os.environ,{"SLIME_REWARDS_ENABLED":"false"}):

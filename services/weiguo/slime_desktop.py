@@ -385,7 +385,7 @@ def main():
             print("Ctrl+C 可停止 Gecko；停用後新的配對授權會立即作廢。")
             os.environ["VANILLA_SERVER_URL"]=config["server"]
             os.environ["SLIME_NODE_TOKEN"]=config["token"]
-        os.environ["GECKO_FLEET_NODE"]="true" if config.get("gecko_fleet") else "false"
+            os.environ["GECKO_FLEET_NODE"]="true" if config.get("gecko_fleet") else "false"
             os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
             try:
                 run_model()
@@ -400,6 +400,7 @@ def main():
         print("按 Ctrl+C 可隨時停止；永久退出請使用 --leave。")
         os.environ["VANILLA_SERVER_URL"]=config["server"]
         os.environ["SLIME_NODE_TOKEN"]=config["token"]
+        os.environ["GECKO_FLEET_NODE"]="true" if config.get("gecko_fleet") else "false"
         os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
         try:
             run_model()

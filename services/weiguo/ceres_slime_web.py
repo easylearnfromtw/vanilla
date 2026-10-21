@@ -220,7 +220,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 </div>
 <div class="overview-actions"><button class="btn primary" id="refresh">↻ 重新同步</button>
 <button class="btn soft" data-go="devices">查看所有節點 ↗</button></div>
-<p class="note">數據來自節點心跳與模型登錄；在線不代表模型已完成推論。</p></div>
+<p class="note">「已加入」=配對註冊；「目前在線」=最近收到心跳；「可用模型」=後端模型登錄數；「推論已授權」=管理者核准。四者分開驗證，均不代表已完成實際推論測試。</p></div>
 <div class="card"><div class="card-title"><div><span class="eyebrow">RUNTIME STATUS</span><h2>服務狀態</h2></div><span aria-hidden="true">◎</span></div>
 <p id="service">正在確認後端服務…</p><div class="separator"></div>
 <div class="notice">ⓘ 推論與公開 API 採獨立開關；新加入的電腦不會自動取得推論權限。</div></div>
@@ -236,15 +236,15 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <section id="pairing" role="tabpanel" aria-labelledby="tab-pairing" hidden>
 <div class="section-head"><span class="eyebrow">03 / SECURE PAIRING</span><h2>配對新裝置</h2><p>一次性短碼，安全加入你的 Slime 網路</p></div>
 <div class="card"><div class="card-title"><div><span class="eyebrow">ONE-TIME ACCESS</span><h2>建立配對邀請</h2></div><span aria-hidden="true">＋</span></div>
-<p>取得一組 12 位短碼，讓已同意加入的電腦完成第一次連線。配對成功不會自動核准模型推論。</p>
+<p>此處是 Slime 12 位短碼的唯一核發入口。Vanilla 網頁右側只是<strong>顯示這同一組代碼</strong>，不會產生第二組。請將短碼貼到新版 Slime 安裝程式；配對成功不會自動核准模型推論。</p>
 <div class="pair-steps"><div><b>01</b><span>產生專屬配對碼</span></div><div><b>02</b><span>在電腦輸入短碼</span></div><div><b>03</b><span>回到節點頁確認</span></div></div>
 <div class="controls"><button id="issue" class="btn primary full">＋ 產生一次性配對碼</button></div>
-<div id="code-box" hidden><div class="code"><span class="eyebrow">YOUR PAIRING CODE</span><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
+<div id="code-box" hidden><div class="code"><span class="eyebrow">TELEGRAM ISSUED · SAME CODE ON WEB</span><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
 <div id="qr-box" class="qr" hidden><img id="qr-image" alt="Slime 配對 QR Code，包含本次一次性邀請" width="220" height="220"></div>
 <div class="controls pair-actions"><button id="copy-code" class="btn primary">⧉ 複製短碼</button>
 <button id="copy-link" class="btn soft">複製備用連結</button></div></div>
 <p class="result" id="pair-result" role="status" aria-live="polite" hidden></p>
-<div class="notice" style="margin-top:16px">⌁ 僅與取得同意的裝置持有人分享。這裡不會顯示原始的長期節點 Token。</div>
+<div class="notice" style="margin-top:16px">⌁ 請只交付本次顯示的短碼或含相同短碼的連結。不要混用 Windows 舊版授權、Vanilla 模型 API Key 或長期節點 Token。每次重新按「產生」都會建立另一組新邀請。</div>
 <div class="controls"><a id="installer" class="btn soft full" href="#" target="_blank" rel="noopener noreferrer">↗ Slime 公開下載頁</a></div>
 </div>
 </section>
@@ -295,10 +295,10 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const name=document.createElement("strong");name.textContent=n.label;
    const badge=document.createElement("span");badge.className="state";
    badge.dataset.online=String(Boolean(n.online));
-   badge.textContent=n.online?"● 在線":"○ 離線";
+   badge.textContent=n.online?"● 心跳在線":"○ 心跳離線";
    head.append(name,badge);root.append(head);
    const info=document.createElement("small");
-   info.textContent=(n.role==="owner"?"我的電腦":"朋友節點")+" · "+
+   info.textContent="配對已註冊 · "+(n.role==="owner"?"我的電腦":"朋友節點")+" · "+
      (n.os||"未回報系統")+" · "+(n.gpu||"GPU 未回報")+
      " · "+(n.ram_gb||0)+"GB RAM · "+(n.share_enabled?"同意共享":"共享關閉")+
      " · "+(n.owner_enabled?"已授權節點":"已停用節點")+
@@ -350,7 +350,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    $("qr-box").hidden=!obj.qr_data_uri;
    if(obj.qr_data_uri)$("qr-image").src=obj.qr_data_uri;
    $("pair-result").hidden=false;
-   $("pair-result").textContent="新配對碼已建立。僅私下提供給已同意加入的電腦持有人。";
+   $("pair-result").textContent="新短碼已核發。Vanilla 網頁僅顯示相同短碼；請複製到 Windows Slime，並在節點頁確認心跳與模型狀態。";
   }catch(e){$("pair-result").hidden=false;$("pair-result").textContent=e.message;}
   finally{button.disabled=false;button.textContent="＋ 產生一次性配對碼";}
  }

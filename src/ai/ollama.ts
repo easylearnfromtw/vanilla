@@ -118,7 +118,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  const profile=profileFor("ollama",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
  const system=structured?STRUCTURED_SYSTEM_PROMPT:
-  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest})+
+  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,model})+
   (options.toolGrounding?"\n\n[Vanilla 應用程式提供的可信任工具事實；僅用於解釋功能，非操作授權]\n"+options.toolGrounding:"");
  const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
  const send=async(withThink:boolean)=>{

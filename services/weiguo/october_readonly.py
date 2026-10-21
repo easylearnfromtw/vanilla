@@ -28,6 +28,8 @@ _TASK_ID = re.compile(r"^[A-Za-z0-9_-]{8,80}$")
 _NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$", re.I)
 _VERSION = "oc-m1-readonly-v1"
 _RETENTION = 30 * 86400
+_ATTEMPT_WINDOW = 60
+_MAX_REQUESTS_PER_MINUTE = 60
 
 
 class CSVRequest(BaseModel):
@@ -61,8 +63,12 @@ def _validate(body: CSVRequest) -> tuple[str, bytes]:
 
 def _number(raw: str) -> float | None:
     val = raw.strip()
-    if (not _NUMBER.fullmatch(val) or re.match(r"^-?0\d", val)
-            and not re.match(r"^-?0\.", val)):
+    if not _NUMBER.fullmatch(val):
+        return None
+    # Numeric parsing is bounded; arbitrary text labels are left unchanged.
+    if len(val) > 64:
+        raise HTTPException(422, "Numeric field exceeds safe length")
+    if re.match(r"^-?0\d", val) and not re.match(r"^-?0\.", val):
         return None
     try:
         number = float(val)
@@ -109,11 +115,14 @@ def _calculate(data: str, source: str) -> dict:
         count = len(nums)
         # Separate verification using the stdlib's independently implemented
         # compensated summation/statistics, not an untrusted browser output.
-        total = math.fsum(nums)
-        mean = total / count
-        median = statistics.median(ordered)
-        stdev = statistics.stdev(nums) if count > 1 else None
-        baseline = statistics.fmean(nums)
+        try:
+            total = math.fsum(nums)
+            mean = total / count
+            median = statistics.median(ordered)
+            stdev = statistics.stdev(nums) if count > 1 else None
+            baseline = statistics.fmean(nums)
+        except (OverflowError, ValueError, statistics.StatisticsError) as exc:
+            raise HTTPException(422, "Numeric range cannot be safely verified") from exc
         if (not all(math.isfinite(x) for x in
                     [total, mean, median, ordered[0], ordered[-1], baseline] +
                     ([stdev] if stdev is not None else []))
@@ -137,6 +146,11 @@ def _setup(db) -> None:
         input_sha256 TEXT NOT NULL, result_sha256 TEXT NOT NULL,
         status TEXT NOT NULL, created_at INTEGER NOT NULL, signature TEXT NOT NULL,
         PRIMARY KEY(tenant_sub, task_id)
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS october_readonly_attempts(
+        tenant_sub TEXT NOT NULL, second INTEGER NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(tenant_sub, second)
     )""")
 
 
@@ -164,10 +178,48 @@ def _checked_row(db, tenant: str, task_id: str, key: bytes):
     return row
 
 
+def _admit_request(tenant: str, task_id: str, input_hash: str, key: bytes,
+                   now: int) -> None:
+    """Charge authenticated attempts before CPU-heavy CSV parsing.
+
+    Durable per-second buckets are shared across API workers. Idempotent
+    replays also count against this request ceiling (60/minute/identity).
+    """
+    denial = None
+    with _session() as db:
+        _setup(db)
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM october_readonly_attempts WHERE second<=?",
+                   (now - _ATTEMPT_WINDOW,))
+        used = db.execute("SELECT COALESCE(SUM(count),0) FROM october_readonly_attempts "
+                          "WHERE tenant_sub=? AND second>?",
+                          (tenant, now - _ATTEMPT_WINDOW)).fetchone()[0]
+        if used >= _MAX_REQUESTS_PER_MINUTE:
+            denial = (429, "October request rate limit")
+        else:
+            db.execute("INSERT INTO october_readonly_attempts(tenant_sub,second,count) "
+                       "VALUES(?,?,1) ON CONFLICT(tenant_sub,second) "
+                       "DO UPDATE SET count=count+1", (tenant, now))
+            db.execute("DELETE FROM october_readonly_receipts WHERE created_at<?",
+                       (now - _RETENTION,))
+            row = _checked_row(db, tenant, task_id, key)
+            if row and row["input_sha256"] != input_hash:
+                denial = (409, "Task ID already used with different content")
+            elif not row:
+                n = db.execute("SELECT COUNT(*) FROM october_readonly_receipts "
+                               "WHERE tenant_sub=? AND created_at>=?",
+                               (tenant, now - 60)).fetchone()[0]
+                if n >= 12:
+                    denial = (429, "October readonly rate limit")
+    if denial:
+        raise HTTPException(*denial)
+
+
 @router.post("/csv")
 def run_csv(body: CSVRequest, user: FamilyIdentity = Depends(family_reader)):
     key = _guard()
     input_hash, _ = _validate(body)
+    _admit_request(user.sub, body.task_id, input_hash, key, int(time.time()))
     # The backend recomputes all numbers from the supplied data. Client-produced
     # claims, result hashes, owner IDs and permission flags are never accepted.
     result = _calculate(body.csv, body.source)

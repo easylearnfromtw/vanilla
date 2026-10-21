@@ -23,6 +23,9 @@ NAME=re.compile(r"^[^\x00-\x1f\x7f]{1,64}$")
 
 
 def _role():
+    target=os.getenv("SLIME_INSTALL_ROLE","").strip().lower()
+    if target in ("friend","owner"):
+        return target
     return "friend" if "friend" in Path(sys.argv[0]).stem.lower() else "owner"
 
 

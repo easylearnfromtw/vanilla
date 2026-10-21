@@ -751,7 +751,9 @@ async function send(value=draft):Promise<void>{
   setBusy(true);
   let evidence="";
   try{
-   const receipt=await executeAtuberReadOnly(atuberToolPlan,{privateMode});
+   const receipt=await executeAtuberReadOnly(atuberToolPlan,{privateMode,
+    executeCream:(csv,context)=>executeDetroitNative<CreamResult>("cream",
+     {csv,source:"阿土伯明確請求的本機 CSV"},{privateMode:context.privateMode,signal:context.signal})});
    evidence=receipt.evidence;
   }catch(error){
    toolReply(question,"阿土伯工具未執行完成："+String(error instanceof Error?error.message:error),

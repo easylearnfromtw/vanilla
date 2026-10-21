@@ -97,7 +97,7 @@ class AcademyBotTests(unittest.TestCase):
 
 
     def test_catalog_quiz_and_level_switch_preserve_position(self):
-        asyncio.run(bot._learn(505, "chapter:16"))
+        asyncio.run(bot._learn(505, "chapter:4"))
         self.assertIn("RAG 檢索", self.sent[-1][1])
         asyncio.run(bot._learn(505, "level:3"))
         self.assertIn("RAG 檢索", self.sent[-1][1])
@@ -112,7 +112,7 @@ class AcademyBotTests(unittest.TestCase):
         self.assertIn("AI 基礎", self.sent[-1][1])
         db, row = bot._learning_state(505)
         try:
-            self.assertEqual(row[1], 16 * 9)
+            self.assertEqual(row[1], 4 * 9)
             self.assertEqual(row[0], "3")
         finally:
             db.close()

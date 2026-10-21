@@ -498,6 +498,8 @@ def balance(body:GoogleCredential):
         recover_abandoned_reservations(db, now)
         wallet=db.execute("SELECT balance,earned,spent,created_at FROM slime_reward_wallet WHERE google_sub=?",
                           (sub,)).fetchone()
+        claim_meta=db.execute("SELECT score,amount,bonus FROM slime_reward_claim WHERE google_sub=?",
+                              (sub,)).fetchone()
         if not wallet:
             return {"claimed":False,"balance":0,"earned":0,"spent":0,
                     "transactions":[],"usage":{"requests":0,"exactTokens":0,"estimatedTokens":0}}
@@ -531,7 +533,12 @@ def balance(body:GoogleCredential):
           WHERE k.google_sub=? GROUP BY u.model ORDER BY total_tokens DESC LIMIT 20""",
           (sub,)).fetchall() if _usage_exists(db) else []
         net_balance=signed_balance(db,sub,wallet["balance"])
-    return {"claimed":True,
+    from slime_reward_policy import bonus_round_up_nine
+    return {"claimed":True,"score":claim_meta["score"] if claim_meta else 0,
+            "weekenPotentialBonus":bonus_round_up_nine(claim_meta["score"]*100)
+                if claim_meta and claim_meta["score"]>0 else 0,
+            "baseGift":claim_meta["amount"] if claim_meta else 0,
+            "weekenGift":claim_meta["bonus"] if claim_meta else 0,
             "balance":net_balance,
             "earned":wallet["earned"],"spent":wallet["spent"],"transactions":[dict(x) for x in transactions],
             "usageByModel":[dict(x) for x in by_model],
@@ -637,6 +644,8 @@ async function api(route,data){
 function showKey(key){issued=key;$("key").textContent=key;$("keybox").hidden=false;}
 function showWallet(data){
  $("wallet").hidden=!data.claimed;
+ if(Number(data.score)>0)$("device-score").textContent=Number(data.score).toLocaleString();
+ if(Number(data.weekenPotentialBonus)>0)$("weeken-bonus").textContent=Number(data.weekenPotentialBonus).toLocaleString();
  $("balance").textContent=Number(data.balance||0).toLocaleString();
  $("spent").textContent=Number(data.spent||0).toLocaleString();
  const u=data.usage||{};

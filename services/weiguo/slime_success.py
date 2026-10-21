@@ -88,6 +88,7 @@ h1{font-size:clamp(32px,6vw,49px);letter-spacing:-.06em;line-height:1.18;margin:
 <ol>
 <li>返回剛剛啟動的 Slime 程式，讓節點持續回報狀態。</li>
 <li>管理員可在 Ceres Telegram 私人管理頁確認這台裝置。</li>
+<li>若管理員已開啟獎勵，系統會另外開啟 Google 登入領獎頁。每個帳號與每台節點首次可領一次，預設 100,000 Token，實際額度依管理員設定。也可日後從 Slime 程式執行 <code>--reward</code> 重新取得領獎連結。</li>
 <li>模型推論需要裝置持有人同意及管理員另外核准；配對成功不代表已啟用推論。</li>
 </ol></section>
 <div class="note"><span class="bullet"></span><span><strong>安全提醒</strong>：這是本次配對完成的離線紀錄頁面，並非即時線上狀態。可隨時停止 Slime，或在本機執行 <code>--leave</code> 自行退出；不需要管理員的 Telegram 刪除碼。</span></div>

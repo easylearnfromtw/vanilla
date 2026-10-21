@@ -59,7 +59,7 @@ def _tables(db):
       note TEXT NOT NULL DEFAULT '')""")
     db.execute("CREATE INDEX IF NOT EXISTS slime_reward_ledger_subject ON slime_reward_ledger(google_sub,created_at)")
     db.execute("""CREATE TABLE IF NOT EXISTS slime_reward_key(
-      key_id TEXT PRIMARY KEY, google_sub TEXT NOT NULL UNIQUE)""")
+      key_id TEXT PRIMARY KEY, google_sub TEXT NOT NULL)""")
 
 
 def _google(credential: str) -> str:
@@ -166,12 +166,11 @@ def _new_key(db,subject:str,owner_sub:str) -> str:
     _db_tables(db)
     chat=_owner_chat(owner_sub)
     now=int(time.time())
-    previous=db.execute("SELECT key_id FROM slime_reward_key WHERE google_sub=?",
-                        (subject,)).fetchone()
-    if previous:
-        db.execute("UPDATE vanilla_api_keys SET revoked_at=? WHERE id=?",
-                   (now,previous["key_id"]))
-        db.execute("DELETE FROM slime_reward_key WHERE google_sub=?",(subject,))
+    # Preserve mappings for in-flight requests using the old key. New calls
+    # are denied by revoked_at, but settlement can still refund the old key.
+    db.execute("""UPDATE vanilla_api_keys SET revoked_at=?
+        WHERE revoked_at IS NULL AND id IN
+        (SELECT key_id FROM slime_reward_key WHERE google_sub=?)""",(now,subject))
     project=db.execute("""SELECT p.id FROM vanilla_api_projects p
       WHERE p.owner_chat=? AND p.label=?""",(chat,"Slime Contributor Rewards")).fetchone()
     if project:

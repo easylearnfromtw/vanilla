@@ -208,6 +208,50 @@ def setup():
     return obj
 
 
+def setup_fleet():
+    """One-time registration for an operator-authorized server host.
+
+    Deployment credential is a secret provisioned by the operator's management
+    tooling; it is never embedded in the executable or stored after redemption.
+    """
+    if _role()!="friend":
+        raise ValueError("Gecko Fleet 受管機器請使用 Slime-Friend 程式")
+    secret=os.getenv("GECKO_ENROLLMENT_TOKEN","").strip()
+    if not re.fullmatch(r"gck_[A-Za-z0-9_-]{40,120}",secret):
+        raise ValueError("未由機房部署管理員注入有效的 GECKO_ENROLLMENT_TOKEN")
+    approved=os.getenv("GECKO_DEVICE_CONSENT","")=="approved_by_operator"
+    if not approved:
+        if not sys.stdin.isatty() or not _confirm(
+            "你是這台伺服器的管理者，是否同意加入已授權的 Gecko Fleet？"
+        ):
+            print("主機未確認授權，沒有安裝或連線。")
+            return None
+    server=_server(os.getenv("GECKO_SERVER",DEFAULT_SERVER))
+    label=os.getenv("GECKO_HOST_LABEL","").strip() or platform.node()[:64]
+    if not NAME.fullmatch(label):
+        raise ValueError("主機顯示名稱不符合 1–64 字規範")
+    response=_http("POST",server+"/v1/gecko/agent/enroll",
+      {"token":secret,"label":label,"device_consent":True},timeout=15)
+    nodeid=response.get("node_id")
+    token=response.get("token")
+    if not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid) or not isinstance(token,str) or len(token)<32:
+        raise ValueError("Gecko 受管註冊結果無效")
+    config={"role":"friend","server":server,"label":label,"node_id":nodeid,
+            "token":token,"geo_opt_in":False,"shutdown_opt_in":False,
+            "gecko_fleet":True,"pool_id":response["poolId"]}
+    # A returned one-time credential must survive transient heartbeat failure.
+    _save(config)
+    print("✓ Gecko Fleet 受管主機已加入："+nodeid)
+    print("無 Telegram 代碼 · 無遠端自動安裝 · 模型推論預設關閉")
+    try:
+        from slime_runner_agent import _heartbeat
+        _heartbeat(server,token)
+        print("✓ 首次節點心跳已完成")
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError):
+        print("首次心跳未完成，稍後會自動重試；不得重複消耗批次名額。")
+    return config
+
+
 def open_reward_claim(settings):
     """Open a one-time Google claim flow using a token scoped ONLY to rewards.
 
@@ -277,13 +321,14 @@ def status(settings):
 def main():
     try:
         flags=set(sys.argv[1:])
-        if flags-{"--setup","--status","--leave","--reward","--gecko","--help"} or len(flags)>1:
-            raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko")
+        if flags-{"--setup","--status","--leave","--reward","--gecko","--fleet","--help"} or len(flags)>1:
+            raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko、--fleet")
         if "--help" in flags:
             print("Slime 下載 → 一次性邀請配對 → 授權後啟用 Ollama → Ctrl+C 停止共享")
             print("--status 查詢連線；--leave 退出並撤銷；--setup 顯示配對狀態")
             print("--reward 重新開啟 Google 節點獎勵領取頁")
             print("--gecko Owner 自願啟用同 LAN 安裝包鏡像和無 Telegram 配對")
+            print("--fleet 由機房部署憑證將受管伺服器加入 Gecko，不輸入 Telegram 代碼")
             return 0
         config=_load()
         if "--reward" in flags and not config:
@@ -293,7 +338,9 @@ def main():
             if config:leave(config)
             else: print("尚未配對。")
             return 0
-        if not config or "--setup" in flags:
+        if "--fleet" in flags and not config:
+            config=setup_fleet()
+        elif not config or "--setup" in flags:
             first_pairing=config is None
             config=setup()
             if config and first_pairing:

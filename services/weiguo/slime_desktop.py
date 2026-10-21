@@ -7,6 +7,7 @@ WeiGuo HTTPS origin. Never publishes a local port or runs remote shell code.
 from __future__ import annotations
 
 import json
+from urllib.error import HTTPError, URLError
 import os
 from pathlib import Path
 import platform
@@ -123,12 +124,18 @@ def setup():
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
+    print("隱私選項：若允許分享 IP，Telegram Owner 才能查看公開 IP 及約略地區。")
+    geo_opt_in=_confirm("同意將公開 IP 傳給後端及地區估測服務？") if sys.stdin.isatty() else False
+    print("遠端電源：預設關閉，需持有人在本機明確同意。")
+    shutdown_opt_in=_confirm("允許 Telegram Owner 經二次確認要求這台電腦關機？") if sys.stdin.isatty() else False
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
     compact=re.sub(r"[-\s]","",secret).upper()
     short=bool(SHORT_CODE.fullmatch(compact))
     endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
-    payload={"code":secret,"role":role,"label":label} if short else {
-        "invite":secret,"role":role,"label":label}
+    payload={"code":secret,"role":role,"label":label,
+             "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in} if short else {
+        "invite":secret,"role":role,"label":label,
+        "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
     response=_http("POST",server+endpoint,payload,timeout=12)
     token=response.get("token")
     nodeid=response.get("node_id")
@@ -136,10 +143,19 @@ def setup():
         not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid)):
         raise ValueError("WeiGuo 配對結果無效；沒有保存憑證")
     obj={"role":role,"server":server,"label":label,
-         "node_id":nodeid,"token":token}
+         "node_id":nodeid,"token":token,
+         "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
     _save(obj)
-    print("配對成功。裝置 ID："+nodeid)
-    print("節點已加入，但推論需要 Owner 額外在 Telegram 明確核准。")
+    print("配對身分已保存。裝置 ID："+nodeid)
+    try:
+        from slime_runner_agent import _heartbeat
+        state=_heartbeat(server,token)
+        if not state.get("ok"):
+            raise ValueError("WeiGuo heartbeat unavailable")
+        print("✓ Telegram 配對完成 · 首次心跳成功；稍後 Owner 會收到安裝通知")
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError,TypeError):
+        print("節點憑證已保存，但首次心跳未確認。啟動 Runner 後會自動重試，請勿重複使用短碼。")
+    print("模型推論須 Owner 另行核准並完成實測。")
     return obj
 
 
@@ -181,15 +197,28 @@ def leave(settings):
 
 
 def status(settings):
+    from slime_runner_agent import _heartbeat, _models
     try:
-        import slime_runner_agent as runner
-        state=runner._heartbeat(settings["server"],settings["token"])
-        print("● WeiGuo 已回覆 · "+settings["label"])
-        print("節點共享："+("允許" if state.get("owner_enabled") else "Owner 已停用"))
-        print("模型推論："+("已由 Owner 核准" if state.get("inference_enabled") else "未核准／關閉"))
-        print("本機 Ollama："+("可用" if runner._models() else "尚無可用模型"))
-    except Exception:
-        print("○ 連線或 Ollama 尚未就緒；請檢查網路與本機 Ollama。")
+        state=_heartbeat(settings["server"],settings["token"])
+        if state.get("ok") is False:
+            print("○ WeiGuo 明確拒絕節點心跳，請檢查節點授權。")
+            return False
+    except HTTPError as exc:
+        print("○ WeiGuo 心跳失敗：HTTP "+str(exc.code)+
+              ("（節點憑證無效／已撤銷）" if exc.code in (401,403) else ""))
+        return False
+    except (URLError,TimeoutError,OSError,ValueError,TypeError,KeyError):
+        print("○ 無法連線 WeiGuo HTTPS；請檢查網路、系統代理與防火牆政策。")
+        return False
+    print("✓ 綁定有效 · 心跳已確認 · "+settings["label"])
+    print("節點共享："+("允許" if state.get("owner_enabled") else "Owner 已停用"))
+    print("模型推論："+("已由 Owner 核准" if state.get("inference_enabled") else "未核准／關閉"))
+    try:
+        models=_models()
+        print("本機 Ollama："+(", ".join(models) if models else "沒有已下載的模型"))
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError,KeyError):
+        print("本機 Ollama：未連線（不影響節點配對和心跳）")
+    return True
 
 
 def main():
@@ -243,6 +272,7 @@ def main():
         print("按 Ctrl+C 可隨時停止；永久退出請使用 --leave。")
         os.environ["VANILLA_SERVER_URL"]=config["server"]
         os.environ["SLIME_NODE_TOKEN"]=config["token"]
+        os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
         try:
             run_model()
         except KeyboardInterrupt:

@@ -142,10 +142,30 @@ async def _nodes(chat: int, sub: str) -> None:
             buttons.append([_button(icon+" · "+label,"infer_"+direction+":"+node["id"])])
     except (ValueError,TypeError,KeyError,RuntimeError):
         pass
+    buttons.insert(0,[_button("＋ 產生新節點配對碼","invite")])
     buttons.extend(_page_buttons("nodes"))
     await say(chat,_title("NODES / Slime 節點")
               +"<pre>"+escape(result or "Slime 節點控制尚未設定。")+"</pre>"
               +"\n<i>開啟推論後，已授權的 API 使用者提示可能傳送至此電腦。核准需二次確認。</i>",
+              buttons,html=True)
+
+
+async def _invite_card(chat: int, sub: str) -> None:
+    from slime_telegram import handle_slime
+    result=handle_slime(chat,sub,"/slime invite")
+    buttons=[]
+    # Reuse the already-issued one-time code; never read or reveal device tokens.
+    code_match=re.search(r"節點配對碼（點按可複製）：\n([A-Za-z0-9_-]{24,160})", result or "")
+    if code_match:
+        code=code_match.group(1)
+        buttons.append([{"text":"複製配對碼","copy_text":{"text":code}}])
+        link_match=re.search(r"https://[^\s]+/#slime="+re.escape(code),result)
+        if link_match and len(link_match.group(0))<=256:
+            buttons.append([{"text":"複製邀請連結","copy_text":{"text":link_match.group(0)}}])
+    buttons.append([_button("← 返回節點管理","nodes")])
+    await say(chat,_title("PAIR / 節點一次性配對")
+              +"<pre>"+escape(result or "配對服務目前不可用")+"</pre>"
+              +"\n<i>請在新電腦首次配對時使用。已使用／逾期的碼無法回復，請重新產生。</i>",
               buttons,html=True)
 
 
@@ -256,6 +276,8 @@ async def command(chat: int, body: str) -> None:
         await say(chat, _title("TOOLS / Detroit 工具")+"<pre>"+escape(_tools_text())+"</pre>", _page_buttons("tools"),html=True)
     elif action in ("nodes", "slime", "節點"):
         await _nodes(chat, sub)
+    elif action in ("invite", "pair", "配對", "密碼"):
+        await _invite_card(chat,sub)
     elif action in ("sources", "projects", "開源"):
         await _sources(chat)
     elif action in ("github", "search"):
@@ -451,6 +473,8 @@ async def _handle_callback(chat: int, action: str) -> None:
     if action in {"home", "status", "tools", "nodes", "sources",
                   "accounts", "providers"}:
         await command(chat, "/hub " + action)
+    elif action == "invite":
+        await command(chat,"/hub invite")
     elif re.fullmatch(r"infer_(on|off):[a-f0-9]{24}",action):
         from slime_telegram import handle_slime
         sub=owner_subject(chat)

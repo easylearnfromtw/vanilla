@@ -83,6 +83,35 @@ class NativeTelegramTests(unittest.TestCase):
             self.assertIn("&lt;auto&gt;",payload["text"])
         self.assertIn("<b>",_guide())
 
+    def test_one_time_slime_pairing_code_is_visible_and_copyable(self):
+        import re
+        with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{
+            "SLIME_ENABLED":"true","SLIME_DB_PATH":directory+"/slime.sqlite",
+            "SLIME_PUBLIC_API_ORIGIN":"https://example.invalid",
+        }),patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as tg:
+            self.run_async(command(CHAT,"/hub invite"))
+            method,payload=tg.await_args.args
+            self.assertEqual(method,"sendMessage")
+            self.assertEqual(payload["parse_mode"],"HTML")
+            self.assertIn("節點配對碼",payload["text"])
+            buttons=payload["reply_markup"]["inline_keyboard"]
+            codes=[item["copy_text"]["text"] for row in buttons for item in row
+                   if item.get("text")=="複製配對碼"]
+            links=[item["copy_text"]["text"] for row in buttons for item in row
+                   if item.get("text")=="複製邀請連結"]
+            self.assertEqual(len(codes),1)
+            self.assertEqual(len(links),1)
+            self.assertRegex(codes[0],r"^[A-Za-z0-9_-]{24,160}$")
+            self.assertEqual(links[0],"https://example.invalid/#slime="+codes[0])
+            self.assertIn(codes[0],payload["text"])
+            # Reusing the already issued code must not leak an installed node token.
+            with patch("ceres_command_center._telegram",new_callable=AsyncMock,return_value=True),patch(
+                    "ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as via:
+                self.run_async(callback(CHAT,"cb-pair","hub:invite",message_id=33))
+                self.assertEqual(via.await_args.args[0],"editMessageText")
+                self.assertIn("copy_text",str(via.await_args.args[1]["reply_markup"]))
+                self.assertEqual(via.await_args.args[1]["message_id"],33)
+
     def test_verified_signed_webhook_passes_message_id_to_handler(self):
         update={"update_id":3001,"callback_query":{
             "id":"c3","data":"hub:home","from":{"id":CHAT},

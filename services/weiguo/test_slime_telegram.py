@@ -47,6 +47,8 @@ class SlimeTelegramTests(unittest.TestCase):
         self.assertIn("10 分鐘", message)
         found = re.search(r"#slime=([A-Za-z0-9_-]+)", message)
         self.assertIsNotNone(found)
+        self.assertIn("配對碼", message)
+        self.assertIn(found.group(1), message)
         joined = join(JoinRequest(invite=found.group(1), label="test-GPU", role="friend"))
         token, node = joined["token"], joined["node_id"]
         heartbeat(Heartbeat(capabilities=Caps(cpu=8, ram_gb=16, gpu="GPU", os="Linux")),

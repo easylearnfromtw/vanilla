@@ -94,7 +94,8 @@ def _invite(sub: str, chat: int) -> str:
         _audit(db, sub, chat, "invite")
         db.commit()
     return (f"已建立 Slime 一次性邀請，有效 {INVITE_SECONDS//60} 分鐘。\n"
-            f"請只私下傳給同意加入的朋友：\n{origin}/#slime={raw}\n"
+            f"節點配對碼（點按可複製）：\n{raw}\n\n"
+            f"完整邀請連結：\n{origin}/#slime={raw}\n"
             "朋友需自行安裝下載區的 Slime 程式並明確同意。此連結包含配對密鑰，請勿公開轉貼。")
 
 

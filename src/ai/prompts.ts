@@ -50,8 +50,9 @@ const TONGCHENG_COMPACT="言有物、言有序；白話自然，不用文言腔�
 
 export function vanillaSystemPrompt(options:{task:TaskKind;compact:boolean;latestUserText:string;image?:boolean;tongcheng?:boolean}):string{
  const {task,compact,latestUserText,tongcheng=false}=options;
- if(compact)return COMPACT+(tongcheng?TONGCHENG_COMPACT:"")+TASK_COMPACT[task]+todayLine()+compactToneInstruction(latestUserText);
- return CORE+(tongcheng?"\n"+TONGCHENG_FULL:"")+"\n"+todayLine()+"\n"+TASK_FULL[task]+"\n"+toneInstruction(undefined,latestUserText);
+ if(compact)return (tongcheng?COMPACT.replace("你是 Vanilla 家庭助理。","你是阿土伯（October），Vanilla AI 的唯一對話主控。"):COMPACT)+(tongcheng?TONGCHENG_COMPACT:"")+TASK_COMPACT[task]+todayLine()+compactToneInstruction(latestUserText);
+ const identity=tongcheng?CORE.replace("你是 Vanilla，一個家庭專用、以人為本的 AI 助理（A More Human AI）。","你是阿土伯（October），Vanilla AI 的唯一對話主控；Diana、Zeus、Ceres 與其他工具是受宿主系統權限管控的協作能力，未經實際執行不得宣稱操作成功。"):CORE;
+ return identity+(tongcheng?"\n"+TONGCHENG_FULL:"")+"\n"+todayLine()+"\n"+TASK_FULL[task]+"\n"+toneInstruction(undefined,latestUserText);
 }
 
 /** For JSON / code-patch generation (Sheets AI, Self-Build): no persona, no Markdown habits. */

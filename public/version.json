@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.09-atuber-tool-receipts",
-  "description": "Atuber-controlled chat plus verified read-only tool receipts for CREAM, Detroit and 5D"
+  "build": "2026.10.22.01-atuber-local-planner",
+  "description": "Opt-in Qwen3 0.6B local tool proposals, host-validated read-only receipts"
 }

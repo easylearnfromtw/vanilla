@@ -177,6 +177,7 @@ async def _nodes(chat: int, sub: str) -> None:
             direction="off" if node["inference_enabled"] else "on"
             icon="✕ 停止推論" if node["inference_enabled"] else "✓ 核准推論"
             buttons.append([_button(icon+" · "+label,"infer_"+direction+":"+node["id"])])
+            buttons.append([_button("⌑ 刪除驗證碼 · "+label,"remove:"+node["id"])])
     except (ValueError,TypeError,KeyError,RuntimeError):
         pass
     from slime import _pairing_page_url
@@ -540,6 +541,13 @@ async def _handle_callback(chat: int, action: str) -> None:
         mode=operation.removeprefix("infer_")
         result=handle_slime(chat,sub,"/slime infer "+node_id+" "+mode)
         await say(chat,_title("REVIEW / Slime 推論權限")
+                  +"<pre>"+escape(result or "操作不可用")+"</pre>",
+                  [[_button("← 返回節點","nodes")]],html=True)
+    elif re.fullmatch(r"remove:[a-f0-9]{24}",action):
+        from slime_telegram import handle_slime
+        sub=owner_subject(chat)
+        result=handle_slime(chat,sub,"移除 "+action.partition(":")[2])
+        await say(chat,_title("DELETE / Telegram 安全驗證")
                   +"<pre>"+escape(result or "操作不可用")+"</pre>",
                   [[_button("← 返回節點","nodes")]],html=True)
     elif action == "github":

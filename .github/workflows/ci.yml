@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/vanilla-core-pwa]
+    branches: [feature/vanilla-core-pwa, feat/signwell-agent-sandbox-20261020]
 permissions:
   contents: read
 jobs:

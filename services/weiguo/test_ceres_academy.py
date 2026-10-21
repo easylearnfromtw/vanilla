@@ -85,9 +85,9 @@ class AcademyBotTests(unittest.TestCase):
         self.assertIn("模型推論", self.sent[-1][1])
         self.assertIn("進階", self.sent[-1][1])
         asyncio.run(bot._learn(202, "master"))
-        self.assertIn("Token 與上下文", self.sent[-1][1])
+        self.assertIn("模型推論｜核心原理", self.sent[-1][1])
         asyncio.run(bot._learn(202, "level:0"))
-        self.assertIn("Token 與上下文", self.sent[-1][1])
+        self.assertIn("模型推論｜核心原理", self.sent[-1][1])
         db, row = bot._learning_state(202)
         try:
             self.assertEqual(json.loads(row[2]), [0])

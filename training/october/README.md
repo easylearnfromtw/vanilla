@@ -49,6 +49,24 @@ node training/october/policy.mjs
 
 The training script exports portable JSON weights. Download the verified, already-trained weight file separately from the October archive provided in ChatGPT; the GitHub training workflow can also generate model artifacts. The JS policy always enforces deterministic scope/tenant/due/privileged gates, never grants execution rights.
 
+## October P0 安全預檢（2026-10-21）
+
+`training/october/policy.mjs` 現在先根據可信後端 context 做確定性的 tenant/scope/due/privilege/sensitivity 檢查，再決定是否需要讀取訓練權重。未授權、跨租戶、未到期、高權限情形均不依賴 Ollama/GPU/權重，亦不允許後續模型信心覆寫。高風險旗標必須是布林值；非布林值視為輸入錯誤，拒絕推論。
+
+權重檔缺失／受損、分類不在允許集合、推論信心不足時，以 `ESCALATE` 回報且 `authorizedToExecute: false`。回傳新增 `inferenceUsed`，純規則阻擋或權重不可用時 `confidence: null`，不得對外顯示為已完成模型推論。**這仍只是一個離線模擬決策元件，不是可信後端的授權系統，也沒有實際工具執行**；`ctx.actorTenantId` 和 `ctx.scopes` 必須由未來受信的後端填入，不得取信模型字串或前端傳入身份。
+
+不需要權重或網路即可跑安全負例：
+
+```sh
+node --test training/october/policy.preflight.test.mjs
+```
+
+本次於 Node.js v22.16.0 使用與 GitHub 相同 blob SHA 的源碼及測試，在隔離工作目錄執行 **8/8 PASS**：
+- `policy.mjs` SHA：`3321c626e778114d998758b6e908d9fcd3dc7315`
+- `policy.preflight.test.mjs` SHA：`786ab8b3df285250d30bd53b30b814bea0f53077`
+
+CI 的 October training workflow 已加入此安全測試，安排在 PyTorch 安裝及 CPU 權重訓練之前。GitHub CI 是否成功、真實權重盲測、`npm run build`、Detroit 接入、Ceres 授權與正式部署，須看各自執行回執，不因本次單元測試通過而推定。
+
 ## Ollama local model
 
 ```sh

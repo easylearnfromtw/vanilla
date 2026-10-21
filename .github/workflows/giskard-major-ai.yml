@@ -142,7 +142,6 @@ jobs:
       contents: read
     env:
       TRACELY_API: ${{ vars.HANK_TRACELY_API }}
-      TRACELY_KEY: ${{ secrets.HANK_TRACELY_KEY }}
       HANK_TRACELY_AGENTS: ${{ vars.HANK_TRACELY_AGENTS }}
       HANK_TRACELY_REVISION_URL: ${{ vars.HANK_TRACELY_REVISION_URL }}
       HANK_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -161,6 +160,8 @@ jobs:
           python -m pip install --disable-pip-version-check \
             'git+https://github.com/jwuthri-cloud/Tracely-ai.git@e6a37cddb0a62b4a4b925b0f517532e541daa208#subdirectory=sdk'
       - name: Verify candidate revision then run private Tracely scenarios
+        env:
+          TRACELY_KEY: ${{ secrets.HANK_TRACELY_KEY }}
         run: python scripts/hank-tracely-gate.py
       - name: Upload only aggregate gate status
         if: always()
@@ -184,8 +185,6 @@ jobs:
     permissions:
       contents: read
     env:
-      HANK_CERES_BOT_TOKEN: ${{ secrets.HANK_CERES_BOT_TOKEN }}
-      HANK_CERES_OWNER_CHAT_ID: ${{ secrets.HANK_CERES_OWNER_CHAT_ID }}
       HANK_GISKARD_STATUS: ${{ needs.giskard-checks.result }}
       HANK_LIVE_STATUS: ${{ needs.giskard-live.result }}
       HANK_TRACELY_STATUS: ${{ needs.tracely-gate.result }}
@@ -195,4 +194,12 @@ jobs:
           ref: main
           persist-credentials: false
       - name: Send only fixed-label failure summary to verified Ceres owner chat
-        run: python3 scripts/hank-ceres-notify.py
+        env:
+          HANK_CERES_BOT_TOKEN: ${{ secrets.HANK_CERES_BOT_TOKEN }}
+          HANK_CERES_OWNER_CHAT_ID: ${{ secrets.HANK_CERES_OWNER_CHAT_ID }}
+        run: |
+          if [[ -f scripts/hank-ceres-notify.py ]]; then
+            python3 scripts/hank-ceres-notify.py
+          else
+            echo "Ceres Hank notifier not yet available on base branch"
+          fi

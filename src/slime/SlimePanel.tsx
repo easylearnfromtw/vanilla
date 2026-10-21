@@ -125,10 +125,15 @@ export default function SlimePanel(){
    <div className="slime-heading"><div><span className="slime-kicker">STEP 02–04 · CONNECT</span><h3>首次執行與配對</h3></div><Monitor size={19}/></div>
    <ol className="slime-steps">
     <li><span className="slime-step-number">01</span><div><strong>開啟安裝檔</strong><p>Windows 雙擊 Slime 程式；macOS 解壓後開啟對應 .command，Linux 解壓後執行 start-slime.sh。不要執行來源不明的同名檔案。</p></div></li>
-    <li><span className="slime-step-number">02</span><div><strong>輸入 Telegram 的同一組短配對碼</strong><p>Ceres Telegram Owner 是唯一核發處。網頁右側僅唯讀顯示該組短碼，不會產生第二組；請勿輸入模型 API Key、GitHub Token 或舊版 Node 授權。</p></div></li>
+    <li><span className="slime-step-number">02</span><div><strong>同一 Wi-Fi 可選 Gecko 免代碼配對</strong><p>在 Slime Friend 選擇「附近 Gecko」，再選擇由接收電腦確認或由 Telegram Owner 核准；都不必輸入 Telegram 配對碼。若附近沒有分享主機，仍可改用傳統一次性短碼。</p></div></li>
     <li><span className="slime-step-number">03</span><div><strong>分別確認配對及在線</strong><p>成功配對只代表已註冊；實際在線還需 HTTPS 心跳。Owner 在 Telegram /hub → Slime 查看節點、硬體與可用模型；重開程式不需重複配對。</p></div></li>
     <li><span className="slime-step-number">04</span><div><strong>需要 AI 推論時才核准</strong><p>安裝並啟動本機 Ollama；Owner 另外同意推論後，才允許外部 Vanilla API 模型任務傳入此電腦。一般節點心跳不等於開放模型。</p></div></li>
    </ol>
+  </article>
+  <article className="slime-card" aria-label="Gecko 同網路下載">
+   <div className="slime-heading"><div><span className="slime-kicker">OPTIONAL · GECKO LAN</span><h3>下載可由接收電腦或 Telegram 核准</h3></div><ShieldCheck size={19}/></div>
+   <p>已配對的 Owner 電腦必須先自願執行 <code>--gecko</code>，才會對同一個私人 LAN 提供分享頁。下載者親自開啟區網網址，選擇由本機確認或向 Owner 的 Telegram Gecko 分頁提出申請。</p>
+   <p>授權僅允許取得官方安裝包或一次性 Friend 配對，不會自動安裝、讀取個人資料、開啟 VPN 或賦予模型推論權限。</p>
   </article>
   <article className="slime-card">
    <div className="slime-heading"><div><span className="slime-kicker">PRIVACY · CONTROL</span><h3>隨時停止與退出</h3></div><ShieldCheck size={19}/></div>

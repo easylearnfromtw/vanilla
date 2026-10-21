@@ -61,7 +61,7 @@ KNOWLEDGE = [
       ],
       [
         "Anthropic Prompting",
-        "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview"
+        "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview"
       ]
     ]
   },
@@ -308,7 +308,7 @@ KNOWLEDGE = [
       ],
       [
         "Anthropic Docs",
-        "https://docs.anthropic.com/en/docs/claude-code/overview"
+        "https://code.claude.com/docs/en/overview"
       ]
     ]
   },
@@ -646,7 +646,7 @@ KNOWLEDGE = [
     "sources": [
       [
         "Railway Docs",
-        "https://docs.railway.com/guides/deployments"
+        "https://docs.railway.com/deployments"
       ],
       [
         "FastAPI Deploy",

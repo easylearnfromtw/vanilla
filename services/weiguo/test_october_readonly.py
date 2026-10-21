@@ -195,6 +195,17 @@ class OctoberReceiptTests(unittest.TestCase):
         self.assertEqual(replay.status_code, 200)
         self.assertFalse(replay.json()["replayed"])
 
+    def test_extreme_numeric_inputs_return_validation_error(self):
+        examples = [
+            "name,value\na,1e308\nb,1e308",
+            "name,value\na," + "9" * 90,
+            "name,value\na,1e9999",
+        ]
+        for number, data in enumerate(examples):
+            payload = dict(self.sample, task_id=f"october_extreme_{number:04d}", csv=data)
+            response = self.http("POST", "/v1/family/october/csv",
+                                 headers=self.token(ALICE), json=payload)
+            self.assertEqual(response.status_code, 422, response.text)
     def test_per_subject_rate_limit(self):
         for i in range(12):
             req = dict(self.sample, task_id=f"october_rate_{i:04d}")

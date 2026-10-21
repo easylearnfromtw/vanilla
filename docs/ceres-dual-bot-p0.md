@@ -46,3 +46,27 @@ CERES_ADMIN_BOT_TOKEN, CERES_ADMIN_WEBHOOK_SECRET,
 CERES_STORE_BOT_TOKEN, CERES_STORE_WEBHOOK_SECRET,
 CERES_OWNER_TELEGRAM_IDS, CERES_PUBLIC_BASE_URL.
 Do not fill these with sample production credentials.
+
+## P1 — Commercial store and customer provisioning (approved scope)
+- Store Bot model catalog, plan selection, cart/checkout, order history, renewals, cancellations and customer support.
+- Telegram Stars-compliant digital-goods purchase path where applicable; verify successful payment updates server-side, record Telegram payment charge IDs and prevent replay.
+- Sandbox/test-mode first; never activate live charges without provider setup and explicit operational review.
+- Transactional order state machine: draft -> pending_payment -> paid -> provisioned; failed/refunded/reversed states; idempotent provisioning and quota reversal.
+- Create API entitlements and customer-scoped keys only after verified payment; protected one-time key reveal and rotation.
+- Admin Bot revenue, orders, refund review, pricing, gross margin, customer suspension and support handoff.
+- Tests: duplicate payment, out-of-order webhook, failed provisioning retry, refund after consumption, concurrent purchases and revoked user.
+
+## P2 — Mini Apps, intelligence and operations (approved scope)
+- Separate iOS-inspired white/black Telegram Mini Apps: owner operations hub and customer developer/store portal; keyboard navigation and mobile accessibility.
+- Customer portal: API key inventory (never show stored secret), token ledger, usage charts, invoices, project-specific caps, subscription management, model/API documentation and test requests.
+- Owner portal: customer segmentation, revenue/cost dashboards, key abuse detection, model publishing workflow, Slime fleet status and alert review.
+- Agentic customer support constrained to customer entitlements; escalate to owner with sanitized context; no privileged tool access.
+- Scheduled notices for quota thresholds, expirations, renewals, failed payments, outages and model deprecations with notification preferences.
+- Catalog synchronization from versioned Detroit/Slime/cloud model inventory with human approval gates for pricing and breaking changes.
+- Optional dynamic pricing recommendations based on measured inference cost and utilization; do not auto-change live prices without approval.
+- Tests: Mini App initData verification and replay limits, cross-account access, privacy/redaction, webhook-to-portal consistency, accessibility and graceful fallback to chat menus.
+
+## Release gates
+- P0/P1/P2 are all **in scope**, but inclusion in this plan does not mean implemented, merged or deployed.
+- Release P1 only after P0 isolation, ledger and billing tests pass; release P2 only after P1 payment and entitlement reconciliation passes.
+- No bot token, payment credential, domain, public Store Bot username or live payment configuration is presumed to exist.

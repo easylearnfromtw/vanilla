@@ -166,6 +166,11 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
     with _session() as db:
         _db_tables(db)
         db.execute("BEGIN IMMEDIATE")
+        # Reconcile expired reward reservations BEFORE checking quotas, so
+        # crashed requests cannot permanently lock the contributor's credits.
+        from slime_rewards import _tables as reward_tables, recover_abandoned_reservations
+        reward_tables(db)
+        recover_abandoned_reservations(db, now)
         # Revalidate revocation and expiry INSIDE the quota transaction.
         live=db.execute("""SELECT k.*,p.enabled FROM vanilla_api_keys k
              JOIN vanilla_api_projects p ON p.id=k.project_id WHERE k.id=?""",(key["id"],)).fetchone()
@@ -183,6 +188,22 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
         if (stats["day_total"] or 0)+budget>live["daily_limit"] or (
             stats["month_total"] or 0)+budget>live["monthly_limit"]:
             raise HTTPException(429,"API Key Token 額度不足")
+        # Reward credits are reserved in the SAME transaction as API Key quota.
+        # Independent keys do not consume reward wallets.
+        wallet_key=db.execute("SELECT google_sub FROM slime_reward_key WHERE key_id=?",
+                              (key["id"],)).fetchone()
+        if wallet_key:
+            sub=wallet_key["google_sub"]
+            reserved=db.execute("""UPDATE slime_reward_wallet
+                SET balance=balance-?,spent=spent+?
+                WHERE google_sub=? AND balance>=?""",(budget,budget,sub,budget))
+            if reserved.rowcount!=1:
+                raise HTTPException(429,"Slime 獎勵 Token 餘額不足")
+            db.execute("""INSERT INTO slime_reward_ledger
+                (id,google_sub,kind,delta,created_at,model,note)
+                VALUES(?,?,?,?,?,?,?)""",
+                (request_id+":reserve",sub,"api_reserve",-budget,now,model,
+                 "請求預留，完成後依有效用量結算"))
         db.execute("""INSERT INTO vanilla_api_usage(
           id,key_id,created_at,charged_tokens,status,model)
           VALUES(?,?,?,?,?,?)""",(request_id,key["id"],now,budget,"running",model))
@@ -192,19 +213,47 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
 
 
 def _finish(keyid:str,job:str,reservation:int,*,usage=None,status="failed",latency=None):
-    """When actual usage is missing, keep the conservative reservation.
-    Do not claim unknown usage as a precisely metered provider token count."""
+    """Idempotent settlement. Reward-wallet refunds are atomic with API usage."""
     a=b=None
     if isinstance(usage,dict) and type(usage.get("prompt_tokens")) is int and type(usage.get("completion_tokens")) is int:
         a,b=usage["prompt_tokens"],usage["completion_tokens"]
         if a<0 or b<0 or a+b>reservation:
             a=b=None
-    charged=a+b if a is not None else reservation
     with _session() as db:
         _db_tables(db)
+        from slime_rewards import _tables as reward_tables
+        reward_tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        previous=db.execute("SELECT * FROM vanilla_api_usage WHERE id=? AND key_id=?",
+                            (job,keyid)).fetchone()
+        if not previous or previous["status"]!="running":
+            return  # Prevent replayed completion from minting credits.
+        mapping=db.execute("SELECT google_sub FROM slime_reward_key WHERE key_id=?",
+                           (keyid,)).fetchone()
+        # Successful inference: exact provider usage when validated, otherwise
+        # mark conservative reservation. Failed attempts are free for rewards.
+        charged=(a+b if a is not None else reservation) if status=="success" else (
+                 0 if mapping else reservation)
+        source=("provider_exact" if a is not None and status=="success" else
+                "failure_refund" if status!="success" and mapping else "conservative_reserved")
         db.execute("""UPDATE vanilla_api_usage
           SET charged_tokens=?,prompt_tokens=?,completion_tokens=?,status=?,latency_ms=?
-          WHERE id=? AND key_id=?""",(charged,a,b,status,latency,job,keyid))
+          WHERE id=? AND key_id=? AND status='running'""",
+          (charged,a if status=="success" else None,b if status=="success" else None,
+           status,latency,job,keyid))
+        if mapping:
+            refund=previous["charged_tokens"]-charged
+            if refund<0:
+                raise HTTPException(502,"Token 使用量超出預留上限")
+            if refund:
+                db.execute("""UPDATE slime_reward_wallet
+                    SET balance=balance+?,spent=spent-? WHERE google_sub=?""",
+                    (refund,refund,mapping["google_sub"]))
+                db.execute("""INSERT INTO slime_reward_ledger
+                    (id,google_sub,kind,delta,created_at,model,note)
+                    VALUES(?,?,?,?,?,?,?)""",
+                    (job+":settle",mapping["google_sub"],"api_refund",refund,
+                     int(time.time()),previous["model"],source))
 
 
 class ChatMessage(BaseModel):
@@ -267,6 +316,12 @@ async def client_usage(authorization: str|None=Header(default=None)):
     month_start=calendar.timegm(time.strptime(time.strftime("%Y-%m-01",time.gmtime(now)),"%Y-%m-%d"))
     with _session() as db:
         _db_tables(db)
+        from slime_rewards import _tables as reward_tables
+        reward_tables(db)
+        reward_key=db.execute("SELECT google_sub FROM slime_reward_key WHERE key_id=?",
+                              (key["id"],)).fetchone()
+        reward_balance=(db.execute("SELECT balance FROM slime_reward_wallet WHERE google_sub=?",
+                      (reward_key["google_sub"],)).fetchone()["balance"] if reward_key else None)
         stats=db.execute("""SELECT COUNT(*) calls,
            SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) today,
            SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) month_total,
@@ -282,7 +337,11 @@ async def client_usage(authorization: str|None=Header(default=None)):
             "requestsThisMonth":stats["calls"],"successes":stats["successes"] or 0,
             "failures":stats["failures"] or 0,"rpm":key["rpm"],
             "maxOutputTokens":key["max_output"],"expiresAt":key["expires_at"],
-            "note":"Token 為模型回報的實際值或保守預留量。只有本把金鑰的紀錄。"}
+            "rewardBalance":reward_balance,
+            "metering":{"exact":"模型回報 prompt_tokens + completion_tokens；需通過預算驗證",
+                        "estimated":"未回報使用量時採最保守 UTF-8 bytes + max_tokens 預留額",
+                        "failed":"獎勵錢包的失敗請求退還全部預留額度"},
+            "note":"Token 計費以實測優先、估算明確標示；只提供此金鑰資料。"}
 
 
 @router.post("/v1/chat/completions")

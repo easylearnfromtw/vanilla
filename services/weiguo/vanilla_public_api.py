@@ -137,12 +137,22 @@ def _key_from_header(authorization: str|None):
         raise HTTPException(503,"Vanilla 模型 API 尚未開放")
     supplied=authorization[7:] if isinstance(authorization,str) and authorization.startswith("Bearer ") else ""
     match=_KEY.fullmatch(supplied)
-    if match:
-        # A pending Slime delete is applied before any new API key can run.
-        from slime_reward_policy import reconcile_node_revocations
-        reconcile_node_revocations()
     if not match:
         raise HTTPException(401,"無效的 Vanilla API Key",headers={"WWW-Authenticate":"Bearer"})
+    # Only reward-issued keys depend on the Slime registry. Ordinary vnl_
+    # project keys must not break when the optional Slime service is disabled.
+    with _session() as db:
+        reward_table=db.execute("""SELECT 1 FROM sqlite_master
+            WHERE type='table' AND name='slime_reward_key'""").fetchone()
+        is_reward=bool(reward_table and db.execute(
+            "SELECT 1 FROM slime_reward_key WHERE key_id=?",
+            (match.group(1),)).fetchone())
+    if is_reward:
+        if os.getenv("SLIME_REWARDS_ENABLED","false").lower()!="true":
+            raise HTTPException(503,"Slime 獎勵額度功能目前未啟用")
+        # Reconcile revocations before the live key is read and validated.
+        from slime_reward_policy import reconcile_node_revocations
+        reconcile_node_revocations()
     now=int(time.time())
     with _session() as db:
         _db_tables(db)

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {PENTERACT_VERTICES,ROTATION_PLANES,project5D} from "../src/detroit/penteract-5d.ts";
 import {orbitRotate3D,cameraProject3D,clampOrbitCamera,DEFAULT_ORBIT_CAMERA} from "../src/detroit/penteract-camera.ts";
-import {auditObservedOctoberFunnel} from "../src/detroit/penteract-telemetry.ts";
+import {auditObservedOctoberFunnel,recordOctoberFunnelObservation,latestOctoberFunnelObservation,clearOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "../src/detroit/penteract-telemetry.ts";
 
 test("3D orbit preserves Euclidean distances before perspective projection",()=>{
  const pts=[[0.15,-0.2,1.1],[-0.8,1.4,0.4]];
@@ -78,4 +78,32 @@ test("Funnel accurately compares actual provider generation counters to an expli
  ]);
  assert.equal(miss.understandingGeneratedSharePct,15);
  assert.equal(miss.targetMet,false);
+});
+
+test("Observability is limited to a single ephemeral aggregate; listeners detach and clear",()=>{
+ clearOctoberFunnelObservation();
+ const seen=[];
+ const off=subscribeOctoberFunnelObservation(value=>seen.push(value));
+ const current=recordOctoberFunnelObservation([
+  {stage:"understand",inputTokens:11,outputTokens:120,elapsedMs:800},
+  {stage:"answer",inputTokens:18,outputTokens:80,elapsedMs:1600},
+ ],12345);
+ assert.equal(current.observedAtMs,12345);
+ assert.equal(current.summary.understandingGeneratedSharePct,60);
+ assert.equal(latestOctoberFunnelObservation(),current);
+ assert.equal(seen.length,1);
+ const encoded=JSON.stringify(current);
+ assert.doesNotMatch(encoded,/question|prompt|source|model|answerContent|tokenSecret/i);
+ off();
+ clearOctoberFunnelObservation();
+ assert.equal(latestOctoberFunnelObservation(),null);
+ assert.equal(seen.length,1);
+});
+test("Detroit Penteract lab only subscribes to anonymous metrics and never stores raw chat",()=>{
+ const panel=readFileSync(new URL("../src/detroit/PenteractFunnelPanel.tsx",import.meta.url),"utf8");
+ const local=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(panel,/subscribeOctoberFunnelObservation/);
+ assert.match(panel,/理解階段生成 Token 佔比/);
+ assert.match(local,/recordOctoberFunnelObservation\(funnelMeasurements\)/);
+ assert.doesNotMatch(panel,/localStorage|sessionStorage|fetch\(/);
 });

@@ -52,6 +52,20 @@ class SlimeDesktopOnboardingTests(unittest.TestCase):
         if os.name!="nt":
             self.assertEqual(app._settings_path().stat().st_mode & 0o777,0o600)
 
+    def test_short_code_is_primary_and_legacy_url_still_works(self):
+        code="ABCD-EFGH-JKMP"
+        self.assertEqual(app._invite(code.lower()),code)
+        self.assertEqual(app._invite("abcd efgh jkmp"),code)
+        self.assertEqual(app._invite("https://vanilla.example.net/#slime="+code),code)
+        token="P"*45
+        with patch("builtins.input",side_effect=["","My Desktop",code,"y"]),patch.object(
+                app,"_http",return_value={"token":token,"node_id":"b"*24}) as request:
+            node=app.setup()
+        self.assertEqual(node["node_id"],"b"*24)
+        self.assertEqual(request.call_args.args[1],app.DEFAULT_SERVER+"/v1/slime/node/pair")
+        self.assertEqual(request.call_args.args[2]["code"],code)
+        self.assertNotIn("invite",request.call_args.args[2])
+
     def test_reopening_does_not_issue_new_invite_join(self):
         settings={"role":"friend","server":app.DEFAULT_SERVER,
                   "label":"test","node_id":"a"*24,"token":"P"*40}

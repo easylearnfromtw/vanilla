@@ -9,7 +9,7 @@
  * The "reviewer" and "consent" declarations are self-attested input metadata;
  * software cannot prove two people independently reviewed a case.
  */
-import {readFileSync,writeFileSync,mkdirSync} from "node:fs";
+import {readFileSync,writeFileSync,mkdirSync,statSync} from "node:fs";
 import {resolve,dirname} from "node:path";
 import {createHash} from "node:crypto";
 import {fileURLToPath} from "node:url";
@@ -127,6 +127,10 @@ async function main(){
  }
  if(!cases||!weights)throw Error("EXPLICIT_CASES_AND_WEIGHTS_REQUIRED");
  const file=resolve(cases),weightFile=resolve(weights);
+ // Check bytes BEFORE opening the input. A multi-gigabyte private file must
+ // never be materialized merely to discover that it exceeds the safe limit.
+ if(statSync(file).size>1_000_000||statSync(weightFile).size>200_000)
+  throw Error("REVIEWED_EVAL_OVERSIZED");
  const raw=readFileSync(file,"utf8"),rawWeights=readFileSync(weightFile,"utf8");
  if(Buffer.byteLength(raw)>1_000_000||Buffer.byteLength(rawWeights)>200_000)
   throw Error("REVIEWED_EVAL_OVERSIZED");

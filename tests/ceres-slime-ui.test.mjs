@@ -33,6 +33,8 @@ test("Monochrome Hub design retains accessible functional controls",()=>{
  assert.match(page,/data-tab="pairing"/);
  assert.match(page,/navigator\.clipboard\.writeText/);
  assert.match(page,/issued=\{code:obj\.code,link:obj\.link\}/);
+ assert.match(page,/唯一核發入口/);
+ assert.match(page,/四者分開驗證/);
 });
 
 test("Aesthetic changes do not weaken Owner auth, expose secrets, or add remote assets",()=>{

@@ -155,7 +155,7 @@ async def _invite_card(chat: int, sub: str) -> None:
     result=handle_slime(chat,sub,"/slime invite")
     buttons=[]
     # Reuse the already-issued one-time code; never read or reveal device tokens.
-    code_match=re.search(r"節點配對碼（點按可複製）：\n([A-Za-z0-9_-]{24,160})", result or "")
+    code_match=re.search(r"節點配對碼（點按可複製）：\n([A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4})", result or "")
     if code_match:
         code=code_match.group(1)
         buttons.append([{"text":"複製配對碼","copy_text":{"text":code}}])

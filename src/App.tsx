@@ -58,7 +58,12 @@ const tabs=[
 function Loading(){return <div className="vh-loading" role="status"><span className="vh-loading-bar"/>載入中…</div>;}
 
 export default function App(){
-const [section,setSection]=useState<Section>("chat");
+// Invitation URL fragments are passed to the Slime download panel in memory
+// and removed there before navigating away. Never persist the join secret.
+const [section,setSection]=useState<Section>(()=>{
+ const hash=typeof window!=="undefined"?window.location.hash:"";
+ return /^#slime=[A-Za-z0-9_-]{24,160}$/.test(hash)?"nodes":"chat";
+});
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
 const [retinaSeed,setRetinaSeed]=useState<string|null>(null);

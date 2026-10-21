@@ -60,13 +60,14 @@ def consume_revoke(owner: str, node_id: str, code: str, chat_id: int | None = No
                        (row["chat_id"],))
             db.commit()
             raise RevokeDenied("Telegram Owner 授權已失效")
-        # SHA-256 digests of an 8-hex secret never leave the database.
+        # Newly issued delete codes contain 48 bits of randomness; legacy 8-hex
+        # codes remain valid only for their original three-minute lifetime.
         candidate = hashlib.sha256(
             code.lower().encode("ascii", "ignore")
             if isinstance(code, str) and len(code) <= 64 else b"invalid"
         ).hexdigest()
         valid = bool(isinstance(code, str) and
-                     re.fullmatch(r"[a-fA-F0-9]{8}", code) and
+                     re.fullmatch(r"[a-fA-F0-9]{8}|[a-fA-F0-9]{12}", code) and
                      hmac.compare_digest(candidate, row["code_hash"]))
         if not valid:
             failures = row["attempts"] + 1

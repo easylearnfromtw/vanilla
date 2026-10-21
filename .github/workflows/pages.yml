@@ -97,6 +97,8 @@ jobs:
         run: |
           test -f dist/index.html
           test -d dist/assets
+          test -f dist/slime/index.html
+          grep -q "Slime · Vanilla AI 節點安裝" dist/slime/index.html
           grep -q '/vanilla/assets/' dist/index.html
           if grep -q '/src/main.tsx' dist/index.html; then
             echo "::error::dist/index.html still references TypeScript source instead of bundled assets"

@@ -61,7 +61,8 @@
     "test:luna-advanced": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/luna-advanced.test.mjs",
     "test:luca": "node --experimental-strip-types --test tests/luca-ui.test.mjs tests/luca-client.test.mjs tests/luca-feedback.test.mjs",
     "test:ceres": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/ceres.test.mjs",
-    "test:october-delivery": "node --test training/october/delivery-gate.test.mjs && node training/october/delivery-gate.mjs"
+    "test:october-delivery": "node --test training/october/delivery-gate.test.mjs && node training/october/delivery-gate.mjs",
+    "test:october-persona": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/october-persona.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 46 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 47 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1513,8 +1513,46 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 模擬 Canary 節點出現 5xx、模型無法載入、資料庫 migration 錯誤和權限撤銷；依 Q30／Q38 按真實 Verifier 和健康結果停止擴量、執行合法範圍內回滾或明確 blocked，不可假稱高風險變更已獲 Owner 批准。
 - 稽核包體／安裝設定／log 不含 Ceres Owner 金鑰、私人完整對話、企業身分或其他租戶 secrets；解除安裝遵守 Q40 保存義務，確保安全清理與實際不能消除的副本限制有明確說明。
 
+## Q48 / 50 — D：受政策治理的開放開發者生態系（Versioned SDK × Typed Contracts × Sandbox × Signed Registry × Approval Gates）
+
+**決策：D — 受政策治理的開放開發者生態系。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採受政策治理的開放開發者生態系：整合版本化SDK、Typed Contracts、Connector／Adapter／Workflow開發套件、模擬服務、合成測試資料、開發者入口、相容性測試、依賴及授權掃描、沙盒執行、簽章發布、分級審核、版本退役及撤銷機制。第三方只可提交候選能力，不能直接取得系統執行權；Diana為AI自動選擇已核准工具，Detroit按最小權限執行。此題聚焦外部開發者SDK與發布治理，不重複第13題October自主整合第三方外掛的內部流程。全域政策、新增高風險可執行程式碼及部署僅本人經Ceres Telegram核准；任何SDK、Plugin、外部事件或使用者對話不能啟動Self-Build，Self-Build仍只由可信後端背景來源觸發。」
+
+### 對外開發契約、供應鏈與發布規則
+
+1. **與 Q13 的職責界線**：Q13 定義 October 在內部如何自主研究／產生／測試／選用第三方 Adapter；**Q48 定義外部開發者如何以正式 SDK、工具協定、提交入口、沙盒及候選發布流程開發能力**。外部開發者的「提交」只進入隔離候選庫，不構成 Q13 自動接入的核准來源，也不得直接建立已啟用工具、跨租戶執行或改寫 Detroit registry。
+2. **開發者 SDK 與版本化 API**：提供正式支援範圍內的 TypeScript／JavaScript、Python SDK 或等價 OpenAPI／JSON Schema 契約，涵蓋 OAuth／受限開發者身分、sandbox token、工具宣告、測試請求、候選提交、錯誤處理、取消、streaming、structured response、ArtifactRefs、provider receipts。對版本採 semantic compatibility、protocol_version、deprecation window、migrations、sample code 與 changelog；官方尚未實作的 SDK 語言不可假裝已發布。
+3. **Typed Capability Contract**：每個 Connector／Adapter／Workflow manifest 至少包含 developer_id、package_id、immutable_version、runtime/entrypoint、capability_ids、input_schema／output_schema、tool side_effects、risk_tier、data_classification／egress destinations、requested_scopes、resource limits、timeout/retry/idempotency policy、license、dependencies、supported October/Detroit/API versions、artifact types、verification_requirements、source provenance、digest/signature。缺少重要能力／來源欄位時拒絕加入發布候選。
+4. **三種擴充實體的責任**：Connector 是對外部系統的受限資料／動作連線；Adapter 是 October/Detroit 可調用、可驗證的工具能力契約；Workflow 是可組成 Q15 DAG 的宣告式依賴、條件與成果流。任何 workflow 都不得自行生成高於使用者／租戶授權的 OAuth scope 或隱含安裝其他可執行程式碼。
+5. **Developer Portal 與身分限制**：提供帳號／組織及開發者專案管理、文件、SDK 版本、模擬服務、套件狀態、測試報告、允許的權限申請、被退回原因和撤銷／退役公告；與 Q42／Q43 工作空間及企業 SSO 相容。開發者只能管理自己提交的候選和測試資源，不能新增 Production Admin、全域秘密或自行核准正式部署。
+6. **Synthetic Sandbox 和 Mock Providers**：為常見第三方 API、模型回應、文件／Artifact、錯誤碼、429、網路中斷及授權拒絕提供版本化模擬介面與合成資料集；Sandbox 使用獨立租戶、假帳號、假 Token／假支付及禁止正式資料外送，嚴格隔離 CPU／GPU、記憶體、網路出口、檔案系統、時間與執行者權限。模擬通過只表示相容性候選，不表示真實供應商或正式資料流向已通過審查。
+7. **標準化 Compatibility/E2E Tests**：驗證 input/output schema、ArtifactRef 可訪問性、權限與風險標記、版本前後相容、串流取消、rate limit、timeout、retry、冪等、失敗回執、前置條件、補償可能性及 Q32 typed multi-agent handoff，測試工具輸出不能假冒後端批准。每個 release 都必須有可查證的 test suite 版本、結果、測試時間與 artifact hashes。
+8. **軟體供應鏈與授權掃描**：檢查 SBOM、已知漏洞、依賴與傳遞性依賴、惡意 payload、外部下載器、執行期動態載入、secret、出站流量與任意 shell，審查程式碼、資料與商用散布的開源授權義務（尤其 copyleft/AGPL 相容性）；沒有足夠證據時標記待審而非視作安全或合法。新可執行程式碼不因測試成功降為 Q13 預先核准宣告式 P0。
+9. **第三方提交不等於執行許可**：所有套件經 candidate／scanning／sandbox_testing／review_pending／approved_for_catalog／enabled_for_tenant／deprecated／revoked／quarantined 等受信狀態機管理。候選不得自動取得真實 OAuth/SCIM/API keys、調用付費模型、讀取用戶資料、部署容器或在公開系統中執行；審查與上架權只由可信 Registry 後端授予，並依 Q13 P0/P1/P2 風險界線決定後續人員核准。
+10. **發布與簽章驗證**：以 publisher identity、受信 build provenance、release digest、version、環境、審核證據、依賴固定、簽章驗證和 rollback policy 對外發行；不可因套件作者上傳／變更 Git tag 就更新正式工具。Q30 的候選→驗證→Canary→正式發布，與 Q47 的簽章更新／節點相容性檢查必須一致。簽章失敗、trust root 未核准或已撤銷版本不得安裝或執行。
+11. **Diana 的自動選用邊界**：只查詢已核准、正在有效版本與 tenant scope 內的能力 Registry，依工具描述、schema、使用者任務、性能成本及安全政策決定路由；一般用戶不必瀏覽工具清單。第三方 metadata、README、tool output、model suggestion 皆為不可信輸入，不能提升風險等級、擴大權限或讓未審核工具被選用。
+12. **Detroit 最小權限與執行回執**：每次工具執行均重新核對 actor、tenant、workspace、resource、capability_version、runtime sandbox policy、OAuth scope、data egress、side-effect class、budget及必要確認；輸出符合 Q14 Typed Contracts、Q36 receipt、Q38 checkpoint 與 Verifier 檢查。不得把檔案處理失敗、HTTP 200 或模型描述視為工具真正成功。
+13. **停用、退役與緊急撤權**：支援不相容版本退役通知、現有 workflow 依賴查核、授權 token 失效、惡意或有漏洞套件隔離與撤銷、已執行作業的稽核保存；緊急阻斷可依預先授權的低風險安全政策執行，涉及發布／全域策略／高風險回退仍經 Owner 審批。不得讓舊 checkpoint、快取工具 manifest、已存在的 plugin session 在 revoke 後繼續呼叫。
+14. **Ceres 全域管理權限唯一性**：所有全域 policy、Registry 信任根、新高風險可執行程式碼、正式部署、共用憑證及高權限插件僅本人透過 @SignWell_bot 的受信 Ceres Telegram Owner user_id/chat_id 和針對 package digest、risk、environment、版本／到期 nonce 的明確核准生效；開發者 admin、企業組織 admin、外部 Publisher 或一般 API Key 都不是 Vanilla Owner。
+15. **Self-Build 完全不可由開發者路徑觸發**：任何 SDK endpoint、外部 Plugin、Connector、Workflow、dev portal、上架 callback、CI 外部事件、測試失敗報告、用戶聊天或套件執行結果，都不得直接或間接建立可信 Self-Build 工作。Self-Build 僅由 Q27–Q30 獨立的可信後端排程或經嚴格來源驗證的內部品質事件啟動；不能將外部事件透過 LUCA 或 Planner 包裝成內部可啟動的事件。
+16. **授權、資料治理與開發者責任**：SDK 發布與第三方程式碼不得突破 Q40 法遵、Q42 多租戶或 Q43 SSO 範圍；未取得合法授權的外部資料、使用者 prompt、Artifact、醫療／財務資訊及聊天記憶不可拿來當測試集或包進範例程式。使用者授權撤銷後，後續工具呼叫和外送需立即停止；保留不可逆行為與已發出的外部副本限制說明。
+17. **功能現況與交付聲明**：**本題確認開發者生態系設計，不代表** TypeScript/Python SDK、Developer Portal、Mock Providers、可信 sandbox、套件 Registry、簽章發布、實際工具執行或公開商業外掛目錄已完成實作或正式上線；聲稱某個 Connector 已可用、已審核或已接通時，必須提供真實註冊版本、核准與工具回執。
+
+### 可驗證驗收條件（尚未完成正式實作）
+
+- 用公開範例規格建立 TypeScript／Python Connector、Adapter 與 Workflow 候選，驗證版本化 manifest、schema、ArtifactRefs、錯誤碼、權限描述和正常升級遷移；未實作 SDK 不能被列為已成功。
+- 以合成資料的 Mock API、模擬 Gmail／Notion、429、timeout、網路分區、重試及 side effect 执行契約測試；測試中不得觸達真實生產憑證、寄送外部通知、扣款或讀取他人資料。
+- 輸入依賴弱點、被污染的 lockfile、AGPL 授權不確定、任意 shell、惡意 exfiltration URL 與動態載入程式碼，掃描／政策層應升級風險、隔離或拒絕；不可單靠通過 mock tests 就自動正式上架。
+- 提交同 package_id、不同 version/digest、受偽造簽章與 revoked 版本的候選，驗證 Registry 狀態機不能把 submitted 或 scanned 當成 approved/enabled；真正 tenant-enabled 的版本必須和驗證 digest 一致。
+- 用一般開發者、企業 SSO admin、外部 API Key、偽造 Ceres callback、已過期 Owner nonce 申請全域管理或發布高風險插件，後端應全部拒絕並保留可稽核的政策拒絕事件。
+- 以惡意 README、tool output、Plugin manifest、外部 webhook 和測試報告寫入「啟動 Self-Build」或「重新開放全域秘密」等文字，Diana／Detroit／後端可信排程閘門應阻止所有提權和自我修改觸發。
+- 模擬已核准工具運行中被撤銷、舊版 checkpoint 恢復、外掛供應商不可用、Sandbox 容器逃逸測試／網路外送與資料跨租戶，確保新執行全部拒絕並如實標記既有任務狀態，不因重試復活已撤權 capability。
+- 核對 Q13 開放式自主整合與 Q48 第三方 SDK 提交的角色差異：外部可提交可驗證候選，只有後端審批登錄且具體 tenant 授權的工具才能在 Q32 Diana 自動選用、Q36 Detroit 最小權限執行。
+- 將 Registry、簽章狀態、相依套件驗證報告、LUCA 最小化稽核與 Verifier 的 provider/tool receipt 比對，所有標註 verified 的外掛須能追溯真正的審核與相容性測試證據。
+
 ### 待決事項
 
-**Q48 / 50：October／Detroit 應如何向第三方開發者開放穩定的 SDK、能力協定、整合測試沙盒與安全發布流程，使開發者能建構相容的工具、Connector 與工作流程，同時保持 AI 自主選用工具及 Ceres Owner 的絕對管理權限？** 尚待使用者答覆。
+**Q49 / 50：October／Vanilla 應如何確保使用者與企業能在本地、雲端及不同服務供應商間安全匯出、備份、遷移、還原資料、長期記憶、工作空間與任務成果，避免被單一平台鎖定，同時保留權限、來源與版本完整性？** 尚待使用者答覆。
 
 ---

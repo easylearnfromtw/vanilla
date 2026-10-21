@@ -354,7 +354,68 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    if(!res.ok)throw Error(typeof obj.detail==="string"?obj.detail:"操作失敗");
    return obj;
  }
- async function loadReward(){
+ function geckoErase(){
+ geckoSecret="";$("gecko-secret-display").textContent="";
+ $("gecko-secret-display").hidden=true;$("gecko-copy").hidden=true;$("gecko-clear").hidden=true;
+}
+async function loadGecko(){
+ try{
+  const r=await api("gecko/snapshot",{page:0});
+  $("gecko-total").textContent=Number(r.totalNodes).toLocaleString();
+  $("gecko-online").textContent=Number(r.members.filter(n=>n.online).length).toLocaleString();
+  const holder=$("gecko-pools");holder.replaceChildren();
+  if(!r.pools.length)holder.textContent="尚未建立受管理主機群。";
+  for(const item of r.pools){
+   const el=document.createElement("div");el.className="node";
+   const name=document.createElement("strong");name.textContent=item.name;
+   const status=document.createElement("small");
+   status.textContent=item.accepted+" / "+item.capacity+" 主機 · "+
+     (item.revoked?"已停止註冊":new Date(item.expiresAt*1000).toLocaleString())+
+     " · 更新 "+(item.desiredVersion||"未指定")+" · "+item.canaryPercent+"% 灰度";
+   el.append(name,status);
+   const buttons=document.createElement("div");buttons.className="controls";
+   const revoke=document.createElement("button");revoke.type="button";revoke.className="btn danger";
+   revoke.textContent="停止新註冊";revoke.disabled=item.revoked;
+   revoke.onclick=async()=>{
+     if(!confirm("停止本批次核發新裝置授權？不會刪除既有節點。"))return;
+     try{await api("gecko/revoke",{pool_id:item.id});notice("已撤銷本批次註冊");await loadGecko();}
+     catch(e){notice(e.message);}
+   };
+   const rollout=document.createElement("button");rollout.type="button";rollout.className="btn soft";
+   rollout.textContent="設定灰度";
+   rollout.onclick=async()=>{
+      const version=prompt("請輸入 Slime 官方 GitHub Release 標籤",item.desiredVersion||"slime-v");
+      if(version===null)return;
+      const percent=prompt("目標主機比例（0–100）",String(item.canaryPercent));
+      if(percent===null)return;
+      if(!/^slime-v[A-Za-z0-9._-]{1,65}$/.test(version)||!/^\\d{1,3}$/.test(percent)||Number(percent)>100){
+        notice("版本或灰度比例格式不正確");return;
+      }
+      try{await api("gecko/rollout",{pool_id:item.id,version,canary_percent:Number(percent)});
+        notice("已設定期望版本，不會在遠端自動執行");await loadGecko();}
+      catch(e){notice(e.message);}
+   };
+   buttons.append(rollout,revoke);el.append(buttons);holder.append(el);
+  }
+ }catch(e){$("gecko-pools").textContent=e.message;}
+}
+async function geckoCreate(){
+ const button=$("gecko-create"),name=$("gecko-name").value.trim();
+ const capacity=Number($("gecko-capacity").value);
+ if(!name||!Number.isSafeInteger(capacity)||capacity<1||capacity>2000){
+   notice("主機群名稱或台數不合法");return;}
+ button.disabled=true;geckoErase();
+ try{
+  const r=await api("gecko/issue",{name,capacity,lifetime_seconds:3600});
+  geckoSecret=r.enrollmentToken;
+  $("gecko-secret-display").textContent="本次短效部署憑證：\n"+geckoSecret+
+   "\n\n此憑證用於受管理主機的部署秘密，切勿放進公開安裝包。";
+  $("gecko-secret-display").hidden=false;$("gecko-copy").hidden=false;$("gecko-clear").hidden=false;
+  await loadGecko();
+ }catch(e){notice(e.message);}
+ finally{button.disabled=false;}
+}
+async function loadReward(){
    try{
     const r=await api("rewards/snapshot");
     $("reward-amount").value=String(r.amount);
@@ -539,6 +600,10 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
  $("refresh").addEventListener("click",reload);
  $("refresh-reward").addEventListener("click",()=>void loadReward());
  $("save-reward").addEventListener("click",()=>void saveReward());
+  $("gecko-create").addEventListener("click",()=>void geckoCreate());
+  $("gecko-refresh").addEventListener("click",()=>void loadGecko());
+  $("gecko-copy").addEventListener("click",()=>void copy(geckoSecret));
+  $("gecko-clear").addEventListener("click",geckoErase);
  $("issue").addEventListener("click",issue);
  $("probe-model").addEventListener("click",async()=>{
    const button=$("probe-model"),out=$("probe-output");
@@ -553,7 +618,8 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
      "。請檢查節點心跳、Ollama、Owner 推論核准與後端 Runner 開關。";}
    finally{button.disabled=false;}
  });
- $("copy-code").addEventListener("click",()=>copy(issued?.code));
+ window.addEventListener("pagehide",geckoErase);
+  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
  function closeConfirm(){pending=null;$("delete-code").value="";$("confirm-box").hidden=true;}

@@ -208,6 +208,11 @@ def reward_ticket(authorization: str | None=Header(default=None)):
     with _db() as nodes:
         node=_node(nodes,authorization)
         node_id,owner=node["id"],node["owner"]
+        from slime_reward_policy import score_capabilities
+        try:
+            score=score_capabilities(node["cpu"],node["ram_gb"],node["gpu"])
+        except ValueError:
+            raise HTTPException(409,"節點需先回報 CPU 與 RAM 資訊，才能領取獎勵") from None
     _owner_chat(owner)
     settings=config(owner)
     if not settings["enabled"] or settings["amount"]==0:
@@ -229,6 +234,7 @@ def reward_ticket(authorization: str | None=Header(default=None)):
             expires_at=excluded.expires_at,issued_at=excluded.issued_at""",
             (node_id,owner,hashlib.sha256(ticket.encode()).hexdigest(),now+TICKET_TTL,now))
     return {"url":_safe_origin()+"/v1/slime/rewards#ticket="+ticket,
+            "score":score,"rewardTokens":score*settings["multiplier"],
             "expiresSeconds":TICKET_TTL,
             "note":"一次性領獎連結，請勿轉交；只能由一個 Google 帳號領取"}
 
@@ -246,7 +252,7 @@ def reward_quote(body:Quote):
     now=int(time.time())
     with _session() as db:
         _tables(db)
-        row=db.execute("SELECT owner_sub,expires_at FROM slime_reward_ticket "
+        row=db.execute("SELECT node_id,owner_sub,expires_at FROM slime_reward_ticket "
                        "WHERE code_digest=? AND expires_at>?",
                        (hashlib.sha256(body.ticket.encode()).hexdigest(),now)).fetchone()
     if not row:
@@ -254,7 +260,21 @@ def reward_quote(body:Quote):
     settings=config(row["owner_sub"])
     if not settings["enabled"]:
         raise HTTPException(403,"管理員目前已暫停獎勵")
-    return {"amount":settings["amount"],"expiresIn":max(0,row["expires_at"]-now)}
+    from slime import _db
+    from slime_reward_policy import score_capabilities,bonus_round_up_nine
+    with _db() as nodes:
+        node=nodes.execute("SELECT owner,cpu,ram_gb,gpu FROM nodes WHERE id=?",
+                           (row["node_id"],)).fetchone()
+    if not node or node["owner"]!=row["owner_sub"]:
+        raise HTTPException(409,"配對節點已退出或不可用")
+    try:
+        score=score_capabilities(node["cpu"],node["ram_gb"],node["gpu"])
+    except ValueError:
+        raise HTTPException(409,"節點尚未回報完整硬體資料") from None
+    return {"amount":score*settings["multiplier"],"score":score,
+            "multiplier":settings["multiplier"],
+            "weekenBonus":bonus_round_up_nine(score*100),
+            "expiresIn":max(0,row["expires_at"]-now)}
 
 
 class Claim(BaseModel):

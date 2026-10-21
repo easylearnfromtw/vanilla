@@ -101,6 +101,40 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
   throw e;
  }finally{clearTimeout(timeout);}
 }
+/** Explicit user-triggered proof that an owner-configured October alias can infer.
+ * A model appearing in /api/tags is NOT treated as a successful inference.
+ * No paid cloud fallback, third-party credential, or persistent prompt logging.
+ */
+export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:lg"):
+ Promise<{model:string;elapsedMs:number;responseTokens:number|null}>{
+ if(!config.endpoint)throw new Error("尚未設定可連接的 Ollama HTTPS 主機");
+ const base=normalizeOllamaUrl(config.endpoint);
+ const available=await testOllama(config.endpoint);
+ if(!available.models.some(x=>x.name===model))throw new Error(model+" 尚未安裝在這台主機");
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),120000);
+ const started=performance.now();
+ try{
+  const res=await fetch(base+"/api/chat",{
+   method:"POST",signal:controller.signal,
+   headers:headers(),body:JSON.stringify({
+    model,stream:false,think:false,keep_alive:"1m",
+    options:{num_predict:32,num_ctx:2048,temperature:0},
+    messages:[{role:"user",content:"請只回答：已連線"}]
+   })
+  });
+  if(!res.ok)throw new Error("推論測試 HTTP "+res.status);
+  const answer=await res.json() as {done?:boolean;message?:{content?:string};eval_count?:number};
+  if(answer.done!==true||typeof answer.message?.content!=="string"||!answer.message.content.trim())
+   throw new Error("模型未回傳完整的有效答案");
+  return {model,elapsedMs:Math.round(performance.now()-started),
+   responseTokens:Number.isInteger(answer.eval_count)?answer.eval_count!:null};
+ }catch(error){
+  if(error instanceof Error&&error.name==="AbortError")throw new Error("推論超過 120 秒，未驗證成功");
+  throw error;
+ }finally{clearTimeout(timeout);}
+}
+
 export type OllamaReplyOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;purpose?:"chat"|"structured";deep?:boolean;toolGrounding?:string};
 /** Streams from Ollama /api/chat (NDJSON). Tuned per model: num_ctx large enough for web/file
  * context (Ollama silently truncates beyond it), keep_alive so a home host doesn't reload the

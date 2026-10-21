@@ -1,4 +1,4 @@
-name: Giskard Major AI Gate
+name: Hank AI Quality Gate
 
 on:
   pull_request:
@@ -19,11 +19,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: giskard-ai-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: hank-ai-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   classify:
+    name: Hank / Classify AI changes
     runs-on: ubuntu-latest
     outputs:
       major: ${{ steps.detect.outputs.major }}
@@ -49,11 +50,12 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: giskard-classification
+          name: hank-classification
           path: artifacts/giskard-change-report.json
           if-no-files-found: ignore
 
   giskard-checks:
+    name: Hank / Giskard regression
     needs: classify
     if: needs.classify.outputs.major == 'true'
     runs-on: ubuntu-latest
@@ -73,19 +75,20 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           python -m pip install "giskard>=3,<4"
-      - name: Run Giskard against Vanilla AI code (no LLM/API secrets)
+      - name: Hank regression against real Vanilla AI code (Giskard v3)
         run: python scripts/giskard-major-checks.py
       - name: Save synthetic Giskard regression evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: giskard-major-results
+          name: hank-regression-results
           path: |
             artifacts/giskard-major-summary.json
             artifacts/giskard-major-junit.xml
           if-no-files-found: ignore
 
   giskard-live:
+    name: Hank / Model vulnerability scan
     needs: [classify, giskard-checks]
     if: >-
       ${{ needs.classify.outputs.major == 'true' &&
@@ -110,12 +113,12 @@ jobs:
           python-version: "3.12"
       - name: Install Giskard v3 vulnerability scan
         run: python -m pip install "giskard[scan,openai]>=3,<4"
-      - name: Red team owned Vanilla inference (trusted main only)
+      - name: Hank live red-team scan (trusted main only)
         run: python scripts/giskard-live-scan.py
       - name: Upload only aggregate counts, never model traces
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: giskard-live-aggregate
+          name: hank-live-aggregate
           path: artifacts/giskard-live-summary.json
           if-no-files-found: ignore

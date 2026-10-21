@@ -179,7 +179,15 @@ async def telegram_webhook(request: Request,
             and isinstance(callback.get("id"),str) and isinstance(callback.get("data"),str)):
             from ceres_admin_bot import callback as admin_callback, owner_subject
             if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
-                await admin_callback(chat_id,callback["id"],callback["data"])
+                # Edit only the original bot message, never a user-supplied target.
+                message_id=sent.get("message_id")
+                if type(message_id) is not int or not 0<message_id<2**31:
+                    message_id=None
+                if callback["data"].startswith("hub:"):
+                    from ceres_command_center import callback as hub_callback
+                    await hub_callback(chat_id,callback["id"],callback["data"],message_id=message_id)
+                else:
+                    await admin_callback(chat_id,callback["id"],callback["data"],message_id=message_id)
                 return {"ok":True,"accepted":True}
         return {"ok":True,"accepted":False}
     message = payload.get("message")
@@ -199,7 +207,51 @@ async def telegram_webhook(request: Request,
     if not isinstance(body, str) or not 1 <= len(body.strip()) <= MAX_TEXT:
         return {"ok": True, "accepted": False}
     text=body.strip()
-    if text.split()[0].split("@")[0].lower() in ("/admin","/manage"):
+    # Owner-only command center stays out of the AI job queue and is
+    # deduplicated like /admin. Natural-language shortcuts are deterministic.
+    hub_text = None
+    prefix = text.split()[0].split("@")[0].lower()
+    if prefix in ("/hub", "/center", "/centre"):
+        hub_text = text
+    elif prefix in ("/start", "/help"):
+        from ceres_admin_bot import owner_subject
+        from ceres_command_center import welcome
+        if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+            await welcome(chat_id)
+            return {"ok":True,"accepted":True}
+        return {"ok":True,"accepted":False}
+    elif prefix == "/menu" or text in ("控制中心", "開啟控制中心", "打開控制中心", "開始使用"):
+        hub_text = "/hub"
+    elif text in ("系統狀態", "查看系統狀態", "底特律狀態"):
+        hub_text = "/hub status"
+    elif text in ("有哪些功能", "功能清單", "查看工具能力"):
+        hub_text = "/hub tools"
+    if hub_text is None:
+        # Deterministic Owner-only setting intent preview. Never execute
+        # model-generated instructions and never apply without confirmation.
+        config_intent = re.fullmatch(
+            r"(?:幫我)?(?:把|將)?\s*(?:gemini|openai|deepseek)\s*(?:模型)?\s*"
+            r"(?:改成|設為|切換成)?\s*"
+            r"(?:速度優先|品質優先|均衡|開啟備援|關閉備援)",
+            text, re.I)
+        if config_intent:
+            hub_text = "/hub plan " + text
+    if hub_text is None:
+        # Read-only natural-language GitHub lookup, not remote installation.
+        search = re.fullmatch(
+            r"(?:幫我)?(?:找|搜尋|尋找)\s*github\s*(?:上的|上|的)?\s*"
+            r"(?:開源|專案|項目)?\s*(.{2,80})",
+            text, re.I)
+        if search:
+            hub_text = "/hub github " + search.group(1).strip()
+    if hub_text is not None:
+        from ceres_admin_bot import owner_subject
+        from ceres_command_center import command as hub_command
+        if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+            await hub_command(chat_id, hub_text)
+            return {"ok":True,"accepted":True}
+        return {"ok":True,"accepted":False}
+    if prefix in ("/admin","/manage"):
         from ceres_admin_bot import command as admin_command, owner_subject
         if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
             await admin_command(chat_id,text)

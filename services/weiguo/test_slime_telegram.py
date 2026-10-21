@@ -6,7 +6,8 @@ import unittest
 from unittest.mock import patch
 
 from ceres_gateway import _allowed_chat_ids
-from slime import JoinRequest, join, Heartbeat, Caps, heartbeat
+from slime import PairRequest, pair, Heartbeat, Caps, heartbeat
+from starlette.requests import Request
 from slime_telegram import handle_slime, _owner_subject
 
 OWNER_CHAT = 123456789
@@ -47,7 +48,12 @@ class SlimeTelegramTests(unittest.TestCase):
         self.assertIn("10 分鐘", message)
         found = re.search(r"#slime=([A-Za-z0-9_-]+)", message)
         self.assertIsNotNone(found)
-        joined = join(JoinRequest(invite=found.group(1), label="test-GPU", role="friend"))
+        self.assertIn("配對碼", message)
+        self.assertIn(found.group(1), message)
+        self.assertRegex(found.group(1),r"^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$")
+        request=Request({"type":"http","client":("198.51.100.7",443),"headers":[]})
+        joined = pair(PairRequest(code=found.group(1), label="test-GPU", role="friend"),
+                      request=request)
         token, node = joined["token"], joined["node_id"]
         heartbeat(Heartbeat(capabilities=Caps(cpu=8, ram_gb=16, gpu="GPU", os="Linux")),
                   authorization="Bearer " + token)
@@ -63,7 +69,7 @@ class SlimeTelegramTests(unittest.TestCase):
         code = re.search(r"確認 ([a-f0-9]{8})", resume).group(1)
         self.assertIn("已恢復", handle_slime(OWNER_CHAT, OWNER_SUB, "確認 " + code))
         revoke = handle_slime(OWNER_CHAT, OWNER_SUB, "移除 " + node)
-        code = re.search(r"確認 ([a-f0-9]{8})", revoke).group(1)
+        code = re.search(r"確認 ([a-f0-9]{12})", revoke).group(1)
         self.assertIn("已撤銷", handle_slime(OWNER_CHAT, OWNER_SUB, "確認 " + code))
         self.assertIn("沒有已配對", handle_slime(OWNER_CHAT, OWNER_SUB, "目前有哪些電腦"))
 

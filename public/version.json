@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.53-ceres-telegram-admin",
-  "description": "Ceres Telegram administrator controls, owner-verified Gmail scopes, secure API key vault and Slime-preserving deployment"
+  "build": "2026.10.21.05-slime-hide-admin-links",
+  "description": "Public Slime download page no longer exposes private Telegram admin shortcut buttons"
 }

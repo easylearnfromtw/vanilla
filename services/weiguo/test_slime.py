@@ -7,11 +7,12 @@ from unittest.mock import patch
 from urllib.parse import urlsplit, parse_qs
 
 from fastapi import HTTPException
+from starlette.requests import Request
 from auth import FamilyIdentity
 from slime import (
-    Caps, Heartbeat, JoinRequest, Policy, RouteRequest, _db,
-    _digest, heartbeat, issue_invite, join, leave, list_nodes,
-    policy, revoke, slime_status, suggest_route
+    Caps, Heartbeat, JoinRequest, PairRequest, Policy, RouteRequest, _db,
+    _digest, heartbeat, issue_invite, join, pair, leave, list_nodes,
+    policy, revoke, RevokeProof, slime_status, suggest_route
 )
 
 OWNER = FamilyIdentity(sub="12345678901234567890", member="Owner",
@@ -26,7 +27,8 @@ class SlimeLifecycle(unittest.TestCase):
         self.env = patch.dict(os.environ, {
             "SLIME_ENABLED": "true",
             "SLIME_DB_PATH": str(Path(self.tmp.name) / "slime.db"),
-            "SLIME_PUBLIC_API_ORIGIN": "https://example.org"
+            "SLIME_PUBLIC_API_ORIGIN": "https://example.org",
+            "SLIME_PAIRING_PAGE_URL": "https://example.org/slime/"
         })
         self.env.start()
 
@@ -36,15 +38,16 @@ class SlimeLifecycle(unittest.TestCase):
 
     def pairing(self):
         invite = issue_invite(OWNER)["link"]
-        self.assertTrue(invite.startswith("https://example.org/#slime="))
+        self.assertTrue(invite.startswith("https://example.org/slime/#slime="))
         token = parse_qs(urlsplit(invite).fragment)["slime"][0]
-        return join(JoinRequest(invite=token, label="Test Windows", role="friend")), token
+        request=Request({"type":"http","client":("198.51.100.25",443),"headers":[]})
+        return pair(PairRequest(code=token, label="Test Windows", role="friend"),request), token
 
     def test_pairing_heartbeat_and_owner_opt_out(self):
         self.assertFalse(slime_status(OWNER)["inference_enabled"])
         device, invitation = self.pairing()
         with self.assertRaises(HTTPException):
-            join(JoinRequest(invite=invitation, label="Replay", role="friend"))
+            pair(PairRequest(code=invitation, label="Replay", role="friend"),Request({"type":"http","client":("198.51.100.25",443),"headers":[]}))
         headers = "Bearer " + device["token"]
         before = list_nodes(OWNER)["nodes"][0]
         self.assertTrue(before["online"])
@@ -80,7 +83,11 @@ class SlimeLifecycle(unittest.TestCase):
         self.assertEqual(suggest_route(RouteRequest(workload="tools"), OWNER)["candidate_nodes"], [])
         with self.assertRaises(HTTPException):
             policy(d["node_id"], Policy(enabled=False), OTHER)
-        revoke(d["node_id"], OWNER)
+        with self.assertRaises(HTTPException):
+            revoke(d["node_id"], RevokeProof(code="deadbeefdead"), OWNER)
+        self.assertEqual(len(list_nodes(OWNER)["nodes"]),1)
+        # A consenting device always retains its ability to leave voluntarily.
+        leave(authorization="Bearer "+d["token"])
         with self.assertRaises(HTTPException):
             heartbeat(Heartbeat(capabilities=Caps()), authorization="Bearer "+d["token"])
 

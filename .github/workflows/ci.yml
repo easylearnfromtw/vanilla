@@ -19,7 +19,6 @@ jobs:
       - name: Regression tests
         run: |
           npm run test:local-chat
-          npm run test:model-reply
           npm run test:model-download
           npm run test:webllm-guard
           npm run test:assistant
@@ -30,18 +29,23 @@ jobs:
           npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:detroit-bus
+          npm run test:model-reply
           npm run test:october-readonly
+          npm run test:october-persona
           npm run test:diana
           node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres
+          npm run test:ceres-slime-ui
+          node --test tests/ceres-academy-docker.test.mjs
           npm run test:api-registry
           npm run test:merlin
           npm run test:victoria
-          npm run test:october-persona
           npm run test:erya
           npm run test:cream-weiguo
           npm run test:detroit-studio
           npm run test:node-fabric
+          npm run test:slime-onboarding
+          npm run test:slime-standalone
           npm run test:luca
           npm run test:detroit-factory
           npm run test:retina

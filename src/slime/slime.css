@@ -24,3 +24,75 @@
 @media(prefers-color-scheme:dark){.slime-card,.slime-metrics>div{background:var(--surface,#202824)}.slime-hero{background:linear-gradient(135deg,#172c21,#25352b)}.slime-switcher{background:#334139}.slime-switcher button.chosen{background:#52705d;color:#fff}.slime-empty,.slime-route{background:#26372b}.slime-onboarding strong{background:#365741}.slime-switcher button,.slime-card p{color:inherit}}
 
 .slime-legacy{border:1px solid #cadbce;border-radius:14px;padding:16px;background:var(--surface,#fff)}.slime-legacy summary{font-size:13px;font-weight:750;cursor:pointer;color:#3d6e4b}.slime-legacy>p{font-size:12px;line-height:1.7;color:var(--text-muted,#657268)}.slime-legacy .content-page{padding:8px 0;max-width:100%}
+
+
+/* Slime onboarding v2: restrained iOS-like monochrome; old classes remain for other panels. */
+.slime-page{max-width:780px;gap:14px;--slime-ink:var(--text,#18191a);--slime-paper:var(--surface,#fff);
+ --slime-border:var(--border,#dfdfe3);--slime-muted:var(--text-muted,#71717a)}
+.slime-page .slime-hero{padding:clamp(23px,4vw,38px);border:1px solid var(--slime-border);
+ border-radius:24px;background:var(--slime-paper);box-shadow:0 4px 25px #00000005}
+.slime-page .slime-hero h2{font-size:clamp(34px,6vw,49px);margin:18px 0}
+.slime-page .slime-hero h2 span{color:var(--slime-ink)}
+.slime-page .slime-hero p{color:var(--slime-muted);font-size:14px;line-height:1.8}
+.slime-page .slime-overline,.slime-page .slime-kicker{color:var(--slime-muted);letter-spacing:.13em}
+.slime-page .slime-dot{background:var(--slime-ink);width:8px;height:8px}
+.slime-page .slime-hero-status{color:var(--slime-muted);font-size:12px}
+.slime-page .slime-card{border:1px solid var(--slime-border);border-radius:21px;padding:clamp(19px,3vw,27px);
+ background:var(--slime-paper);gap:15px;box-shadow:none}
+.slime-page .slime-heading h3{font-size:21px;letter-spacing:-.045em}
+.slime-page .slime-switcher{background:var(--bg,#f3f3f5);border:1px solid var(--slime-border)}
+.slime-page .slime-switcher button{color:var(--slime-muted)}
+.slime-page .slime-switcher button.chosen{background:var(--slime-paper);color:var(--slime-ink);
+ box-shadow:0 2px 6px #00000012}
+.slime-page .slime-main-action{min-height:53px;border-radius:14px;background:var(--slime-ink);
+ color:var(--slime-paper);font-weight:730}
+.slime-page .slime-main-action:hover{opacity:.89;background:var(--slime-ink)}
+.slime-page .slime-main-action.pending{color:var(--slime-ink);background:var(--bg,#f6f6f7);
+ border:1px solid var(--slime-border)}
+.slime-page .slime-platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.slime-page .slime-platforms button{font:inherit;font-size:13px;font-weight:680;padding:12px 4px;
+ background:var(--slime-paper);color:var(--slime-muted);border:1px solid var(--slime-border);
+ border-radius:11px;cursor:pointer}
+.slime-page .slime-platforms button.chosen{border-color:var(--slime-ink);color:var(--slime-ink)}
+.slime-page .slime-download-meta{display:flex;justify-content:space-between;gap:10px;align-items:center;
+ font-size:12px;font-weight:700;color:var(--slime-ink);padding-top:8px}
+.slime-page .slime-download-meta small{color:var(--slime-muted);font-weight:500}
+.slime-page .slime-support-note{display:flex;align-items:flex-start;gap:10px;font-size:12px;
+ line-height:1.6;padding:13px;background:var(--bg,#f6f6f7);border-radius:12px;color:var(--slime-muted)}
+.slime-page .slime-support-note svg{flex-shrink:0}
+.slime-page .slime-checksum{overflow-wrap:anywhere;word-break:break-all;font-size:11px;
+ background:var(--bg,#f5f5f6);padding:10px;border-radius:9px;color:var(--slime-muted)}
+.slime-page .slime-subtle-link{display:inline-flex;align-items:center;gap:6px;color:var(--slime-ink);
+ font-size:12px;text-underline-offset:4px;overflow-wrap:anywhere}
+.slime-page .slime-outline-action{display:inline-flex;min-height:45px;justify-content:center;
+ align-items:center;gap:9px;padding:12px 14px;border:1px solid var(--slime-border);
+ border-radius:12px;font-size:13px;font-weight:700;color:var(--slime-ink);text-decoration:none;
+ background:var(--bg,#f8f8f9);cursor:pointer}
+.slime-page .slime-steps{padding:0;margin:0;list-style:none;display:grid;gap:0}
+.slime-page .slime-steps li{display:flex;gap:13px;padding:17px 0;border-bottom:1px solid var(--slime-border)}
+.slime-page .slime-steps li:last-child{border:0}
+.slime-page .slime-step-number{width:30px;height:30px;border-radius:10px;background:var(--bg,#f4f4f5);
+ flex-shrink:0;display:grid;place-items:center;color:var(--slime-ink);font-weight:780;font-size:12px}
+.slime-page .slime-steps strong{font-size:14px}
+.slime-page .slime-steps p{margin:6px 0 0;font-size:12px;line-height:1.8;color:var(--slime-muted)}
+.slime-page .slime-steps a{color:var(--slime-ink);font-weight:650}
+.slime-page .slime-help-toggle{width:100%;text-align:left;background:var(--bg,#f6f6f7);
+ border:1px solid var(--slime-border);color:var(--slime-ink);border-radius:12px;min-height:45px;
+ display:flex;align-items:center;gap:9px;padding:11px;font:inherit;font-size:13px;font-weight:680;cursor:pointer}
+.slime-page .slime-help-toggle svg:last-child{margin-left:auto}
+.slime-page .slime-troubleshoot{border-top:1px solid var(--slime-border);padding-top:4px}
+.slime-page .slime-troubleshoot p{font-size:12px;color:var(--slime-muted);line-height:1.75}
+.slime-page .slime-troubleshoot strong{color:var(--slime-ink)}
+.slime-page .slime-invite-ready{border-color:var(--slime-ink)}
+.slime-page button:focus-visible,.slime-page a:focus-visible{outline:2px solid var(--slime-ink);outline-offset:3px}
+@media(max-width:480px){.slime-page .slime-platforms button{font-size:12px}.slime-page .slime-card{gap:13px}}
+@media(prefers-reduced-motion:reduce){.slime-page *, .slime-page *::after,
+ .slime-page *::before{transition:none!important;animation:none!important}}
+
+.slime-page .slime-short-code{display:flex;flex-direction:column;gap:5px;align-items:center;
+ padding:20px 12px;background:var(--bg,#f6f6f8);border:1px solid var(--slime-border);border-radius:15px}
+.slime-page .slime-short-code span{font-size:11px;color:var(--slime-muted)}
+.slime-page .slime-short-code strong{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ font-size:clamp(17px,4.4vw,27px);letter-spacing:.08em;overflow-wrap:anywhere;
+ color:var(--slime-ink);user-select:all;-webkit-user-select:all}
+.slime-page .slime-short-code small{color:var(--slime-muted);font-size:11px}

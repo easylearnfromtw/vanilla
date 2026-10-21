@@ -28,9 +28,17 @@ from ceres_agent_bridge import router as ceres_bridge_router
 from ceres_agent_delivery import router as ceres_delivery_router
 from ceres_server_agent import router as ceres_server_router, worker_loop as ceres_server_loop, enabled as ceres_server_enabled, ready as ceres_server_ready
 from ceres_telegram_registration import register_telegram_webhook
+from ceres_store_bot import router as ceres_store_router, register_store_webhook
+from ceres_api_access import router as ceres_api_access_router
+from ceres_maintenance import monitor_loop as ceres_maintenance_loop
 from ceres_admin_web import router as ceres_admin_web_router
+from ceres_slime_web import router as ceres_slime_web_router
 from ceres_model_routes import router as ceres_model_router
+from ceres_model_ops_routes import router as ceres_ops_router
 from family_model_gateway import router as family_model_router
+from vanilla_public_api import router as vanilla_public_router, admin_router as vanilla_admin_router
+from slime_runner_bridge import router as slime_runner_router
+from vanilla_api_console import router as vanilla_console_router
 from quirinus_adapter import router as quirinus_router
 from notion_schedule import router as notion_router
 from slime import node_router as slime_router
@@ -79,6 +87,7 @@ async def lifespan(app: FastAPI):
     init_tasks()
     luca_initialize()
     await register_telegram_webhook()
+    await register_store_webhook()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":
@@ -94,6 +103,9 @@ async def lifespan(app: FastAPI):
         from medusa_lite import production_selftest
         passed = production_selftest()
         print("Medusa Lite startup execution proof: " + ("PASS" if passed else "FAIL (Lite execution blocked)"), flush=True)
+    ceres_maintenance_task = None
+    if os.getenv("CERES_MAINTENANCE_ENABLED", "false").lower() == "true":
+        ceres_maintenance_task = asyncio.create_task(ceres_maintenance_loop())
     ceres_agent_task = None
     if ceres_server_ready():
         ceres_agent_task = asyncio.create_task(ceres_server_loop())
@@ -106,6 +118,12 @@ async def lifespan(app: FastAPI):
             ceres_agent_task.cancel()
             try:
                 await ceres_agent_task
+            except asyncio.CancelledError:
+                pass
+        if ceres_maintenance_task is not None:
+            ceres_maintenance_task.cancel()
+            try:
+                await ceres_maintenance_task
             except asyncio.CancelledError:
                 pass
 
@@ -157,9 +175,17 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 # Ceres public ingress has independent webhook authentication; operator inbox uses the
 # server-only administrator dependency and is hidden on public-family-only deployments.
 app.include_router(ceres_telegram_router)
+app.include_router(ceres_store_router)
+app.include_router(ceres_api_access_router)
 app.include_router(ceres_admin_web_router)
+app.include_router(ceres_slime_web_router)
 app.include_router(ceres_model_router)
+app.include_router(ceres_ops_router)
 app.include_router(family_model_router)
+app.include_router(vanilla_public_router)
+app.include_router(slime_runner_router)
+app.include_router(vanilla_admin_router)
+app.include_router(vanilla_console_router)
 app.include_router(ceres_operator_router, dependencies=[Depends(operator)])
 app.include_router(ceres_family_router)
 app.include_router(ceres_bridge_router)

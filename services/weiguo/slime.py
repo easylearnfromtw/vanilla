@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
+import string
 import os
 import secrets
 import sqlite3
@@ -15,7 +17,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from auth import FamilyIdentity, family_user
 
@@ -25,6 +27,10 @@ ONLINE_SECONDS = 150
 MAX_PER_OWNER = 50
 MAX_ACTIVE_INVITES = 10
 INVITE_SECONDS = 600
+PAIR_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # remove ambiguous I,L,O,0,1
+PAIR_RE = re.compile(r"^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{12}$")
+PAIR_MAX_FAILED_PER_IP = 12
+PAIR_MAX_FAILED_GLOBAL = 1000
 
 def _enabled():
     if os.environ.get("SLIME_ENABLED", "").lower() != "true":
@@ -59,6 +65,20 @@ def _db():
           gpu TEXT NOT NULL DEFAULT '', os TEXT NOT NULL DEFAULT '',
           share_enabled INTEGER NOT NULL DEFAULT 1,
           owner_enabled INTEGER NOT NULL DEFAULT 1)""")
+        # Existing registries are migrated safely; every node starts with inference OFF.
+        cols={row["name"] for row in c.execute("PRAGMA table_info(nodes)").fetchall()}
+        if "inference_enabled" not in cols:
+            c.execute("ALTER TABLE nodes ADD COLUMN inference_enabled INTEGER NOT NULL DEFAULT 0")
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_short_pair(
+          digest TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_failures(
+          actor TEXT NOT NULL, happened_at REAL NOT NULL)""")
+        c.execute("CREATE INDEX IF NOT EXISTS slime_pair_failures_actor "
+                  "ON slime_pair_failures(actor,happened_at)")
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_security(
+          singleton INTEGER PRIMARY KEY CHECK(singleton=1), salt TEXT NOT NULL)""")
+        c.execute("INSERT OR IGNORE INTO slime_pair_security VALUES(1,?)",
+                  (secrets.token_hex(24),))
         yield c
     finally:
         c.close()
@@ -78,6 +98,79 @@ def _node(c, authorization):
         raise HTTPException(401, "Slime 裝置已撤銷或憑證失效")
     return record
 
+def normalize_short_code(text: str) -> str | None:
+    """Human-entered code: accept spaces/hyphens/lowercase, never normalize confusables."""
+    if not isinstance(text,str) or len(text)>48:
+        return None
+    raw=re.sub(r"[-\s]","",text).upper()
+    return raw if PAIR_RE.fullmatch(raw) else None
+
+
+def issue_short_pair(owner: str) -> dict:
+    """Authenticated caller only. Plain code exists ONLY in the creation response."""
+    _enabled()
+    origin=_safe_origin()
+    now=time.time()
+    with _db() as c:
+        c.execute("BEGIN IMMEDIATE")
+        c.execute("DELETE FROM invites WHERE expires<?",(now,))
+        c.execute("DELETE FROM slime_short_pair WHERE expires<?",(now,))
+        active_long=c.execute("SELECT COUNT(*) FROM invites WHERE owner=?",(owner,)).fetchone()[0]
+        active_short=c.execute("SELECT COUNT(*) FROM slime_short_pair WHERE owner=?",(owner,)).fetchone()[0]
+        if active_long+active_short>=MAX_ACTIVE_INVITES:
+            raise HTTPException(429,"待使用的 Slime 邀請數量已達上限")
+        raw="".join(secrets.choice(PAIR_ALPHABET) for _ in range(12))
+        c.execute("INSERT INTO slime_short_pair(digest,owner,expires) VALUES(?,?,?)",
+                  (_digest("short:"+raw),owner,now+INVITE_SECONDS))
+        c.commit()
+    formatted="-".join((raw[:4],raw[4:8],raw[8:]))
+    return {"code":formatted,"link":_pairing_page_url()+"#slime="+formatted,
+            "expires_seconds":INVITE_SECONDS,"single_use":True,
+            "notice":"只能配對一次，不是裝置的永久密碼"}
+
+
+def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str) -> dict:
+    """Atomically consume code and create a device, with persistent brute-force limits."""
+    _enabled()
+    now=time.time()
+    if role not in ("owner","friend"):
+        raise HTTPException(400,"不支援的節點角色")
+    normalized=normalize_short_code(code)
+    if len(label.strip())<1:
+        raise HTTPException(422,"請填寫裝置名稱")
+    with _db() as c:
+        c.execute("BEGIN IMMEDIATE")
+        salt=c.execute("SELECT salt FROM slime_pair_security WHERE singleton=1").fetchone()[0]
+        address=client_address if client_address and len(client_address)<100 else "unknown"
+        actor=_digest(salt+":"+address)
+        c.execute("DELETE FROM slime_pair_failures WHERE happened_at<?",(now-600,))
+        failed=c.execute("SELECT COUNT(*) FROM slime_pair_failures WHERE actor=?",(actor,)).fetchone()[0]
+        total=c.execute("SELECT COUNT(*) FROM slime_pair_failures").fetchone()[0]
+        if failed>=PAIR_MAX_FAILED_PER_IP or total>=PAIR_MAX_FAILED_GLOBAL:
+            raise HTTPException(429,"配對嘗試過於頻繁，請稍後再試")
+        found=(c.execute("SELECT owner FROM slime_short_pair WHERE digest=? AND expires>?",
+                        (_digest("short:"+normalized),now)).fetchone()
+               if normalized else None)
+        if not found:
+            c.execute("INSERT INTO slime_pair_failures VALUES(?,?)",(actor,now))
+            c.commit()
+            raise HTTPException(403,"配對碼無效、已使用或已過期")
+        count=c.execute("SELECT COUNT(*) FROM nodes WHERE owner=?",
+                        (found["owner"],)).fetchone()[0]
+        if count>=MAX_PER_OWNER:
+            raise HTTPException(429,"節點已達上限")
+        token=secrets.token_urlsafe(32)
+        node_id=secrets.token_hex(12)
+        c.execute("DELETE FROM slime_short_pair WHERE digest=?",
+                  (_digest("short:"+normalized),))
+        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen)
+            VALUES(?,?,?,?,?,?)""",
+                  (node_id,found["owner"],_digest(token),label.strip(),role,now))
+        c.commit()
+    return {"node_id":node_id,"token":token,
+            "heartbeat_interval_seconds":60,"inference_enabled":False}
+
+
 def _safe_origin():
     raw = os.environ.get("SLIME_PUBLIC_API_ORIGIN", "").strip().rstrip("/")
     parts = urlsplit(raw)
@@ -85,6 +178,22 @@ def _safe_origin():
         parts.password or parts.path or parts.query or parts.fragment):
         raise HTTPException(503, "Slime 公開 HTTPS 網域尚未設定")
     return raw
+
+def _pairing_page_url() -> str:
+    """Canonical standalone pairing portal; separate from WeiGuo API origin.
+
+    The web page receives a one-time code in a URL *fragment* only. No
+    third-party QR service or public API endpoint receives the fragment.
+    """
+    target=os.getenv("SLIME_PAIRING_PAGE_URL",
+                     "https://easylearnfromtw.github.io/vanilla/slime/").strip()
+    parts=urlsplit(target)
+    if (parts.scheme!="https" or not parts.hostname or parts.username or parts.password
+        or parts.query or parts.fragment or parts.port not in (None,443)
+        or ".." in parts.path or "\\" in parts.path):
+        raise HTTPException(503,"Slime 獨立配對網頁網址未正確設定")
+    return target.rstrip("/")+"/"
+
 
 class JoinRequest(BaseModel):
     invite: str = Field(min_length=24, max_length=160)
@@ -116,22 +225,8 @@ def slime_status(user: FamilyIdentity = Depends(_owner)):
 
 @router.post("/v1/family/slime/invite")
 def issue_invite(user: FamilyIdentity = Depends(_owner)):
-    _enabled()
-    base = _safe_origin()
-    raw = secrets.token_urlsafe(32)
-    now = time.time()
-    with _db() as c:
-        c.execute("BEGIN IMMEDIATE")
-        c.execute("DELETE FROM invites WHERE expires < ?", (now,))
-        count = c.execute("SELECT COUNT(*) FROM invites WHERE owner=?", (user.sub,)).fetchone()[0]
-        if count >= MAX_ACTIVE_INVITES:
-            raise HTTPException(429, "同時待使用邀請已達上限")
-        c.execute("INSERT INTO invites VALUES (?,?,?)",
-                  (_digest(raw), user.sub, now + INVITE_SECONDS))
-        c.commit()
-    # Fragment keeps the secret out of the HTTP request path/proxy logs.
-    return {"link": base + "/#slime=" + raw,
-            "expires_seconds": INVITE_SECONDS, "single_use": True}
+    return issue_short_pair(user.sub)
+
 
 @router.get("/v1/family/slime/nodes")
 def list_nodes(user: FamilyIdentity = Depends(_owner)):
@@ -144,6 +239,7 @@ def list_nodes(user: FamilyIdentity = Depends(_owner)):
         "online": now - r["last_seen"] <= ONLINE_SECONDS,
         "last_seen": r["last_seen"], "share_enabled": bool(r["share_enabled"]),
         "owner_enabled": bool(r["owner_enabled"]),
+        "inference_enabled": bool(r["inference_enabled"]),
         "schedulable": now - r["last_seen"] <= ONLINE_SECONDS and
              bool(r["share_enabled"]) and bool(r["owner_enabled"])
     } for r in records], "inference_enabled": False}
@@ -159,13 +255,34 @@ def policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(_owner)):
             raise HTTPException(404, "找不到節點")
     return {"ok": True, "owner_enabled": body.enabled}
 
-@router.post("/v1/family/slime/nodes/{node_id}/revoke")
-def revoke(node_id: str, user: FamilyIdentity = Depends(_owner)):
+@router.post("/v1/family/slime/nodes/{node_id}/inference")
+def inference_policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(_owner)):
+    """Explicit Owner approval is mandatory even for nodes claiming role=owner."""
+    if not 8<=len(node_id)<=48:
+        raise HTTPException(404,"找不到節點")
     with _db() as c:
-        cursor = c.execute("DELETE FROM nodes WHERE id=? AND owner=?", (node_id, user.sub))
-        if not cursor.rowcount:
-            raise HTTPException(404, "找不到節點")
-    return {"ok": True}
+        result=c.execute("UPDATE nodes SET inference_enabled=? WHERE id=? AND owner=?",
+                         (int(body.enabled),node_id,user.sub))
+        if not result.rowcount:
+            raise HTTPException(404,"找不到節點")
+    return {"ok":True,"inference_enabled":body.enabled,
+            "notice":"啟用後，外部使用者的模型提示可能傳送至這個受信任的節點。"}
+
+
+class RevokeProof(BaseModel):
+    # Requested separately from Ceres Telegram; never generated on the public web.
+    code: str = Field(min_length=8, max_length=64)
+
+
+@router.post("/v1/family/slime/nodes/{node_id}/revoke")
+def revoke(node_id: str, body: RevokeProof, user: FamilyIdentity = Depends(_owner)):
+    """Owner remote revocation cannot bypass the bot-issued, node-bound OTP."""
+    from slime_revoke_gate import consume_revoke, RevokeDenied
+    try:
+        consume_revoke(user.sub, node_id, body.code)
+    except RevokeDenied as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    return {"ok": True, "verified_by": "telegram", "node_id": node_id}
 
 @router.post("/v1/family/slime/route")
 def suggest_route(body: RouteRequest, user: FamilyIdentity = Depends(_owner)):
@@ -181,6 +298,20 @@ def suggest_route(body: RouteRequest, user: FamilyIdentity = Depends(_owner)):
             "candidate_nodes": [{"id": r["id"], "label": r["label"],
                                  "ram_gb": r["ram_gb"], "gpu": r["gpu"]} for r in records],
             "executed": False, "reason": "僅提供資源調度預覽；尚未接入可信模型執行器"}
+
+class PairRequest(BaseModel):
+    code: str = Field(min_length=8,max_length=48)
+    label: str = Field(min_length=1,max_length=64)
+    role: str = "friend"
+
+
+@node_router.post("/v1/slime/node/pair")
+def pair(body: PairRequest, request: Request):
+    # Never trust caller-controlled X-Forwarded-For for rate limiting.
+    address=request.client.host if request.client else "unknown"
+    return _redeem_short_pair(code=body.code,label=body.label,
+                              role=body.role,client_address=address)
+
 
 @node_router.post("/v1/slime/node/join")
 def join(body: JoinRequest):
@@ -217,7 +348,8 @@ def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None))
                             body.capabilities.ram_gb, body.capabilities.gpu, body.capabilities.os,
                             int(body.share_enabled), r["id"]))
         owner_allowed = bool(r["owner_enabled"])
-    return {"ok": True, "owner_enabled": owner_allowed, "inference_enabled": False,
+    return {"ok": True, "owner_enabled": owner_allowed,
+            "inference_enabled": bool(r["inference_enabled"]) and owner_allowed and body.share_enabled,
             "commands": []}
 
 @node_router.post("/v1/slime/node/leave")

@@ -35,7 +35,7 @@ test("Deep October chat uses one bounded understanding model call before answeri
   assert.equal(env.calls.length,2);
   assert.equal(env.calls[0].format,"json");
   assert.equal(env.calls[0].options.num_predict,384);
-  assert.match(env.calls[1].messages[0].content,/五維漏斗/);
+  assert.match(env.calls[1].messages[0].content,/October 5D 漏斗/);
   assert.deepEqual(metrics.map(x=>x.phase),["understand","answer"]);
   assert.deepEqual(metrics.map(x=>x.output),[110,65]);
  }finally{env.restore();}

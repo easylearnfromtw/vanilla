@@ -135,9 +135,10 @@ async def _learn(chat_id,action):
         level,step,mastered_raw=row
         mastered=set(json.loads(mastered_raw))
         if action=="start":
-            await _send(chat_id,"📚 Vanilla Academy\\n先選擇你的程度，我會調整推薦順序。",_buttons([
+            await _send(chat_id,"ACADEMY  /  學習中心\\n━━━━━━━━━━━━\\n\\n選擇你的學習程度\\n6 大主題 · 36 章節 · 324 課",_buttons([
                 [("零基礎","learn:level:0"),("入門","learn:level:1")],
-                [("開發者","learn:level:2"),("進階","learn:level:3")]]))
+                [("開發者","learn:level:2"),("進階","learn:level:3")],
+                [("〈 返回主選單","hub:home")]]))
             return
         if action.startswith("level:") and action[-1:] in ("0","1","2","3"):
             level=action[-1]
@@ -152,16 +153,16 @@ async def _learn(chat_id,action):
                 offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
                 preferred=list(range(offset,len(LESSONS)))+list(range(offset))
                 step=next(i for i in preferred if i in candidates)
-                prefix="🎉 很棒！這一課已標記為學會。\\n依照你的程度與尚未完成的篇章，我推薦：\\n\\n"
+                prefix="✓ COMPLETED\\n很棒！已完成這一課。\\n\\n為你推薦下一篇章\\n\\n"
             else:
-                prefix="🎉 太棒了！你已完成目前所有篇章，可以重新選程度複習。\\n\\n"
+                prefix="✓ ALL COMPLETED\\n恭喜完成所有課程。\\n\\n"
         elif action=="recommend":
             candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
             offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
             preferred=list(range(offset,len(LESSONS)))+list(range(offset))
             if candidates:
                 step=next(i for i in preferred if i in candidates)
-                prefix="✨ 根據你的程度及已完成篇章，推薦你閱讀：\\n\\n"
+                prefix="FOR YOU  /  推薦閱讀\\n\\n"
             else:
                 prefix="你已完成其他篇章；可以重新分級複習。\\n\\n"
         elif action.startswith("go:") and action[3:].isdigit():
@@ -173,10 +174,11 @@ async def _learn(chat_id,action):
         db.commit()
         title,body,topic_idx,chapter_idx,stage_idx=LESSONS[step]
         prefix=locals().get("prefix","")
-        await _send(chat_id,prefix+f"📖 {TOPICS[topic_idx]}\\n第 {chapter_idx+1}/6 章 · 第 {stage_idx+1}/9 課\\n{title} · 總課次 {step+1}/{len(LESSONS)}\\n\\n{body}\\n\\n進度：{len(mastered)}/{len(LESSONS)} 已學會",
+        await _send(chat_id,prefix+f"ACADEMY  /  {TOPICS[topic_idx]}\\n━━━━━━━━━━━━\\n\\n第 {chapter_idx+1:02d} / 06 章   ·   第 {stage_idx+1:02d} / 09 課\\n{title}\\n\\n{body}\\n\\n━━━━━━━━━━━━\\n學習進度  {len(mastered)} / {len(LESSONS)} 已學會",
                     _buttons([[("◀ 上一課","learn:prev"),("下一課 ▶","learn:next")],
                               [("✅ 這我會了","learn:master")],
-                              [("📚 推薦其他篇章","learn:recommend"),("重新分級","learn:start")]]))
+                              [("✦ 推薦篇章","learn:recommend"),("課程分級","learn:start")],
+                              [("⌂ 主選單","hub:home")]]))
     finally:
         db.close()
 

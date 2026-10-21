@@ -105,3 +105,7 @@ test("A missing tier degrades to an available approved October model only",()=>{
  assert.equal(selectAtuberDriver([models[0],small],{task:"analysis",privateMode:true,localOnly:true,image:false}).controller?.source,"local");
  assert.equal(selectAtuberDriver([models[0],small],{task:"analysis",privateMode:true,localOnly:true,image:false,restrictTinyModel:true}).controller,null);
 });
+
+test("Unknown legacy October capacity cannot bypass tiny-model safeguards",()=>{
+ assert.equal(selectAtuberDriver([models[0],models[2]],{task:"analysis",privateMode:false,localOnly:false,image:false,restrictTinyModel:true}).controller,null);
+});

@@ -220,6 +220,19 @@ class OctoberReceiptTests(unittest.TestCase):
                                 json=dict(self.sample, task_id="october_bounded_9999"))
         self.assertEqual(attempt.status_code, 429)
 
+    def test_replayed_requests_have_independent_request_quota(self):
+        actor = self.token(ALICE)
+        for _ in range(60):
+            response = self.http("POST", "/v1/family/october/csv",
+                                 headers=actor, json=self.sample)
+            self.assertEqual(response.status_code, 200, response.text)
+        response = self.http("POST", "/v1/family/october/csv",
+                             headers=actor, json=self.sample)
+        self.assertEqual(response.status_code, 429)
+        other = self.http("POST", "/v1/family/october/csv",
+                          headers=self.token(BOB), json=self.sample)
+        self.assertEqual(other.status_code, 200)
+
     def test_per_subject_rate_limit(self):
         for i in range(12):
             req = dict(self.sample, task_id=f"october_rate_{i:04d}")

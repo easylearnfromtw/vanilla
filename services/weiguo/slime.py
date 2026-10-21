@@ -368,18 +368,53 @@ def join(body: JoinRequest):
             "inference_enabled": False}
 
 @node_router.post("/v1/slime/node/heartbeat")
-def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None)):
+def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
+              background_tasks: BackgroundTasks | None = None):
     _enabled()
+    now=time.time()
     with _db() as c:
-        r = _node(c, authorization)
-        c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,share_enabled=?
-            WHERE id=?""", (time.time(), body.capabilities.cpu,
-                            body.capabilities.ram_gb, body.capabilities.gpu, body.capabilities.os,
-                            int(body.share_enabled), r["id"]))
-        owner_allowed = bool(r["owner_enabled"])
-    return {"ok": True, "owner_enabled": owner_allowed,
-            "inference_enabled": bool(r["inference_enabled"]) and owner_allowed and body.share_enabled,
-            "commands": []}
+        r=_node(c,authorization)
+        c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,
+            cpu_pct=?,gpu_temp_c=?,gpu_util_pct=?,share_enabled=? WHERE id=?""",
+            (now,body.capabilities.cpu,body.capabilities.ram_gb,body.capabilities.gpu,
+             body.capabilities.os,body.capabilities.cpu_pct,body.capabilities.gpu_temp_c,
+             body.capabilities.gpu_util_pct,int(body.share_enabled),r["id"]))
+        claimed=c.execute("""UPDATE nodes SET notified_at=-1 WHERE id=? AND
+                   (notified_at=0 OR notified_at<?)""",
+                   (r["id"],-(now-180))).rowcount==1
+        owner_allowed=bool(r["owner_enabled"])
+        temp=body.capabilities.gpu_temp_c
+        overheating=temp is not None and temp>=r["thermal_limit_c"]
+        c.commit()
+    if claimed and background_tasks is not None:
+        from slime_ops import notify_pairing
+        background_tasks.add_task(notify_pairing,r["id"])
+    elif claimed:
+        with _db() as c:
+            c.execute("UPDATE nodes SET notified_at=0 WHERE id=? AND notified_at=-1",
+                      (r["id"],))
+    return {"ok":True,"owner_enabled":owner_allowed,
+            "inference_enabled":bool(r["inference_enabled"]) and owner_allowed
+                  and body.share_enabled and not overheating and r["max_load_pct"]>0,
+            "max_load_pct":r["max_load_pct"],"thermal_limit_c":r["thermal_limit_c"],
+            "thermal_paused":overheating,"commands":[]}
+
+
+@node_router.post("/v1/slime/node/power/poll")
+def power_poll(authorization: str | None = Header(default=None)):
+    """Only this paired device may consume its short-lived opted-in power command."""
+    _enabled()
+    with _db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        node=_node(db,authorization)
+        if (not node["shutdown_opt_in"] or not node["pending_power_off"] or
+            node["pending_power_off"]<=time.time()):
+            db.commit()
+            return {"command":None}
+        db.execute("UPDATE nodes SET pending_power_off=0 WHERE id=?",(node["id"],))
+        db.commit()
+        return {"command":"shutdown","grace_seconds":60}
+
 
 @node_router.post("/v1/slime/node/leave")
 def leave(authorization: str | None = Header(default=None)):

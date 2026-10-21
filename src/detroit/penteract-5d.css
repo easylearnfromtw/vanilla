@@ -48,3 +48,20 @@
 .october-5d-observed-grid strong{font-size:19px;font-variant-numeric:tabular-nums}
 .october-5d-observed-grid small{font-size:10px;color:#777}
 @media(prefers-color-scheme:dark){.october-5d-observed{--o5-paper:#292929}.october-5d-observed>p,.october-5d-observed h3 small,.october-5d-observed-grid small{color:#bbb}}
+
+/* Optional trained-projector inspection. No permanent keys, telemetry or uploads. */
+.october-5d-learned{border:1px solid var(--o5-line);border-radius:13px;padding:15px;background:var(--o5-paper);display:grid;gap:11px;min-width:0}
+.october-5d-learned h3{font-size:13px;margin:0;display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.october-5d-learned h3 small{font-size:10px;font-weight:400;color:#777}
+.october-5d-learned>p{font-size:11px;line-height:1.7;color:#727272;margin:0}
+.october-5d-learned>p[role=alert]{color:#b43d3d}
+.october-5d-file{font-size:11px;color:inherit;display:grid;gap:8px}
+.october-5d-file input[type=file]{font:inherit;color:inherit;width:100%;max-width:100%;min-height:42px;border:1px solid var(--o5-line);border-radius:10px;background:transparent;padding:10px;box-sizing:border-box}
+.october-5d-file input[type=file]::file-selector-button{font:inherit;background:transparent;border:1px solid var(--o5-line);border-radius:7px;padding:5px 11px;color:inherit;margin-right:9px}
+.october-5d-file input[type=file]:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.october-5d-learning-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.october-5d-learning-grid>div{padding:11px;border:1px solid var(--o5-line);border-radius:9px;display:grid;gap:7px;min-width:0}
+.october-5d-learning-grid strong{font-size:14px;overflow-wrap:anywhere}
+.october-5d-learning-grid small{font-size:10px;line-height:1.55;color:#858585}
+@media(max-width:490px){.october-5d-learning-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.october-5d-learned{padding:12px}}
+@media(prefers-color-scheme:dark){.october-5d-learned{--o5-paper:#292929}.october-5d-learned>p,.october-5d-learned h3 small,.october-5d-learning-grid small{color:#b7b7b7}}

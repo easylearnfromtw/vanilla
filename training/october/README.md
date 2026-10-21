@@ -1,5 +1,24 @@
 # October（阿土伯）v0.3 — Sign Well autonomous model
 
+## 阿土伯、爾雅、維納斯角色契約（2026-10-21）
+
+[PERSONA_DESIGN_CONTRACT.md](PERSONA_DESIGN_CONTRACT.md) 由使用者正式指定：阿土伯是誠懇、親切而有專業判斷的虛構企業顧問／專案經理，Detroit 負責受授權執行、阿土伯負責可驗證建議與協調；爾雅維持精準自然、避免囉嗦；維納斯以包豪斯、iOS、低調毛玻璃及資料可視化品質把關。角色的學歷、執照、政商職位及夫妻關係**皆為虛構世界觀，不是真實身份或執業證明**。
+
+- `src/ai/october-persona.ts` + `src/ai/prompts.ts` + `src/ai/ollama.ts`：只有明確選用 `october:*` 模型才插入專屬角色提示，其他 Vanilla 助理及結構化 JSON 輸出不受影響。
+- `src/erya/humanize.ts`：阿土伯語氣、忠於原文及數字來源。
+- `src/venus/presentation.ts` + `presentation.css`：內容優先、專業網頁／平面設計標準、無障礙與深淺模式。
+- `tests/october-persona.test.mjs`：回歸測試。執行 `npm run test:october-persona`；再執行 `npm run test:erya`、`npm run test:chat-ui`、`npm run build` 進行相容性驗收。
+
+修改 GitHub `Modelfile` **不會自動更新你已安裝的 October 模型**。於已安裝 Ollama 且取得最新版檔案的設備重新執行：
+
+```sh
+ollama create october:0.3 -f training/october/Modelfile
+# 若使用低 VRAM 模型
+ollama create october:lite -f training/october/Modelfile.lite
+```
+
+這只更新 Ollama 模型配置／提示詞，不代表底層 Qwen 權重被重新訓練、正式 Detroit Agent 或背景任務已上線；正式服務需要獨立的 CI／功能／權限與 Owner Gate 驗收。
+
 ## 50 題正式決策與交付文件（2026-10-21）
 
 50 個決策槽位已完成訪談：**49 題由使用者確認，Q24 略過且未經另行確認不得自動補選**。第 50 題採 **D：證據驅動的分階段交付與產品驗收治理**。

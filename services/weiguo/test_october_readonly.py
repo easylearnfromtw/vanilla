@@ -206,6 +206,20 @@ class OctoberReceiptTests(unittest.TestCase):
             response = self.http("POST", "/v1/family/october/csv",
                                  headers=self.token(ALICE), json=payload)
             self.assertEqual(response.status_code, 422, response.text)
+    def test_receipt_quota_rejects_before_numeric_calculation(self):
+        for index in range(12):
+            payload = dict(self.sample, task_id=f"october_bounded_{index:04d}")
+            response = self.http("POST", "/v1/family/october/csv",
+                                 headers=self.token(ALICE), json=payload)
+            self.assertEqual(response.status_code, 200)
+        import october_readonly
+        with patch.object(october_readonly, "_calculate",
+                          side_effect=AssertionError("unexpected work")):
+            attempt = self.http("POST", "/v1/family/october/csv",
+                                headers=self.token(ALICE),
+                                json=dict(self.sample, task_id="october_bounded_9999"))
+        self.assertEqual(attempt.status_code, 429)
+
     def test_per_subject_rate_limit(self):
         for i in range(12):
             req = dict(self.sample, task_id=f"october_rate_{i:04d}")

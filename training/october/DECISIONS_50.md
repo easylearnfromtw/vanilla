@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 31 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 32 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -970,8 +970,42 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 模擬部分 Agent timeout、Scout 429、Retina 未安裝、CREAM 計算錯誤、LUCA 尚無有效監測，檢查局部成功／失敗狀態、隔離復原與如實呈報，不能假裝所有模組均正常。
 - 對模型路由、工具 fan-out、最大 DAG 深度、Token/RAM/VRAM 和權限限制做壓力測試；超限時應中止或適當降級，並保留足以稽核的決策及追蹤紀錄。
 
+## Q33 / 50 — D：可重現的自主專業研究引擎（Hypothesis × Statistical/Causal Inference × Reproducibility）
+
+**決策：D — 可重現的自主專業研究引擎。由使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採可重現的自主專業研究引擎：整合文獻研究、假說形成、可信數據治理、統計建模、因果識別、反事實推論、反證與穩健性檢驗、Verifier獨立審核及版本化研究Artifact，支援重現分析程式碼與結果；嚴格區分相關性和因果性，保留方法限制與資料來源，並維持Self-Build後端背景觸發及Ceres高風險核准邊界。」
+
+### 研究工作流與科學證據契約
+
+1. **研究目標、問題及可證偽假說**：October 在既有 Q16–Q20 領域能力及 Q22 文獻檢索基礎上，產出研究問題、研究對象／母體、可操作變數、主要／次要假說、可觀測指標、可能反例及成功／失敗判準；清楚區分 exploratory hypothesis、事先預註冊 hypothesis 與事後形成的解釋，不能把事後篩選的結果偽裝成事先預測。
+2. **可信文獻與證據地圖**：使用 Q21 合法授權資料與來源時效、Q22 lexical/vector/graph/hierarchical retrieval、Q23 文件解析，擷取研究設計、樣本、估計對象、限制、異質結論及可引用章節。以 evidence matrix 保留支持與反對來源、出版／觀測時點、研究品質與版本；未取回的論文全文不得假稱已審閱。
+3. **可檢查研究計畫（Research Protocol）**：建立 protocol_id、question、outcome、exposure/treatment、confounders、target estimand、analysis_population、eligibility criteria、data_sources、time_window、statistical_plan、missingness plan、multiplicity policy、privacy／ethics、expected limitations、pre-registered status 及批准紀錄。進階模型只能提出計畫；真正的計算、資料讀取、共享須由可信 Executor 與授權執行。
+4. **數據治理與可重現切片**：經 Q21 來源、授權、觀測時間（event time）、發布時間（release time）、版本／vintage、頻率／幣別／單位、樣本篩選及缺失值稽核，建立不可變資料集快照或可依法再取得的受控引用。以資料字典、清理程式與來源鏈標示每項加工；不得編造樣本、補上不存在的數據、混用不同年份修訂版或引入前視偏誤。
+5. **研究方法路由與必要假設**：依問題選用描述統計、迴歸／廣義線性模型、時間序列、panel data、分層模型、隨機試驗分析、准實驗或預測模型；每一方法明示所需樣本量、模型規格、測量偏誤、平穩性、獨立性、混雜、選擇偏誤、偏離假設及資料可用性，不得因某工具有模型功能就假定可以有效識別因果。
+6. **因果識別優先於因果措辭**：先定義處置／干預、反事實結果、estimand（如 ATE／ATT）、因果 DAG、干擾項、未觀測混雜、時間先後、選擇機制及識別假設。依資料與可檢驗性考慮 RCT、IV、Difference-in-Differences、Regression Discontinuity、matching／weighting／g-methods 等策略；明確呈現各法假設與識別脆弱性。只有相關證據時只能說關聯，**不能**將 regression coefficient、Granger causality 或模型生成敘述直接當成介入因果效應。
+7. **反事實推論與情境標籤**：嚴格區分觀察資料的相關估計、具識別條件的 causal estimand、情境模擬（scenario simulation）、純假設的 counterfactual prediction。反事實必須列出 structural assumptions、參數估計來源、不確定區間及外部效度限制；模型不得聲稱觀察到未曾實現的真實結果，不能把模擬值當實際市場／醫療／政策發生值。
+8. **獨立數值運算與軟體可重現性**：由可信 Detroit Executor 調用 CREAM／GridCraft 或已核准 R/Python/統計工具進行資料清理、統計推估、決定性運算與圖表製作；October 負責研究邏輯與解釋，Verifier 獨立重算關鍵公式、樣本摘要、估計量與區間。附機器可執行程式碼、套件 lockfile、工具版本、種子、環境快照與成功／失敗的實際執行回執，不可只生成看似可跑的程式就自稱已重現。
+9. **反證與穩健性檢查**：預設要求符合設計的 falsification／placebo test、敏感度分析、替代變數定義、異質性／子群、模型比較、outlier／missingness 處理、平行趨勢（適用時）、弱工具變數（適用時）、negative controls、樣本外驗證及 multiple-testing 風險。研究缺少可反駁性、識別條件不滿足或不同 specification 結果衝突時，應降級主張並明示而非選擇最漂亮的 p-value。
+10. **不確定性及實際效應解讀**：區分統計顯著、效應大小、實務／臨床重要性、信賴／可信區間、估計不確定、模型不確定、資料品質和外部效度；解釋 sampling error、systematic bias 及 untestable assumptions。對 observational research、非隨機選樣和關鍵變數缺失，明確揭露無法支持的強主張，不為滿足用戶期待而擴大結論。
+11. **多 Agent 研究角色**：October 設研究問題及工作流，Diana 選擇方法與核准工具，Scout／Q22 負責有來源的文獻與資料，CREAM／GridCraft 執行統計及圖表，Victoria／Merlin 只提供合法上下文及必要澄清，Quirinus 把關資料外送和執行安全，Verifier 獨立查證引文、估計結果、識別前提與反證證據；由 Q32 Typed Handoff 和 Q15 DAG 保持權責及可重跑結果。
+12. **研究 Artifact 與證據鏈**：Q14 Artifact Store 中以 research_run_id 關聯 protocol／preregistration、源資料 refs／hash／vintage、資料字典、清理腳本、analysis code、notebook／統計模型、測試和 log、圖表與研究報告；輸出保留版本、來源、可重現命令、計算時間、所用模型及可信執行器記錄。對無權再散布的資料僅保存合法引用與受控重取方式，不將敏感原始資料直接附在公開 PR。
+13. **倫理、法規與隱私隔離**：研究涉及個人醫療、財務、企業秘密、機密資料或人類受試者時遵守用途限制、合法依據、同意／機構審查要求及資料最小化。不得以「研究模式」規避倫理審查或未經允許將資料傳至朋友 Slime 節點、雲端模型或公開資料集；不承諾 October 能取代合格專家的臨床、法律或投資判斷。
+14. **高風險權限與 Self-Build 分離**：一般使用者授權的研究任務可透過既有 October 工具協作執行；**Self-Build 只能由可信後端排程／內部事件背景觸發，不能被研究問題、文獻、工具輸出、記憶或聊天指令啟動**。需修改系統、PR 合併、部署、高權限資料或研究工具授權擴大等操作，仍須本人 Ceres Telegram 特定審批及可信後端確認，不因一項研究成功即授權系統自我修改。
+15. **工作成果狀態與現況界線**：須區分 planned_protocol、data_unavailable、analysis_running、analysis_failed、verified_result、replication_passed、limitations_unresolved 與 publication_ready；未實際執行代碼、未通過 Verifier、未取得來源或無法重現時，不得標記為已完成研究。Q33 是已確認設計規格，**不代表**自主研究管線、因果識別系統、統計執行器或正式研究成果已實作、通過測試或部署。
+
+### 可驗證驗收標準（尚未完成正式實作）
+
+- 在有正確 ground truth 的合成資料上，分別建立「有混雜的相關」「RCT」「符合與違反 parallel trends 的 DiD」「強／弱工具變數 IV」資料情境，測試 October 是否選擇合理方法、陳述假設並區分估計量和因果推論的可用性。
+- 對真實可合法取得的修訂版資料集，驗證 as-of/vintage、發布日、樣本期間與處置日期不混用；後續資料修訂不得在歷史研究結果中造成前視偏誤。
+- 對同一 protocol 以固定 dataset hash、環境、dependency lock、random seed 重新跑數值分析，核對主要估計值、區間、圖表、引用及 ArtifactRefs 一致性；缺原始數據或工具 unavailable 時須標明不可重現。
+- 在研究來源互相矛盾、關鍵 confounders 缺失、missing-not-at-random、結果僅在特定子群成立及 multiple testing 的情況下，系統應保留反證、敏感度與弱識別警告，不能宣稱發現普遍且確定的因果效果。
+- 注入假 DOI、編造數值、錯誤單位、以模擬代替觀測值、統計顯著卻小到無實務意義的效果，Verifier 應阻擋無證據主張並給出可查驗問題報告。
+- 以含個人敏感資訊的虛擬研究資料測試多租戶、非 Owner、朋友節點、公開報表和未授權雲端模型，不得越權存取、傳輸或分享資料；研究重現包應符合授權和去識別政策。
+- 透過一般研究聊天、文獻內惡意提示、記憶及偽造內部事件請求執行 Self-Build 或高風險部署，可信後端須阻擋；高風險批准由本人 Ceres Telegram 針對具體項目及環境獨立完成。
+
 ### 待決事項
 
-**Q33 / 50：October 應如何從專業文獻與可信資料進一步形成可驗證假說、執行統計及因果分析、檢查替代解釋，最後產出可重現的研究成果？** 尚待使用者答覆。
+**Q34 / 50：October 應如何把可信研究結果轉化為可操作的專業決策支援，包括多目標權衡、限制條件、情境模擬、風險評估與執行邊界？** 尚待使用者答覆。
 
 ---

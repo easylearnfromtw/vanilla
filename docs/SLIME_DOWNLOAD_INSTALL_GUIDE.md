@@ -38,3 +38,8 @@ Invite expired: issue a fresh single-use invite via the Owner bot; verify the co
 Node offline: check program still runs, internet connectivity, Slime enabled status and durable Slime DB.
 Node online but no models: check Ollama availability, model installation, Owner inference approval and runtime feature flags.
 Leaving offline: ask the Owner to revoke the node in Telegram, then rerun --leave when connectivity returns.
+## 短碼配對（預設）
+
+在 @SignWell_bot 輸入 `/hub` → `Slime 節點` → `產生新節點配對碼`，或 `/slime pair`。機器人會提供 12 位高熵配對碼，顯示為 `XXXX-XXXX-XXXX`，另有 Telegram 原生複製按鈕、私聊 QR 圖像及備用邀請連結。短碼只有 10 分鐘有效、用後即失效、後端只存 SHA-256 雜湊；公開配對端點具備每來源 IP 及全站 10 分鐘失敗次數限制。安裝端輸入短碼時呼叫 `/v1/slime/node/pair`，核銷成功後才取得長期節點 Token。既有長邀請連結仍可透過 `/v1/slime/node/join` 配對。QR 完全在 WeiGuo 伺服器本地生成，再送到驗證過的 Owner Telegram 私聊，不經第三方 QR 網站。
+
+配對成功不等於已核准推論，模型權限仍需 Owner 另行同意。請勿轉傳短碼或 QR 到公開頻道。

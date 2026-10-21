@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "training/october/**"
+      - "src/detroit/penteract-*.ts"
+      - "tests/penteract-*.test.mjs"
       - ".github/workflows/october-policy-training.yml"
   workflow_dispatch:
 
@@ -85,6 +87,20 @@ jobs:
           node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/train-penteract-projector.mjs \
             --output training/october/generated/october-five-projector-weights.json \
             --report training/october/generated/october-five-projector-report.json
+      - name: Gate synthetic safety parity; never auto-deploy trained router
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const data=JSON.parse(fs.readFileSync("training/october/generated/october-five-projector-report.json","utf8"));
+            if(data.trainedParameters!==1925 || data.qwenWeightsTrained!==false ||
+               data.deploymentEligible!==false || !data.syntheticSafetyVsLexical?.diagnosticPass ||
+               data.syntheticSafetyVsLexical.unsafeExtraNominations!==0 ||
+               data.deploymentBlockers.length<3){
+              console.error("OCTOBER_5D_SHADOW_SAFETY_REGRESSION",data.syntheticSafetyVsLexical);
+              process.exit(1);
+            }
+            console.log("R5 synthetic safety parity passed; real-world deployment remains blocked.");
+          '
       - name: Publish 5D synthetic held-out results and CPU weights (NOT deployed)
         uses: actions/upload-artifact@v4
         with:

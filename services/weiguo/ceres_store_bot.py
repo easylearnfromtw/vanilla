@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from ceres_academy_curriculum import LESSONS, TOPICS, CHAPTERS
-from ceres_academy_enriched import lesson_text, quiz_text
+from ceres_academy_enriched import quiz_text
 from ceres_academy_content import render_lesson
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -239,9 +239,7 @@ async def _learn(chat_id, action):
             return
         if action.startswith("level:") and action[6:] in ("0", "1", "2", "3"):
             level = action[6:]
-            # Level changes alter instruction depth, not topic or prior progress.
-            step = _next_pending(mastered, 0)
-            step = step if step is not None else 0
+            # Preserve the current position and progress when changing difficulty.
         elif action.startswith("chapter:") and action[8:].isdigit():
             chapter_id = int(action[8:])
             if not 0 <= chapter_id < 36:
@@ -269,7 +267,7 @@ async def _learn(chat_id, action):
         elif action.startswith("go:") and action[3:].isdigit():
             step = min(int(action[3:]), len(LESSONS) - 1)
 
-        body = lesson_text(step, level)
+        body = render_lesson(step, level)
         message = prefix + body + f"\n\n━━━━━━━━━━━━\n已學會：{len(mastered)} / {len(LESSONS)}"
         # Do not advance saved progress if sending the lesson failed.
         await _send(chat_id, message, _lesson_keyboard(step))
@@ -352,7 +350,7 @@ async def store_webhook(request: Request,
             or sender.get("id") != chat_id or sender.get("is_bot")):
         return {"ok": True}
     user_text=message.get("text","").strip() if isinstance(message.get("text"),str) else ""
-    actions={"上一課":"prev","下一課":"next","這我會了":"master","推薦":"recommend","教學":"start","課程目錄":"catalog","測驗":"quiz"}
+    actions={"上一課":"prev","下一課":"next","這我會了":"master","推薦":"recommend","教學":"start","課程目錄":"catalog","測驗":"quiz","進度":"view"}
     if user_text in actions:
         if _claim(update["update_id"]):
             try:
@@ -362,13 +360,23 @@ async def store_webhook(request: Request,
                 raise HTTPException(503, "Telegram lesson delivery failed") from None
         return {"ok":True}
     command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
-    if command not in ("/start", "/help", "/menu", "/academy"):
+    if command not in ("/start", "/help", "/menu", "/academy", "/lesson", "/progress", "/catalog"):
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
     try:
         if command == "/academy":
             await _learn(chat_id, "start")
+        elif command == "/progress":
+            await _learn(chat_id, "view")
+        elif command == "/catalog":
+            await _learn(chat_id, "catalog")
+        elif command == "/lesson":
+            parts = user_text.split(maxsplit=1)
+            if len(parts) == 2 and parts[1].isdigit() and 1 <= int(parts[1]) <= len(LESSONS):
+                await _learn(chat_id, "go:" + str(int(parts[1]) - 1))
+            else:
+                await _send(chat_id, f"請輸入 /lesson 1 至 /lesson {len(LESSONS)}，或按 /catalog 瀏覽課程。")
         else:
             await _hub(chat_id, "home")
     except (httpx.HTTPError, ValueError, sqlite3.Error):

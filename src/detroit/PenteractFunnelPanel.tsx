@@ -56,7 +56,7 @@ export default function PenteractFunnelPanel(){
      </label>
      <label className="october-5d-check"><input type="checkbox" checked={showAll} onChange={e=>setShowAll(e.target.checked)}/> 顯示全部專家原型</label>
     </div>
-    <p className="october-5d-note">這是真正的五維距離與旋轉運算，不是把五種能力畫成五條軸；專家位置目前是確定性的實驗特徵投影，尚非訓練過的語意座標。</p>
+    <p className="october-5d-note">真正的五維距離與旋轉：六個等距專家錨點形成 R⁵ 的正五維單純形（5-simplex）；以受限詞彙特徵映射問題。這不是已訓練的神經語意空間，也不代表路由準確率。</p>
    </div>
    <div className="october-5d-panel">
     <div className="october-5d-heading"><strong>02 · 漏斗運算流水線</strong><small>上寬下窄 / 理解優先</small></div>

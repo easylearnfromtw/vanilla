@@ -26,10 +26,11 @@ test("one-time invite launches Slime automatically but never persists the URL se
  assert.match(app,/window\.location\.replace\(BASE\+"slime\/"\+hash\)/);
  assert.match(panel,/inviteFromURL/);
  assert.match(panel,/copyPairCode/);
- assert.match(panel,/Telegram 的同一組配對碼/);
+ assert.match(panel,/同一 Wi-Fi 可選 Gecko 免代碼配對/);
  assert.match(panel,/複製備用邀請連結/);
  assert.match(panel,/尚未收到配對碼/);
- assert.match(panel,/Ceres Telegram Owner 是唯一核發處/);
+ assert.match(panel,/由接收電腦確認或由 Telegram Owner 核准/);
+ assert.match(panel,/傳統一次性短碼/);
  assert.match(panel,/短配對碼/);
  assert.match(panel,/history\.replaceState/);
  assert.match(panel,/navigator\.clipboard\.writeText/);

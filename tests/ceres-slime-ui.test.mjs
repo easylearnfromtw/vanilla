@@ -52,3 +52,21 @@ test("Aesthetic changes do not weaken Owner auth, expose secrets, or add remote 
  assert.doesNotMatch(publicPage,/\/v1\/ceres\/slime\/webapp/);
  assert.doesNotMatch(publicPage,/https:\/\/t\.me\/SignWell_bot/);
 });
+
+test("Welcome screen starts privately and transitions in one tap to actual white workspace",()=>{
+ for(const id of ["welcome-splash","welcome-start","auth-block"]){
+  assert.match(page,new RegExp('id="'+id+'"'));
+ }
+ assert.match(page,/開始使用/);
+ assert.match(page,/html\.slime-white/);
+ assert.match(page,/--bg:#ffffff/);
+ assert.match(page,/--paper:#ffffff/);
+ assert.match(page,/document\.documentElement\.classList\.add\("slime-white"\)/);
+ assert.match(page,/tg\.setBackgroundColor\?\.\("#ffffff"\)/);
+ assert.match(page,/tg\.setHeaderColor\?\.\("#ffffff"\)/);
+ assert.match(page,/setTab\("overview"\)/);
+ assert.match(page,/void reload\(\)/);
+ assert.match(page,/if\(!auth\)\s*\{\s*\$\("welcome-splash"\)\.hidden=true/);
+ assert.match(page,/role="region" aria-label="Ceres Slime 歡迎畫面"/);
+ assert.doesNotMatch(page,/localStorage\.|sessionStorage\.|document\.cookie\s*=/);
+});

@@ -67,3 +67,11 @@ Mini App 分為「總覽／節點／配對」三個分頁：
 **權限界線：** 所有資料與操作 API 必須驗證 Telegram 簽名的 `initData`、5 分鐘時效、Owner Telegram chat ID 和伺服器綁定的 Google Owner sub，並依 Owner sub 限制節點。直接用普通瀏覽器開啟網址只會看到要求身分驗證的畫面，不能呼叫私人操作。私密功能**沒有**回填到公開 Slime 網站，且公開頁面不提供 Telegram 管理按鈕。
 
 **部署注意：** WeiGuo Dockerfile 需包含 `ceres_slime_web.py`，應確認 `CERES_ADMIN_WEBAPP_URL`、`SLIME_ENABLED`、`CERES_FAMILY_LINKS_JSON`、`WEIGUO_FAMILY_ACL_JSON` 和持久化的 `SLIME_DB_PATH` 均正確配置。Mini App 不會自動開放 `VANILLA_PUBLIC_API_ENABLED` 或 `VANILLA_SLIME_RUNNER_ENABLED`。打開超過 5 分鐘後，Telegram initData 可能逾時，請從 Bot 重新開啟。
+
+## Ceres 歡迎與首次使用（Telegram Owner 專用）
+
+- 在已授權的 @SignWell_bot 私聊點 Telegram「Start／開始」，或輸入 `/start`／`/help`，看到 Ceres 歡迎卡及「✦ 開始使用 →」。點選後，同一則訊息會切換為 Ceres Hub；輸入 `/menu`、`/hub` 或「開始使用」也可以進入主控台。未加入 Owner 白名單的帳號不會看到管理內容。聊天指令不觸發 AI 任務執行。
+- 由 Hub 的「◎ Slime 私人管理頁」開啟 Telegram Mini App。已在 Telegram 取得簽署 initData 的人會先看到深色 Ceres / Slime 歡迎畫面與短版功能提示；按「開始使用」後，工作台立即切換為全白黑字的 iOS 風格，並於 Telegram Mini App API 支援時同步要求白色 WebApp header/background/bottom-bar。
+- **限制**：Telegram Bot API 不能改變使用者的普通 Telegram 聊天室桌布；全白背景只作用於我們自己的 Slime Mini App。Mini App 歡迎視圖每次重新開啟都會顯示，沒有把邀請碼、密鑰或驗證資料存進 localStorage/sessionStorage。
+- 沒有有效 Telegram initData 時禁止進入管理操作；背景白色不代表已登入。配對碼依舊只由已驗證 Owner 發行，推論授權與撤銷仍需二次確認。公開 Slime 下載頁依舊不包含任何私人 Telegram 後台入口。
+- 操作驗收：Telegram 私聊送 `/start` → 歡迎卡 → 點「開始使用」 → 原訊息更新為 Hub → 點 Slime 私人管理頁 → 顯示深色歡迎畫面 → 點「開始使用」 → 全白工作台 → 查看節點／配對。驗收不能以 CI 成功代替手機實際操作。

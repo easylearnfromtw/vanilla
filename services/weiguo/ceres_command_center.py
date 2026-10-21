@@ -82,6 +82,24 @@ def _page_buttons(action: str) -> list[list[dict]]:
     return [[_button("↻ 重新整理",action),_button("← 控制中心","home")]]
 
 
+async def welcome(chat: int) -> None:
+    """Private owner-only /start landing, no model calls or privileged writes."""
+    if not owner_subject(chat):
+        return
+    await say(chat,
+        "✦ <b>CERES</b>  <code>VANILLA / DETROIT</code>\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "<b>歡迎回到你的 AI 控制中心。</b>\n\n"
+        "從這裡可以查看系統狀態、管理 Slime 節點、調整模型及 API，"
+        "不需要記住管理指令。\n\n"
+        "◉ <b>專屬管理</b> — 僅 Owner 能存取\n"
+        "◇ <b>安全操作</b> — 敏感設定需再次確認\n"
+        "▣ <b>快速導航</b> — 從 Hub 直接進入功能\n\n"
+        "<i>點選下方「開始使用」，進入 Ceres Hub。</i>",
+        [[_button("✦ 開始使用  →","welcome_go")],
+         [_slime_entry()]],html=True)
+
+
 async def _home(chat: int) -> None:
     await say(chat,
         _title("OWNER · 私人 AI 控制中心")
@@ -508,7 +526,9 @@ async def callback(chat: int, callback_id: str, data: str, message_id: int | Non
 
 
 async def _handle_callback(chat: int, action: str) -> None:
-    if action in {"home", "status", "tools", "nodes", "sources",
+    if action == "welcome_go":
+        await _home(chat)
+    elif action in {"home", "status", "tools", "nodes", "sources",
                   "accounts", "providers", "install"}:
         await command(chat, "/hub " + action)
     elif action == "invite":

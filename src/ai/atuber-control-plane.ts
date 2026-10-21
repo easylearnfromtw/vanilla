@@ -37,7 +37,7 @@ export type AtuberRouteDecision={
 export function isAtuberDriver(candidate:ModelCandidate):boolean{
  return atuberTier(candidate)!==null;
 }
-const order:Record<AtuberTier,number>={"phone":0,"mid-small":1,"mid-large":2,"large":3,"custom":1};
+const order:Record<AtuberTier,number>={"phone":0,"mid-small":1,"mid-large":2,"large":3,"custom":0};
 /** Task-dependent floor, not a claim of correctness or hardware readiness. */
 function desiredTier(task:TaskKind,restrictTinyModel:boolean):number{
  if(task==="code")return 3;

@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import re
 from html import escape
+from urllib.parse import urlsplit
 import time
 
 import httpx
@@ -30,11 +31,28 @@ def _button(label: str, item: str) -> dict:
     return {"text": label, "callback_data": "hub:" + item}
 
 
+def _slime_miniapp_url() -> str | None:
+    """Derive only from the configured Ceres HTTPS origin; no hard-coded admin links."""
+    raw=os.getenv("CERES_ADMIN_WEBAPP_URL","").strip()
+    parts=urlsplit(raw)
+    if (parts.scheme!="https" or not parts.hostname or parts.username or parts.password
+        or parts.query or parts.fragment or parts.path!="/v1/ceres/admin/webapp"
+        or parts.port not in (None,443)):
+        return None
+    return "https://"+parts.netloc+"/v1/ceres/slime/webapp"
+
+
+def _slime_entry() -> dict:
+    url=_slime_miniapp_url()
+    return ({"text":"◎ Slime 私人管理頁","web_app":{"url":url}} if url
+            else _button("◎ Slime 節點","nodes"))
+
+
 def _menu() -> list[list[dict]]:
     """A native Telegram control panel. Callback identities are stable."""
     return [
         [_button("◉ 系統狀態", "status"), _button("▣ 模型診斷", "diagnostics")],
-        [_button("◇ Detroit 工具", "tools"), _button("◎ Slime 節點", "nodes")],
+        [_button("◇ Detroit 工具", "tools"), _slime_entry()],
         [_button("▤ API 管理", "providers"), _button("♙ 使用者權限", "accounts")],
         [_button("↗ 成本摘要", "usage"), _button("⌕ GitHub 探索", "sources")],
         [_button("◈ 我的模型 API","myapi"),_button("✦ 進階運維","operations")],
@@ -145,6 +163,9 @@ async def _nodes(chat: int, sub: str) -> None:
         pass
     from slime import _pairing_page_url
     buttons.insert(0,[{"text":"↗ Slime 獨立安裝網頁","url":_pairing_page_url()}])
+    owner_page=_slime_miniapp_url()
+    if owner_page:
+        buttons.insert(0,[{"text":"◎ 開啟 Slime 私人管理頁","web_app":{"url":owner_page}}])
     buttons.insert(0,[_button("＋ 產生新節點配對碼","invite")])
     buttons.extend(_page_buttons("nodes"))
     await say(chat,_title("NODES / Slime 節點")

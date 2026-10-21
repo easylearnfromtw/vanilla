@@ -49,7 +49,7 @@ def registry(tmp_path,monkeypatch):
     def issue(code="a" * 12,expire=None,chat=42,owner="owner-a",node_id=node):
         with database() as db:
             setup(db)
-            db.execute("INSERT OR REPLACE INTO slime_telegram_confirm VALUES(?,?,?,?,?,?)",
+            db.execute("INSERT OR REPLACE INTO slime_telegram_confirm (chat_id,owner,node_id,operation,code_hash,expires) VALUES(?,?,?,?,?,?)",
                        (chat,owner,node_id,"revoke",
                         hashlib.sha256(code.encode()).hexdigest(),
                         expire if expire is not None else time.time()+180))

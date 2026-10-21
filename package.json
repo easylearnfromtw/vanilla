@@ -32,6 +32,7 @@
     "test:drive-orphan": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/drive-orphan-delete.test.mjs",
     "test:chat-router": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/chat-router.test.mjs tests/veritas-gate.test.mjs",
     "test:tool-knowledge": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/tool-knowledge.test.mjs",
+    "eval:atuber-finance": "node scripts/atuber-finance-smoke.mjs",
     "test:model-tuning": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/model-tuning.test.mjs tests/atuber-single-driver.test.mjs",
     "test:small-model": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/small-model-scaffold.test.mjs",
     "test:reliability": "node --experimental-strip-types --test tests/generation-reliability.test.mjs",

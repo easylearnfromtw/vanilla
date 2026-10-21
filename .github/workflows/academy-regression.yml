@@ -1,0 +1,33 @@
+name: Academy course regression
+
+on:
+  pull_request:
+    paths:
+      - "services/weiguo/ceres_academy_*.py"
+      - "services/weiguo/ceres_store_bot.py"
+      - "services/weiguo/test_ceres_academy.py"
+      - ".github/workflows/academy-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/weiguo/ceres_academy_*.py"
+      - "services/weiguo/ceres_store_bot.py"
+      - "services/weiguo/test_ceres_academy.py"
+      - ".github/workflows/academy-regression.yml"
+
+jobs:
+  academy-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install minimal test dependencies
+        run: python -m pip install "fastapi>=0.115,<1" "httpx>=0.28,<1"
+      - name: Check source syntax
+        run: python -m compileall -q services/weiguo/ceres_academy_curriculum.py services/weiguo/ceres_academy_content.py services/weiguo/ceres_store_bot.py
+      - name: Academy content and Telegram regression suite
+        run: python -m unittest discover -v -s services/weiguo -p test_ceres_academy.py

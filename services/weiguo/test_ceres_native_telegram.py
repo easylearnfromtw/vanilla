@@ -81,7 +81,7 @@ class NativeTelegramTests(unittest.TestCase):
         import sqlite3
         with sqlite3.connect(os.environ["CERES_DB_PATH"]) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM ceres_admin_updates").fetchone()[0],1)
-            self.assertFalse(db.execute("SELECT name FROM sqlite_master WHERE name='ceres_inbox'").fetchone())
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM ceres_inbox").fetchone()[0],0)
 
     def test_hub_renders_telegram_html_and_inline_buttons(self):
         with patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as outgoing:

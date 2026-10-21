@@ -27,6 +27,7 @@ _AUDIT_TABLE = """CREATE TABLE IF NOT EXISTS slime_telegram_audit (
 )"""
 _STATUS = re.compile(r"^(?:/nodes|/slime(?: status)?|節點狀態|電腦狀態|目前有哪些電腦|目前有幾台電腦|查看(?:所有)?(?:節點|電腦)|查詢(?:所有)?(?:節點|電腦)|有哪些(?:節點|電腦)|看一下(?:節點|電腦)|目前節點|Slime 狀態)$", re.I)
 _INVITE = re.compile(r"^(?:/slime invite|/node invite|(?:請|幫我|麻煩)?(?:建立|產生|生成|給我|新增|創建)(?:一個|新的)?(?:朋友)?(?:加入)?(?:邀請|邀請碼|邀請連結|節點邀請)(?:碼|連結)?(?:給朋友)?|我要邀請朋友(?:加入)?|邀請朋友(?:加入)?|我想邀請朋友(?:加入)?)$", re.I)
+_PAIR_CMD = re.compile(r"^(?:/(?:slime|node) (?:pair|code)|(?:請|幫我|麻煩)?(?:建立|產生|新增|給我)(?:一個|新的)?(?:節點)?(?:配對碼|節點密碼))$",re.I)
 _MUTATE = re.compile(r"^(?:請|幫我|麻煩)?(?:把|將)?\s*(?P<name>.{1,90}?)\s*(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?$", re.I)
 _PREFIX_MUTATE = re.compile(r"^(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?\s+(?P<name>.{1,90})$", re.I)
 _INFER = re.compile(r"^/slime infer ([a-f0-9]{8,48}) (on|off)$",re.I)
@@ -149,7 +150,7 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     source = message.strip()
     if not source or len(source) > 250:
         return None
-    if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source)
+    if not (_STATUS.fullmatch(source) or _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source)
             or source.lower().startswith(("/slime", "/nodes", "/node "))
             or _INFER.fullmatch(source) or _CONFIRM.fullmatch(source) or _CANCEL.fullmatch(source)
             or _MUTATE.fullmatch(source) or _PREFIX_MUTATE.fullmatch(source)
@@ -164,11 +165,11 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
     if _STATUS.fullmatch(source):
         return _listing(sub)
     if source.lower() in ("/slime help", "/node help", "/slime 設定", "/slime 設置"):
-        return ("你可以直接說：「目前有哪些電腦」、「建立朋友邀請碼」、"
+        return ("你可以直接說：「目前有哪些電腦」、「產生新配對碼」、"
                 "「把『電腦名稱』暫停」、「恢復『電腦名稱』」、「移除『電腦名稱』」。"
                 "\n核准本地模型：/slime infer <節點ID> on；撤回：/slime infer <節點ID> off。"
                 "\n所有敏感操作都需要確認碼。")
-    if _INVITE.fullmatch(source):
+    if _INVITE.fullmatch(source) or _PAIR_CMD.fullmatch(source):
         try:
             return _invite(sub, chat)
         except Exception:

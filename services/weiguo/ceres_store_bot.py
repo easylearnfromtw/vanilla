@@ -107,15 +107,38 @@ async def _tg(method,data):
         if response.json().get("ok") is not True: raise ValueError("Telegram API error")
 async def _send(chat_id,text,keyboard=None):
     await _tg("sendMessage",{"chat_id":chat_id,"text":text,"reply_markup":keyboard or _buttons([[("📚 開始學習 AI","learn:start")]])})
+def _hub_keyboard():
+    return _buttons([
+        [("◈ Academy · 學習中心","hub:academy"),("◇ Models · 模型","hub:models")],
+        [("⌘ API Store","hub:api"),("▤ Usage · 用量","hub:usage")],
+        [("◉ Account · 帳戶","hub:account"),("⚙ Settings","hub:settings")]
+    ])
+
+async def _hub(chat_id,section="home"):
+    pages={
+        "home":("VANILLA  /  AI PLATFORM","歡迎回到 Vanilla。\\n\\n選擇下方功能，直接在 Telegram 探索與學習。\\n目前不開放付款或 API 金鑰申請。"),
+        "models":("MODELS  /  模型探索","模型清單與即時版本資訊尚未在此 Bot 開放。\\n正式提供前不顯示虛構模型或價格。"),
+        "api":("API STORE  /  服務中心","API 方案、金鑰申請及付款目前尚未開放。\\n請勿在聊天室傳送 API Key 或其他機密。"),
+        "usage":("USAGE  /  使用紀錄","用量儀表板尚未串接至公開 Bot。\\n目前沒有可驗證的個人 Token 使用數據。"),
+        "account":("ACCOUNT  /  個人中心","此 Bot 目前僅記錄 Academy 的學習進度。\\n尚未提供正式帳號管理及權限編輯。"),
+        "settings":("SETTINGS  /  偏好設定","可在 Academy 選擇學習程度。\\n其他設定將在後端權限與儲存機制完成後開放。")
+    }
+    heading,body=pages.get(section,pages["home"])
+    if section=="home":
+        await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_hub_keyboard())
+    else:
+        await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_buttons([[("〈 返回主選單","hub:home")]]))
+
 async def _learn(chat_id,action):
     db,row=_learning_state(chat_id)
     try:
         level,step,mastered_raw=row
         mastered=set(json.loads(mastered_raw))
         if action=="start":
-            await _send(chat_id,"📚 Vanilla Academy\\n先選擇你的程度，我會調整推薦順序。",_buttons([
+            await _send(chat_id,"ACADEMY  /  學習中心\\n━━━━━━━━━━━━\\n\\n選擇你的學習程度\\n6 大主題 · 36 章節 · 324 課",_buttons([
                 [("零基礎","learn:level:0"),("入門","learn:level:1")],
-                [("開發者","learn:level:2"),("進階","learn:level:3")]]))
+                [("開發者","learn:level:2"),("進階","learn:level:3")],
+                [("〈 返回主選單","hub:home")]]))
             return
         if action.startswith("level:") and action[-1:] in ("0","1","2","3"):
             level=action[-1]
@@ -130,16 +153,16 @@ async def _learn(chat_id,action):
                 offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
                 preferred=list(range(offset,len(LESSONS)))+list(range(offset))
                 step=next(i for i in preferred if i in candidates)
-                prefix="🎉 很棒！這一課已標記為學會。\\n依照你的程度與尚未完成的篇章，我推薦：\\n\\n"
+                prefix="✓ COMPLETED\\n很棒！已完成這一課。\\n\\n為你推薦下一篇章\\n\\n"
             else:
-                prefix="🎉 太棒了！你已完成目前所有篇章，可以重新選程度複習。\\n\\n"
+                prefix="✓ ALL COMPLETED\\n恭喜完成所有課程。\\n\\n"
         elif action=="recommend":
             candidates=[i for i in range(len(LESSONS)) if i not in mastered and i!=step]
             offset={"0":0,"1":54,"2":108,"3":162}.get(level,0)
             preferred=list(range(offset,len(LESSONS)))+list(range(offset))
             if candidates:
                 step=next(i for i in preferred if i in candidates)
-                prefix="✨ 根據你的程度及已完成篇章，推薦你閱讀：\\n\\n"
+                prefix="FOR YOU  /  推薦閱讀\\n\\n"
             else:
                 prefix="你已完成其他篇章；可以重新分級複習。\\n\\n"
         elif action.startswith("go:") and action[3:].isdigit():
@@ -151,10 +174,11 @@ async def _learn(chat_id,action):
         db.commit()
         title,body,topic_idx,chapter_idx,stage_idx=LESSONS[step]
         prefix=locals().get("prefix","")
-        await _send(chat_id,prefix+f"📖 {TOPICS[topic_idx]}\\n第 {chapter_idx+1}/6 章 · 第 {stage_idx+1}/9 課\\n{title} · 總課次 {step+1}/{len(LESSONS)}\\n\\n{body}\\n\\n進度：{len(mastered)}/{len(LESSONS)} 已學會",
+        await _send(chat_id,prefix+f"ACADEMY  /  {TOPICS[topic_idx]}\\n━━━━━━━━━━━━\\n\\n第 {chapter_idx+1:02d} / 06 章   ·   第 {stage_idx+1:02d} / 09 課\\n{title}\\n\\n{body}\\n\\n━━━━━━━━━━━━\\n學習進度  {len(mastered)} / {len(LESSONS)} 已學會",
                     _buttons([[("◀ 上一課","learn:prev"),("下一課 ▶","learn:next")],
                               [("✅ 這我會了","learn:master")],
-                              [("📚 推薦其他篇章","learn:recommend"),("重新分級","learn:start")]]))
+                              [("✦ 推薦篇章","learn:recommend"),("課程分級","learn:start")],
+                              [("⌂ 主選單","hub:home")]]))
     finally:
         db.close()
 
@@ -191,9 +215,13 @@ async def store_webhook(request: Request,
         chat_id=chat.get("id")
         if (chat.get("type")=="private" and type(chat_id) is int
                 and sender.get("id")==chat_id and not sender.get("is_bot")
-                and isinstance(callback.get("data"),str) and callback["data"].startswith("learn:")):
+                and isinstance(callback.get("data"),str) and callback["data"].startswith(("learn:","hub:"))):
             if _claim(update["update_id"]):
-                await _learn(chat_id,callback["data"][6:])
+                if callback["data"].startswith("hub:"):
+                    section=callback["data"][4:]
+                    if section=="academy": await _learn(chat_id,"start")
+                    else: await _hub(chat_id,section)
+                else: await _learn(chat_id,callback["data"][6:])
             if isinstance(callback.get("id"),str):
                 await _tg("answerCallbackQuery",{"callback_query_id":callback["id"]})
         return {"ok":True}
@@ -214,9 +242,10 @@ async def store_webhook(request: Request,
             await _learn(chat_id,actions[user_text])
         return {"ok":True}
     command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
-    if command not in ("/start", "/help"):
+    if command not in ("/start", "/help", "/menu", "/academy"):
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
-    await _send(chat_id, "歡迎使用 Vanilla AI API Store！\n\n📚 點選「開始學習 AI」，依程度學習 October、AI Coding 與 API 串聯。\n\n模型、方案、API 金鑰與使用量功能即將開放。目前尚未開放付款，請勿匯款或提供敏感資料。")
+    if command=="/academy": await _learn(chat_id,"start")
+    else: await _hub(chat_id,"home")
     return {"ok": True}

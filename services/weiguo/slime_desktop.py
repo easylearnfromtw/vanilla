@@ -133,6 +133,7 @@ def setup():
     if not NAME.fullmatch(label):
         raise ValueError("請填入 1–64 字的裝置名稱")
     secret=None
+    gecko_join=False
     if role=="friend" and sys.stdin.isatty() and _confirm(
         "要在目前的 LAN／Wi-Fi 搜尋已同意分享的 Gecko 節點（不掃描其他電腦）？"
     ):
@@ -152,6 +153,7 @@ def setup():
                         if choice not in ("","1","2"):
                             raise ValueError("請選擇 1 或 2")
                         secret=request_invite(peer,server,mode=mode)
+                        gecko_join=True
                         print("✓ Gecko 一次性配對授權已取得（不需輸入 Telegram 代碼）")
             else:
                 print("附近沒有可用的 Gecko 分享，改用一般 Slime 配對。")
@@ -163,7 +165,7 @@ def setup():
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
-    is_gecko=role=="friend" and secret is not None and 'peer' in locals() and locals().get("peer") is not None
+    is_gecko=gecko_join
     if is_gecko:
         # Gecko grants never escalate to public-IP disclosure or power control.
         geo_opt_in=False;public_ip="";shutdown_opt_in=False

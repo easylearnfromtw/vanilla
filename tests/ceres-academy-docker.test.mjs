@@ -10,7 +10,8 @@ test("both WeiGuo images package imported Ceres curriculum and smoke-test boot i
  for(const path of ["Dockerfile","Dockerfile.pdfcraft"]){
    const file=readFileSync(new URL("../services/weiguo/"+path,import.meta.url),"utf8");
    assert.match(file,/COPY ceres_academy_curriculum\.py \.\//);
-   assert.match(file,/RUN python3 -c "import ceres_academy_curriculum, ceres_store_bot/);
+   assert.match(file,/COPY ceres_academy_content\.py \.\//);
+   assert.match(file,/RUN python3 -c "import ceres_academy_curriculum, ceres_academy_content, ceres_store_bot/);
    assert.match(file,/RUN python3 -c "import ceres_command_center/);
  }
 });

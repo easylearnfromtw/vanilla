@@ -31,6 +31,18 @@ Windows PowerShell 的 train-qwen-qlora.ps1 已改用 October 專用 SFT，預�
 正式的 Claude 比較須使用同一時間的專業新題、同等工具權限、盲法人工審查、引用來源稽核、延遲與費用數據。沒有上述實驗回執時，兩者優劣**尚未驗證**。
 
 
+## 真正 October Qwen 受限規劃 → Diana → Detroit → Verifier
+
+由使用者**明確在 Vanilla 對話指定**以下其中一個第一行指令，後接標題列與數值 CSV：
+
+- `阿土伯規劃分析CSV`：先本機解析列數及欄數，只把**不含原始 CSV 的資料概要**送入已選定的 `october:0.3`／`october:lite` Ollama 模型，請 Qwen 產生嚴格 JSON 唯讀建議。獨立程式驗證 `decision/analyze + tool/cream + readOnly/true` 且禁止任何額外欄位，再由現有 Diana／Detroit CREAM executor 真正計算、Verifier 重算。模型建議永遠**不是權限授予**。
+- `阿土伯伺服器驗證CSV`：不耗費 LLM token；使用已驗證的衞國 Google 家庭 Bearer session，且須明確為一般模式及後端選用啟用。先本機 CREAM，再以限定的 CSV 取得 Python 伺服器獨立回執，前端對照雜湊／欄位／統計；HMAC 密鑰僅在伺服器。
+- `阿土伯規劃並伺服器驗證CSV`：**兩條路徑合併**，模型真正提出唯讀工具建議、本機重新驗算、後端驗證。任一步模型不可用、未登入、結果差異、私密模式、未啟用或錯誤都顯示未完成，**不會偷偷降級成假成功**。
+
+**呼叫前提**：只有在 Vanilla 已選用可用的 October Ollama 模型，且前端公開非私密模式下，模型規劃路徑才可能真正完成；無模型時回 `OCTOBER_MODEL_NOT_SELECTED` 或 `OCTOBER_MODEL_UNAVAILABLE`。後端路徑只接受明確的第一行指令，預設關閉，與一般使用者貼 CSV 無關。後端服務不可用時絕不以假回執取代。
+
+評估 `npm run test:october-quality`（模型 JSON 安全閘、流出 CSV 防護、SHA 與數值交叉核對、教師資料留出組、基準回歸）及完整 CI。**未連線真實 Ollama 主機時只能宣稱流程已實作與測試，不可宣稱已成功跑過現實 Qwen 的規劃、延遲或答題測試。**正式部署與 PR 合併仍受 Owner Gate 限制。
+
 ## 阿土伯、爾雅、維納斯角色契約（2026-10-21）
 
 [PERSONA_DESIGN_CONTRACT.md](PERSONA_DESIGN_CONTRACT.md) 由使用者正式指定：阿土伯是誠懇、親切而有專業判斷的虛構企業顧問／專案經理，Detroit 負責受授權執行、阿土伯負責可驗證建議與協調；爾雅維持精準自然、避免囉嗦；維納斯以包豪斯、iOS、低調毛玻璃及資料可視化品質把關。角色的學歷、執照、政商職位及夫妻關係**皆為虛構世界觀，不是真實身份或執業證明**。

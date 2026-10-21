@@ -172,3 +172,18 @@ test("only Atuber models receive modern Tongcheng style; structured outputs rema
  assert.doesNotMatch(STRUCTURED_SYSTEM_PROMPT,/言有物/);
  assert.ok(estimateTokens(small)<230);
 });
+
+test("Atuber Ollama aliases use actual Qwen sizes and correct thinking policy",()=>{
+ const expected=[["october:sm",4],["october:ml",14],["october:lg",30]];
+ for(const [alias,params] of expected){
+  const p=profileFor("ollama",alias);
+  assert.equal(p.paramsB,params,alias);
+  assert.equal(p.thinking,"ollama-think",alias);
+  assert.equal(p.compactPrompt,false,alias);
+  assert.equal(ollamaRequestExtras(alias,"general").think,false,alias);
+ }
+ assert.equal(ollamaRequestExtras("october:sm","analysis").think,false);
+ assert.equal(ollamaRequestExtras("october:ml","analysis").think,true);
+ assert.equal(ollamaRequestExtras("october:lg","code").think,true);
+ assert.equal(profileFor("ollama","october:lg").tier>profileFor("ollama","october:sm").tier,true);
+});

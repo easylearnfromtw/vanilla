@@ -48,7 +48,7 @@ class SlimeOpsTests(unittest.TestCase):
                       authorization=token,background_tasks=bg)
         self.assertTrue(state["ok"])
         self.assertEqual(len(bg.tasks),1)
-        self.assertEqual(heartbeat(Heartbeat(capabilities=Caps(cpu=8)),
+        self.assertEqual(heartbeat(Heartbeat(capabilities=Caps(cpu=8,gpu_temp_c=63)),
                       authorization=token,background_tasks=bg)["ok"],True)
         self.assertEqual(len(bg.tasks),1)
         with slime._db() as db:

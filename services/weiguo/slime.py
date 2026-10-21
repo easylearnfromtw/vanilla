@@ -249,10 +249,13 @@ class RouteRequest(BaseModel):
 
 @router.get("/v1/family/slime/status")
 def slime_status(user: FamilyIdentity = Depends(_owner)):
-    return {"ready": True, "service": "Slime", "runtime": "registry-only",
-            "inference_enabled": False, "power_control_enabled": True,
-            "power_on_enabled": False, "power_off_requires_device_opt_in": True,
-            "heartbeat_seconds": ONLINE_SECONDS}
+    runner_enabled=os.environ.get("VANILLA_SLIME_RUNNER_ENABLED","false").lower()=="true"
+    return {"ready":True,"service":"Slime",
+            "runtime":"slime-pull" if runner_enabled else "registry-only",
+            "inference_enabled":runner_enabled,
+            "power_control_enabled":True,"power_on_enabled":False,
+            "power_off_requires_device_opt_in":True,
+            "heartbeat_seconds":ONLINE_SECONDS}
 
 @router.post("/v1/family/slime/invite")
 def issue_invite(user: FamilyIdentity = Depends(_owner)):
@@ -274,7 +277,7 @@ def list_nodes(user: FamilyIdentity = Depends(_owner)):
         "inference_enabled": bool(r["inference_enabled"]),
         "schedulable": now - r["last_seen"] <= ONLINE_SECONDS and
              bool(r["share_enabled"]) and bool(r["owner_enabled"])
-    } for r in records], "inference_enabled": False}
+    } for r in records], "inference_enabled": os.environ.get("VANILLA_SLIME_RUNNER_ENABLED","false").lower()=="true"}
 
 @router.post("/v1/family/slime/nodes/{node_id}/policy")
 def policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(_owner)):

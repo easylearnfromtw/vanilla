@@ -88,7 +88,7 @@ async def _send(chat_id: int, text: str):
     token = os.environ["CERES_STORE_BOT_TOKEN"]
     async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
         result = await client.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                                   json={"chat_id": chat_id, "text": text, "reply_markup": {"inline_keyboard": [[{"text": "開啟 Vanilla API Store", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app"}}]]}})
+                                   json={"chat_id": chat_id, "text": text, "reply_markup": {"inline_keyboard": [[{"text": "📚 開始學習 AI · Vanilla Academy", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app#learn"}}], [{"text": "開啟 Vanilla API Store", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app"}}]]}})
         result.raise_for_status()
         if result.json().get("ok") is not True:
             raise ValueError("send failed")
@@ -133,5 +133,5 @@ async def store_webhook(request: Request,
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
-    await _send(chat_id, "歡迎使用 Vanilla AI API Store！\n\n模型、方案、API 金鑰與使用量功能即將開放。目前尚未開放付款，請勿匯款或提供敏感資料。")
+    await _send(chat_id, "歡迎使用 Vanilla AI API Store！\n\n📚 點選「開始學習 AI」，依程度學習 October、AI Coding 與 API 串聯。\n\n模型、方案、API 金鑰與使用量功能即將開放。目前尚未開放付款，請勿匯款或提供敏感資料。")
     return {"ok": True}

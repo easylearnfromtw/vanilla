@@ -321,6 +321,8 @@ def claim(body:Claim):
     if not _TICKET.fullmatch(body.ticket):
         raise HTTPException(422,"領獎連結格式無效")
     sub=_google(body.credential)
+    from slime_reward_policy import reconcile_node_revocations,score_capabilities
+    reconcile_node_revocations()
     now=int(time.time())
     with _session() as db:
         _tables(db)
@@ -332,7 +334,7 @@ def claim(body:Claim):
         # Deleting a node invalidates its future tickets, even if it was paired earlier.
         from slime import _db
         with _db() as nodes:
-            active=nodes.execute("SELECT owner FROM nodes WHERE id=?",
+            active=nodes.execute("SELECT owner,cpu,ram_gb,gpu FROM nodes WHERE id=?",
                                  (row["node_id"],)).fetchone()
         if not active or active["owner"]!=row["owner_sub"]:
             raise HTTPException(409,"此節點已退出，不能領取獎勵")

@@ -23,3 +23,7 @@ adapters/
 *.safetensors
 *.ckpt
 *.pt
+
+# Ceres local bootstrap contains generated operator secrets
+private/
+ceres.env

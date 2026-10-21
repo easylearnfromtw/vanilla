@@ -46,6 +46,23 @@ class HubTests(unittest.TestCase):
             self.assertIn("Detroit", say.await_args.args[1])
             api.assert_awaited_once()
 
+    def test_owner_only_installer_card_and_redacted_diagnostics(self):
+        from ceres_command_center import _menu
+        self.assertTrue(any(button.get("callback_data") == "hub:install"
+                            for row in _menu() for button in row))
+        with patch("ceres_command_center.say", new_callable=AsyncMock) as send, \
+             patch("ceres_command_center._telegram", new_callable=AsyncMock):
+            self.run_async(command(self.chat + 3, "/hub install"))
+            send.assert_not_awaited()
+            self.run_async(command(self.chat, "/hub install"))
+            text = send.await_args.args[1]
+            self.assertIn("Installer", text)
+            self.assertIn("配置巡檢", text)
+            self.assertNotIn(self.sub, text)
+            self.assertNotIn(str(self.chat), text)
+            self.run_async(callback(self.chat, "cb", "hub:install"))
+            self.assertIn("配置巡檢", send.await_args.args[1])
+
     def test_github_search_is_read_only_and_never_executes(self):
         sample = {"full_name": "grammyjs/grammY",
                   "html_url": "https://github.com/grammyjs/grammY",

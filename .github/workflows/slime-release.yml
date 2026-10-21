@@ -17,16 +17,19 @@ jobs:
         shell: pwsh
         run: |
           python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python -m unittest discover -s tests -p test_slime_desktop.py
           python -m pip install "pyinstaller==6.16.0"
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --paths services/weiguo services/weiguo/slime_desktop.py
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
+          Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: slime-windows-build
           path: |
             dist/Slime-Owner.exe
             dist/Slime-Friend.exe
+            dist/Slime-Windows-Autostart.ps1
           if-no-files-found: error
 
   macos:
@@ -38,13 +41,15 @@ jobs:
       - name: Prepare macOS archive
         run: |
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python3 -m unittest discover -s tests -p test_slime_desktop.py
           mkdir -p dist
           cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py dist/
+          cp deployment/slime/install-macos-autostart.sh dist/install-macos-autostart.sh
           for role in Owner Friend; do
             cp "deployment/slime/Slime-${role}.command" "dist/Slime-${role}.command"
             chmod +x "dist/Slime-${role}.command"
             cd dist
-            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py
+            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py install-macos-autostart.sh
             cd ..
           done
       - uses: actions/upload-artifact@v4
@@ -62,12 +67,14 @@ jobs:
       - name: Prepare Linux archive
         run: |
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python3 -m unittest discover -s tests -p test_slime_desktop.py
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
             cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py "tmp-$role/"
             role_lower=$(echo "$role" | tr '[:upper:]' '[:lower:]')
             cp "deployment/slime/launch-${role_lower}.sh" "tmp-$role/start-slime.sh"
+            cp deployment/slime/install-linux-autostart.sh "tmp-$role/install-linux-autostart.sh"
             chmod +x "tmp-$role/start-slime.sh"
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done
@@ -92,7 +99,7 @@ jobs:
       - name: Check assets and hashes
         run: |
           cd release
-          for item in Slime-Owner.exe Slime-Friend.exe Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz; do
+          for item in Slime-Owner.exe Slime-Friend.exe Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz; do
             test -s "$item"
           done
           sha256sum Slime-* > SHA256SUMS.txt

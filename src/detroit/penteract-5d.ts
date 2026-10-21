@@ -35,12 +35,37 @@ const normalize=(values:number[]):Vec5=>{
  const size=Math.hypot(...values)||1;
  return values.map(x=>x/size) as unknown as Vec5;
 };
+/** Six equally spaced expert anchors form a regular 5-simplex in R5.
+ * Helmert orthogonal coordinates embed six vertices in five REAL axes:
+ * ||c_i||=1, c_i·c_j=-1/5 for all i≠j. No fictional sixth spatial axis.
+ */
+export const FIVE_SIMPLEX:readonly Vec5[]=Array.from({length:6},(_,i)=>
+ Array.from({length:5},(_,k)=>{
+  const unit=1/Math.sqrt((k+1)*(k+2));
+  const basis=i<=k?unit:i===k+1?-(k+1)*unit:0;
+  return basis/Math.sqrt(5/6);
+ }) as unknown as Vec5);
+const KEYWORDS:readonly RegExp[]=[
+ /(?:財務|投資|報酬|毛利|現金流|營收|利潤|股價|股息|資金|NPV|稅費)/i,
+ /(?:來源|文獻|研究|證據|最新|查核|查證|新聞|法規|指引|指南)/i,
+ /(?:程式|TypeScript|Python|GitHub|API|修復|重構|bug|測試|原始碼|部署|軟體)/i,
+ /(?:設計|UI|UX|視覺|排版|配色|色彩|Figma|iOS|海報|介面|網站)/i,
+ /(?:文章|文件|改寫|報告|電子郵件|Email|講稿|撰寫|文案|摘要|故事)/i,
+ /(?:CSV|數據|統計|平均|標準差|計算|百分比|圖表|試算表|資料集)/i
+];
 /** Stable five-dimensional random feature map of bounded character trigrams.
  * This does NOT imply that five coordinates preserve all semantic meaning.
  */
 export function embedFiveSpace(text:string):Vec5{
  const q=text.normalize("NFKC").trim().toLocaleLowerCase().slice(0,1024);
  if(!q)return [0,0,0,0,0];
+ // Sparse semantic anchors are only a transparent lexical prefilter, not
+ // trained Qwen embeddings. General queries fall back to hashed R5 projection.
+ const matched=KEYWORDS.map(re=>re.test(q)?1:0);
+ if(matched.some(Boolean)){
+  const weighted=Array.from({length:5},(_,axis)=>FIVE_SIMPLEX.reduce((sum,p,i)=>sum+p[axis]*matched[i],0));
+  return normalize(weighted);
+ }
  const bucket=new Float64Array(64);
  const chars=Array.from(q.replace(/\s+/g," "));
  for(let i=0;i<chars.length;i++){
@@ -68,8 +93,8 @@ const SEEDS=[
  {id:"writing",title:"文字文件",group:"expert",sample:"文章 文件 email 改寫 報告 講稿 創作文案"},
  {id:"numbers",title:"CREAM 計算",group:"verified-tool",sample:"統計 CSV 數據 平均 標準差 變異 資料表 計算"}
 ] as const;
-export const FIVE_EXPERTS:readonly FiveExpert[]=SEEDS.map(s=>({
- id:s.id,title:s.title,group:s.group,prototype:embedFiveSpace(s.sample)
+export const FIVE_EXPERTS:readonly FiveExpert[]=SEEDS.map((s,i)=>({
+ id:s.id,title:s.title,group:s.group,prototype:FIVE_SIMPLEX[i]
 }));
 export type FiveRoute={id:string;title:string;distance:number;group:string};
 export type FunnelStage={id:"understand"|"route"|"evidence"|"synthesize"|"verify";

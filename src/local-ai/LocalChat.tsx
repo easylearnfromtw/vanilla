@@ -75,6 +75,7 @@ import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
 import {planAtuberReadOnly} from "../detroit/atuber-tool-plan";
+import {parseAtuberPlannerRequest,buildAtuberPlannerPrompt,authorizeAtuberModelProposal} from "../detroit/atuber-model-tool-plan";
 import {executeAtuberReadOnly} from "../detroit/atuber-tool-coordinator";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
@@ -740,6 +741,51 @@ async function send(value=draft):Promise<void>{
   }
  }
  recordNoodles({kind:"turn",at:Date.now(),task:classifyTask(question,Boolean(image)),model:"turn:vanilla"},privateMode);
+ // Phase 3: only an EXPLICIT "阿土伯：規劃 ..." request gets an extra
+ // small on-device model call to propose one of three read-only tools.
+ // The deterministic host re-checks user intent and provides all arguments.
+ const modelPlannerRequest=!image&&!fileName&&!fileContext?
+  parseAtuberPlannerRequest(question):null;
+ if(modelPlannerRequest){
+  if(!modelPlannerRequest.authorized){
+   setLastRoute("阿土伯工具規劃拒絕：只能規劃明確要求的 CREAM CSV、Detroit 工具狀態或五維唯讀評估。");
+   return;
+  }
+  if(!isLocalModelReady(ATUBER_LOCAL_MODEL)){
+   setLastRoute("阿土伯本機規劃器尚未載入。請先下載／載入 Qwen3 0.6B；規劃不會改用其他雲端模型。");
+   return;
+  }
+  const driver=listCandidates({localReady:true,localModel:ATUBER_LOCAL_MODEL,image:false,online,privateMode:true}).find(isAtuberDriver);
+  if(!driver){setLastRoute("阿土伯本機規劃器不可用；沒有執行工具。");return;}
+  const controller=new AbortController();
+  abortRef.current=controller;
+  setBusy(true);setGenerating(true);setLastRoute("阿土伯正在離線選擇唯讀工具，再由主程式核對…");
+  let evidence="";
+  try{
+   const rawPlan=await generateCandidate(driver,[{role:"user",content:buildAtuberPlannerPrompt(modelPlannerRequest)}],
+    undefined,undefined,{task:"general",privateMode:true,deep:false,signal:controller.signal});
+   const verified=authorizeAtuberModelProposal(modelPlannerRequest,rawPlan);
+   if(!verified)throw Error("ATUBER_MODEL_ABSTAINED");
+   const receipt=await executeAtuberReadOnly(verified,{privateMode,signal:controller.signal,
+    executeCream:(csv,context)=>executeDetroitNative<CreamResult>("cream",
+     {csv,source:"阿土伯明確請求的本機 CSV"},{privateMode:context.privateMode,signal:context.signal})});
+   evidence=receipt.evidence;
+  }catch(error){
+   toolReply(question,"阿土伯沒有執行工具："+String(error instanceof Error?error.message:error),
+    {...TOOL.capability,status:"partial",detail:"模型建議未通過主程式安全驗證／已棄權"});
+   return;
+  }finally{
+   setBusy(false);setGenerating(false);
+   if(abortRef.current===controller)abortRef.current=null;
+  }
+  const summary=modelPlannerRequest.authorized.capability==="cream"?
+   "請依據已驗證的 CREAM 數值回條說明統計結果，不可修改數值。":
+   modelPlannerRequest.authorized.capability==="detroit-status"?
+   "請依據已驗證的 Detroit 工具狀態回條整理可用性，不可宣稱已獲得管理員權限。":
+   "請根據已驗證的五維影子結果說明候選及棄權限制，不要宣稱路由準確率已驗證。";
+  await answerWithModel(summary,{inlineFileContext:"",webContext:"",webSources:[],toolEvidence:evidence},question);
+  return;
+ }
  // Phase 2: an explicit 阿土伯 request can run only bounded, read-only
  // host tools. The verified receipt is context for 阿土伯, never permission.
  const atuberToolPlan=!image&&!fileName&&!fileContext?planAtuberReadOnly(question):null;

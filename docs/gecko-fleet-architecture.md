@@ -77,10 +77,18 @@ maintenance window. Roll out in rings: internal canary 1%, 5%, 20%, 100%, with
 automated error-budget halts, rollback target, and node-side last-known-good
 binary. Network/host access and model inference remain separate permissions.
 
-The current `gecko_lan.py` includes a bandwidth-limited (~384 KiB/s) opt-in
-cache. The managed fleet controller exposes *desired version metadata*; it
-does **not** yet contain a full signed automatic updater, installer, restart,
-or cluster-wide rollback executor. Do not label it complete zero-touch updates.
+The optional LAN mirroring helper (`gecko_lan.py`) caps delivery around
+384 KiB/s. Managed Slime Fleet nodes poll desired version with per-host startup
+jitter, at intervals of 30–40 minutes. `gecko_update.py` fetches only the
+matching OS release asset, postpones downloads on busy Unix hosts, validates
+its GitHub Release SHA-256, and caches it privately at ~192 KiB/s. It **never
+executes, installs or restarts software**. This first stage is verified
+background *prefetch* only: no automatic installer, cryptographically signed
+provenance, remote restart or cluster-wide rollback executor yet.
+
+For high-scale production, replace direct GitHub pulls with site-local
+authenticated artifact caches; otherwise thousands of concurrent updates
+could overwhelm WAN capacity or public GitHub rate limits.
 
 ## Scale architecture: recommended migration gates
 

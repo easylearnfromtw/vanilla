@@ -11,3 +11,6 @@ opentelemetry-exporter-otlp-proto-http>=1.40,<2
 
 # Ceres encrypted persistent provider vault
 cryptography>=44,<47
+
+# Locally generated private pairing QR; never submit one-time codes to public QR APIs.
+qrcode[pil]==8.2

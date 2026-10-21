@@ -28,6 +28,7 @@ from ceres_agent_bridge import router as ceres_bridge_router
 from ceres_agent_delivery import router as ceres_delivery_router
 from ceres_server_agent import router as ceres_server_router, worker_loop as ceres_server_loop, enabled as ceres_server_enabled, ready as ceres_server_ready
 from ceres_telegram_registration import register_telegram_webhook
+from ceres_store_bot import router as ceres_store_router, register_store_webhook
 from ceres_maintenance import monitor_loop as ceres_maintenance_loop
 from ceres_admin_web import router as ceres_admin_web_router
 from ceres_model_routes import router as ceres_model_router
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI):
     init_tasks()
     luca_initialize()
     await register_telegram_webhook()
+    await register_store_webhook()
     if not allow_hosts():
         print("衞國：WEIGUO_ALLOWED_HOSTS 尚未設定，任何網頁瀏覽請求都會拒絕。")
     if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":
@@ -171,6 +173,7 @@ app.include_router(detroit_quirinus_router, dependencies=[Depends(operator)])
 # Ceres public ingress has independent webhook authentication; operator inbox uses the
 # server-only administrator dependency and is hidden on public-family-only deployments.
 app.include_router(ceres_telegram_router)
+app.include_router(ceres_store_router)
 app.include_router(ceres_admin_web_router)
 app.include_router(ceres_model_router)
 app.include_router(ceres_ops_router)

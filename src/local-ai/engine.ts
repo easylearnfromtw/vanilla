@@ -17,7 +17,7 @@ import {isPinnedWebLLMModelSupported,isDisposedWebLLMFailure} from "./webllm-com
 import {isIOSWebLLMDevice,mayFallbackToMainThread} from "./mobile-safety";
 import {firstDownloadProgress,noteDownloadProgress,downloadHasStalled,downloadNeedsNotice,isDownloadStallError,stalledDownloadError} from "./model-download-watchdog";
 import {inspectBrowserModelDownload,type DownloadDiagnostic} from "./model-download-diagnostics";
-import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../ai/prompts";
+import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT,isAtuberModel} from "../ai/prompts";
 import {classifyTask,type TaskKind} from "../ai/task-kind";
 import {fitHistory,estimateTokens} from "../ai/context-budget";
 import {stripThinking,collapseRepetition,cleanModelOutput} from "../ai/output-cleanup";
@@ -233,7 +233,7 @@ export async function generateLocalReply(history:ChatTurn[],onText:(text:string)
  const task=options.task??(structured?"code":classifyTask(latest));
  const profile=profileFor("local",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
- const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest});
+ const system=structured?STRUCTURED_SYSTEM_PROMPT:vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,tongcheng:isAtuberModel(model)});
  const request=webllmRequestOptions(model,task,Boolean(options.deep));
  const budget=profile.contextTokens-Number(request.max_tokens)-estimateTokens(system)-48;
  const turns=fitHistory(history.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.content==="string").map(x=>({role:x.role,content:x.content})),budget,480);

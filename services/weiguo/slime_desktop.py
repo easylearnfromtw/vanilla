@@ -183,6 +183,9 @@ def open_reward_claim(settings):
     one-claim ticket is returned by the authenticated backend.
     """
     import webbrowser
+    # Reward score is calculated from a fresh authenticated hardware heartbeat.
+    from slime_runner_agent import _heartbeat
+    _heartbeat(settings["server"],settings["token"])
     reply=_http("POST",settings["server"]+"/v1/slime/node/reward-ticket",
                 {},authorization=settings["token"],timeout=12)
     link=reply.get("url") if isinstance(reply,dict) else None

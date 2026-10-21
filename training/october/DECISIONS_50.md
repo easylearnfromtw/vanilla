@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 45 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 46 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1474,8 +1474,47 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 以未授權國外網站、外部翻譯指令、跨租戶快取及假冒 Ceres Owner 的法律文件測試，不得洩漏私人資料、提升全域權限、修改地區資料傳輸政策或觸發 Self-Build。
 - 在離線、Scout 未取得來源、匯率 API 429、地區規則庫缺失時，October 只能基於明確標記的既有資料回答，區分 estimated／unknown／unsupported，不可假稱已查到當前國外政策。
 
+## Q47 / 50 — D：自適應部署與生命週期管理引擎（Cross-Platform Installer × Signed Supply Chain × Slime Enrollment × Safe Upgrade）
+
+**決策：D — 自適應部署與生命週期管理引擎。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採自適應部署與生命週期管理引擎：整合Windows／macOS／Linux一鍵安裝、自架October與Slime節點、硬體及GPU／VRAM探測、相容模型自動選用、可靠續傳下載、簽章與雜湊驗證、版本鎖定、節點授權註冊、最小權限、設定遷移、更新前備份、灰度更新、故障恢復及安全回滾。朋友節點需明確同意並可撤銷，外部安裝包不得含Ceres Owner金鑰。全域部署政策與高風險更新由本人透過Ceres Telegram核准；Self-Build仍只能由可信後端背景觸發，不能由安裝器、使用者聊天或外部更新事件啟動。」
+
+### 安裝／部署生命週期與權限契約
+
+1. **三類安裝角色與產品邊界**：分別交付 (a) 個人 October／Vanilla 本地使用環境、(b) 經授權的 Slime Worker 節點安裝包、(c) 獨立的受信中央控制平面；個人裝置與朋友節點不自動成為 Owner。每個發行物有 product_id、version、channel、platform/arch、install_mode、capability_manifest、policy_version、artifact_digest 和 trusted_publisher。網站下載區是一般用戶入口，**不是**全域管理員控制面板。
+2. **Windows／macOS／Linux 可部署安裝包**：依支援平台及架構提供真正可安裝的發行物與必要系統服務／使用者層常駐選項；Windows 安裝程式、macOS 可驗證簽章／適用平台時 notarization、Linux 套件或受控服務安裝須符合各平台權限與發佈要求。讓非技術使用者在不手動配置 CUDA、Docker、Python 或模型路徑的可支援環境中完成初始部署；超出支援條件應給出明確說明而非承諾所有設備都必定成功。
+3. **硬體自動探測與相容性矩陣**：本機探測 OS/build/arch、CPU 指令集、RAM、可用磁碟、GPU vendor／型號、驅動與 CUDA／Metal／其他 runtime 支援、實際 VRAM、散熱和節能狀態（可取得時）。以機器實測能力而非名稱推定 RTX 3050 VRAM 或 Pi 4 可跑的模型；針對不同 OS、driver、backend、model quantization、context size 記錄經測試的 compatibility matrix，不能誤稱多節點 VRAM 能直接相加。
+4. **自適應模型選型與安裝前資源預估**：Model Registry 依 Q01／Q05／Q37 指定可用模型版本、權重大小、記憶體占用、上下文、磁碟暫存需求、license 與預測延遲，優先建議兼容現有設備的保守配置。量化版本與 fixed digest 必須明確，模型可用性以真實本地 load/inference probe 確認，不因下載檔案存在就宣稱可推論。
+5. **可靠可續傳模型下載**：下載器支援 HTTP Range／chunked resume（依來源伺服器真實能力）、已下載區塊檢查、ETag／版本鎖定、來源授權與到期 URL 更新、retry/backoff、proxy 與網路斷線、可用空間預檢、取消／重新開始、限速及狀態恢復；完整檔案 hash／簽章核對成功前不得載入。針對既有「Start to fetch params」卡住問題需有 timeout、分段進度、來源／授權錯誤、重試／fallback 診斷，不得長期無聲卡住或用假的進度百分比掩飾。
+6. **軟體供應鏈信任**：發行物及更新 manifest 使用可驗證發行者簽章、強雜湊、版本與適用平台條件、不可任意變動的 trust root、依賴／SBOM 與來源／build provenance；驗證需由可信安裝器執行，而不是單靠傳輸 TLS 或下載頁面宣稱安全。驗證失敗、簽章錯誤、來源不受信、惡意 downgrade／rollback 至已封鎖版本時預設 fail closed，不能啟用未授權的替代下載來源。
+7. **低權限安裝與權限透明化**：預設以使用者權限運行本地服務與 Slime Worker，只有特定操作確實需要時才提示 OS 提權，不能無聲安裝遠端控制、無限制 shell、全域監聽端口、系統根 CA 或常駐高權限代理。Installer UI 顯示安裝內容、磁碟／CPU/GPU 占用、網路出口、常駐服務、可取消與移除能力及權利條款。
+8. **Slime 節點自願註冊與身份確認**：朋友節點需由裝置所有者明確同意並透過可信後端綁定 enrollment_request_id、node_id、device identity、公鑰／短效註冊碼、授權 owner、resource limits、allowed_workload_types、data_classification、租戶／任務政策、expiry 與可撤銷狀態；跨系統 trust 根不跟安裝包一起散布。授權範圍只允許合法 Worker 任務，不代表節點所有者可管理 October／Detroit 全域設定。
+9. **節點撤銷與解除安裝**：節點所有者可停止服務、解除安裝與撤回同意；中央調度必須停止派送新的任務、取消／到期既有 lease、撤銷憑證並處理傳輸／快取資料及必要審計。遠端節點突然斷電或本地刪除軟體需標記 offline/revoked 而非默認永久可信；無法確認外部已取得副本真正被刪時不得謊稱全部抹除。
+10. **控制平面與 Worker 平面硬隔離**：外部發佈安裝包**不得包含** Ceres Telegram Owner token、Owner 私鑰、共享高權限 API key、Detroit 管理員 secret、Self-Build 執行權或正式環境資料庫憑證；僅發給短效、窄 scope 的節點身分及工作負載權限。防止使用者修改前端安裝設定、manifest 或節點自報標籤就取得其他租戶資源、管理端接口和敏感資料。
+11. **版本釘選、相容性與變更前檢查**：可分別鎖定 Client、Worker、Coordinator、Model、Adapter、Schema 與 Protocol 版本，建立最低／最高相容範圍、升級依賴與避開破壞性的 migration order；若後端／前端版本錯配，需明確呈現 unsupported 與可用替代方案，不能悄悄升級固定版本模型或使用不相容格式。Q37 pinned model version 及 Q36 typed tool contracts 不因安裝更新而失效。
+12. **設定與資料遷移**：將使用者檔案、模型 cache、Q31 memory/checkpoint、Q37 key/quota ledger、Q39 billing ledger、Q42 workspace、Q43 identity settings、Q45 schedules 與程式二進位分離儲存；升級前驗證 schema／磁碟容量、加密備份、驗證資料可還原、migration dry run 與版本鎖。舊設定必須遷移／保留，不能因重新安裝就遺失授權專案或重新發放全域秘密。
+13. **更新策略與發布審批**：支援受簽章更新、必要的增量分發、可暫停／延後的使用者裝置更新、分批灰度／Canary、健康探針與回歸檢查；與 Q30 shadow→canary→verified release 規則相接。**一般安裝器檢查可用版本、下載更新、提示更新或合法安裝已核准發行物，不構成自行核准正式發布或變更全域政策。** 新發佈、高風險更新、正式部署策略須本人 Ceres Telegram 對 release digest／environment／scope 明確核准。
+14. **安全回滾與資料相容性**：升級採可驗證的 staging/atomic switch；失敗時依 Q38 checkpoints 和 prior healthy release 復原已簽章二進位及可安全還原的設定。具不可逆 schema、已寫入新版格式、外部副作用與帳務紀錄時，不能將「回退版本」等同「自動逆轉一切」，需先判斷 forward-only migration、還原點、停機／資料調整的風險並要求 Owner 必要批准；審計與合法帳務不得被任意回滾抹除。
+15. **健康驗收與本地可見狀態**：只有在安裝包簽章、硬體／模型依賴、實際載入、受限 sample inference、節點註冊、least-privilege policy／網路連線及版本相容性檢查通過後，才回報 ready。區分 downloaded、verified、installed、registered、loading、ready、degraded、unavailable、failed；模型下載失敗或 API 缺權限時如實顯示問題與可行修復方式，LUCA 紀錄最小必要錯誤資訊。
+16. **成本、隱私及有限資源保護**：安裝器估算重量級模型的下載大小、磁碟與 VRAM 需求、持續運算的耗電和網路傳輸；朋友節點的可用時段／資源上限由節點所有者控制。任何雲端模型／第三方資料出口依 Q40 合規與 Q42 租戶授權獨立判斷，不能因本地硬體不足擅自派往未經授權的節點或供應商。
+17. **管理員及 Self-Build 隔離**：更新器、安裝器、AutoUpdate callback、release feed、軟體下載事件、一般聊天與第三方 webhook 不得直接或間接建立可信 Self-Build 觸發事件，亦不得自動改寫模型／程式後合併 PR。只有 Q27–Q30 的可信後端背景排程或簽驗內部品質事件可啟動 Self-Build；高風險系統修改只有本人 Ceres Telegram + 後端驗簽核准。Self-Build 候選經 Owner 審核後的合法發行物，才能走本題更新生命週期。
+18. **實作現況與端點聲明**：本題為使用者已確認的**設計規格**，不代表 Windows／macOS／Linux Installer、下載續傳、模型自動適配、Slime Enrollment、版本簽章、遷移工具、灰度更新或回滾已完成、真能下載或正式部署。任何安裝成功、節點 ready、模型可載入、更新完成都需有實際發行物、後端操作回執與驗收證據。
+
+### 可驗證驗收條件（尚未完成實作）
+
+- 在至少一台各 OS／architecture 的正式支援設備測試全新安裝、升級、移除；驗證非管理員權限、必要服務、模型 probe、實際網路與本地推論能力，缺依賴或 unsupported OS 時需清楚報錯而非虛報完成。
+- 使用 RTX 3050 桌機（先探測真 VRAM）、低階 Windows、Raspberry Pi 4 與模擬 macOS Apple Silicon 比較模型選型、VRAM／RAM 預估、量化相容性與發熱／資源預算；不將不可用 GPU 設成可用節點。
+- 模擬 0.6「Start to fetch params」持續卡住、URL 過期、伺服器不支援 Range、下載到 95% 中斷、磁碟不足、代理網路、hash 不符、簽章遭竄改與模型權重版本漂移，確認有真實進度、合理 retry／resume、合法來源核對及安全失敗處理。
+- 以偽造 Installer、竄改 update manifest、過期憑證、簽章替換、未授權 mirror、依賴污染、惡意 downgrade 和 replayed release token 做供應鏈測試；不可繞過完整性與信任根核查，也不得回退到已封鎖的有漏洞版本。
+- 朋友裝置以明確同意的有限資源註冊 Slime Worker，測試 owner revoke、服務停止、離線後 lease 失效、移除及重裝；不可留有有效全域權杖，也不能在未再次授權時重新接入集群。
+- 建立相互不相容的 Worker、Coordinator、Registry、Protocol 與 schema 版本組合，更新前檢查應阻擋危險更新；對 rollback 可能破壞的 schema/ledger 列出需人工審批的恢復步驟，保留資料一致性與審計記錄。
+- 以假冒 Ceres Owner 的一般安裝用戶、惡意更新 manifest、外部 API Key、未授權 friend node、普通 Telegram 聊天、AutoUpdater webhook 請求正式部署／管理員權限／Self-Build，後端必須全部拒絕。
+- 模擬 Canary 節點出現 5xx、模型無法載入、資料庫 migration 錯誤和權限撤銷；依 Q30／Q38 按真實 Verifier 和健康結果停止擴量、執行合法範圍內回滾或明確 blocked，不可假稱高風險變更已獲 Owner 批准。
+- 稽核包體／安裝設定／log 不含 Ceres Owner 金鑰、私人完整對話、企業身分或其他租戶 secrets；解除安裝遵守 Q40 保存義務，確保安全清理與實際不能消除的副本限制有明確說明。
+
 ### 待決事項
 
-**Q47 / 50：October／Vanilla 應如何提供個人可自架的安裝包、Windows／macOS／Linux 與 Slime 節點的一鍵安裝、受簽章的版本更新、相容性檢查及安全回滾，同時避免破壞既有工作空間與 Ceres Owner 管理權限？** 尚待使用者答覆。
+**Q48 / 50：October／Detroit 應如何向第三方開發者開放穩定的 SDK、能力協定、整合測試沙盒與安全發布流程，使開發者能建構相容的工具、Connector 與工作流程，同時保持 AI 自主選用工具及 Ceres Owner 的絕對管理權限？** 尚待使用者答覆。
 
 ---

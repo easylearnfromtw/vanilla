@@ -6,6 +6,8 @@ import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
 import ModelConnections from "../ai/ModelConnections";
 import DriveConnection from "../vault/DriveConnection";
+import SlimeWalletPanel from "../slime/SlimeWalletPanel";
+import "../slime/slime-wallet.css";
 import {OLLAMA_CTX_CHOICES,ollamaContextSetting,setOllamaContextSetting,DEFAULT_LOCAL_MODEL} from "../ai/model-profiles";
 import {webllmRequestOptions,geminiThinkingLevel,deepseekRequestExtras,ollamaRequestExtras} from "../ai/generation-config";
 import {getConfigs} from "../vault/providers";
@@ -48,7 +50,7 @@ export default function SettingsPage(){
   <nav className="settings-jump" aria-label="設定分類">{SECTIONS.map(([id,label])=><a key={id} href={"#"+id} onClick={e=>{e.preventDefault();document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"});}}>{label}</a>)}</nav>
   <section className="panel settings-card" id="account"><h2>帳號與同步</h2>
    <p>每個家庭成員使用自己的 Google 帳號與私有 Drive 空間；共用資料需另外授權，不會自動混合。</p>
-   <DriveConnection/><ChatSyncSettings/>
+   <DriveConnection/><ChatSyncSettings/><SlimeWalletPanel/>
   </section>
   <section className="panel settings-card" id="models"><h2>AI 模型</h2><ModelConnections/></section>
   <TuningCard/>

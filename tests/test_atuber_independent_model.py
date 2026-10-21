@@ -79,7 +79,7 @@ class TestAtuberIndependentModel(unittest.TestCase):
             (directory/"atuber-release.json").write_text('{"model_id":"atuber-0.1","release_state":"bootstrap-only"}')
             gguf=directory/"fake.gguf"
             gguf.write_bytes(b"GGUF"+bytes(4096))
-            with self.assertRaisesRegex(ValueError,"TRAINED"):
+            with self.assertRaisesRegex(ValueError,"TRAINING_LINEAGE"):
                 package(str(directory),str(gguf),str(directory/"output"))
 
     def test_ui_manifest_never_claims_unproduced_weights(self):

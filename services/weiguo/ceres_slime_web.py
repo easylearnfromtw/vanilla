@@ -147,7 +147,55 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 @media(min-width:630px){.hero{padding:25px 30px}.card{padding:25px}.sheet-backdrop{align-items:center}}
 @media(max-width:380px){.hero{padding:18px}.hub-private{font-size:9px;padding:6px 7px}.metric{padding:12px;min-height:115px}.metric strong{font-size:34px}.pair-actions{grid-template-columns:1fr}.node .btn{min-width:0}}
 @media(prefers-reduced-motion:reduce){.tabs button{transition:none}}
+
+/* Explicit welcome → all-white iOS workspace, independent from Telegram chat wallpaper. */
+html.slime-white,html.slime-white body{
+ color-scheme:light;
+ --bg:#ffffff;--paper:#ffffff;--ink:#141416;--muted:#72727a;
+ --line:#e8e8eb;--soft:#f7f7f8;--accent:#141416;--accentText:#ffffff;
+ background:#ffffff!important;color:#141416!important;
+}
+html.slime-white .tabs{background:#f5f5f6}
+html.slime-white .card,html.slime-white .hero{background:#ffffff}
+.welcome-splash{
+ position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+ padding:max(24px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right))
+ max(35px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));
+ background:#121214;color:#ffffff;overflow:auto;
+}
+.welcome-inner{max-width:500px;width:100%;min-height:min(610px,85vh);display:flex;flex-direction:column}
+.welcome-header{display:flex;align-items:center;gap:12px}
+.welcome-logo{display:grid;place-items:center;width:44px;height:44px;background:#fff;color:#111;border-radius:14px;font-size:24px;font-weight:800}
+.welcome-brand{font-size:12px;letter-spacing:.15em;font-weight:750}
+.welcome-edition{margin-left:auto;letter-spacing:.14em;font-size:10px;color:#b1b1ba}
+.welcome-center{flex:1;display:flex;justify-content:center;flex-direction:column;padding:50px 0 40px}
+.welcome-overline{font-size:11px;font-weight:760;letter-spacing:.15em;color:#b6b6bf}
+.welcome-center h2{font-size:clamp(44px,11vw,70px);letter-spacing:-.08em;line-height:1.08;margin:16px 0 20px;font-weight:810;color:#ffffff}
+.welcome-center h2 span{color:#a3a3ac}
+.welcome-center p{line-height:1.9;font-size:13px;color:#bbbcc4}
+.welcome-points{margin:26px 0 0;display:grid;gap:13px}
+.welcome-points div{display:flex;align-items:center;gap:13px;font-size:12px;color:#e4e4e9}
+.welcome-index{display:grid;place-items:center;width:28px;height:28px;border:1px solid #47474d;border-radius:10px;font-size:11px;color:#bfc0c9}
+.welcome-start{width:100%;min-height:56px;background:#ffffff;border:1px solid #ffffff;color:#111114;
+ border-radius:15px;font-weight:790;font-size:15px;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+.welcome-start:active{transform:scale(.99)}
+.welcome-privacy{font-size:10px;line-height:1.7;margin-top:16px;color:#92929e;text-align:center}
+@media(max-width:380px){.welcome-center h2{font-size:43px}.welcome-splash{padding-left:19px;padding-right:19px}}
+@media(prefers-reduced-motion:reduce){.welcome-start:active{transform:none}}
 </style></head><body>
+<div id="welcome-splash" class="welcome-splash" role="region" aria-label="Ceres Slime 歡迎畫面" hidden>
+<div class="welcome-inner">
+<div class="welcome-header"><span class="welcome-logo" aria-hidden="true">S</span><span class="welcome-brand">CERES / SLIME</span><span class="welcome-edition">OWNER STUDIO</span></div>
+<div class="welcome-center"><span class="welcome-overline">WELCOME TO YOUR OWN AI NETWORK</span>
+<h2>歡迎來到<br><span>Slime。</span></h2>
+<p>你的電腦，成為你的運算網路。<br>所有節點、配對和模型授權，都由你掌握。</p>
+<div class="welcome-points">
+<div><span class="welcome-index">01</span>即時查看你的節點狀態</div>
+<div><span class="welcome-index">02</span>一鍵建立安全配對碼</div>
+<div><span class="welcome-index">03</span>重要權限由你確認</div></div></div>
+<button id="welcome-start" class="welcome-start" type="button">開始使用 <span aria-hidden="true">→</span></button>
+<p class="welcome-privacy">按下後進入全白工作介面；不會更改 Telegram 聊天桌布或開放模型權限。</p>
+</div></div>
 <header class="hero">
 <div class="hub-top"><div class="hub-mark" aria-hidden="true">S</div><div class="hub-brand"><span class="eyebrow">CERES / OWNER STUDIO</span><b>SLIME NETWORK</b></div><span class="hub-private">◇ 私人控制台</span></div>
 <div class="hero-copy"><span class="hero-kicker">● YOUR COMPUTE FABRIC</span>
@@ -335,6 +383,7 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   finally{busy=false;$("approve").disabled=false;$("confirm-box").hidden=true;}
  }
  if(!auth){
+  $("welcome-splash").hidden=true;
   $("auth-block").hidden=false;
   $("service").textContent="需要 Telegram 簽署驗證";
   document.querySelectorAll("button").forEach(b=>b.disabled=true);
@@ -351,6 +400,18 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
  $("approve").addEventListener("click",approve);
  function closeConfirm(){pending=null;$("confirm-box").hidden=true;}
  $("cancel").addEventListener("click",closeConfirm);
+ // Opening a signed Mini App shows a welcome landing before the white workspace.
+ // This is per-open visual state; no credentials or onboarding flags are stored.
+ $("welcome-splash").hidden=false;
+ $("welcome-start").addEventListener("click",()=>{
+  $("welcome-splash").hidden=true;
+  document.documentElement.classList.add("slime-white");
+  document.documentElement.style.colorScheme="light";
+  try{tg.setBackgroundColor?.("#ffffff");tg.setHeaderColor?.("#ffffff");tg.setBottomBarColor?.("#ffffff");}catch(e){}
+  haptic();
+  setTab("overview");
+  void reload();
+ });
  $("confirm-box").addEventListener("click",event=>{if(event.target===$("confirm-box"))closeConfirm();});
  document.addEventListener("keydown",event=>{
   if(event.key==="Escape"&&!$("confirm-box").hidden){event.preventDefault();closeConfirm();}
@@ -359,7 +420,6 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
    if(i>=0){const next=tabs[(i+(event.key==="ArrowRight"?1:tabs.length-1))%tabs.length];setTab(next.dataset.tab);next.focus();}
   }
  });
- void reload();
 })();
 </script></body></html>"""
 

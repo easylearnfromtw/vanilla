@@ -46,7 +46,7 @@
     "test:victoria": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/victoria.test.mjs",
     "test:detroit-bus": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-capability-bus.test.mjs",
     "test:merlin": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/merlin-optimizer.test.mjs tests/merlin-clarifier.test.mjs",
-    "test:detroit-studio": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-studio.test.mjs tests/penteract-lab-entry.test.mjs tests/atuber-tool-coordinator.test.mjs",
+    "test:detroit-studio": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-studio.test.mjs tests/penteract-lab-entry.test.mjs tests/atuber-tool-coordinator.test.mjs tests/atuber-model-tool-plan.test.mjs",
     "test:node-fabric": "node --test tests/node-fabric-ui.test.mjs",
     "test:slime-onboarding": "node --test tests/slime-onboarding.test.mjs",
     "test:slime-standalone": "node --test tests/slime-standalone-portal.test.mjs",

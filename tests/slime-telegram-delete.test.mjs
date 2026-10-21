@@ -25,7 +25,7 @@ test("Telegram Ceres issues node-bound, 12-hex deletion codes and has action but
  assert.match(bot,/secrets\.token_hex\(6\) if operation == "revoke"/);
  assert.match(bot,/from slime_revoke_gate import consume_revoke, RevokeDenied/);
  assert.match(bot,/最多錯誤 5 次/);
- assert.match(hub,/remove:\+node\["id"\]/);
+ assert.match(hub,/"remove:"\+node\["id"\]/);
  assert.match(hub,/re\.fullmatch\(r"remove:\[a-f0-9\]\{24\}"/);
 });
 

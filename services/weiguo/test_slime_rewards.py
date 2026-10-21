@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 import slime
 from slime_rewards import (reward_ticket, claim, Claim, config, set_config,
-                           balance, GoogleCredential, _google, _owner_chat)
+                           balance, GoogleCredential, _google, _owner_chat, rotate_key)
 from vanilla_public_api import (_reserve, _finish, _key_from_header)
 
 
@@ -92,6 +92,30 @@ class SlimeRewardWalletTests(unittest.TestCase):
                 usage={"prompt_tokens":12,"completion_tokens":4})
         self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],99984)
         self.assertEqual([x["kind"] for x in w["transactions"]].count("api_refund"),1)
+
+    def test_conservative_reservation_is_labeled_estimate(self):
+        result=self.claim_reward(self.ticket())
+        key=_key_from_header("Bearer "+result["apiKey"])
+        job=_reserve(key,"fake-model",800)
+        _finish(key["id"],job,800,status="success",usage=None)
+        wallet=balance(GoogleCredential(credential="x"*120))
+        self.assertEqual(wallet["balance"],99200)
+        self.assertEqual(wallet["usage"]["estimatedTokens"],800)
+        self.assertEqual(wallet["usage"]["exactTokens"],0)
+
+    def test_rotating_key_does_not_forfeit_old_inflight_refunds(self):
+        result=self.claim_reward(self.ticket())
+        old=_key_from_header("Bearer "+result["apiKey"])
+        job=_reserve(old,"fake-model",900)
+        replacement=rotate_key(GoogleCredential(credential="x"*120))
+        with self.assertRaises(HTTPException):
+            _key_from_header("Bearer "+result["apiKey"])
+        self.assertTrue(_key_from_header("Bearer "+replacement["apiKey"]))
+        _finish(old["id"],job,900,status="success",
+                usage={"prompt_tokens":20,"completion_tokens":10})
+        wallet=balance(GoogleCredential(credential="x"*120))
+        self.assertEqual(wallet["balance"],99970)
+        self.assertEqual(wallet["usage"]["exactTokens"],30)
 
     def test_failed_generation_refunds_reward_wallet_fully(self):
         result=self.claim_reward(self.ticket())

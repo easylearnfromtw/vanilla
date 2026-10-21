@@ -34,6 +34,8 @@ jobs:
           fetch-depth: 0
       - name: Validate classification policy
         run: python3 -m unittest discover -s tests -p 'test_giskard_change_detector.py'
+      - name: Validate Hank / Tracely safety contracts
+        run: python3 -m unittest discover -s tests -p 'test_hank_tracely.py'
       - name: Classify source change or owner override
         id: detect
         env:
@@ -122,3 +124,82 @@ jobs:
           name: hank-live-aggregate
           path: artifacts/giskard-live-summary.json
           if-no-files-found: ignore
+
+  tracely-gate:
+    name: Hank / Tracely candidate scenarios
+    needs: [classify, giskard-checks]
+    if: >-
+      ${{ needs.classify.outputs.major == 'true' &&
+          needs.giskard-checks.result == 'success' &&
+          vars.HANK_TRACELY_ENABLED == 'true' &&
+          ((github.event_name == 'pull_request' &&
+            vars.HANK_TRACELY_PR_GATE_ENABLED == 'true' &&
+            github.event.pull_request.head.repo.full_name == github.repository) ||
+           (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      TRACELY_API: ${{ vars.HANK_TRACELY_API }}
+      HANK_TRACELY_AGENTS: ${{ vars.HANK_TRACELY_AGENTS }}
+      HANK_TRACELY_REVISION_URL: ${{ vars.HANK_TRACELY_REVISION_URL }}
+      HANK_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      HANK_TRACELY_TIMEOUT: "900"
+    steps:
+      # CI controls and secrets must never execute arbitrary PR branch scripts.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install reviewed Tracely SDK revision
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'git+https://github.com/jwuthri-cloud/Tracely-ai.git@e6a37cddb0a62b4a4b925b0f517532e541daa208#subdirectory=sdk'
+      - name: Verify candidate revision then run private Tracely scenarios
+        env:
+          TRACELY_KEY: ${{ secrets.HANK_TRACELY_KEY }}
+        run: python scripts/hank-tracely-gate.py
+      - name: Upload only aggregate gate status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hank-tracely-aggregate
+          path: artifacts/hank-tracely-summary.json
+          if-no-files-found: ignore
+
+  ceres-hank-alert:
+    name: Ceres / Hank private failure notice
+    needs: [giskard-checks, giskard-live, tracely-gate]
+    if: >-
+      ${{ always() &&
+          (needs.giskard-checks.result == 'failure' ||
+           needs.giskard-live.result == 'failure' ||
+           needs.tracely-gate.result == 'failure') &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HANK_GISKARD_STATUS: ${{ needs.giskard-checks.result }}
+      HANK_LIVE_STATUS: ${{ needs.giskard-live.result }}
+      HANK_TRACELY_STATUS: ${{ needs.tracely-gate.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Send only fixed-label failure summary to verified Ceres owner chat
+        env:
+          HANK_CERES_BOT_TOKEN: ${{ secrets.HANK_CERES_BOT_TOKEN }}
+          HANK_CERES_OWNER_CHAT_ID: ${{ secrets.HANK_CERES_OWNER_CHAT_ID }}
+        run: |
+          if [[ -f scripts/hank-ceres-notify.py ]]; then
+            python3 scripts/hank-ceres-notify.py
+          else
+            echo "Ceres Hank notifier not yet available on base branch"
+          fi

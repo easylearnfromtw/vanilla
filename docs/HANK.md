@@ -8,4 +8,9 @@
 
 進入 GitHub **Actions → Hank AI Quality Gate** 查看執行紀錄。測試報告顯示 `system: Hank`，且明確標示使用的 Giskard 引擎。
 
+
+## Tracely 情境回歸（選用）
+
+Hank 亦可透過 [Tracely](https://github.com/jwuthri-cloud/Tracely-ai) 執行已核准、部署候選版本的多輪 Agent 場景測試。**預設關閉**，且 LUCA 仍只收集不含 prompt／回覆的低敏 metadata。整合步驟、GitHub Actions Secrets、Ceres 失敗通知與尚未部署的限制，請見 [Hank × Tracely 配置指南](HANK_TRACELY.md)。
+
 完整操作說明：[Hank / Giskard 測試政策](./GISKARD_MAJOR_AI_TESTS.md)。

@@ -3,6 +3,7 @@ import {ROTATION_PLANES,PENTERACT_VERTICES,PENTERACT_EDGES,project5D,
  planPenteractFunnel,embedFiveSpace,FIVE_EXPERTS,type RotationPlane} from "./penteract-5d";
 import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract-camera";
 import {sectionPenteract5D,type FiveSlice} from "./penteract-section";
+import {shadowPenteractRoute} from "./penteract-shadow";
 import {latestOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "./penteract-telemetry";
 import "./penteract-5d.css";
 
@@ -21,11 +22,13 @@ export default function PenteractFunnelPanel(){
  const [measured,setMeasured]=useState(latestOctoberFunnelObservation);
  useEffect(()=>subscribeOctoberFunnelObservation(setMeasured),[]);
  const plan=useMemo(()=>planPenteractFunnel(text,{privateMode:true}),[text]);
+ const shadow=useMemo(()=>shadowPenteractRoute(text),[text]);
  const projected=useMemo(()=>PENTERACT_VERTICES.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[plane,angle,orbit]);
  const expertNodes=useMemo(()=>FIVE_EXPERTS.map(p=>({
   ...p,pos:cameraProject3D(project5D(p.prototype,plane,angle),orbit)
  })),[plane,angle,orbit]);
  const query=useMemo(()=>cameraProject3D(project5D(embedFiveSpace(text),plane,angle),orbit),[text,plane,angle,orbit]);
+ const chosenExpert=expertNodes.find(node=>node.id===shadow.candidateId);
  const sliceGeometry=useMemo(()=>sectionPenteract5D(slice),[slice]);
  const sliceProjected=useMemo(()=>sliceGeometry.vertices.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[sliceGeometry,plane,angle,orbit]);
  return <section className="october-5d" aria-label="阿土伯 Penteract 五維架構與理解優先漏斗">
@@ -48,7 +51,8 @@ export default function PenteractFunnelPanel(){
        {sliceGeometry.edges.map(([a,b])=><line key={`section-${a}-${b}`} x1={sliceProjected[a].x} y1={sliceProjected[a].y} x2={sliceProjected[b].x} y2={sliceProjected[b].y} stroke="currentColor" strokeWidth="2.5" opacity=".85"/>)}
        {sliceProjected.map((p,i)=><circle key={`section-v-${i}`} cx={p.x} cy={p.y} r="4" fill="currentColor" opacity=".94"/>)}
       </g>}
-      {expertNodes.filter(p=>showAll||plan.routes.some(r=>r.id===p.id)).map(x=>
+      {shadow.status==="candidate"&&chosenExpert&&<line x1={query.x} y1={query.y} x2={chosenExpert.pos.x} y2={chosenExpert.pos.y} stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" opacity=".85"/>}
+      {expertNodes.filter(p=>showAll||(shadow.status==="candidate"&&plan.routes.some(r=>r.id===p.id))).map(x=>
        <g key={x.id}><circle cx={x.pos.x} cy={x.pos.y} r="7" fill="#fff" stroke="#8d8d8d" strokeWidth="1.5"/><title>{x.title}：五維原型座標（非實測語意精度）</title></g>)}
       <circle cx={query.x} cy={query.y} r="10" fill="#111" stroke="#fff" strokeWidth="3"/>
       <circle cx={query.x} cy={query.y} r="15" fill="none" stroke="#111" opacity=".36"/>
@@ -124,7 +128,8 @@ export default function PenteractFunnelPanel(){
    </section>
    <div className="october-5d-routes">
     <h3>候選路由 · 五維幾何距離</h3>
-    {plan.routes.map((r,i)=><div key={r.id}><span className="october-5d-index">0{i+1}</span><strong>{r.title}</strong><span>距離 {r.distance.toFixed(3)}</span><small>僅供建議，未呼叫工具</small></div>)}
+    {shadow.status==="abstain"?<p role="status" className="october-5d-note">目前沒有足以選出單一專家的可靠線索（{shadow.reason==="no-lexical-evidence"?"未找到領域訊號":"多個專家距離相近"}）。五維路由選擇棄權，保留對話理解與 Diana 既有權限流程。</p>:
+     plan.routes.map((r,i)=><div key={r.id}><span className="october-5d-index">0{i+1}</span><strong>{r.title}</strong><span>距離 {r.distance.toFixed(3)}</span><small>{r.id===shadow.candidateId?"五維影子首選；未執行":"備選，未執行"}</small></div>)}
    </div>
    <p className="october-5d-note">不能由模型、5D 座標或瀏覽器分數自行授予工具權限；真正操作仍必須經可信後端、Diana／Ceres 權限與 Verifier 核對。沒有把測試結果當成路由準確率。</p>
   </div>

@@ -225,7 +225,8 @@ def slime_status(user: FamilyIdentity = Depends(_owner)):
 
 @router.post("/v1/family/slime/invite")
 def issue_invite(user: FamilyIdentity = Depends(_owner)):
-    return issue_short_pair(user.sub)
+    _enabled()
+    raise HTTPException(403, "請在 Ceres Telegram Owner 私聊核發 Slime 配對碼")
 
 
 @router.get("/v1/family/slime/nodes")

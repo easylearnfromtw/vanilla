@@ -398,6 +398,10 @@ def weeken_join(body:WeekenOptIn):
             WHERE c.google_sub=?""",(sub,)).fetchone()
         if not claim:
             raise HTTPException(403,"請先完成 Slime 節點獎勵領取")
+        settings=db.execute("SELECT weeken_enabled FROM slime_reward_config WHERE owner_sub=?",
+                            (claim["owner_sub"],)).fetchone()
+        if settings and not settings["weeken_enabled"]:
+            raise HTTPException(403,"WEEKEN 目前不接受新增或恢復登記")
         row=db.execute("SELECT status,bonus FROM slime_weeken_enrollment WHERE google_sub=?",
                        (sub,)).fetchone()
         if row:
@@ -416,10 +420,6 @@ def weeken_join(body:WeekenOptIn):
                     (now,now,int(body.allow_contact),int(body.allow_diagnostics),sub))
             return {"joined":True,"alreadyGranted":True,"bonusTokens":row["bonus"],
                     "consentVersion":1}
-        settings=db.execute("SELECT weeken_enabled FROM slime_reward_config WHERE owner_sub=?",
-                            (claim["owner_sub"],)).fetchone()
-        if settings and not settings["weeken_enabled"]:
-            raise HTTPException(403,"WEEKEN 目前不接受新增登記")
         # Exclude deleted nodes even when the deletion has not been reconciled.
         from slime import _db
         with _db() as nodes:

@@ -58,7 +58,7 @@ async def register_store_webhook() -> bool:
                 return False
             response = (await client.post(api + "setWebhook", json={
                 "url": url, "secret_token": secret,
-                "allowed_updates": ["message"], "drop_pending_updates": False
+                "allowed_updates": ["message", "callback_query"], "drop_pending_updates": False
             })).json()
             if response.get("ok") is not True or response.get("result") is not True:
                 raise ValueError("registration failed")
@@ -84,14 +84,74 @@ def _claim(update_id: int) -> bool:
         return cursor.rowcount == 1
 
 
-async def _send(chat_id: int, text: str):
-    token = os.environ["CERES_STORE_BOT_TOKEN"]
-    async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
-        result = await client.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                                   json={"chat_id": chat_id, "text": text, "reply_markup": {"inline_keyboard": [[{"text": "📚 開始學習 AI · Vanilla Academy", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app#learn"}}], [{"text": "開啟 Vanilla API Store", "web_app": {"url": "https://weiguo-browser-production.up.railway.app/v1/ceres/store/app"}}]]}})
-        result.raise_for_status()
-        if result.json().get("ok") is not True:
-            raise ValueError("send failed")
+
+LESSONS = [
+ ("AI 基礎","理解 Token、上下文與提示詞。練習：描述一個有目標、限制和輸出格式的指令。","coding"),
+ ("AI Coding","ChatGPT／Claude 開發流程：先規格、後最小實作、最後測試；不要分享 API Key。","api"),
+ ("API 串聯","先確認服務的真實端點、模型名稱和認證方式，再撰寫程式。401 為認證失敗，429 常見於配額限制。","october"),
+ ("October","October 的產品定位是資料與工具驅動的自主執行引擎，包含規劃、工具調用、證據驗證；屬設計目標，非效能保證。","ai")
+]
+def _learning_state(chat_id):
+    path=Path(os.getenv("CERES_DB_PATH","/tmp/ceres-events.sqlite3"))
+    path.parent.mkdir(parents=True,exist_ok=True)
+    db=sqlite3.connect(path,timeout=10)
+    db.execute("CREATE TABLE IF NOT EXISTS store_learning (chat_id INTEGER PRIMARY KEY, level TEXT NOT NULL DEFAULT '', lesson INTEGER NOT NULL DEFAULT 0, mastered TEXT NOT NULL DEFAULT '[]')")
+    row=db.execute("SELECT level,lesson,mastered FROM store_learning WHERE chat_id=?",(chat_id,)).fetchone()
+    if row is None:
+        db.execute("INSERT INTO store_learning(chat_id) VALUES(?)",(chat_id,))
+        db.commit()
+        row=("",0,"[]")
+    return db,row
+def _buttons(rows):
+    return {"inline_keyboard":[[{"text":label,"callback_data":data} for label,data in row] for row in rows]}
+async def _tg(method,data):
+    token=os.environ["CERES_STORE_BOT_TOKEN"]
+    async with httpx.AsyncClient(timeout=8,trust_env=False,follow_redirects=False) as client:
+        response=await client.post(f"https://api.telegram.org/bot{token}/{method}",json=data)
+        response.raise_for_status()
+        if response.json().get("ok") is not True: raise ValueError("Telegram API error")
+async def _send(chat_id,text,keyboard=None):
+    await _tg("sendMessage",{"chat_id":chat_id,"text":text,"reply_markup":keyboard or _buttons([[("📚 開始學習 AI","learn:start")]])})
+async def _learn(chat_id,action):
+    db,row=_learning_state(chat_id)
+    try:
+        level,step,mastered_raw=row
+        mastered=set(json.loads(mastered_raw))
+        if action=="start":
+            await _send(chat_id,"📚 Vanilla Academy\\n先選擇你的程度，我會調整推薦順序。",_buttons([
+                [("零基礎","learn:level:0"),("入門","learn:level:1")],
+                [("開發者","learn:level:2"),("進階","learn:level:3")]]))
+            return
+        if action.startswith("level:") and action[-1:] in ("0","1","2","3"):
+            level=action[-1]
+            step={"0":0,"1":1,"2":2,"3":3}[level]
+            mastered=set()
+        elif action=="next": step=min(step+1,len(LESSONS)-1)
+        elif action=="prev": step=max(step-1,0)
+        elif action=="master":
+            mastered.add(step)
+            candidates=[i for i in range(len(LESSONS)) if i not in mastered]
+            if candidates:
+                preferred={"0":[0,1,2,3],"1":[1,2,3,0],"2":[2,3,1,0],"3":[3,2,1,0]}.get(level,[0,1,2,3])
+                step=next(i for i in preferred if i in candidates)
+                prefix="🎉 很棒！這一課已標記為學會。\\n依照你的程度與尚未完成的篇章，我推薦：\\n\\n"
+            else:
+                prefix="🎉 太棒了！你已完成目前所有篇章，可以重新選程度複習。\\n\\n"
+        elif action.startswith("go:") and action[3:].isdigit():
+            step=min(int(action[3:]),len(LESSONS)-1)
+        else:
+            step=max(0,min(step,len(LESSONS)-1))
+        db.execute("UPDATE store_learning SET level=?,lesson=?,mastered=? WHERE chat_id=?",
+                   (level,step,json.dumps(sorted(mastered)),chat_id))
+        db.commit()
+        title,body,_=LESSONS[step]
+        prefix=locals().get("prefix","")
+        await _send(chat_id,prefix+f"📖 {title} · {step+1}/{len(LESSONS)}\\n\\n{body}\\n\\n進度：{len(mastered)}/{len(LESSONS)} 已學會",
+                    _buttons([[("◀ 上一課","learn:prev"),("下一課 ▶","learn:next")],
+                              [("✅ 這我會了","learn:master")],
+                              [("📚 推薦其他篇章","learn:recommend"),("重新分級","learn:start")]]))
+    finally:
+        db.close()
 
 
 @router.get("/app")
@@ -118,6 +178,20 @@ async def store_webhook(request: Request,
         raise HTTPException(400, "Invalid JSON") from None
     if not isinstance(update, dict) or type(update.get("update_id")) is not int:
         raise HTTPException(400, "Invalid update")
+    callback=update.get("callback_query")
+    if isinstance(callback,dict):
+        sender=callback.get("from") or {}
+        msg=callback.get("message") or {}
+        chat=msg.get("chat") or {}
+        chat_id=chat.get("id")
+        if (chat.get("type")=="private" and type(chat_id) is int
+                and sender.get("id")==chat_id and not sender.get("is_bot")
+                and isinstance(callback.get("data"),str) and callback["data"].startswith("learn:")):
+            if _claim(update["update_id"]):
+                await _learn(chat_id,callback["data"][6:])
+            if isinstance(callback.get("id"),str):
+                await _tg("answerCallbackQuery",{"callback_query_id":callback["id"]})
+        return {"ok":True}
     message = update.get("message")
     if not isinstance(message, dict):
         return {"ok": True}
@@ -128,6 +202,12 @@ async def store_webhook(request: Request,
     if (chat.get("type") != "private" or type(chat_id) is not int
             or sender.get("id") != chat_id or sender.get("is_bot")):
         return {"ok": True}
+    user_text=message.get("text","").strip() if isinstance(message.get("text"),str) else ""
+    actions={"上一課":"prev","下一課":"next","這我會了":"master","推薦":"recommend","教學":"start"}
+    if user_text in actions:
+        if _claim(update["update_id"]):
+            await _learn(chat_id,actions[user_text])
+        return {"ok":True}
     command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
     if command not in ("/start", "/help"):
         return {"ok": True}

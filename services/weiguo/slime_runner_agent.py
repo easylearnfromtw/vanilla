@@ -130,10 +130,51 @@ def _gpu_name():
     return _cached_gpu
 
 
+_last_metrics_at=0.0
+_metrics=(None,None)
+def _gpu_metrics():
+    global _last_metrics_at,_metrics
+    now=time.monotonic()
+    if now-_last_metrics_at<25:
+        return _metrics
+    _last_metrics_at=now
+    if not shutil.which("nvidia-smi"):
+        _metrics=(None,None)
+        return _metrics
+    try:
+        result=subprocess.run(["nvidia-smi",
+            "--query-gpu=temperature.gpu,utilization.gpu",
+            "--format=csv,noheader,nounits"],
+            capture_output=True,text=True,timeout=3,check=True)
+        values=result.stdout.splitlines()[0].split(",")
+        temp=float(values[0].strip())
+        use=float(values[1].strip())
+        _metrics=(temp if 0<=temp<=125 else None,
+                  use if 0<=use<=100 else None)
+    except (OSError,ValueError,IndexError,subprocess.SubprocessError):
+        _metrics=(None,None)
+    return _metrics
+
+
+def _cpu_percent():
+    try:
+        import psutil
+        return max(0,min(100,float(psutil.cpu_percent(interval=None))))
+    except (ImportError,ValueError,AttributeError):
+        pass
+    try:
+        return round(max(0,min(100,os.getloadavg()[0]/max(os.cpu_count() or 1,1)*100)),1)
+    except (OSError,AttributeError,ValueError):
+        return None
+
+
 def _heartbeat(server,token):
+    temperature,utilization=_gpu_metrics()
     return _http("POST",server+"/v1/slime/node/heartbeat",{
         "capabilities":{"cpu":min(os.cpu_count() or 1,512),"ram_gb":_ram_gb(),
-                        "gpu":_gpu_name(),"os":platform.system()},
+                        "gpu":_gpu_name(),"os":platform.system(),
+                        "cpu_pct":_cpu_percent(),"gpu_temp_c":temperature,
+                        "gpu_util_pct":utilization},
         "share_enabled":True},authorization=token)
 
 
@@ -179,6 +220,29 @@ def _execute(request):
     return {"ok":True,"text":content,"prompt_tokens":a,"completion_tokens":b}
 
 
+def _handle_power(server,token):
+    if os.getenv("SLIME_ALLOW_POWER_OFF")!="1":
+        return
+    response=_http("POST",server+"/v1/slime/node/power/poll",authorization=token)
+    if response.get("command")!="shutdown":
+        return
+    print("Owner 已核准關機。60 秒後關閉本機；按 Ctrl+C 可中止。",flush=True)
+    time.sleep(60)
+    system=platform.system()
+    try:
+        if system=="Windows":
+            subprocess.run(["shutdown.exe","/s","/t","0"],check=True,timeout=10)
+        elif system=="Darwin":
+            subprocess.run(["/usr/bin/osascript","-e",
+                'tell application "System Events" to shut down'],check=True,timeout=12)
+        elif system=="Linux":
+            subprocess.run(["systemctl","poweroff"],check=True,timeout=12)
+        else:
+            print("系統不支援遠端電源關閉")
+    except (OSError,subprocess.SubprocessError):
+        print("系統拒絕關機；不提升權限也不繞過系統保護。")
+
+
 def run():
     server=_server()
     token=_token()
@@ -190,6 +254,8 @@ def run():
             # Heartbeats and model capabilities are always self-reported; Server
             # Owner policy must grant inference separately.
             state=_heartbeat(server,token)
+            if os.getenv("SLIME_ALLOW_POWER_OFF")=="1":
+                _handle_power(server,token)
             if not state.get("owner_enabled") or not state.get("inference_enabled"):
                 if last_register:
                     print("Slime 推論權限已關閉；仍可回報節點心跳。")
@@ -228,6 +294,10 @@ def run():
                     print("Local Ollama inference failed (no sensitive content logged).")
                 _http("POST",server+"/v1/slime/node/runner/result",
                       payload,authorization=token)
+                # Duty-cycle moderation, not GPU power-limit control.
+                duty=max(10,min(100,int(state.get("max_load_pct",100))))
+                delay=round((100-duty)*0.3,1)
+                if delay:time.sleep(delay)
                 # A single local runner executes one job at a time by design.
         except KeyboardInterrupt:
             print("Runner stopped.")

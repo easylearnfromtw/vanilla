@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 32 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 33 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1004,8 +1004,43 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 以含個人敏感資訊的虛擬研究資料測試多租戶、非 Owner、朋友節點、公開報表和未授權雲端模型，不得越權存取、傳輸或分享資料；研究重現包應符合授權和去識別政策。
 - 透過一般研究聊天、文獻內惡意提示、記憶及偽造內部事件請求執行 Self-Build 或高風險部署，可信後端須阻擋；高風險批准由本人 Ceres Telegram 針對具體項目及環境獨立完成。
 
+## Q34 / 50 — D：可驗證的專業決策智慧引擎（MCDA × Scenario × Optimization × Risk × Verifier）
+
+**決策：D — 可驗證的專業決策智慧引擎。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採可驗證的專業決策智慧引擎：整合研究證據、多準則決策分析、情境與壓力模擬、數學最佳化、Pareto效率、風險與不確定性分析、敏感度測試、Verifier獨立驗證及版本化決策Artifact。嚴格區分已觀察資料、預測與假設情境；保留決策依據、限制和可重現計算。不得自行執行未授權高風險決策；Self-Build僅由可信後端背景觸發，系統級高風險變更仍須本人Ceres Telegram核准。」
+
+### 決策分析架構與可靠性契約
+
+1. **研究與決策分層**：Q33 的已驗證文獻、觀察資料、統計結果及因果估計形成 Evidence Layer；Q34 的 Decision Layer 才定義目標函數、替代方案、資源限制、利益相關者、風險容忍度及候選決策。推估值不得冒充事實，研究結果亦不自動成為操作許可。
+2. **Typed Decision Problem**：以可驗證 schema 記錄 decision_id、question、alternatives、stakeholders、criteria、units、criterion_direction、constraint_set、objective_weights／ranges、feasible_region、risk_budget、time_horizon、data_refs、assumptions、scenario_version、model_version、solver_version、uncertainty_model、owner／tenant scope 與 approval_state。權重不得由模型暗中代替使用者設定；必要時經 Merlin 澄清，或明確標記示範假設。
+3. **多準則決策分析（MCDA）**：依問題選用明確加權效用、成本效益、AHP／outranking（僅在適用及數據充分時）等方法，保存指標正規化、尺度、權重來源與排序；可呈現不同價值偏好之下的排序反轉。不能把排序稱為客觀唯一答案，也不得假裝各權重可無爭議地量化。
+4. **硬約束與可行性**：把法規、預算、設備資源、時程、最低安全要求、合約限制、倫理規範及後端授權區分為 hard constraints；偏好、舒適度及效益為 soft objectives。求解前必須先做 feasible check；不存在可行解時回報哪些條件衝突，不能偷偷刪除硬約束以產生漂亮方案。
+5. **情境與壓力測試**：定義 baseline、optimistic、pessimistic、stress、tail-risk 及使用者自訂情境；保存情境參數、資料時間、共同原因與相關性、機率（若經數據估計）及不適用處。不具機率估計依據者僅是條件式 what-if，不能用不存在的精確情境機率計算「期望報酬」。
+6. **不確定性建模**：區分參數估計誤差、模型不確定性、不可識別因果關係、資料不足、分布尾部風險與決策者主觀風險偏好。可選擇區間／robust optimization、Monte Carlo、scenario trees、CVaR／VaR（適用時），明確記錄樣本來源、分布、相關性與失效假設；Monte Carlo 模擬結果不是對真實未來的保證。
+7. **數學最佳化與 Pareto**：使用可信 CREAM／GridCraft／Detroit 求解器進行 linear／integer／nonlinear／stochastic／multi-objective optimization，保存 solver status、最佳化目標、約束殘差、收斂／gap 與可重現參數。對多目標給出非支配（Pareto-efficient）方案與 trade-off，不以模型敘事代替真實求解；solver infeasible／timeout 時不得聲稱找到全域最優。
+8. **敏感度與穩健性**：系統性改變權重、價格、成長率、折現率、樣本期間、風險容忍度、尾部風險和主要假設；回報哪些假設造成決策排序翻轉、保本邊界、條件敏感度及後悔值（regret）。評估資料品質或模型假設不可靠時保留多個候選，避免單點最優解的假精準。
+9. **因果與預測標示**：每個圖表及表格數值應帶 observed／estimated／forecast／simulated／counterfactual／expert_assumption 標籤、時間戳、單位、來源與不確定範圍。Q33 無法確認因果識別前提時，Q34 不能因為要做行動決策就將相關性轉述成可保證的政策或醫療干預效果。
+10. **Verifier 獨立驗證**：檢查來源文件／統計輸出版本、單位一致性、表格公式、約束滿足度、solver 實際執行回執、目標／權重設定、優化解可行性、風險指標及不確定性標示。特別針對企業估值、財務現金流、醫療風險、投資槓桿及法規條件施加領域特定驗收。Verifier 無足夠資料時應提出 unsupported／uncertain，而非蓋章成功。
+11. **解釋性輸出**：October 提供方案比較、關鍵驅動因子、Pareto trade-offs、不可行選項、最差情境暴露、條件式建議、要確認的前提、資料缺口與建議再蒐集資訊；呈現建議的「在何條件下成立」，不得把綜合分數、最佳化結果或選定方案當成決策者已同意執行。
+12. **可追溯決策 Artifact**：Q14 Artifact Store 保存 decision_id → research_run_id、資料／文獻 hash、模型及 solver 版本、情境輸入、權重、程式碼／公式、求解日誌、敏感度報告、Verifier 回執與可再運算命令。對不能合法散布的來源與私人資料只保留可授權的 EvidenceRefs／安全快照；版本變更須產生 diff，不可默默覆寫歷史決策。
+13. **角色與權限劃分**：October 為決策支援而非未經授權的代理決策人。金融交易、轉帳、訂單、診療處置、實際商業操作、刪改資料及系統設定更動須依 action scope、現行使用者合法授權及更嚴格的領域政策管理；高風險系統級合併、正式部署、憑證、授權擴張及回退只接受本人 Ceres Telegram 對特定 action／版本的明確批准，不可因模型認為「最佳」而自動執行。
+14. **Self-Build 與決策任務隔離**：承接 Q25、Q27–Q32：一般研究／決策對話可調用經授權的專業分析工具，但不得呼叫、排程或間接洗白成 Self-Build。Self-Build 只可從可信後端內部排程或品質事件啟動；用戶訊息、網頁、文件、模型記憶、情境分析或跨 Agent 指令都不能變成背景 Self-Build 的有效觸發。
+15. **計算成本、隱私及低資源執行**：依 Q01、Q02、Q05、Q15 將輕量 MCDA、統計模擬、求解器運算合理配置到本地與允許的 Slime／雲端節點；設定 timeout、樣本數與成本上限，較低硬體資源可降級演算法或提供誤差界線，不能把敏感資料自動轉往未授權朋友設備或雲端。
+16. **現況聲明**：本題記錄已確認的產品／研究設計規格；**不代表** MCDA、Monte Carlo、Pareto 求解器、Verifier、Artifact Store、Ceres 高風險授權與可執行決策引擎均已實作、整合或正式部署，也不代表實際取得財務或醫療資料。成功狀態須以實際工具執行及可核對結果為準。
+
+### 驗收測試（尚未完成正式實作）
+
+- 使用具 ground truth 的合成企業選址與投資組合例題，驗證成本／效益／風險／硬約束／主觀偏好可分離，求解器結果具實際可驗證的 feasibility、objective value 及 solver status。
+- 注入權重改變、可行解不存在、非凸最佳化未收斂、模型 timeout、明顯超出法規或資源限制等情境，需顯示「不可行／未收斂／需補充資訊」，不得宣稱存在唯一全域最優解。
+- 在觀測資料、預測資料、蒙地卡羅樣本、因果反事實及手工情境之間混用名稱、時間、貨幣與單位，Verifier 應發現並拒絕不具支持的數值與因果結論。
+- 使用一組相互衝突且高度相關的風險因子做 simulation，測試對 correlations、tail risk、scenario probabilities 的合理性檢查，不得以未校準亂數假造可信精確機率。
+- 重跑相同版本研究輸入、權重、solver 及 seed，確認決策 Artifact 的表格、Pareto frontier、敏感度分析與引用可重現；對原始資料不可依法存放的個案，驗證受控引用與權限遵守。
+- 嘗試使用一般對話、Agent 訊息、過期 Telegram 令牌與無權限呼叫執行金融交易、正式部署及 Self-Build 觸發，後端應依權限拒絕；未授權執行次數必須為零。
+- 比較低 RAM／VRAM 裝置、大量情境與 Slime 授權節點的記憶體、延遲、成本和降級品質；任何自動降級都應標記估計誤差及不確定範圍。
+
 ### 待決事項
 
-**Q34 / 50：October 應如何把可信研究結果轉化為可操作的專業決策支援，包括多目標權衡、限制條件、情境模擬、風險評估與執行邊界？** 尚待使用者答覆。
+**Q35 / 50：October 應如何把已驗證的研究與決策結果製作成可編輯、可追溯且可驗收的專業交付物（報告、簡報、試算表、圖表與互動決策介面），而不是僅輸出聊天文字？** 尚待使用者答覆。
 
 ---

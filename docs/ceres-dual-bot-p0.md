@@ -4,7 +4,7 @@ Status: design baseline; not deployed.
 
 ## Two Telegram identities
 - **Admin Bot**: existing @SignWell_bot, private owner console for Vanilla, Detroit, Diana and Slime. Owner Telegram user IDs must be configured server-side; default deny.
-- **Store Bot**: separately registered public Telegram bot for model catalog, plans, purchase, API keys, usage, invoices and customer support. Its username/token are not yet provisioned.
+- **Store Bot**: @VanillaAPIStore_bot, separately registered public Telegram bot for model catalog, plans, purchase, API keys, usage, invoices and customer support. Its username/token are not yet provisioned.
 - Distinct bot tokens, webhook secrets, routes, roles, command handlers and audit scopes. Never authorize admin operations based on client-supplied role fields.
 
 ## Core service boundaries
@@ -69,4 +69,4 @@ Do not fill these with sample production credentials.
 ## Release gates
 - P0/P1/P2 are all **in scope**, but inclusion in this plan does not mean implemented, merged or deployed.
 - Release P1 only after P0 isolation, ledger and billing tests pass; release P2 only after P1 payment and entitlement reconciliation passes.
-- No bot token, payment credential, domain, public Store Bot username or live payment configuration is presumed to exist.
+- Store Bot username is confirmed as @VanillaAPIStore_bot. User reports the new bot token was added to the deployment environment, but runtime secret availability, webhook connectivity, payment credentials and live payment configuration have not been verified.

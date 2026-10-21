@@ -75,6 +75,7 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
+import {runOctoberReadonlyCsv} from "../detroit/october-readonly";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
 import type {VictoriaRecall} from "../detroit/victoria";
@@ -861,14 +862,27 @@ async function send(value=draft):Promise<void>{
    const pasted=creamInstruction(question);
    if(!pasted)break;
    try{
-    const parsed=parseCreamCSV(pasted.csv,"聊天貼上的 CSV");
+    // October task contract → Diana allowlist → real Detroit/CREAM receipt →
+    // independent Verifier. This runs locally, without an October LLM call.
+    const checked=await runOctoberReadonlyCsv({
+     taskId:crypto.randomUUID(),kind:"csv-descriptive-statistics",
+     csv:pasted.csv,source:"聊天貼上的 CSV",privateMode,chartKind:pasted.kind
+    });
+    if(checked.status!=="verified"||!checked.dataset||!checked.result){
+     toolReply(question.slice(0,220),"October 唯讀工作流未完成（"+checked.reason+
+      "）；本次沒有可驗證的統計結果，也沒有匯出或儲存。","cream");
+     setLastRoute("October / Verifier：未通過驗證");
+     return;
+    }
+    const parsed=checked.dataset;
+    const result=checked.result;
     setCreamDataset(parsed);
     let note="";
     if(!privateMode)try{
      const stored=await persistCreamDataset(parsed,attachmentOwner(signedChatAccount()));
      note=stored.created?"已保存於 CREAM 長期歷史。":"已有相同來源資料，未重複匯入。";
     }catch(e){note="長期保存失敗："+String(e);}
-    const result=analyzeCream(parsed,pasted.kind),now=Date.now();
+    const now=Date.now();
     // Diana -> CREAM -> Retina: deterministic local export after validated analysis.
     let exported="";
     let exportFailed=false;
@@ -882,8 +896,8 @@ async function send(value=draft):Promise<void>{
      exported="\nDiana：沒有可以驗證的數值欄位，因此沒有匯出統計報告。";
     }
     setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
-     {role:"assistant",content:summarizeCream(result)+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
-    setDraft("");setLastRoute("CREAM 已在本機計算，不需使用雲端 AI。");
+     {role:"assistant",content:"October → Diana → Detroit → Verifier：已實際執行本機 CREAM，並獨立重算核對數值（未呼叫 October 模型）。\n\n"+summarizeCream(result)+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
+    setDraft("");setLastRoute("October / Diana / Detroit / Verifier：本機統計已核對");
    }catch(error){toolReply(question.slice(0,220),"CREAM 分析失敗："+String(error),"cream");}
    return;
   }

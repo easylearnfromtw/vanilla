@@ -479,6 +479,12 @@ async def keys(body:Owner):
 @admin_router.post("/keys/create")
 async def issue_key(body:KeyCreate):
     chat=_verify(body.init_data)
+    if os.getenv("VANILLA_API_REQUIRE_WHITELIST","true").lower()!="false":
+        from ceres_api_access import _db as access_db
+        with access_db() as access:
+            approval=access.execute("SELECT approved FROM api_access WHERE user_id=?",(chat,)).fetchone()
+        if not approval or not approval[0]:
+            raise HTTPException(403,"Owner 尚未核准 API 白名單；請先完成管理員審核")
     if body.monthly_tokens<body.daily_tokens or len(set(body.models))!=len(body.models):
         raise HTTPException(422,"每月額度不得小於每日額度，且模型權限不得重複")
     if any(name!="*" and name!=_DEFAULT_ALIAS and not _MODEL.fullmatch(name) for name in body.models):

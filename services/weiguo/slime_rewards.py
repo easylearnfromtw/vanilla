@@ -684,6 +684,32 @@ window.onload=async function(){
  google.accounts.id.renderButton($("google"),{theme:"outline",size:"large",shape:"pill",text:"continue_with"});
  if(!ticket)msg("Google 登入可查看餘額；新獎勵須從已配對的節點開啟專屬連結。");
 };
+$("weeken-consent").onchange=function(){$("weeken-join").disabled=!this.checked;};
+$("weeken-join").onclick=async function(){
+ if(!credential||!$("weeken-consent").checked)return;
+ const btn=$("weeken-join");btn.disabled=true;
+ try{
+   const result=await api("weeken/join",{credential,consent:true,
+     allow_contact:$("weeken-contact").checked,
+     allow_diagnostics:$("weeken-diag").checked});
+   weekenMessage(result.alreadyGranted?"已恢復 WEEKEN 登記，沒有重複核發。":"已加入 WEEKEN！加碼 "+Number(result.bonusTokens).toLocaleString()+" Token。");
+   showWallet(await api("balance",{credential}));
+   btn.hidden=true;$("weeken-leave").hidden=false;
+ }catch(e){weekenMessage(e.message);btn.disabled=false;}
+};
+$("weeken-skip").onclick=function(){
+ $("thankyou").hidden=true;
+ msg("謝謝你加入 Slime！基本獎勵已保留，可繼續從 Vanilla 查看錢包。");
+};
+$("weeken-leave").onclick=async function(){
+ if(!credential||!confirm("撤回 WEEKEN 登記及額外資料許可？"))return;
+ try{
+   await api("weeken/leave",{credential});
+   weekenMessage("已撤回 WEEKEN 登記；Slime 配對權限不受影響。");
+   $("weeken-leave").hidden=true;$("weeken-join").hidden=false;
+   $("weeken-consent").checked=false;$("weeken-join").disabled=true;
+ }catch(e){weekenMessage(e.message);}
+};
 $("rotate").onclick=async function(){
  if(!credential||!confirm("重新產生 API Key 會立即撤銷舊金鑰，確定繼續？"))return;
  try{const r=await api("rotate-key",{credential});showKey(r.apiKey);msg("新金鑰已產生，舊金鑰失效。");}

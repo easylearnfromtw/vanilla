@@ -49,6 +49,20 @@ node training/october/policy.mjs
 
 The training script exports portable JSON weights. Download the verified, already-trained weight file separately from the October archive provided in ChatGPT; the GitHub training workflow can also generate model artifacts. The JS policy always enforces deterministic scope/tenant/due/privileged gates, never grants execution rights.
 
+## October OC-003/OC-004/OC-005｜第一個本機唯讀垂直切片（2026-10-21）
+
+開發分支新增 `src/detroit/october-readonly.ts`，並將 `src/local-ai/LocalChat.tsx` 的「貼上 CSV」路徑接入。流程只處理明確的 `csv-descriptive-statistics` 任務：
+
+`October 結構化任務檢查（無 LLM）→ Diana 確認 cream 白名單 → Detroit Capability Bus 呼叫原有本機 CREAM executor → 獨立 Verifier 以 Welford 演算法重算數值 → verified / blocked / failed`。
+
+- 真實執行：透過現有 `detroitBus.execute("cream", …)` 取得本機 CREAM 的實際執行回執；不是模型假想的工具結果。保留原先 CSV 視覺化與明確要求時的本機匯出；**只有核驗後**，一般模式才會依既有使用者設定嘗試保存 CREAM 歷史；私密模式不持久化。
+- 驗證邊界：驗算欄位、列數、預覽、n、缺失、加總、平均、中位數、極值、樣本標準差與可見點數；無數值欄、來源被竄改、報表失配、執行失敗或中止都不提供已驗證報告。**這不是外部內容語意正確性的保證**；來源與 CSV 數字仍需由使用者核對。
+- 安全邊界：僅瀏覽器同源本機資料；不連外、不讀私人帳號、不呼叫 Qwen、不支付費用、不啟動插件寫入、不啟動 Self-Build；`modelInvoked: false` 清楚標明此階段是確定性規劃，並非 October 模型真的進行 LLM tool calling。
+- 可追查欄位：`taskId`、`runId`、四階段狀態、固定理由碼、唯讀執行範圍；流程稽核狀態不複製整份私密 CSV 或例外訊息。這不是 durable server receipt / 独立身份信任根。
+- 回歸測試：`npm run test:october-readonly`（12 個案例），已加入 `.github/workflows/ci.yml`。需要在 CI runner 確認 PASS 與 `npm run build` 之後才能將 verification 標為 passed。
+
+**目前是 M1 的前端本機部分切片，不是已完成完整 M1**。仍缺可信後端身份與跨租戶 ACL、真實授權後端執行器、耐久 Task/Step Receipt、Provider 級重試及冪等、Backend Verifier／Audit，及 Ceres Owner 高風險版本核准。正式部署保持關閉。GitHub PR 目前未合併；不得將「已提交 code」等同正式上線。
+
 ## October P0 安全預檢（2026-10-21）
 
 `training/october/policy.mjs` 現在先根據可信後端 context 做確定性的 tenant/scope/due/privilege/sensitivity 檢查，再決定是否需要讀取訓練權重。未授權、跨租戶、未到期、高權限情形均不依賴 Ollama/GPU/權重，亦不允許後續模型信心覆寫。高風險旗標必須是布林值；非布林值視為輸入錯誤，拒絕推論。

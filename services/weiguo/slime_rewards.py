@@ -338,9 +338,14 @@ def claim(body:Claim):
                                  (row["node_id"],)).fetchone()
         if not active or active["owner"]!=row["owner_sub"]:
             raise HTTPException(409,"此節點已退出，不能領取獎勵")
-        settings=db.execute("SELECT amount,enabled FROM slime_reward_config WHERE owner_sub=?",
+        try:
+            score=score_capabilities(active["cpu"],active["ram_gb"],active["gpu"])
+        except ValueError:
+            raise HTTPException(409,"請先讓 Slime 回報有效的裝置能力") from None
+        settings=db.execute("SELECT score_multiplier,enabled FROM slime_reward_config WHERE owner_sub=?",
                             (row["owner_sub"],)).fetchone()
-        amount=settings["amount"] if settings else DEFAULT_REWARD
+        multiplier=settings["score_multiplier"] if settings else DEFAULT_REWARD
+        amount=score*multiplier
         enabled=bool(settings["enabled"]) if settings else True
         if not enabled or not amount:
             raise HTTPException(403,"此管理員已暫停獎勵")
@@ -352,12 +357,14 @@ def claim(body:Claim):
         key=_new_key(db,sub,row["owner_sub"])
         db.execute("INSERT INTO slime_reward_wallet VALUES(?,?,?,?,?,?)",
                    (sub,row["owner_sub"],amount,amount,0,now))
-        db.execute("INSERT INTO slime_reward_claim VALUES(?,?,?,?)",
-                   (row["node_id"],sub,amount,now))
+        db.execute("""INSERT INTO slime_reward_claim
+            (node_id,google_sub,amount,claimed_at,score,bonus)
+            VALUES(?,?,?,?,?,0)""",(row["node_id"],sub,amount,now,score))
         db.execute("INSERT INTO slime_reward_ledger VALUES(?,?,?,?,?,?,?)",
                    (secrets.token_hex(12),sub,"node_signup",amount,now,None,"一次性節點加入獎勵"))
         db.execute("DELETE FROM slime_reward_ticket WHERE node_id=?",(row["node_id"],))
-    return {"claimed":True,"rewardTokens":amount,"balance":amount,
+    return {"claimed":True,"rewardTokens":amount,"score":score,
+            "multiplier":multiplier,"balance":amount,
             "apiKey":key,"keyShownOnce":True,
             "notice":"API Key 僅顯示一次，請勿公開或放入前端程式碼"}
 

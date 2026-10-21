@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 37 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 38 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1183,8 +1183,46 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 嘗試以對話、外部工具輸出、事件假冒及由使用者控制的 webhook 觸發 Self-Build，皆不得通過可信事件邊界；服務故障與 Self-Build 改進生命週期不可混淆。
 - 定期故障演練確認 incident runbook、告警去重、Quirinus 安全檢查、LUCA 診斷與 Verifier 恢復確認，並測量 MTTR、誤報率、成本、效能退化與實際恢復率，不得以宣稱恢復取代測試證據。
 
+## Q39 / 50 — C：訂閱與按量計費平台（Subscription × Usage Billing × Reconciliation × Refund Governance）
+
+**決策：C — 訂閱與按量計費平台。由使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採訂閱與按量計費平台，支援用量對帳、價格方案、帳單與退款治理，需本人明確核准後才可正式啟用金流。」
+
+**選項邊界**：本題選擇 **C，不是 D**；本題確立訂閱、按量計費、帳務對帳及退款治理的可實作規格，不把 D 選項額外的全面 FinOps、毛利最佳化、容量利潤演算法及自主商業經營策略視為已批准。Q37 已確立的 Token 硬配額與模型版本權限持續適用，但不因本題確認就自動上架任何售價、付款服務、計價方案或訂閱。
+
+### 訂閱／用量平台契約
+
+1. **商業化啟用閘門（預設非收費）**：正式金流預設 disabled。只有本人在 Ceres Telegram 以可信後端驗證的 Owner user_id、私聊 chat_id、一次性 nonce、精確方案版本、幣別、計價規則、合法服務提供者、環境與生效時間明確核准，才可進入付費方案啟用或收款部署；此批准不取代支付供應商開通、適用法規、稅務與技術驗收。對話、公開後台、一般 API Key、模型輸出及先前批准記憶均不能啟用金流。
+2. **獨立 Plan Registry**：以 plan_id、immutable plan_version、billing_mode（subscription／metered／hybrid）、currency、billing_period、price_components、included_units、overage_rule、eligible_models、tenant_tier、effective_from／until、tax_handling_policy、refund_policy_version 及 published_state 建立方案契約。模型清單與權限沿用 Q37 Model Registry 與 key scope，不能用變動價格悄悄重寫用戶已同意的合約。
+3. **訂閱生命週期**：支援 trial（若另核准）、pending、active、past_due、grace、paused、cancel_at_period_end、canceled、refunded／disputed 等明確狀態；首次訂閱、續訂、升降級、按比例計費、欠費限制和取消生效點，皆依經核准的公開條款與供應商能力執行。不得因付款 webhook 的單一文字就擅自延長高權限。
+4. **按量收費計量**：由 Q37 Gateway 在受信後端取得 prompt/completion/其他明確可計價單位、model_version、tenant_id、key_id 的非秘密識別、request_id、usage receipt、tokenizer/provider usage source、計價版本與時間窗；依計價方案把 usage_events 關聯 billing_period、price_component、unit_price、tax／discount rule，建立可稽核計費依據。每 Key Token 限額仍是硬閘門，計費額度不能取代安全配額。
+5. **用量與訂單分離**：Token 計量、允許使用額度、應計費金額、真正取得付款的金額及已退款金額是獨立資料模型；付款成功不代表模型請求已完成，消耗 Token 也不代表使用者已付款。對未收費／測試模式明確標記 simulation，不產生真實應收／帳單收款動作。
+6. **可靠 Ledger 與對帳**：採可追加、不可靜默覆寫的 usage ledger、invoice ledger、payment／refund ledger 及關聯的 idempotency keys；為可能重複／延遲／亂序的 webhook 驗簽及去重，以 provider transaction／event id、invoice_id、request_id、usage_event_id 做 reconciliation。記帳修正使用 reversal／adjustment 事件，不直接覆寫舊發票與歷史費率。
+7. **原子配額與金流一致性**：繼承 Q37 reserve→consume→release 的原子使用量帳本；並行生成、streaming 中斷、重試與 failover 不得造成重複收費或超過硬 Token 配額。支付供應商 webhook 並非分散式原子交易，未知支付結果須先查 provider receipt，不能無限重試扣款；明確保留 pending、unknown、reconciled 狀態。
+8. **價格透明與計費估算**：開發者只能查看自身適用方案、每模型可用權限、單價與計價單位、包含配額、超額規則、使用餘額、計費週期、預估費用、已結帳與待結帳金額。報價／試算標為 estimate，正式應收來自已對帳 Ledger；折扣、稅務與匯率如無可信已核准資料不可自行假設。
+9. **帳單與憑證**：產生有 invoice_id、invoice_version、period、line items、units、rates、total、currency、invoice_state、payment_refs 的可追溯帳單；發票、收據及相關稅務文件須符合營運所在地現行適用規範與支付／電子發票服務條件。沒有正式開通的稅務／金流整合時只能生成內部草稿或測試資料，不得宣稱正式合法開立發票。
+10. **退款、折讓與爭議治理**：制定可公布的退款適用條件、未使用預付額度／按量計費差異、訂閱取消與已使用服務處理規則，支援退款申請、審核、供應商執行回執、對帳與必要的額度回補。若屬管理員層級的退款政策修改、金流憑證、批次退款或高風險費用調整，須本人 Ceres Telegram 對具體對象與金額核准；不得僅憑模型判斷就退費或扣款。
+11. **支付安全與授權**：付款卡資料應透過符合適用安全標準的可信 PSP／hosted checkout 或 tokenization 處理，不讓 October、Diana、聊天或自有資料庫持有卡片驗證碼／原始卡片秘密。帳單聯絡資訊、付款資料、退款證據和 API 模型用量遵守不同的授權與保存政策；外部使用者不能看到其他 tenant 訂單或修改 Owner 商業設定。
+12. **開發者帳戶與訂閱權限**：使用者可於自身 Portal 查看／申請方案、查用量、確認取消或依核准流程發起退款，必要的付款動作在專屬安全流程完成；不能建立全域 API Key、修改他人的上限、設定全站價格／金流帳戶或提升 Detroit 權限。使用者自行提出的一般訂閱行為不等同 Owner 對全域金流系統啟用的授權。
+13. **系統費用保護與失敗處理**：設每租戶／每 Key 的硬用量限制、請求速率、額度不足及欠費時的受控拒絕／降級；顯示 Retry-After／需要付款等合適錯誤類型，不讓 Q38 備援路由繞過配額或額外收費規則。訂閱提供者失聯、對帳失敗、價格配置不完整或付款狀態未知時以安全暫停／人工審核為主，不自行扣款或延長無限制存取。
+14. **LUCA 與財務稽核**：僅以最小化、去識別方式記錄方案使用率、配額錯誤、billing error、invoice/payment/refund 不一致、失敗與異常請求；完整帳務保存在具適當 ACL 與保留政策的可信 Ledger，不將明文 API Key、卡資料、私人提示、他人帳務外洩到跨租戶 Dashboard。
+15. **Self-Build 絕對隔離**：付款、發票、退款、用戶 API request、外部金流 webhook、Billing Portal 或聊天請求都**不得直接或間接啟動 Self-Build**。背景改善仍僅由 Q27–Q30 已核准的可信後端排程／內部品質事件觸發；不能將付款爭議、使用者提出的修復要求或外部訊息洗成有權修改系統的事件。
+16. **實作與治理狀態**：本題為已確認的架構與商業功能決策，**不代表**付款 PSP 已連接、帳單與發票已完成、金流已啟用、定價已發布或已向外部客戶收費。正式啟用另需 Owner 的 Ceres 批准、必要商業與法規準備、支付供應商連線以及真實沙盒／正式環境測試。
+
+### 驗收測試（尚未完成實作與正式商業啟用）
+
+- 建立包含固定訂閱、按量方案及兩者混合的沙盒測試，驗證不同 plan_version、billing_period、price_component、模型 Token 白名單與硬限制，能依使用者當時適用版本正確計帳。
+- 以併發請求、重複 request_id、streaming 中斷、多節點 failover、provider usage 延遲或 tokenizer 差異測量計量一致性；不可超出 Q37 硬配額，也不得因 retry 重複計費。
+- 對付款 webhook 重送、亂序、簽章錯誤、provider timeout、退款延遲、信用卡拒絕、爭議交易及取消訂閱後的遲來扣款事件進行模擬；未經核對不得標記 payment_succeeded 或已退款。
+- 在實際不啟用金流的測試環境，將 Owner 未批准的收款、價格上線、退款政策修改與憑證變動全部阻擋；通過驗簽的非 Owner 或一般 Vanilla API Key 仍不得開啟全域收款。
+- 比對原始 usage receipts、reserve/consume/release、計價版本、Invoice 與 PSP settlement receipt，驗證差額可追蹤且修正以 adjustment/reversal 表示，不破壞過去證據。
+- 以不同 tenant 與帳戶的付款資料測試 Portal、LUCA、外部 API 與私密報表，不得跨租戶取得帳單、Key、收據或付款資訊；不得儲存完整卡片秘密。
+- 驗證退款、折讓、取消、訂閱升降級與 pro-rata 計算都能重現；對無 provider receipt 的退款只能顯示 pending／unknown，不可假報完成。
+- 以金流外部 webhook、用戶聊天文字、API 異常及發票內容試圖啟動 Self-Build、修改部署或提升權限，可信後端應一律拒絕。
+
 ### 待決事項
 
-**Q39 / 50：October／Vanilla 在提供外部模型 API、跨本地與雲端節點運算後，應如何管理服務成本、使用者方案、商業計價與收入風險，同時維持 Token 配額、租戶隔離、可查核帳務及唯一 Owner Ceres 管理權限？** 尚待使用者答覆。
+**Q40 / 50：October／Vanilla 對外提供模型 API 與跨應用服務時，應如何建立資料隱私、使用者同意、資料刪除、跨境處理與法規稽核的治理架構，同時區分合法用量記錄與不應保存的私密內容？** 尚待使用者答覆。
 
 ---

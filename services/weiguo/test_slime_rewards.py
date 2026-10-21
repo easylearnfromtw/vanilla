@@ -11,8 +11,10 @@ from fastapi import HTTPException
 
 import slime
 from slime_rewards import (reward_ticket, claim, Claim, config, set_config,
-                           balance, GoogleCredential, _google, _owner_chat, rotate_key)
+                           balance, GoogleCredential, _google, _owner_chat, rotate_key,
+                           weeken_join,weeken_leave,weeken_status,WeekenOptIn)
 from vanilla_public_api import (_reserve, _finish, _key_from_header, _session)
+from slime_reward_policy import (score_capabilities,bonus_round_up_nine,reconcile_node_revocations)
 
 
 OWNER="123456789012345678901"
@@ -41,6 +43,8 @@ class SlimeRewardWalletTests(unittest.TestCase):
         with slime._db() as db:
             db.execute("INSERT INTO nodes(id,owner,token_digest,label,role,last_seen) VALUES(?,?,?,?,?,?)",
                        (NODE,OWNER,slime._digest(NODE_TOKEN),"Friend PC","friend",time.time()))
+            db.execute("UPDATE nodes SET cpu=32,ram_gb=128,gpu=? WHERE id=?",
+                       ("NVIDIA RTX 4090, 16384 MiB",NODE))
         identity=patch("slime_rewards._google",return_value=GOOGLE)
         identity.start();self.addCleanup(identity.stop)
 
@@ -53,7 +57,7 @@ class SlimeRewardWalletTests(unittest.TestCase):
         return claim(Claim(credential="x"*120,ticket=code))
 
     def test_default_reward_is_100k_claim_once_without_bearer_leak(self):
-        self.assertEqual(config(OWNER)["amount"],100000)
+        self.assertEqual(config(OWNER)["amount"],100)
         code=self.ticket()
         with self.assertRaises(HTTPException) as repeated:
             self.ticket()
@@ -169,10 +173,10 @@ class SlimeRewardWalletTests(unittest.TestCase):
         self.assertEqual(w["spent"],0)
 
     def test_admin_config_changes_future_claim_only(self):
-        self.assertEqual(set_config(OWNER,75000,True)["amount"],75000)
+        self.assertEqual(set_config(OWNER,75,True)["amount"],75)
         r=self.claim_reward(self.ticket())
         self.assertEqual(r["rewardTokens"],75000)
-        self.assertEqual(config(OWNER)["amount"],75000)
+        self.assertEqual(config(OWNER)["amount"],75)
         set_config(OWNER,0,False)
         self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],75000)
 
@@ -181,10 +185,54 @@ class SlimeRewardWalletTests(unittest.TestCase):
         with slime._db() as db:
             db.execute("INSERT INTO nodes(id,owner,token_digest,label,role,last_seen) VALUES(?,?,?,?,?,?)",
                        ("b"*24,OWNER,slime._digest("Z"*48),"Second PC","friend",time.time()))
+            db.execute("UPDATE nodes SET cpu=8,ram_gb=16 WHERE id=?",("b"*24,))
         new=self.ticket(node_token="Z"*48)
         with self.assertRaises(HTTPException) as duplicate:
             self.claim_reward(new)
         self.assertEqual(duplicate.exception.status_code,409)
+
+    def test_scored_rewards_and_bonus_round_to_nine(self):
+        self.assertEqual(score_capabilities(32,128,"NVIDIA GPU, 16384 MiB"),1000)
+        self.assertEqual(score_capabilities(8,16,""),134)
+        self.assertEqual(bonus_round_up_nine(13400),13409)
+        self.assertEqual(config(OWNER)["multiplier"],100)
+        with slime._db() as db:
+            db.execute("UPDATE nodes SET cpu=8,ram_gb=16,gpu='' WHERE id=?",(NODE,))
+        result=self.claim_reward(self.ticket())
+        self.assertEqual(result["score"],134)
+        self.assertEqual(result["rewardTokens"],13400)
+
+    def test_weeken_opt_in_is_independent_and_single_reward(self):
+        self.claim_reward(self.ticket())
+        first=weeken_join(WeekenOptIn(credential="x"*120,consent=True,
+                                     allow_contact=True,allow_diagnostics=False))
+        self.assertEqual(first["bonusTokens"],100009)
+        self.assertFalse(first["alreadyGranted"])
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],200009)
+        same=weeken_join(WeekenOptIn(credential="x"*120,consent=True))
+        self.assertTrue(same["alreadyGranted"])
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],200009)
+        self.assertTrue(weeken_status(GoogleCredential(credential="x"*120))["joined"])
+        weeken_leave(GoogleCredential(credential="x"*120))
+        self.assertFalse(weeken_status(GoogleCredential(credential="x"*120))["joined"])
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],200009)
+
+    def test_deleted_node_forfeits_both_gifts_and_goes_negative_if_spent(self):
+        gift=self.claim_reward(self.ticket())
+        weeken_join(WeekenOptIn(credential="x"*120,consent=True))
+        key=_key_from_header("Bearer "+gift["apiKey"])
+        job=_reserve(key,"model-name",80000)
+        _finish(key["id"],job,80000,status="success",usage=None)
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],120009)
+        # Local user can leave without Telegram proof; both gifts are clawed back.
+        result=slime.leave(authorization="Bearer "+NODE_TOKEN)
+        self.assertTrue(result["ok"])
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],-80000)
+        self.assertEqual(reconcile_node_revocations(),0)
+        self.assertEqual(balance(GoogleCredential(credential="x"*120))["balance"],-80000)
+        with self.assertRaises(HTTPException) as error:
+            _key_from_header("Bearer "+gift["apiKey"])
+        self.assertEqual(error.exception.status_code,401)
 
     def test_ticket_invalid_after_device_revocation(self):
         token=self.ticket()
@@ -200,6 +248,13 @@ class SlimeRewardWalletTests(unittest.TestCase):
                    return_value={"sub":GOOGLE,"email_verified":False,"iss":"accounts.google.com"}):
             with self.assertRaises(HTTPException):
                 _google("x"*120)
+
+    def test_reward_api_key_cannot_spend_while_rewards_disabled(self):
+        gift=self.claim_reward(self.ticket())
+        with patch.dict(os.environ,{"SLIME_REWARDS_ENABLED":"false"}):
+            with self.assertRaises(HTTPException) as exc:
+                _key_from_header("Bearer "+gift["apiKey"])
+            self.assertEqual(exc.exception.status_code,503)
 
     def test_feature_flag_fails_closed(self):
         with patch.dict(os.environ,{"SLIME_REWARDS_ENABLED":"false"}):

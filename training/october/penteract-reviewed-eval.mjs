@@ -116,7 +116,7 @@ export function evaluateReviewedProjector(rows,artifact,dianaPlanFn=null){
   deploymentEligible:false,requiresIndependentReleaseReview:true
  };
 }
-function main(){
+async function main(){
  const args=process.argv.slice(2);let cases="",weights="",output="",includeDiana=false;
  for(let i=0;i<args.length;i++){
   if(args[i]==="--cases"&&args[i+1])cases=args[++i];

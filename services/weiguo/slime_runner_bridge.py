@@ -52,8 +52,11 @@ def _node(authorization):
     with slime._db() as db:
         node=slime._node(db,authorization)
         # Verify owner-set consent. Never trust the node's self-declared role.
+        temp=node["gpu_temp_c"]
+        stale=bool(node["gpu_temp_at"] and time.time()-node["gpu_temp_at"]>180)
         if (not node["share_enabled"] or not node["owner_enabled"]
-            or not node["inference_enabled"]
+            or not node["inference_enabled"] or node["max_load_pct"]<10
+            or (temp is not None and temp>=node["thermal_limit_c"]) or stale
             or time.time()-node["last_seen"]>slime.ONLINE_SECONDS):
             raise HTTPException(403,"節點尚未獲 Owner 核准或心跳已逾時")
         return {"id":node["id"],"owner":node["owner"]}
@@ -63,8 +66,11 @@ def _live_nodes(owner: str):
     with slime._db() as db:
         return {r["id"] for r in db.execute(
             """SELECT id FROM nodes WHERE owner=? AND share_enabled=1
-             AND owner_enabled=1 AND inference_enabled=1 AND last_seen>=?""",
-            (owner,time.time()-slime.ONLINE_SECONDS)).fetchall()}
+             AND owner_enabled=1 AND inference_enabled=1 AND max_load_pct>=10
+             AND (gpu_temp_c IS NULL OR gpu_temp_c<thermal_limit_c)
+             AND (gpu_temp_at=0 OR gpu_temp_at>=?)
+             AND last_seen>=?""",
+            (owner,time.time()-180,time.time()-slime.ONLINE_SECONDS)).fetchall()}
 
 
 def catalog(owner: str):
@@ -105,8 +111,28 @@ def _select(owner:str,model:str):
             counts[node]=db.execute("""SELECT COUNT(*) FROM slime_runner_jobs
                 WHERE node_id=? AND state IN ('queued','leased') AND expires_at>?""",
                 (node,int(time.time()))).fetchone()[0]
-        node=min(possible,key=lambda n:(counts[n],n))
-        if counts[node]>=2:
+        # Prefer less loaded, cooler nodes; never claim to combine GPU memory.
+        with slime._db() as registry:
+            state={r["id"]:r for r in registry.execute(
+                "SELECT id,max_load_pct,cpu_pct,gpu_util_pct,gpu_temp_c FROM nodes WHERE owner=?",
+                (owner,)).fetchall()}
+        # When the owner limits a node to 25% / 50%, do not enqueue
+        # another task while the reported machine is already above that mark.
+        possible=[node for node in possible if node in state and (
+             state[node]["max_load_pct"]==100 or
+             max(state[node]["cpu_pct"] or 0,state[node]["gpu_util_pct"] or 0)
+                <state[node]["max_load_pct"])]
+        if not possible:
+            raise HTTPException(503,"所有節點的負載已超過 Owner 設定上限")
+        def cost(node):
+            caps=state[node]
+            load=max(caps["cpu_pct"] or 0,caps["gpu_util_pct"] or 0)
+            target=caps["max_load_pct"]
+            # A low owner-set limit lowers priority instead of forcing GPU wattage.
+            pressure=max(0,load-target)*20
+            return (counts[node]*1500+pressure+load+100-target,node)
+        node=min(possible,key=cost)
+        if counts[node]>=1:
             raise HTTPException(503,"本地模型節點目前忙碌")
         return node
 
@@ -128,7 +154,7 @@ async def dispatch(owner: str, content: dict):
         count=db.execute("""SELECT COUNT(*) FROM slime_runner_jobs
             WHERE node_id=? AND state IN ('queued','leased') AND expires_at>?""",
             (node,now)).fetchone()[0]
-        if count>=2:
+        if count>=1:
             raise HTTPException(503,"本地模型節點已達併發／排隊上限")
         db.execute("INSERT INTO slime_runner_jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
                    (jobid,owner,node,model,json.dumps(content,ensure_ascii=False),

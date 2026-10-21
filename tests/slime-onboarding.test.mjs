@@ -26,8 +26,11 @@ test("one-time invite launches Slime automatically but never persists the URL se
  assert.match(app,/window\.location\.replace\(BASE\+"slime\/"\+hash\)/);
  assert.match(panel,/inviteFromURL/);
  assert.match(panel,/copyPairCode/);
- assert.match(panel,/一次性節點配對碼/);
+ assert.match(panel,/同一 Wi-Fi 可選 Gecko 免代碼配對/);
  assert.match(panel,/複製備用邀請連結/);
+ assert.match(panel,/尚未收到配對碼/);
+ assert.match(panel,/由接收電腦確認或由 Telegram Owner 核准/);
+ assert.match(panel,/傳統一次性短碼/);
  assert.match(panel,/短配對碼/);
  assert.match(panel,/history\.replaceState/);
  assert.match(panel,/navigator\.clipboard\.writeText/);
@@ -59,4 +62,20 @@ test("desktop runner joins only after explicit consent and never opens remote sh
  const page=read("src/slime/slime.css");
  assert.match(page,/prefers-reduced-motion/);
  assert.match(page,/slime-step-number/);
+});
+
+
+test("all remote revocation paths require Telegram Owner confirmation",()=>{
+ const backend=read("services/weiguo/slime.py");
+ const web=read("services/weiguo/ceres_slime_web.py");
+ const bot=read("services/weiguo/slime_telegram.py");
+ assert.match(backend,/from slime_revoke_gate import consume_revoke/);
+ assert.match(backend,/consume_revoke\(user\.sub, node_id, body\.code\)/);
+ assert.match(web,/if row\["operation"\]=="revoke"/);
+ assert.match(web,/Telegram 驗證後撤銷/);
+ assert.match(bot,/_CONFIRM = re\.compile/);
+ assert.match(bot,/"revoke"/);
+ assert.match(bot,/code_hash/);
+ assert.match(bot,/consume_revoke/);
+ assert.match(bot,/secrets\.token_hex\(6\) if operation == "revoke"/);
 });

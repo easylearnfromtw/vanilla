@@ -47,6 +47,7 @@ jobs:
           npm run test:node-fabric
           npm run test:slime-onboarding
           npm run test:slime-standalone
+          node --test tests/slime-startup-policy.test.mjs
           npm run test:luca
           npm run test:detroit-factory
           npm run test:retina
@@ -89,6 +90,8 @@ jobs:
           if-no-files-found: error
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
+      - name: Slime secure pairing and reconnect regression tests
+        run: python3 -m unittest discover -s tests -p 'test_slime_desktop.py'
       - name: Athena private scanner unit tests (no AV daemon)
         run: python3 -m unittest discover -s services/detroit-scanner -p 'test_*.py'
       - name: Install 衞國 authentication test dependencies

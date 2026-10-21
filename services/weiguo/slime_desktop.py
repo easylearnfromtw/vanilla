@@ -7,12 +7,15 @@ WeiGuo HTTPS origin. Never publishes a local port or runs remote shell code.
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
 from pathlib import Path
 import platform
 import re
 import sys
 import tempfile
+import time
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 
 from slime_runner_agent import _http, run as run_model
@@ -103,6 +106,17 @@ def _confirm(question):
     return input(question+" [y/N] ").strip().lower() in ("y","yes")
 
 
+def _public_ip():
+    """Called only after consent; no credential is sent to this external service."""
+    try:
+        data=_http("GET","https://api64.ipify.org?format=json",timeout=6)
+        address=ipaddress.ip_address(data.get("ip","") if isinstance(data,dict) else "")
+        return str(address) if address.is_global else ""
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError):
+        print("公開 IP 查詢暫不可用；不影響 Slime 配對。")
+        return ""
+
+
 def setup():
     role=_role()
     previous=_load()
@@ -118,17 +132,58 @@ def setup():
     label=input("這台電腦的顯示名稱：").strip()
     if not NAME.fullmatch(label):
         raise ValueError("請填入 1–64 字的裝置名稱")
-    print("請向 Ceres Telegram Owner 取得 10 分鐘有效的短配對碼。")
-    secret=_invite(input("配對碼（例如 XXXX-XXXX-XXXX，亦可貼連結）："))
+    secret=None
+    gecko_join=False
+    if role=="friend" and sys.stdin.isatty() and _confirm(
+        "要在目前的 LAN／Wi-Fi 搜尋已同意分享的 Gecko 節點（不掃描其他電腦）？"
+    ):
+        try:
+            from gecko_lan import discover,request_invite
+            peers=discover(server)
+            if peers:
+                for i,peer in enumerate(peers,1):
+                    print(f"  {i}. {peer['name']} · {peer['ip']}")
+                selection=input("選擇 Gecko 主機編號 [Enter 改用 Telegram 配對]：").strip()
+                if selection.isdigit() and 1<=int(selection)<=len(peers):
+                    peer=peers[int(selection)-1]
+                    if _confirm("確認接受 "+peer["name"]+" 的 Slime Friend 配對？不會自動安裝或開啟推論"):
+                        print("加入方式：1. 接收電腦確認  2. Telegram Owner 核准")
+                        choice=input("選擇核准方式 [Enter 使用 1]：").strip()
+                        mode="owner" if choice=="2" else "receiver"
+                        if choice not in ("","1","2"):
+                            raise ValueError("請選擇 1 或 2")
+                        secret=request_invite(peer,server,mode=mode)
+                        gecko_join=True
+                        print("✓ Gecko 一次性配對授權已取得（不需輸入 Telegram 代碼）")
+            else:
+                print("附近沒有可用的 Gecko 分享，改用一般 Slime 配對。")
+        except (OSError,ValueError,HTTPError,URLError,TimeoutError):
+            print("Gecko 授權暫時不可用；仍可使用一般配對。")
+    if secret is None:
+        print("請向 Ceres Telegram Owner 取得 10 分鐘有效的短配對碼。")
+        secret=_invite(input("配對碼（例如 XXXX-XXXX-XXXX，亦可貼連結）："))
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
+    is_gecko=gecko_join
+    if is_gecko:
+        # Gecko grants never escalate to public-IP disclosure or power control.
+        geo_opt_in=False;public_ip="";shutdown_opt_in=False
+        print("Gecko 安全配對：不啟用 IP 位置分享與遠端關機，推論仍需 Owner 核准。")
+    else:
+        print("隱私選項：IP 與約略地區只會顯示於已授權的 Telegram Owner 管理頁。")
+        geo_opt_in=_confirm("同意經 IPify HTTPS 查詢裝置對外 IP，供 Owner 估算城市？") if sys.stdin.isatty() else False
+        public_ip=_public_ip() if geo_opt_in else ""
+        print("電源控制：預設停用。若核准，Telegram Owner 仍需二次確認才能關機。")
+        shutdown_opt_in=_confirm("允許 Telegram Owner 遠端關閉本機電源？") if sys.stdin.isatty() else False
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
     compact=re.sub(r"[-\s]","",secret).upper()
     short=bool(SHORT_CODE.fullmatch(compact))
     endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
-    payload={"code":secret,"role":role,"label":label} if short else {
-        "invite":secret,"role":role,"label":label}
+    payload={"code":secret,"role":role,"label":label,
+             "geo_opt_in":geo_opt_in,"public_ip":public_ip,"shutdown_opt_in":shutdown_opt_in} if short else {
+        "invite":secret,"role":role,"label":label,
+        "geo_opt_in":geo_opt_in,"public_ip":public_ip,"shutdown_opt_in":shutdown_opt_in}
     response=_http("POST",server+endpoint,payload,timeout=12)
     token=response.get("token")
     nodeid=response.get("node_id")
@@ -136,11 +191,67 @@ def setup():
         not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid)):
         raise ValueError("WeiGuo 配對結果無效；沒有保存憑證")
     obj={"role":role,"server":server,"label":label,
-         "node_id":nodeid,"token":token}
+         "node_id":nodeid,"token":token,
+         "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
+    # Save first: one-time invitations must never be lost when the immediate
+    # heartbeat fails because of a temporary network or server interruption.
     _save(obj)
-    print("配對成功。裝置 ID："+nodeid)
-    print("節點已加入，但推論需要 Owner 額外在 Telegram 明確核准。")
+    print("配對憑證已安全保存。裝置 ID："+nodeid)
+    try:
+        from slime_runner_agent import _heartbeat
+        state=_heartbeat(server,token)
+        if not state.get("ok"):
+            raise ValueError("heartbeat rejected")
+        print("✓ 配對已綁定 · WeiGuo 心跳已驗證")
+        print("下一步：Telegram → Slime 節點確認在線；需要使用模型則另行核准。")
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError,TypeError):
+        print("! 伺服器已回傳節點憑證，但首次心跳尚未確認。")
+        print("  請保持程式開啟或使用 --status 重試；不要重新消耗配對碼。")
     return obj
+
+
+def setup_fleet():
+    """One-time registration for an operator-authorized server host.
+
+    Deployment credential is a secret provisioned by the operator's management
+    tooling; it is never embedded in the executable or stored after redemption.
+    """
+    if _role()!="friend":
+        raise ValueError("Gecko Fleet 受管機器請使用 Slime-Friend 程式")
+    secret=os.getenv("GECKO_ENROLLMENT_TOKEN","").strip()
+    if not re.fullmatch(r"gck_[A-Za-z0-9_-]{40,120}",secret):
+        raise ValueError("未由機房部署管理員注入有效的 GECKO_ENROLLMENT_TOKEN")
+    approved=os.getenv("GECKO_DEVICE_CONSENT","")=="approved_by_operator"
+    if not approved:
+        if not sys.stdin.isatty() or not _confirm(
+            "你是這台伺服器的管理者，是否同意加入已授權的 Gecko Fleet？"
+        ):
+            print("主機未確認授權，沒有安裝或連線。")
+            return None
+    server=_server(os.getenv("GECKO_SERVER",DEFAULT_SERVER))
+    label=os.getenv("GECKO_HOST_LABEL","").strip() or platform.node()[:64]
+    if not NAME.fullmatch(label):
+        raise ValueError("主機顯示名稱不符合 1–64 字規範")
+    response=_http("POST",server+"/v1/gecko/agent/enroll",
+      {"token":secret,"label":label,"device_consent":True},timeout=15)
+    nodeid=response.get("node_id")
+    token=response.get("token")
+    if not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid) or not isinstance(token,str) or len(token)<32:
+        raise ValueError("Gecko 受管註冊結果無效")
+    config={"role":"friend","server":server,"label":label,"node_id":nodeid,
+            "token":token,"geo_opt_in":False,"shutdown_opt_in":False,
+            "gecko_fleet":True,"pool_id":response["poolId"]}
+    # A returned one-time credential must survive transient heartbeat failure.
+    _save(config)
+    print("✓ Gecko Fleet 受管主機已加入："+nodeid)
+    print("無 Telegram 代碼 · 無遠端自動安裝 · 模型推論預設關閉")
+    try:
+        from slime_runner_agent import _heartbeat
+        _heartbeat(server,token)
+        print("✓ 首次節點心跳已完成")
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError):
+        print("首次心跳未完成，稍後會自動重試；不得重複消耗批次名額。")
+    return config
 
 
 def open_reward_claim(settings):
@@ -185,26 +296,41 @@ def leave(settings):
 
 
 def status(settings):
+    from slime_runner_agent import _heartbeat, _models
     try:
-        import slime_runner_agent as runner
-        state=runner._heartbeat(settings["server"],settings["token"])
-        print("● WeiGuo 已回覆 · "+settings["label"])
-        print("節點共享："+("允許" if state.get("owner_enabled") else "Owner 已停用"))
-        print("模型推論："+("已由 Owner 核准" if state.get("inference_enabled") else "未核准／關閉"))
-        print("本機 Ollama："+("可用" if runner._models() else "尚無可用模型"))
-    except Exception:
-        print("○ 連線或 Ollama 尚未就緒；請檢查網路與本機 Ollama。")
+        state=_heartbeat(settings["server"],settings["token"])
+        if state.get("ok") is False:
+            print("○ WeiGuo 明確拒絕節點心跳，請檢查節點授權。")
+            return False
+    except HTTPError as exc:
+        print("○ WeiGuo 心跳失敗：HTTP "+str(exc.code)+
+              ("（節點憑證無效／已撤銷）" if exc.code in (401,403) else ""))
+        return False
+    except (URLError,TimeoutError,OSError,ValueError,TypeError,KeyError):
+        print("○ 無法連線 WeiGuo HTTPS；請檢查網路、系統代理與防火牆政策。")
+        return False
+    print("✓ 綁定有效 · 心跳已確認 · "+settings["label"])
+    print("節點共享："+("允許" if state.get("owner_enabled") else "Owner 已停用"))
+    print("模型推論："+("已由 Owner 核准" if state.get("inference_enabled") else "未核准／關閉"))
+    try:
+        models=_models()
+        print("本機 Ollama："+(", ".join(models) if models else "沒有已下載的模型"))
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError,KeyError):
+        print("本機 Ollama：未連線（不影響節點配對和心跳）")
+    return True
 
 
 def main():
     try:
         flags=set(sys.argv[1:])
-        if flags-{"--setup","--status","--leave","--reward","--help"} or len(flags)>1:
-            raise ValueError("可用參數：--setup、--status、--leave、--reward")
+        if flags-{"--setup","--status","--leave","--reward","--gecko","--fleet","--help"} or len(flags)>1:
+            raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko、--fleet")
         if "--help" in flags:
             print("Slime 下載 → 一次性邀請配對 → 授權後啟用 Ollama → Ctrl+C 停止共享")
             print("--status 查詢連線；--leave 退出並撤銷；--setup 顯示配對狀態")
             print("--reward 重新開啟 Google 節點獎勵領取頁")
+            print("--gecko Owner 自願啟用同 LAN 安裝包鏡像和無 Telegram 配對")
+            print("--fleet 由機房部署憑證將受管伺服器加入 Gecko，不輸入 Telegram 代碼")
             return 0
         config=_load()
         if "--reward" in flags and not config:
@@ -214,7 +340,9 @@ def main():
             if config:leave(config)
             else: print("尚未配對。")
             return 0
-        if not config or "--setup" in flags:
+        if "--fleet" in flags and not config:
+            config=setup_fleet()
+        elif not config or "--setup" in flags:
             first_pairing=config is None
             config=setup()
             if config and first_pairing:
@@ -240,13 +368,40 @@ def main():
                 return 2
             return 0
         if "--status" in flags:
-            status(config)
+            return 0 if status(config) else 2
+        if "--gecko" in flags:
+            if config.get("role")!="owner":
+                raise ValueError("僅已配對的 Slime Owner 電腦能分享 Gecko")
+            if not _confirm("同意此電腦對同 LAN 提供 Gecko 安裝頁與 Friend 加入通道？"):
+                print("未授權 Gecko；沒有開啟任何區域網路服務。")
+                return 0
+            mirror=_confirm("同意背景限速快取官方 Slime Friend 安裝包（約數十 MB）？")
+            from gecko_lan import GeckoHost
+            host=GeckoHost(config)
+            host.start(mirror=mirror)
+            print("✓ Gecko 已啟用 · 同一區域網路："+f"http://{host.ip}:41438")
+            print("同網路使用者須親自開啟、下載、確認配對；不會強制安裝。")
+            print("背景官方檔案鏡像限速，且同時間最多傳輸一份。")
+            print("Ctrl+C 可停止 Gecko；停用後新的配對授權會立即作廢。")
+            os.environ["VANILLA_SERVER_URL"]=config["server"]
+            os.environ["SLIME_NODE_TOKEN"]=config["token"]
+            os.environ["GECKO_FLEET_NODE"]="true" if config.get("gecko_fleet") else "false"
+            os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
+            try:
+                run_model()
+            except KeyboardInterrupt:
+                print("已停止 Gecko 及 Slime 共享。")
+            finally:
+                host.close()
             return 0
         print("啟動 Slime 節點："+config["label"])
+        print("若需離線後恢復：本程式會自動重試連線，不需要重新輸入配對碼。")
         print("此電腦只會在你保持程式開啟、節點授權有效時回報／執行。")
         print("按 Ctrl+C 可隨時停止；永久退出請使用 --leave。")
         os.environ["VANILLA_SERVER_URL"]=config["server"]
         os.environ["SLIME_NODE_TOKEN"]=config["token"]
+        os.environ["GECKO_FLEET_NODE"]="true" if config.get("gecko_fleet") else "false"
+        os.environ["SLIME_ALLOW_POWER_OFF"]="1" if config.get("shutdown_opt_in") else "0"
         try:
             run_model()
         except KeyboardInterrupt:

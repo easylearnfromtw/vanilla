@@ -2,9 +2,23 @@ name: Slime Installer Release
 on:
   workflow_dispatch:
   push:
+    branches: ['main']
     tags: ['slime-v*']
+    paths:
+      - '.github/workflows/slime-release.yml'
+      - 'services/weiguo/slime_desktop.py'
+      - 'services/weiguo/slime_runner_agent.py'
+      - 'services/weiguo/slime_success.py'
+      - 'services/weiguo/gecko_lan.py'
+      - 'services/weiguo/gecko_update.py'
+      - 'deployment/slime/**'
 permissions:
   contents: read
+
+# Multiple code pushes do not race to publish mismatched installer binaries.
+concurrency:
+  group: slime-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   windows:
@@ -16,17 +30,20 @@ jobs:
       - name: Verify source and build standalone executables
         shell: pwsh
         run: |
-          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py
+          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
+          python -m unittest discover -s tests -p test_slime_desktop.py
           python -m pip install "pyinstaller==6.16.0"
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --paths services/weiguo services/weiguo/slime_desktop.py
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --paths services/weiguo services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
+          Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: slime-windows-build
           path: |
             dist/Slime-Owner.exe
             dist/Slime-Friend.exe
+            dist/Slime-Windows-Autostart.ps1
           if-no-files-found: error
 
   macos:
@@ -37,14 +54,15 @@ jobs:
         with: {python-version: '3.12'}
       - name: Prepare macOS archive
         run: |
-          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py
+          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           mkdir -p dist
-          cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py dist/
+          cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py dist/
+          cp deployment/slime/install-macos-autostart.sh dist/install-macos-autostart.sh
           for role in Owner Friend; do
             cp "deployment/slime/Slime-${role}.command" "dist/Slime-${role}.command"
             chmod +x "dist/Slime-${role}.command"
             cd dist
-            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py
+            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh
             cd ..
           done
       - uses: actions/upload-artifact@v4
@@ -61,13 +79,15 @@ jobs:
         with: {python-version: '3.12'}
       - name: Prepare Linux archive
         run: |
-          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
+          python3 -m unittest discover -s tests -p test_slime_desktop.py
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
-            cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py "tmp-$role/"
+            cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py "tmp-$role/"
             role_lower=$(echo "$role" | tr '[:upper:]' '[:lower:]')
             cp "deployment/slime/launch-${role_lower}.sh" "tmp-$role/start-slime.sh"
+            cp deployment/slime/install-linux-autostart.sh "tmp-$role/install-linux-autostart.sh"
             chmod +x "tmp-$role/start-slime.sh"
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done
@@ -78,7 +98,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/slime-v')
+    if: startsWith(github.ref, 'refs/tags/slime-v') || github.ref == 'refs/heads/main'
     needs: [windows,macos,linux]
     runs-on: ubuntu-latest
     permissions:
@@ -92,13 +112,24 @@ jobs:
       - name: Check assets and hashes
         run: |
           cd release
-          for item in Slime-Owner.exe Slime-Friend.exe Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz; do
+          for item in Slime-Owner.exe Slime-Friend.exe Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz; do
             test -s "$item"
           done
           sha256sum Slime-* > SHA256SUMS.txt
       - name: Publish GitHub release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" \
-            --title "Slime $GITHUB_REF_NAME" --generate-notes --verify-tag
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/slime-v* ]]; then
+            release_tag="$GITHUB_REF_NAME"
+            target_args=(--verify-tag)
+          else
+            # No write-capable create-tag connector is required: gh release
+            # creates this unique immutable tag at the exact tested commit.
+            release_tag="slime-v$(date -u +%Y%m%d)-${GITHUB_SHA:0:12}"
+            target_args=(--target "$GITHUB_SHA")
+          fi
+          gh release create "$release_tag" release/* --repo "$GITHUB_REPOSITORY" \
+            --title "Slime $release_tag" --generate-notes "${target_args[@]}"

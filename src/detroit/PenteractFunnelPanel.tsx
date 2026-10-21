@@ -1,27 +1,25 @@
 import {useMemo,useState} from "react";
 import {ROTATION_PLANES,PENTERACT_VERTICES,PENTERACT_EDGES,project5D,
  planPenteractFunnel,embedFiveSpace,FIVE_EXPERTS,type RotationPlane} from "./penteract-5d";
+import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract-camera";
 import "./penteract-5d.css";
 
 const INITIAL="比較兩項投資的現金流與 NPV，指出假設和風險。";
 const FUNNEL_HEIGHT=78;
 const WIDTH=[0.95,0.76,0.59,0.44,0.32,0.23];
-function panelPoint(p:readonly [number,number,number]){
- const perspective=3.8/(3.8-p[2]*0.42);
- return {x:280+p[0]*86*perspective,y:186-p[1]*81*perspective,
-  depth:p[2],radius:2.4+p[2]*0.35};
-}
+
 export default function PenteractFunnelPanel(){
  const [text,setText]=useState(INITIAL);
  const [plane,setPlane]=useState<RotationPlane>("xw");
  const [angle,setAngle]=useState(0.42);
  const [showAll,setShowAll]=useState(false);
+ const [orbit,setOrbit]=useState<OrbitCamera>({...DEFAULT_ORBIT_CAMERA});
  const plan=useMemo(()=>planPenteractFunnel(text,{privateMode:true}),[text]);
- const projected=useMemo(()=>PENTERACT_VERTICES.map(p=>panelPoint(project5D(p,plane,angle))),[plane,angle]);
+ const projected=useMemo(()=>PENTERACT_VERTICES.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[plane,angle,orbit]);
  const expertNodes=useMemo(()=>FIVE_EXPERTS.map(p=>({
-  ...p,pos:panelPoint(project5D(p.prototype,plane,angle))
- })),[plane,angle]);
- const query=useMemo(()=>panelPoint(project5D(embedFiveSpace(text),plane,angle)),[text,plane,angle]);
+  ...p,pos:cameraProject3D(project5D(p.prototype,plane,angle),orbit)
+ })),[plane,angle,orbit]);
+ const query=useMemo(()=>cameraProject3D(project5D(embedFiveSpace(text),plane,angle),orbit),[text,plane,angle,orbit]);
  return <section className="october-5d" aria-label="阿土伯 Penteract 五維架構與理解優先漏斗">
   <header className="october-5d-intro">
    <p className="october-5d-kicker">OCTOBER / PENTERACT LAB</p>
@@ -32,7 +30,7 @@ export default function PenteractFunnelPanel(){
    <div className="october-5d-panel">
     <div className="october-5d-heading"><strong>01 · 五維空間</strong><small>32 個頂點 / 80 條邊 / 10 個旋轉平面</small></div>
     <div className="october-5d-space">
-     <svg role="img" aria-label="五維超立方體經旋轉投影到二維，白色點為五維頂點，強調顯示本輪查詢位置" viewBox="0 0 560 374" preserveAspectRatio="xMidYMid meet">
+     <svg role="img" aria-label="五維超立方體經五維旋轉、三維觀察視角與透視投影到二維；白色點代表頂點"  viewBox="0 0 560 374" preserveAspectRatio="xMidYMid meet">
       <defs><radialGradient id="october-five-glow"><stop stopColor="#a5a5a5" stopOpacity=".17"/><stop offset="1" stopColor="#bfbfbf" stopOpacity="0"/></radialGradient></defs>
       <ellipse cx="280" cy="186" rx="235" ry="150" fill="url(#october-five-glow)"/>
       {PENTERACT_EDGES.map(([a,b])=><line key={a+"-"+b} x1={projected[a].x} y1={projected[a].y}
@@ -42,7 +40,7 @@ export default function PenteractFunnelPanel(){
        <g key={x.id}><circle cx={x.pos.x} cy={x.pos.y} r="7" fill="#fff" stroke="#8d8d8d" strokeWidth="1.5"/><title>{x.title}：五維原型座標（非實測語意精度）</title></g>)}
       <circle cx={query.x} cy={query.y} r="10" fill="#111" stroke="#fff" strokeWidth="3"/>
       <circle cx={query.x} cy={query.y} r="15" fill="none" stroke="#111" opacity=".36"/>
-      <text x="14" y="29" fontSize="12" fill="currentColor" opacity=".6">PENTERACT / 5D → 3D → 2D</text>
+      <text x="14" y="29" fontSize="12" fill="currentColor" opacity=".6">PENTERACT / R⁵ → R³ ORBIT → R²</text>
      </svg>
     </div>
     <div className="october-5d-controls">
@@ -54,9 +52,18 @@ export default function PenteractFunnelPanel(){
      <label>五維旋轉角度 <output>{Math.round(angle*180/Math.PI)}°</output>
       <input type="range" min="-3.14" max="3.14" step=".02" value={angle} onChange={e=>setAngle(Number(e.target.value))}/>
      </label>
+     <label>三維視角 · 水平 <output>{Math.round(orbit.yaw*180/Math.PI)}°</output>
+      <input aria-label="3D camera horizontal orbit" type="range" min="-3.14" max="3.14" step=".02" value={orbit.yaw} onChange={e=>setOrbit(p=>({...p,yaw:Number(e.target.value)}))}/>
+     </label>
+     <label>三維視角 · 俯仰 <output>{Math.round(orbit.pitch*180/Math.PI)}°</output>
+      <input aria-label="3D camera vertical orbit" type="range" min="-1.3" max="1.3" step=".02" value={orbit.pitch} onChange={e=>setOrbit(p=>({...p,pitch:Number(e.target.value)}))}/>
+     </label>
+     <label>三維視角 · 縮放 <output>{Math.round(orbit.zoom*100)}%</output>
+      <input aria-label="3D camera zoom" type="range" min=".65" max="1.5" step=".05" value={orbit.zoom} onChange={e=>setOrbit(p=>({...p,zoom:Number(e.target.value)}))}/>
+     </label>
      <label className="october-5d-check"><input type="checkbox" checked={showAll} onChange={e=>setShowAll(e.target.checked)}/> 顯示全部專家原型</label>
     </div>
-    <p className="october-5d-note">真正的五維距離與旋轉：六個等距專家錨點形成 R⁵ 的正五維單純形（5-simplex）；以受限詞彙特徵映射問題。這不是已訓練的神經語意空間，也不代表路由準確率。</p>
+    <p className="october-5d-note">真正的五維距離與旋轉：六個等距專家錨點形成 R⁵ 的正五維單純形（5-simplex）；以受限詞彙特徵映射問題。五維旋轉後可獨立調整三維相機角度、俯仰與縮放。這不是已訓練的神經語意空間，也不代表路由準確率。</p>
    </div>
    <div className="october-5d-panel">
     <div className="october-5d-heading"><strong>02 · 漏斗運算流水線</strong><small>上寬下窄 / 理解優先</small></div>

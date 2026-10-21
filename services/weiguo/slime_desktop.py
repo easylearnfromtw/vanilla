@@ -174,8 +174,8 @@ def status(settings):
     from slime_runner_agent import _heartbeat, _models
     try:
         state=_heartbeat(settings["server"],settings["token"])
-        if not state.get("ok"):
-            print("○ WeiGuo 尚未接受節點心跳，請檢查節點授權。")
+        if state.get("ok") is False:
+            print("○ WeiGuo 明確拒絕節點心跳，請檢查節點授權。")
             return False
     except HTTPError as exc:
         print("○ WeiGuo 心跳失敗：HTTP "+str(exc.code)+

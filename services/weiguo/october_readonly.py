@@ -178,6 +178,8 @@ def run_csv(body: CSVRequest, user: FamilyIdentity = Depends(family_reader)):
     with _session() as db:
         _setup(db)
         db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM october_readonly_receipts WHERE created_at<?",
+                   (now - _RETENTION,))
         row = _checked_row(db, user.sub, body.task_id, key)
         if row:
             if row["input_sha256"] != input_hash or row["result_sha256"] != digest:
@@ -188,8 +190,6 @@ def run_csv(body: CSVRequest, user: FamilyIdentity = Depends(family_reader)):
                        (user.sub, now - 60)).fetchone()[0]
         if n >= 12:
             raise HTTPException(429, "October readonly rate limit")
-        db.execute("DELETE FROM october_readonly_receipts WHERE created_at<?",
-                   (now - _RETENTION,))
         signature = _sign(key, user.sub, body.task_id, input_hash, digest, now)
         db.execute("INSERT INTO october_readonly_receipts "
                    "(tenant_sub, task_id, input_sha256, result_sha256, "
@@ -207,6 +207,6 @@ def get_receipt(task_id: str, user: FamilyIdentity = Depends(family_reader)):
     with _session() as db:
         _setup(db)
         row = _checked_row(db, user.sub, task_id, key)
-        if not row:
+        if not row or row["created_at"] < int(time.time()) - _RETENTION:
             raise HTTPException(404, "Receipt unavailable")
         return _receipt(row)

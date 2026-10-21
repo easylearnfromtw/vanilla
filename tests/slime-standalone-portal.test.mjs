@@ -61,7 +61,12 @@ test("No public client issues privileged short codes or consumes long-lived devi
  const html=read("public/slime/index.html");
  assert.doesNotMatch(html,/\/v1\/family\/slime\/invite|\/v1\/slime\/node\/pair/);
  assert.doesNotMatch(html,/authorization|bearer\s|token_digest/i);
- assert.match(html,/短配對碼由系統管理者私下發給裝置持有人/);
+ assert.match(html,/來源：Telegram Ceres（唯一核發處）/);
+ assert.match(html,/尚未收到配對碼/);
+ assert.match(html,/網頁右側另外產生第二組/);
+ assert.match(html,/var safeLink=code\?/);
+ assert.doesNotMatch(html,/id="code" class="pair-code pair-placeholder">XXXX-XXXX-XXXX/);
+ assert.doesNotMatch(html,/copyText\(code\|\|legacy/);
  assert.match(html,/不在此公開網頁驗證或核發節點 Token/);
 });
 

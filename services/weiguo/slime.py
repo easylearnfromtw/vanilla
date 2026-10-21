@@ -17,7 +17,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from auth import FamilyIdentity, family_user
 
@@ -71,6 +71,21 @@ def _db():
             c.execute("ALTER TABLE nodes ADD COLUMN inference_enabled INTEGER NOT NULL DEFAULT 0")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_reward_revocation(
           node_id TEXT PRIMARY KEY, owner_sub TEXT NOT NULL, revoked_at INTEGER NOT NULL)""")
+        extras={
+            "paired_at":"REAL NOT NULL DEFAULT 0","pair_number":"INTEGER NOT NULL DEFAULT 0",
+            "notified_at":"REAL NOT NULL DEFAULT 0","geo_opt_in":"INTEGER NOT NULL DEFAULT 0",
+            "public_ip":"TEXT NOT NULL DEFAULT ''","geo_area":"TEXT NOT NULL DEFAULT ''",
+            "cpu_pct":"REAL","gpu_temp_c":"REAL","gpu_util_pct":"REAL",
+            "max_load_pct":"INTEGER NOT NULL DEFAULT 100",
+            "thermal_limit_c":"INTEGER NOT NULL DEFAULT 82",
+            "shutdown_opt_in":"INTEGER NOT NULL DEFAULT 0",
+            "pending_power_off":"REAL NOT NULL DEFAULT 0"
+        }
+        for key,definition in extras.items():
+            if key not in cols:
+                c.execute("ALTER TABLE nodes ADD COLUMN "+key+" "+definition)
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_owner_sequence(
+          owner TEXT PRIMARY KEY,last_number INTEGER NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_short_pair(
           digest TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_failures(
@@ -131,7 +146,7 @@ def issue_short_pair(owner: str) -> dict:
             "notice":"只能配對一次，不是裝置的永久密碼"}
 
 
-def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str) -> dict:
+def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str, geo_opt_in:bool=False, shutdown_opt_in:bool=False, public_ip:str="") -> dict:
     """Atomically consume code and create a device, with persistent brute-force limits."""
     _enabled()
     now=time.time()
@@ -165,9 +180,17 @@ def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str) -> 
         node_id=secrets.token_hex(12)
         c.execute("DELETE FROM slime_short_pair WHERE digest=?",
                   (_digest("short:"+normalized),))
-        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen)
-            VALUES(?,?,?,?,?,?)""",
-                  (node_id,found["owner"],_digest(token),label.strip(),role,now))
+        c.execute("""INSERT INTO slime_owner_sequence(owner,last_number) VALUES(?,1)
+            ON CONFLICT(owner) DO UPDATE SET last_number=last_number+1""",(found["owner"],))
+        pair_number=c.execute("SELECT last_number FROM slime_owner_sequence WHERE owner=?",
+                              (found["owner"],)).fetchone()[0]
+        from slime_ops import valid_public_ip
+        ip=(valid_public_ip(public_ip) or valid_public_ip(client_address)) if geo_opt_in else ""
+        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen,
+          paired_at,pair_number,geo_opt_in,public_ip,shutdown_opt_in)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+          (node_id,found["owner"],_digest(token),label.strip(),role,now,
+           now,pair_number,int(geo_opt_in),ip,int(shutdown_opt_in)))
         c.commit()
     return {"node_id":node_id,"token":token,
             "heartbeat_interval_seconds":60,"inference_enabled":False}
@@ -201,12 +224,18 @@ class JoinRequest(BaseModel):
     invite: str = Field(min_length=24, max_length=160)
     label: str = Field(min_length=1, max_length=64)
     role: str = "friend"
+    geo_opt_in: bool = False
+    shutdown_opt_in: bool = False
+    public_ip: str = Field(default="", max_length=48)
 
 class Caps(BaseModel):
     cpu: int = Field(default=0, ge=0, le=512)
     ram_gb: float = Field(default=0, ge=0, le=2048)
     gpu: str = Field(default="", max_length=150)
     os: str = Field(default="", max_length=80)
+    cpu_pct: float | None = Field(default=None,ge=0,le=100)
+    gpu_temp_c: float | None = Field(default=None,ge=0,le=125)
+    gpu_util_pct: float | None = Field(default=None,ge=0,le=100)
 
 class Heartbeat(BaseModel):
     capabilities: Caps
@@ -222,12 +251,14 @@ class RouteRequest(BaseModel):
 @router.get("/v1/family/slime/status")
 def slime_status(user: FamilyIdentity = Depends(_owner)):
     return {"ready": True, "service": "Slime", "runtime": "registry-only",
-            "inference_enabled": False, "power_control_enabled": False,
+            "inference_enabled": False, "power_control_enabled": True,
+            "power_on_enabled": False, "power_off_requires_device_opt_in": True,
             "heartbeat_seconds": ONLINE_SECONDS}
 
 @router.post("/v1/family/slime/invite")
 def issue_invite(user: FamilyIdentity = Depends(_owner)):
-    return issue_short_pair(user.sub)
+    _enabled()
+    raise HTTPException(403, "請在 Ceres Telegram Owner 私聊核發 Slime 配對碼")
 
 
 @router.get("/v1/family/slime/nodes")
@@ -305,6 +336,9 @@ class PairRequest(BaseModel):
     code: str = Field(min_length=8,max_length=48)
     label: str = Field(min_length=1,max_length=64)
     role: str = "friend"
+    geo_opt_in: bool = False
+    shutdown_opt_in: bool = False
+    public_ip: str = Field(default="", max_length=48)
 
 
 @node_router.post("/v1/slime/node/pair")
@@ -312,7 +346,10 @@ def pair(body: PairRequest, request: Request):
     # Never trust caller-controlled X-Forwarded-For for rate limiting.
     address=request.client.host if request.client else "unknown"
     return _redeem_short_pair(code=body.code,label=body.label,
-                              role=body.role,client_address=address)
+                              role=body.role,client_address=address,
+                              geo_opt_in=body.geo_opt_in,
+                              shutdown_opt_in=body.shutdown_opt_in,
+                              public_ip=body.public_ip)
 
 
 @node_router.post("/v1/slime/node/join")
@@ -333,26 +370,70 @@ def join(body: JoinRequest):
         if count >= MAX_PER_OWNER:
             raise HTTPException(429, "節點已達上限")
         c.execute("DELETE FROM invites WHERE digest=?", (_digest(body.invite),))
-        c.execute("""INSERT INTO nodes (id,owner,token_digest,label,role,last_seen)
-            VALUES (?,?,?,?,?,?)""", (node_id, invited["owner"], _digest(token),
-                                       body.label.strip(), body.role, now))
+        c.execute("""INSERT INTO slime_owner_sequence(owner,last_number) VALUES(?,1)
+            ON CONFLICT(owner) DO UPDATE SET last_number=last_number+1""",(invited["owner"],))
+        number=c.execute("SELECT last_number FROM slime_owner_sequence WHERE owner=?",
+                         (invited["owner"],)).fetchone()[0]
+        from slime_ops import valid_public_ip
+        public_ip=valid_public_ip(body.public_ip) if body.geo_opt_in else ""
+        c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen,
+          paired_at,pair_number,geo_opt_in,public_ip,shutdown_opt_in)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+          (node_id,invited["owner"],_digest(token),body.label.strip(),body.role,
+           now,now,number,int(body.geo_opt_in),public_ip,int(body.shutdown_opt_in)))
         c.commit()
     return {"node_id": node_id, "token": token, "heartbeat_interval_seconds": 60,
             "inference_enabled": False}
 
 @node_router.post("/v1/slime/node/heartbeat")
-def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None)):
+def heartbeat(body: Heartbeat, authorization: str | None = Header(default=None),
+              background_tasks: BackgroundTasks = None):
     _enabled()
+    now=time.time()
+    now=time.time()
     with _db() as c:
-        r = _node(c, authorization)
-        c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,share_enabled=?
-            WHERE id=?""", (time.time(), body.capabilities.cpu,
-                            body.capabilities.ram_gb, body.capabilities.gpu, body.capabilities.os,
-                            int(body.share_enabled), r["id"]))
-        owner_allowed = bool(r["owner_enabled"])
-    return {"ok": True, "owner_enabled": owner_allowed,
-            "inference_enabled": bool(r["inference_enabled"]) and owner_allowed and body.share_enabled,
-            "commands": []}
+        r=_node(c,authorization)
+        c.execute("""UPDATE nodes SET last_seen=?,cpu=?,ram_gb=?,gpu=?,os=?,
+            cpu_pct=?,gpu_temp_c=?,gpu_util_pct=?,share_enabled=? WHERE id=?""",
+            (now,body.capabilities.cpu,body.capabilities.ram_gb,body.capabilities.gpu,
+             body.capabilities.os,body.capabilities.cpu_pct,body.capabilities.gpu_temp_c,
+             body.capabilities.gpu_util_pct,int(body.share_enabled),r["id"]))
+        claimed=bool(r["paired_at"]) and c.execute("""UPDATE nodes SET notified_at=? WHERE id=? AND
+                   (notified_at=0 OR (notified_at<0 AND notified_at>?))""",
+                   (-now,r["id"],-(now-180))).rowcount==1
+        owner_allowed=bool(r["owner_enabled"])
+        temp=body.capabilities.gpu_temp_c
+        overheating=temp is not None and temp>=r["thermal_limit_c"]
+        c.commit()
+    if claimed and background_tasks is not None:
+        from slime_ops import notify_pairing
+        background_tasks.add_task(notify_pairing,r["id"])
+    elif claimed:
+        with _db() as c:
+            c.execute("UPDATE nodes SET notified_at=0 WHERE id=? AND notified_at=?",
+                      (r["id"],-now))
+    return {"ok":True,"owner_enabled":owner_allowed,
+            "inference_enabled":bool(r["inference_enabled"]) and owner_allowed
+                  and body.share_enabled and not overheating and r["max_load_pct"]>0,
+            "max_load_pct":r["max_load_pct"],"thermal_limit_c":r["thermal_limit_c"],
+            "thermal_paused":overheating,"commands":[]}
+
+
+@node_router.post("/v1/slime/node/power/poll")
+def power_poll(authorization: str | None = Header(default=None)):
+    """Only this paired device may consume its short-lived opted-in power command."""
+    _enabled()
+    with _db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        node=_node(db,authorization)
+        if (not node["shutdown_opt_in"] or not node["pending_power_off"] or
+            node["pending_power_off"]<=time.time()):
+            db.commit()
+            return {"command":None}
+        db.execute("UPDATE nodes SET pending_power_off=0 WHERE id=?",(node["id"],))
+        db.commit()
+        return {"command":"shutdown","grace_seconds":60}
+
 
 @node_router.post("/v1/slime/node/leave")
 def leave(authorization: str | None = Header(default=None)):

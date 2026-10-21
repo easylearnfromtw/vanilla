@@ -89,7 +89,7 @@ class SlimeDesktopOnboardingTests(unittest.TestCase):
         settings={"role":"friend","server":app.DEFAULT_SERVER,
                   "label":"test","node_id":"a"*24,"token":"P"*40}
         with patch("slime_runner_agent._heartbeat",return_value={
-            "owner_enabled":True,"inference_enabled":False}),patch("slime_runner_agent._models",return_value=[]):
+            "ok":True,"owner_enabled":True,"inference_enabled":False}),patch("slime_runner_agent._models",return_value=[]):
             from io import StringIO
             with patch("sys.stdout",new_callable=StringIO) as out:
                 app.status(settings)

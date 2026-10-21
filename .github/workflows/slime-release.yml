@@ -16,7 +16,7 @@ jobs:
       - name: Verify source and build standalone executables
         shell: pwsh
         run: |
-          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py
           python -m pip install "pyinstaller==6.16.0"
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --paths services/weiguo services/weiguo/slime_desktop.py
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --paths services/weiguo services/weiguo/slime_desktop.py
@@ -37,14 +37,14 @@ jobs:
         with: {python-version: '3.12'}
       - name: Prepare macOS archive
         run: |
-          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py
+          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py
           mkdir -p dist
-          cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py dist/
+          cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py dist/
           for role in Owner Friend; do
             cp "deployment/slime/Slime-${role}.command" "dist/Slime-${role}.command"
             chmod +x "dist/Slime-${role}.command"
             cd dist
-            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py
+            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py
             cd ..
           done
       - uses: actions/upload-artifact@v4
@@ -65,7 +65,7 @@ jobs:
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
-            cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py "tmp-$role/"
+            cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py "tmp-$role/"
             role_lower=$(echo "$role" | tr '[:upper:]' '[:lower:]')
             cp "deployment/slime/launch-${role_lower}.sh" "tmp-$role/start-slime.sh"
             chmod +x "tmp-$role/start-slime.sh"

@@ -5,7 +5,7 @@ const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
 test("Slime download UI only links matching verified GitHub release assets",()=>{
  const panel=read("src/slime/SlimePanel.tsx");
- assert.match(panel,/\/releases\/latest/);
+ assert.match(panel,/\/releases\?per_page=20/);
  assert.match(panel,/Slime-Owner/);
  assert.match(panel,/Slime-Friend/);
  assert.match(panel,/trustedAsset/);

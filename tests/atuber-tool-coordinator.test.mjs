@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {planAtuberReadOnly} from "../src/detroit/atuber-tool-plan.ts";
 import {executeAtuberReadOnly} from "../src/detroit/atuber-tool-coordinator.ts";
+import {parseCreamCSV,analyzeCream} from "../src/cream/core.ts";
 
 test("Atuber accepts explicit read-only request only",()=>{
  const status=planAtuberReadOnly("阿土伯：工具狀態");
@@ -58,7 +59,8 @@ test("Five-dimensional shadow report never executes real experts",async()=>{
 test("CREAM executes local deterministic CSV analysis and produces real result",async()=>{
  const plan=planAtuberReadOnly("阿土伯：統計 CSV\n日期,數值\n2026-10-01,5\n2026-10-02,7");
  assert.ok(plan);
- const result=await executeAtuberReadOnly(plan,{privateMode:true});
+ const result=await executeAtuberReadOnly(plan,{privateMode:true,
+  executeCream:async csv=>analyzeCream(parseCreamCSV(csv,"Atuber 本機測試"))});
  assert.equal(result.capability,"cream");
  assert.match(result.evidence,/CREAM/);
  assert.match(result.evidence,/平均/);

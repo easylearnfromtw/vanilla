@@ -165,8 +165,12 @@ async def _invite_card(chat: int, sub: str) -> None:
     buttons.append([_button("← 返回節點管理","nodes")])
     await say(chat,_title("PAIR / 節點一次性配對")
               +"<pre>"+escape(result or "配對服務目前不可用")+"</pre>"
-              +"\n<i>請在新電腦首次配對時使用。已使用／逾期的碼無法回復，請重新產生。</i>",
+              +"\n<i>10 分鐘有效 · 只能使用一次。下方 QR 是備用配對方式。</i>",
               buttons,html=True)
+    # Only newly issued short-code invitations can be converted into QR.
+    if code_match and link_match:
+        from ceres_admin_bot import send_pairing_qr
+        await send_pairing_qr(chat,link_match.group(0))
 
 
 async def _sources(chat: int) -> None:

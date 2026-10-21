@@ -9,7 +9,7 @@ test("Slime download UI only links matching verified GitHub release assets",()=>
  assert.match(panel,/Slime-Owner/);
  assert.match(panel,/Slime-Friend/);
  assert.match(panel,/trustedAsset/);
- assert.match(panel,/asset\.size>0/);
+ assert.match(panel,/a\.size>0/);
  assert.match(panel,/release\.draft\|\|release\.prerelease/);
  assert.match(panel,/startsWith\("https:\/\/github\.com\/easylearnfromtw\/vanilla\/releases\/download\/"/);
  assert.match(panel,/mobile/);

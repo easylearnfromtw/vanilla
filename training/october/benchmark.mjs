@@ -67,11 +67,13 @@ async function infer(options,model,prompt){
    headers:{"Content-Type":"application/json"},
    body:JSON.stringify({model,stream:false,keep_alive:"5m",
     messages:[{role:"user",content:prompt}],
+    think:false,
     options:{temperature:0.2,top_p:0.85,num_ctx:4096,num_predict:512,seed:20261021}})
   });
   if(!res.ok)throw Error("Ollama HTTP "+res.status);
   const payload=await res.json();
   if(!payload?.done||typeof payload.message?.content!=="string")throw Error("Missing completed reply");
+  if(payload.done_reason==="length")throw Error("Truncated answer cannot be scored as correct");
   const elapsedMs=Math.round(performance.now()-started);
   const promptTokens=Number.isFinite(payload.prompt_eval_count)?payload.prompt_eval_count:null;
   const outputTokens=Number.isFinite(payload.eval_count)?payload.eval_count:null;
@@ -85,13 +87,15 @@ export async function runBenchmark(options,inferFn=infer){
  // Same warm-up prompt for each model reduces cold-start bias. Warm-up is not scored.
  const results={name:"October controlled Ollama holdout",scope:"heuristic offline questions, not real-world correctness",
   generatedAt:new Date().toISOString(),models:options.models,
-  generation:{temperature:0.2,top_p:0.85,num_ctx:4096,num_predict:512,seed:20261021},
+  generation:{temperature:0.2,top_p:0.85,num_ctx:4096,num_predict:512,seed:20261021,think:false},
   cases:options.maxCases,records:[],summary:[]};
  for(const model of options.models){
   await inferFn(options,model,"用一句話說明什麼是 NPV。");
   const trials=[];
   for(let i=0;i<options.maxCases;i++){
-   const attempt=await inferFn(options,model,HOLDOUT[i].prompt[0].content);
+   let attempt;
+   try{attempt=await inferFn(options,model,HOLDOUT[i].prompt[0].content);}
+   catch{attempt={text:"",elapsedMs:null,promptTokens:null,outputTokens:null,tokensPerSecond:null};}
    const judge=scoreOctoberReply(attempt.text,EXPECTED[i]);
    // No input questions/answers persisted in default report, only rubric IDs.
    trials.push({tag:EXPECTED[i].tag,domain:HOLDOUT[i].domain,
@@ -106,6 +110,7 @@ export async function runBenchmark(options,inferFn=infer){
   results.records.push({model,cases:trials});
   results.summary.push({model,n:trials.length,
    heuristicPassRate:trials.filter(x=>x.pass).length/trials.length,
+   failedOrEmpty:trials.filter(x=>x.reason==="EMPTY").length,
    avgLatencyMs:mean("elapsedMs"),avgPromptTokens:mean("promptTokens"),
    avgOutputTokens:mean("outputTokens"),avgTokensPerSecond:mean("tokensPerSecond")});
  }

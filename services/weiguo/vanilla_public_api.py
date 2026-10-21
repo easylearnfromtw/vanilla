@@ -166,6 +166,11 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
     with _session() as db:
         _db_tables(db)
         db.execute("BEGIN IMMEDIATE")
+        # Reconcile expired reward reservations BEFORE checking quotas, so
+        # crashed requests cannot permanently lock the contributor's credits.
+        from slime_rewards import _tables as reward_tables, recover_abandoned_reservations
+        reward_tables(db)
+        recover_abandoned_reservations(db, now)
         # Revalidate revocation and expiry INSIDE the quota transaction.
         live=db.execute("""SELECT k.*,p.enabled FROM vanilla_api_keys k
              JOIN vanilla_api_projects p ON p.id=k.project_id WHERE k.id=?""",(key["id"],)).fetchone()
@@ -185,8 +190,6 @@ def _reserve(key,model:str,budget:int,*,kind:str="inference"):
             raise HTTPException(429,"API Key Token 額度不足")
         # Reward credits are reserved in the SAME transaction as API Key quota.
         # Independent keys do not consume reward wallets.
-        from slime_rewards import _tables as reward_tables
-        reward_tables(db)
         wallet_key=db.execute("SELECT google_sub FROM slime_reward_key WHERE key_id=?",
                               (key["id"],)).fetchone()
         if wallet_key:

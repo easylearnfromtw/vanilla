@@ -213,7 +213,14 @@ async def telegram_webhook(request: Request,
     prefix = text.split()[0].split("@")[0].lower()
     if prefix in ("/hub", "/center", "/centre"):
         hub_text = text
-    elif prefix == "/start" or text in ("控制中心", "開啟控制中心", "打開控制中心"):
+    elif prefix == "/start":
+        from ceres_admin_bot import owner_subject
+        from ceres_command_center import welcome
+        if owner_subject(chat_id) and _claim_admin_update(payload["update_id"]):
+            await welcome(chat_id)
+            return {"ok":True,"accepted":True}
+        return {"ok":True,"accepted":False}
+    elif text in ("控制中心", "開啟控制中心", "打開控制中心", "開始使用"):
         hub_text = "/hub"
     elif text in ("系統狀態", "查看系統狀態", "底特律狀態"):
         hub_text = "/hub status"

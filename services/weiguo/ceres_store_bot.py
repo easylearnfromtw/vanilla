@@ -107,6 +107,28 @@ async def _tg(method,data):
         if response.json().get("ok") is not True: raise ValueError("Telegram API error")
 async def _send(chat_id,text,keyboard=None):
     await _tg("sendMessage",{"chat_id":chat_id,"text":text,"reply_markup":keyboard or _buttons([[("📚 開始學習 AI","learn:start")]])})
+def _hub_keyboard():
+    return _buttons([
+        [("◈ Academy · 學習中心","hub:academy"),("◇ Models · 模型","hub:models")],
+        [("⌘ API Store","hub:api"),("▤ Usage · 用量","hub:usage")],
+        [("◉ Account · 帳戶","hub:account"),("⚙ Settings","hub:settings")]
+    ])
+
+async def _hub(chat_id,section="home"):
+    pages={
+        "home":("VANILLA  /  AI PLATFORM","歡迎回到 Vanilla。\\n\\n選擇下方功能，直接在 Telegram 探索與學習。\\n目前不開放付款或 API 金鑰申請。"),
+        "models":("MODELS  /  模型探索","模型清單與即時版本資訊尚未在此 Bot 開放。\\n正式提供前不顯示虛構模型或價格。"),
+        "api":("API STORE  /  服務中心","API 方案、金鑰申請及付款目前尚未開放。\\n請勿在聊天室傳送 API Key 或其他機密。"),
+        "usage":("USAGE  /  使用紀錄","用量儀表板尚未串接至公開 Bot。\\n目前沒有可驗證的個人 Token 使用數據。"),
+        "account":("ACCOUNT  /  個人中心","此 Bot 目前僅記錄 Academy 的學習進度。\\n尚未提供正式帳號管理及權限編輯。"),
+        "settings":("SETTINGS  /  偏好設定","可在 Academy 選擇學習程度。\\n其他設定將在後端權限與儲存機制完成後開放。")
+    }
+    heading,body=pages.get(section,pages["home"])
+    if section=="home":
+        await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_hub_keyboard())
+    else:
+        await _send(chat_id,f"{heading}\\n━━━━━━━━━━━━\\n\\n{body}",_buttons([[("〈 返回主選單","hub:home")]]))
+
 async def _learn(chat_id,action):
     db,row=_learning_state(chat_id)
     try:
@@ -191,9 +213,13 @@ async def store_webhook(request: Request,
         chat_id=chat.get("id")
         if (chat.get("type")=="private" and type(chat_id) is int
                 and sender.get("id")==chat_id and not sender.get("is_bot")
-                and isinstance(callback.get("data"),str) and callback["data"].startswith("learn:")):
+                and isinstance(callback.get("data"),str) and callback["data"].startswith(("learn:","hub:"))):
             if _claim(update["update_id"]):
-                await _learn(chat_id,callback["data"][6:])
+                if callback["data"].startswith("hub:"):
+                    section=callback["data"][4:]
+                    if section=="academy": await _learn(chat_id,"start")
+                    else: await _hub(chat_id,section)
+                else: await _learn(chat_id,callback["data"][6:])
             if isinstance(callback.get("id"),str):
                 await _tg("answerCallbackQuery",{"callback_query_id":callback["id"]})
         return {"ok":True}
@@ -214,9 +240,10 @@ async def store_webhook(request: Request,
             await _learn(chat_id,actions[user_text])
         return {"ok":True}
     command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
-    if command not in ("/start", "/help"):
+    if command not in ("/start", "/help", "/menu", "/academy"):
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
-    await _send(chat_id, "歡迎使用 Vanilla AI API Store！\n\n📚 點選「開始學習 AI」，依程度學習 October、AI Coding 與 API 串聯。\n\n模型、方案、API 金鑰與使用量功能即將開放。目前尚未開放付款，請勿匯款或提供敏感資料。")
+    if command=="/academy": await _learn(chat_id,"start")
+    else: await _hub(chat_id,"home")
     return {"ok": True}

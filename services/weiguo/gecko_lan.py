@@ -462,23 +462,43 @@ def discover(server:str,timeout:float=0.8) -> list[dict]:
     return list(found.values())[:8]
 
 
-def request_invite(peer:dict,server:str) -> str:
-    """Call a user-selected LAN host; redeem ticket ONLY with trusted HTTPS server."""
+def request_invite(peer:dict,server:str,mode:str="receiver")->str:
+    """Recipient selects their LAN host and confirmation policy; never scans peers."""
     from urllib.parse import urlsplit
     addr=ipaddress.ip_address(peer["ip"])
     if (not isinstance(addr,ipaddress.IPv4Address) or not addr.is_private or
         peer["server"]!=server or peer["port"]!=WEB_PORT or
-        urlsplit(server).scheme!="https"):
-        raise ValueError("Gecko 分享來源不受信任")
+        urlsplit(server).scheme!="https" or mode not in ("receiver","owner")):
+        raise ValueError("Gecko 分享來源或核准方式不受信任")
+    opener=build_opener(ProxyHandler({}))
     req=Request("http://"+str(addr)+":"+str(WEB_PORT)+"/invite",
-        data=b'{"consent":true}',method="POST",
+        data=json.dumps({"consent":True,"mode":mode}).encode("utf-8"),method="POST",
         headers={"Content-Type":"application/json","X-Gecko-Consent":"v1"})
-    # Never forward an RFC1918 joining request to an HTTP proxy.
-    with build_opener(ProxyHandler({})).open(req,timeout=12) as response:
-        if response.status!=200:raise ValueError("Gecko 節點未核准")
-        raw=response.read(1025)
-    if len(raw)>1024:raise ValueError("Gecko 回覆過大")
-    ticket=json.loads(raw.decode("utf-8")).get("ticket")
+    # Never forward local RFC1918 device traffic to a proxy.
+    with opener.open(req,timeout=12) as response:
+        if response.status not in (200,202):raise ValueError("Gecko 節點未核准")
+        raw=response.read(2049)
+    if len(raw)>2048:raise ValueError("Gecko 回覆過大")
+    result=json.loads(raw.decode("utf-8"))
+    if mode=="owner":
+        request_id=result.get("requestId")
+        if not isinstance(request_id,str) or not re.fullmatch("[a-f0-9]{48}",request_id):
+            raise ValueError("Telegram Owner 請求格式不正確")
+        print("已送出 Gecko Telegram 核准請求；可從此電腦取消，最多等待 4 分鐘。")
+        end=time.monotonic()+235
+        while time.monotonic()<end:
+            time.sleep(5)
+            try:
+                with opener.open("http://"+str(addr)+":"+str(WEB_PORT)+"/invite/status/"+request_id,timeout=12) as response:
+                    if response.status!=200:break
+                    result=json.loads(response.read(2049).decode("utf-8"))
+            except (OSError,ValueError,HTTPError,URLError,TimeoutError):
+                continue
+            if result.get("status")=="rejected":
+                raise ValueError("Owner 已拒絕 Gecko 加入")
+            if result.get("status")=="approved":break
+        else:raise TimeoutError("Telegram Owner 核准已逾時；沒有加入裝置")
+    ticket=result.get("ticket")
     if not isinstance(ticket,str) or not TICKET.fullmatch(ticket):
-        raise ValueError("Gecko 一次性授權無效")
+        raise ValueError("Gecko 一次性授權尚未核發或無效")
     return ticket

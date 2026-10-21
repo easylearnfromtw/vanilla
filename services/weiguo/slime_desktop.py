@@ -124,7 +124,7 @@ def setup():
         print("未取得同意，沒有建立任何配對。")
         return None
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
-    compact=re.sub(r"[-\\s]","",secret).upper()
+    compact=re.sub(r"[-\s]","",secret).upper()
     short=bool(SHORT_CODE.fullmatch(compact))
     endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
     payload={"code":secret,"role":role,"label":label} if short else {

@@ -28,7 +28,7 @@ TICKET_TTL=600
 _ID=re.compile(r"^[a-f0-9]{24}$")
 _SUB=re.compile(r"^[0-9]{8,32}$")
 _TICKET=re.compile(r"^[A-Za-z0-9_-]{32,160}$")
-_CLIENT=re.compile(r"^[0-9]+-[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com$")
+_CLIENT=re.compile(r"^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$")
 _GATEWAY_PREFIX="vnl_"
 
 

@@ -1,7 +1,8 @@
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {ROTATION_PLANES,PENTERACT_VERTICES,PENTERACT_EDGES,project5D,
  planPenteractFunnel,embedFiveSpace,FIVE_EXPERTS,type RotationPlane} from "./penteract-5d";
 import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract-camera";
+import {latestOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "./penteract-telemetry";
 import "./penteract-5d.css";
 
 const INITIAL="比較兩項投資的現金流與 NPV，指出假設和風險。";
@@ -14,6 +15,8 @@ export default function PenteractFunnelPanel(){
  const [angle,setAngle]=useState(0.42);
  const [showAll,setShowAll]=useState(false);
  const [orbit,setOrbit]=useState<OrbitCamera>({...DEFAULT_ORBIT_CAMERA});
+ const [measured,setMeasured]=useState(latestOctoberFunnelObservation);
+ useEffect(()=>subscribeOctoberFunnelObservation(setMeasured),[]);
  const plan=useMemo(()=>planPenteractFunnel(text,{privateMode:true}),[text]);
  const projected=useMemo(()=>PENTERACT_VERTICES.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[plane,angle,orbit]);
  const expertNodes=useMemo(()=>FIVE_EXPERTS.map(p=>({
@@ -90,6 +93,17 @@ export default function PenteractFunnelPanel(){
     <div><strong>{plan.routes.length}</strong><small>候選專家（非已執行）</small></div>
     <div><strong>{plan.ambiguity==="high"?"高":plan.ambiguity==="medium"?"中":"低"}</strong><small>啟發式歧義程度</small></div>
    </div>
+   <section className="october-5d-observed" aria-label="本次工作階段中的真實 Ollama 漏斗量測">
+    <h3>03 · 模型實際量測 <small>僅記憶體暫存 / 不保留問題內容</small></h3>
+    {measured?.summary.status==="measured"?<>
+     <div className="october-5d-observed-grid">
+      <div><strong>{measured.summary.understandingGeneratedSharePct}%</strong><small>理解階段生成 Token 佔比</small></div>
+      <div><strong>{measured.summary.targetMet?"已達":"未達"}</strong><small>55% 參考目標（非功耗）</small></div>
+      <div><strong>{measured.summary.understandingElapsedSharePct===null?"—":measured.summary.understandingElapsedSharePct+"%"}</strong><small>理解階段耗時佔比</small></div>
+     </div>
+     <p>理解 {measured.understandingGeneratedTokens ?? "未提供"} / 回答 {measured.answerGeneratedTokens ?? "未提供"} 個生成 Token。Ollama 耗時及 Token 不等於 GPU 瓦特數。</p>
+    </>:<p>尚未取得兩階段完整 Ollama 計數器。請先在聊天以 October 深度模式完成一次回答；不會生成虛構比例。</p>}
+   </section>
    <div className="october-5d-routes">
     <h3>候選路由 · 五維幾何距離</h3>
     {plan.routes.map((r,i)=><div key={r.id}><span className="october-5d-index">0{i+1}</span><strong>{r.title}</strong><span>距離 {r.distance.toFixed(3)}</span><small>僅供建議，未呼叫工具</small></div>)}

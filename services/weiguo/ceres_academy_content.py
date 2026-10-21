@@ -775,5 +775,30 @@ def render_lesson(index: int, level: str = "0") -> str:
         raise AssertionError(f"第 {index+1} 課超出 Telegram 4096 字限制")
     return body
 
+
+def render_quiz(index: int, reveal: bool = False) -> str:
+    """Quiz uses the SAME reviewed chapter data and references as the lesson."""
+    if not isinstance(index, int) or not 0 <= index < len(LESSONS):
+        raise ValueError("未知課次")
+    _, _, topic, chapter, _ = LESSONS[index]
+    row = KNOWLEDGE[topic * 6 + chapter]
+    message = (
+        f"🧩 ACADEMY 自我測驗｜{row['chapter']}\n\n"
+        f"請先獨立完成：\n{row['practice']}\n\n"
+        "提示：請寫出必要的步驟、限制與至少一個可能失敗的情況。"
+    )
+    if reveal:
+        message += (
+            f"\n\n✅ 參考解答與解析\n{row['answer']}\n\n"
+            f"概念依據：{row['explain']}\n\n"
+            "參考來源：\n"
+            + "\n".join(f"• {name}\n{url}" for name, url in row["sources"])
+        )
+    else:
+        message += "\n\n完成作答後，按「顯示解析」核對。"
+    if len(message) > 3900:
+        raise AssertionError("測驗內容超過 Telegram 文字限制")
+    return message
+
 assert len(KNOWLEDGE) == 36
 assert len(LESSONS) == 324

@@ -88,6 +88,14 @@ jobs:
           name: october-prompt-budget
           path: training/october/generated/october-prompt-budget.json
           if-no-files-found: error
+      - name: Audit October 5D shadow routing on fixed synthetic cases
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/penteract-routing-audit.mjs --output training/october/generated/october-penteract-shadow-audit.json
+      - name: Save October synthetic routing report (not real-model accuracy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-penteract-shadow-synthetic
+          path: training/october/generated/october-penteract-shadow-audit.json
+          if-no-files-found: error
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Slime secure pairing and reconnect regression tests

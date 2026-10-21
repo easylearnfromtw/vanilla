@@ -33,6 +33,7 @@ jobs:
           node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres
           npm run test:ceres-slime-ui
+          node --test tests/ceres-academy-docker.test.mjs
           npm run test:api-registry
           npm run test:merlin
           npm run test:victoria

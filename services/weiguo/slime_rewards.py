@@ -204,6 +204,11 @@ def reward_ticket(authorization: str | None=Header(default=None)):
     with _db() as nodes:
         node=_node(nodes,authorization)
         node_id,owner=node["id"],node["owner"]
+        # Ephemeral server fleet machines must not generate unlimited synthetic
+        # "friend hardware" gifts; personal voluntary Slime claims are separate.
+        table=nodes.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gecko_fleet_members'").fetchone()
+        if table and nodes.execute("SELECT 1 FROM gecko_fleet_members WHERE node_id=?",(node_id,)).fetchone():
+            raise HTTPException(403,"Gecko 機房批次節點不參加個人硬體 Token 獎勵")
         from slime_reward_policy import score_capabilities
         try:
             score=score_capabilities(node["cpu"],node["ram_gb"],node["gpu"])
@@ -334,6 +339,11 @@ def claim(body:Claim):
                                  (row["node_id"],)).fetchone()
         if not active or active["owner"]!=row["owner_sub"]:
             raise HTTPException(409,"此節點已退出，不能領取獎勵")
+        with _db() as registry:
+            table=registry.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gecko_fleet_members'").fetchone()
+            if table and registry.execute("SELECT 1 FROM gecko_fleet_members WHERE node_id=?",
+                                          (row["node_id"],)).fetchone():
+                raise HTTPException(403,"Gecko 受管機房節點不可領取個人獎勵")
         try:
             score=score_capabilities(active["cpu"],active["ram_gb"],active["gpu"])
         except ValueError:

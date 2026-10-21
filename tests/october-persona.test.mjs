@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT} from "../src/ai/prompts.ts";
-import {isOctoberModel,OCTOBER_RUNTIME_CONTRACT,OCTOBER_COMPACT_CONTRACT} from "../src/ai/october-persona.ts";
+import {isOctoberModel,OCTOBER_RUNTIME_CONTRACT,OCTOBER_COMPACT_CONTRACT,OCTOBER_PRECISION_CONTRACT,octoberPromptForTask} from "../src/ai/october-persona.ts";
 import {prepareHumanization} from "../src/erya/humanize.ts";
 import {venusPresentationGuidance} from "../src/venus/presentation.ts";
 
@@ -12,14 +12,19 @@ test("October persona matches only explicit October Ollama models",()=>{
  for(const model of ["october:0.3","october:lite","OCTOBER:custom"])assert.equal(isOctoberModel(model),true,model);
  for(const model of ["qwen3:4b","gemini-3.8-flash","fake-october:0.3","october-notreal:4b","october:0.3 admin"])assert.equal(isOctoberModel(model),false,model);
 });
-test("October runtime keeps its manager decision and Detroit execution separate",()=>{
- const full=vanillaSystemPrompt({task:"analysis",compact:false,latestUserText:"分析公司財報",model:"october:0.3"});
- for(const token of ["阿土伯","再興中學","哈佛 MBA","上海光華管理學院","臺大法律碩士","里長","立法委員","Victoria","Detroit","Verifier","Ceres","Self-Build"])assert.ok(full.includes(token),token);
- assert.match(full,/虛構/);
- assert.match(full,/不能把它們宣稱為真實/);
- assert.match(full,/不表示你有權替使用者做高風險/);
- assert.doesNotMatch(full,/你是 Vanilla，一個家庭專用/);
- assert.ok(full.length<6500,"persona should not waste entire model context");
+test("October normal requests use a bounded evidence prompt, not full fictional biography",()=>{
+ const normal=vanillaSystemPrompt({task:"analysis",compact:false,latestUserText:"分析公司財報",model:"october:0.3"});
+ const bio=vanillaSystemPrompt({task:"general",compact:false,latestUserText:"請說明阿土伯的學歷與經歷背景",model:"october:0.3"});
+ for(const token of ["October","阿土伯","CREAM","Detroit","Verifier","財金","數字","虛構"])assert.ok(normal.includes(token),token);
+ assert.doesNotMatch(normal,/再興中學|哈佛 MBA|上海光華管理學院/);
+ assert.match(bio,/再興中學|哈佛 MBA/);
+ assert.match(bio,/不能把它們宣稱為真實/);
+ assert.ok(normal.length<bio.length*0.80);
+ assert.ok(OCTOBER_PRECISION_CONTRACT.length<OCTOBER_RUNTIME_CONTRACT.length);
+ assert.match(normal,/結論/);
+ assert.ok(normal.length<4500);
+ assert.doesNotMatch(normal,/你是 Vanilla，一個家庭專用/);
+ assert.equal(octoberPromptForTask("casual","你好",false),OCTOBER_COMPACT_CONTRACT);
 });
 test("Lite persona stays short and resists fabricated real-world credentials",()=>{
  const lite=vanillaSystemPrompt({task:"general",compact:true,latestUserText:"你好",model:"october:lite"});

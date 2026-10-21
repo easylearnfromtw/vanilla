@@ -620,6 +620,7 @@ const ticket=window.__slimeTicket||"";delete window.__slimeTicket;
 const $=id=>document.getElementById(id);
 let credential="",issued="";
 function msg(text){$("status").textContent=String(text)}
+function weekenMessage(text){$("weeken-status").textContent=String(text)}
 async function api(route,data){
  const response=await fetch("/v1/slime/rewards/"+route,{method:"POST",credentials:"omit",cache:"no-store",
  headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
@@ -648,8 +649,11 @@ window.onload=async function(){
   try{
     const quote=await api("quote",{ticket});
     $("reward-amount").textContent=Number(quote.amount).toLocaleString();
+    $("device-score").textContent=Number(quote.score).toLocaleString();
+    $("reward-multiplier").textContent=Number(quote.multiplier).toLocaleString();
+    $("weeken-bonus").textContent=Number(quote.weekenBonus).toLocaleString();
   }catch(error){msg(error.message);}
- }else{$("reward-amount").textContent="100,000（預設）";}
+ }else{$("reward-amount").textContent="依裝置評分計算";}
  if(!window.google?.accounts?.id){msg("Google 登入元件載入失敗，請檢查網路或瀏覽器設定。");return;}
  google.accounts.id.initialize({client_id:__GOOGLE_CLIENT__,callback:async function(auth){
   if(!auth||!auth.credential)return;
@@ -660,9 +664,19 @@ window.onload=async function(){
     msg("已領取 "+result.rewardTokens.toLocaleString()+" Token！");
     showWallet(await api("balance",{credential}));
     showKey(result.apiKey);
+    $("thankyou").hidden=false;
+    $("device-score").textContent=Number(result.score).toLocaleString();
+    $("thankyou").scrollIntoView({behavior:"smooth",block:"start"});
    }else{
     const result=await api("balance",{credential});
     showWallet(result);
+    if(result.claimed){
+      const enrolled=await api("weeken/status",{credential});
+      $("thankyou").hidden=false;
+      $("weeken-join").hidden=enrolled.joined;
+      $("weeken-leave").hidden=!enrolled.joined;
+      weekenMessage(enrolled.joined?"你已加入 WEEKEN，可隨時撤回。":"WEEKEN 完全自願，可以另行決定是否加入。");
+    }
     msg(result.claimed?"Google 身分確認成功，可查詢目前剩餘 Token。":"尚未領取。請由已配對的 Slime 節點開啟專屬領獎連結。");
    }
   }catch(error){msg(error.message)}

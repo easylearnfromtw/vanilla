@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import {ROTATION_PLANES,PENTERACT_VERTICES,PENTERACT_EDGES,project5D,
  planPenteractFunnel,embedFiveSpace,FIVE_EXPERTS,type RotationPlane} from "./penteract-5d";
 import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract-camera";
+import {sectionPenteract5D,type FiveSlice} from "./penteract-section";
 import {latestOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "./penteract-telemetry";
 import "./penteract-5d.css";
 
@@ -14,6 +15,8 @@ export default function PenteractFunnelPanel(){
  const [plane,setPlane]=useState<RotationPlane>("xw");
  const [angle,setAngle]=useState(0.42);
  const [showAll,setShowAll]=useState(false);
+ const [showSlice,setShowSlice]=useState(false);
+ const [slice,setSlice]=useState<FiveSlice>({w:0,v:0});
  const [orbit,setOrbit]=useState<OrbitCamera>({...DEFAULT_ORBIT_CAMERA});
  const [measured,setMeasured]=useState(latestOctoberFunnelObservation);
  useEffect(()=>subscribeOctoberFunnelObservation(setMeasured),[]);
@@ -23,6 +26,8 @@ export default function PenteractFunnelPanel(){
   ...p,pos:cameraProject3D(project5D(p.prototype,plane,angle),orbit)
  })),[plane,angle,orbit]);
  const query=useMemo(()=>cameraProject3D(project5D(embedFiveSpace(text),plane,angle),orbit),[text,plane,angle,orbit]);
+ const sliceGeometry=useMemo(()=>sectionPenteract5D(slice),[slice]);
+ const sliceProjected=useMemo(()=>sliceGeometry.vertices.map(p=>cameraProject3D(project5D(p,plane,angle),orbit)),[sliceGeometry,plane,angle,orbit]);
  return <section className="october-5d" aria-label="阿土伯 Penteract 五維架構與理解優先漏斗">
   <header className="october-5d-intro">
    <p className="october-5d-kicker">OCTOBER / PENTERACT LAB</p>
@@ -38,7 +43,11 @@ export default function PenteractFunnelPanel(){
       <ellipse cx="280" cy="186" rx="235" ry="150" fill="url(#october-five-glow)"/>
       {PENTERACT_EDGES.map(([a,b])=><line key={a+"-"+b} x1={projected[a].x} y1={projected[a].y}
        x2={projected[b].x} y2={projected[b].y} stroke="currentColor" opacity={0.13+(projected[a].depth+projected[b].depth+5)/35} strokeWidth="1.2"/>)}
-      {projected.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={p.radius} fill="currentColor" opacity=".7"/>)}
+      {projected.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={p.radius} fill="currentColor" opacity={showSlice?".21":".7"}/>)}
+      {showSlice&&<g aria-label="固定 W 與 V 的三維空間截面">
+       {sliceGeometry.edges.map(([a,b])=><line key={`section-${a}-${b}`} x1={sliceProjected[a].x} y1={sliceProjected[a].y} x2={sliceProjected[b].x} y2={sliceProjected[b].y} stroke="currentColor" strokeWidth="2.5" opacity=".85"/>)}
+       {sliceProjected.map((p,i)=><circle key={`section-v-${i}`} cx={p.x} cy={p.y} r="4" fill="currentColor" opacity=".94"/>)}
+      </g>}
       {expertNodes.filter(p=>showAll||plan.routes.some(r=>r.id===p.id)).map(x=>
        <g key={x.id}><circle cx={x.pos.x} cy={x.pos.y} r="7" fill="#fff" stroke="#8d8d8d" strokeWidth="1.5"/><title>{x.title}：五維原型座標（非實測語意精度）</title></g>)}
       <circle cx={query.x} cy={query.y} r="10" fill="#111" stroke="#fff" strokeWidth="3"/>
@@ -65,8 +74,17 @@ export default function PenteractFunnelPanel(){
       <input aria-label="3D camera zoom" type="range" min=".65" max="1.5" step=".05" value={orbit.zoom} onChange={e=>setOrbit(p=>({...p,zoom:Number(e.target.value)}))}/>
      </label>
      <label className="october-5d-check"><input type="checkbox" checked={showAll} onChange={e=>setShowAll(e.target.checked)}/> 顯示全部專家原型</label>
+     <label className="october-5d-check"><input type="checkbox" checked={showSlice} onChange={e=>setShowSlice(e.target.checked)}/> 顯示五維空間的三維截面</label>
+     {showSlice&&<>
+      <label>內在 W 座標 <output>{slice.w.toFixed(2)}</output>
+       <input aria-label="5D section W" type="range" min="-1" max="1" step=".05" value={slice.w} onChange={e=>setSlice(s=>({...s,w:Number(e.target.value)}))}/>
+      </label>
+      <label>內在 V 座標 <output>{slice.v.toFixed(2)}</output>
+       <input aria-label="5D section V" type="range" min="-1" max="1" step=".05" value={slice.v} onChange={e=>setSlice(s=>({...s,v:Number(e.target.value)}))}/>
+      </label>
+     </>}
     </div>
-    <p className="october-5d-note">真正的五維距離與旋轉：六個等距專家錨點形成 R⁵ 的正五維單純形（5-simplex）；以受限詞彙特徵映射問題。五維旋轉後可獨立調整三維相機角度、俯仰與縮放。這不是已訓練的神經語意空間，也不代表路由準確率。</p>
+    <p className="october-5d-note">真正的五維距離與旋轉：六個等距專家錨點形成 R⁵ 的正五維單純形（5-simplex）；以受限詞彙特徵映射問題。可觀察固定旋轉前 W／V 的精確三維截面（8 頂點、12 邊）；旋轉發生在截取後。五維旋轉後可獨立調整三維相機角度、俯仰與縮放。這不是已訓練的神經語意空間，也不代表路由準確率。</p>
    </div>
    <div className="october-5d-panel">
     <div className="october-5d-heading"><strong>02 · 漏斗運算流水線</strong><small>上寬下窄 / 理解優先</small></div>

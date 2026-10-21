@@ -70,6 +70,7 @@ jobs:
       - run: npm run test:chat-router
       - run: npm run test:email
       - run: npm run test:model-tuning
+      - run: npm run test:atuber-preflight
       - run: npm run test:atuber-model
       - run: npm run eval:atuber-finance
       - run: npm run test:small-model

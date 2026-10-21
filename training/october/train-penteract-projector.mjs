@@ -45,32 +45,33 @@ export function trainFiveProjector({epochs=PROJECTOR_EPOCHS,seed=PROJECTOR_TRAIN
  const data=validatePenteractProjectorCurriculum();
  if(!Number.isInteger(epochs)||epochs<1||epochs>500||
   !Number.isSafeInteger(seed)||seed<1)throw Error("INVALID_PROJECTOR_TRAINING_PARAMS");
- const model=initializeFiveProjector(seed);
- const samples=PENTERACT_PROJECTOR_TRAIN.map(row=>({
+ // Internal 120/24 stratified train/calibration. This calibration split is
+ // carved EXCLUSIVELY from the 144 TRAIN samples; the 68 final evaluation
+ // samples remain untouched by parameter or epoch selection.
+ const allSamples=PENTERACT_PROJECTOR_TRAIN.map(row=>({
   input:fiveSpaceFeatures(row.text),label:LEARNED_5D_IDS.indexOf(row.expected)
  }));
- const random=randomGenerator(seed^0x9e3779b9);
- const order=samples.map((_,i)=>i);
- const startLoss=samples.reduce((sum,row)=>sum+sampleLoss(row.input,row.label,model),0)/samples.length;
- for(let epoch=0;epoch<epochs;epoch++){
-  // Deterministic train-only shuffle. NO eval cases or eval scores affect updates.
+ const fitSamples=allSamples.filter((_,i)=>i%6!==5);
+ const calibrationSamples=allSamples.filter((_,i)=>i%6===5);
+ if(fitSamples.length!==120||calibrationSamples.length!==24)throw Error("CALIBRATION_SPLIT_CHANGED");
+ const initial=initializeFiveProjector(seed);
+ const startLoss=allSamples.reduce((sum,row)=>sum+sampleLoss(row.input,row.label,initial),0)/allSamples.length;
+ const runEpoch=(model,samples,order,rand,epoch,totalEpochs)=>{
   for(let i=order.length-1;i>0;i--){
-   const j=Math.floor(random()*(i+1));
+   const j=Math.floor(rand()*(i+1));
    [order[i],order[j]]=[order[j],order[i]];
   }
-  const rate=.1*(1-.7*epoch/epochs);
+  // The schedule is fixed before any evaluation: no meta-optimization on eval.
+  const rate=.1*(1-.7*epoch/totalEpochs);
   for(const index of order){
    const item=samples[index];
    const {coordinate,probabilities}=forwardLearnedFive(item.input,model);
    for(let axis=0;axis<5;axis++){
     let derivative=0;
     for(let cls=0;cls<LEARNED_5D_IDS.length;cls++){
-     const error=probabilities[cls]-(cls===item.label?1:0);
-     derivative+=error*FIVE_SIMPLEX[cls][axis];
+     derivative+=(probabilities[cls]-(cls===item.label?1:0))*FIVE_SIMPLEX[cls][axis];
     }
-    // d/dz(tanh(z))=1-tanh(z)^2. Softmax logits=8*dot(q,prototype).
-    const gradient=2*LEARNED_5D_SCALE*derivative*(1-coordinate[axis]);
-    const delta=gradient*(1+coordinate[axis]); // stable 1 - coordinate^2
+    const delta=2*LEARNED_5D_SCALE*derivative*(1-coordinate[axis]*coordinate[axis]);
     const weights=model.weights[axis];
     for(let j=0;j<LEARNED_5D_FEATURES;j++){
      weights[j]-=rate*(delta*item.input[j]+.00015*weights[j]);
@@ -78,8 +79,29 @@ export function trainFiveProjector({epochs=PROJECTOR_EPOCHS,seed=PROJECTOR_TRAIN
     model.bias[axis]-=rate*delta;
    }
   }
+ };
+ const validation=initializeFiveProjector(seed);
+ const calOrder=fitSamples.map((_,i)=>i);
+ const calRng=randomGenerator(seed^0x9e3779b9);
+ let bestEpoch=1,bestCalLoss=Infinity;
+ for(let epoch=0;epoch<epochs;epoch++){
+  runEpoch(validation,fitSamples,calOrder,calRng,epoch,epochs);
+  const calLoss=calibrationSamples.reduce((sum,row)=>
+   sum+sampleLoss(row.input,row.label,validation),0)/calibrationSamples.length;
+  if(Number.isFinite(calLoss)&&calLoss<bestCalLoss-1e-6){
+   bestCalLoss=calLoss;
+   bestEpoch=epoch+1;
+  }
  }
- const trainLoss=samples.reduce((sum,row)=>sum+sampleLoss(row.input,row.label,model),0)/samples.length;
+ if(!Number.isFinite(bestCalLoss))throw Error("CALIBRATION_LOSS_NONFINITE");
+ // Retrain selected epochs on the ORIGINAL 144 TRAIN examples. This step
+ // never sees the final 48+20 eval cases and never changes release thresholds.
+ const model=initializeFiveProjector(seed);
+ const order=allSamples.map((_,i)=>i),rng=randomGenerator(seed^0x9e3779b9);
+ for(let epoch=0;epoch<bestEpoch;epoch++){
+  runEpoch(model,allSamples,order,rng,epoch,epochs);
+ }
+ const trainLoss=allSamples.reduce((sum,row)=>sum+sampleLoss(row.input,row.label,model),0)/allSamples.length;
  if(!Number.isFinite(trainLoss)||!Number.isFinite(startLoss)||trainLoss>=startLoss)
   throw Error("PROJECTOR_TRAINING_DID_NOT_REDUCE_LOSS");
  const artifact={
@@ -89,11 +111,11 @@ export function trainFiveProjector({epochs=PROJECTOR_EPOCHS,seed=PROJECTOR_TRAIN
   provenance:{
    trainCount:data.train,trainSha256:hash(PENTERACT_PROJECTOR_TRAIN),
    evalCount:data.eval,expertReviewed:false,
-   trainedOn:"GPT-authored-synthetic",epochs,seed
+   trainedOn:"GPT-authored-synthetic",epochs:bestEpoch,seed
   }
  };
  assertLearnedFiveWeights(artifact);
- return {artifact,startLoss,trainLoss};
+ return {artifact,startLoss,trainLoss,calibration:{selectedEpochs:bestEpoch,maxEpochs:epochs,fitCases:fitSamples.length,calibrationCases:calibrationSamples.length,bestCalibrationLoss:bestCalLoss,criterion:"train-only stratified cross-entropy; NO eval-based selection"}};
 }
 /** Compare like-for-like 6-class intent IDs vs prior heuristic 5D shadow.
  * Existing Diana routes tool permissions, NOT six expert domains; direct
@@ -189,10 +211,10 @@ function main(){
   if(!abs.startsWith(base+"/")||!abs.endsWith(".json"))throw Error("INVALID_REPORT_PATH");
  }
  const checked=validatePenteractProjectorCurriculum();
- const {artifact,startLoss,trainLoss}=trainFiveProjector();
+ const {artifact,startLoss,trainLoss,calibration}=trainFiveProjector();
  const report={...compareProjector(artifact),startLoss:Number(startLoss.toFixed(6)),
   finalTrainingLoss:Number(trainLoss.toFixed(6)),trainingExamples:checked.train,
-  heldoutExamples:checked.eval};
+  heldoutExamples:checked.eval,calibration};
  for(const [path,value] of [[output,artifact],[reportOutput,report]]){
   mkdirSync(dirname(resolve(path)),{recursive:true});
   writeFileSync(path,JSON.stringify(value,null,2)+"\n");

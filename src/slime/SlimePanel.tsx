@@ -42,6 +42,11 @@ export default function SlimePanel(){
  const [invite,setInvite]=useState<string|null>(inviteFromURL);
  const [copyResult,setCopyResult]=useState("");
  const [showTroubleshooting,setShowTroubleshooting]=useState(false);
+ const pairCode=useMemo(()=>{
+  if(!invite)return null;
+  const token=invite.match(/#slime=([^#&?]+)$/)?.[1]??"";
+  return /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(token)?token:null;
+ },[invite]);
  const asset=useMemo(()=>trustedAsset(release,role,os),[release,role,os]);
  useEffect(()=>{
   // Never leave one-time invitation secrets in URL history/address bar.
@@ -69,6 +74,12 @@ export default function SlimePanel(){
   try{await navigator.clipboard.writeText(invite);setCopyResult("邀請已複製；請只傳給同意安裝的裝置使用者");}
   catch{setCopyResult("複製失敗，請從 Telegram 重新取得邀請連結");}
  }
+ async function copyPairCode(){
+  if(!pairCode)return;
+  try{await navigator.clipboard.writeText(pairCode);
+      setCopyResult("短配對碼已複製；請在 Slime 安裝程式中輸入。");}
+  catch{setCopyResult("複製失敗；請手動記下上方 12 位短配對碼。");}
+ }
  const platform=os==="mobile"?"此裝置不支援執行節點":LABELS[os];
  const available=status==="ready"&&Boolean(asset);
  return <section className="slime-page" aria-label="Slime 電腦節點下載">
@@ -80,8 +91,13 @@ export default function SlimePanel(){
   </header>
   {invite&&<article className="slime-card slime-invite-ready">
    <div className="slime-heading"><div><span className="slime-kicker">INVITE DETECTED</span><h3>收到 Slime 一次性邀請</h3></div><LockKeyhole size={20}/></div>
-   <p>這個邀請不會儲存在瀏覽器。請在要加入的電腦上開啟 Slime，於首次配對時輸入短配對碼（亦可貼連結）。配對碼有效 10 分鐘，使用後即失效。</p>
-   <button className="slime-outline-action" type="button" onClick={()=>void copyInvite()}><Copy size={16}/> 複製這次邀請連結</button>
+   <p>此邀請僅保留在當次頁面，已從網址列移除。新電腦第一次開啟 Slime 時輸入配對碼即可。10 分鐘有效，使用一次後失效。</p>
+   {pairCode&&<div className="slime-short-code" aria-label="本次 Slime 節點配對碼">
+    <span>一次性節點配對碼</span><strong>{pairCode}</strong>
+    <small>每 4 位分組 · 使用後自動作廢</small>
+   </div>}
+   {pairCode&&<button className="slime-main-action" type="button" onClick={()=>void copyPairCode()}><Copy size={16}/> 複製配對碼 <ChevronRight size={16}/></button>}
+   <button className="slime-outline-action" type="button" onClick={()=>void copyInvite()}><Copy size={16}/> 複製備用邀請連結</button>
    <small role="status" aria-live="polite">{copyResult||"不要公開此連結，也不要將邀請碼貼到客服或社群。"}</small>
   </article>}
   <article className="slime-card">

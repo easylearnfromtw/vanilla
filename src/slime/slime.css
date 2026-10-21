@@ -88,3 +88,11 @@
 @media(max-width:480px){.slime-page .slime-platforms button{font-size:12px}.slime-page .slime-card{gap:13px}}
 @media(prefers-reduced-motion:reduce){.slime-page *, .slime-page *::after,
  .slime-page *::before{transition:none!important;animation:none!important}}
+
+.slime-page .slime-short-code{display:flex;flex-direction:column;gap:5px;align-items:center;
+ padding:20px 12px;background:var(--bg,#f6f6f8);border:1px solid var(--slime-border);border-radius:15px}
+.slime-page .slime-short-code span{font-size:11px;color:var(--slime-muted)}
+.slime-page .slime-short-code strong{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ font-size:clamp(17px,4.4vw,27px);letter-spacing:.08em;overflow-wrap:anywhere;
+ color:var(--slime-ink);user-select:all;-webkit-user-select:all}
+.slime-page .slime-short-code small{color:var(--slime-muted);font-size:11px}

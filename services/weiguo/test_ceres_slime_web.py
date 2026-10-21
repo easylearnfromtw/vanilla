@@ -120,6 +120,11 @@ class SlimeTelegramMiniAppTests(unittest.TestCase):
         code=invite.json()["code"]
         self.assertRegex(code,r"^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$")
         self.assertEqual(invite.json()["link"],"https://public.example.invalid/slime/#slime="+code)
+        qr=invite.json()["qr_data_uri"]
+        if qr:
+            import base64
+            self.assertTrue(qr.startswith("data:image/png;base64,"))
+            self.assertTrue(base64.b64decode(qr.split(",",1)[1]).startswith(b"\x89PNG\r\n\x1a\n"))
         self.assertNotIn("token",invite.json())
         from slime import _redeem_short_pair
         device=_redeem_short_pair(code=code,role="friend",label="Owner Shared PC",

@@ -298,11 +298,14 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    badge.textContent=n.online?"● 心跳在線":"○ 心跳離線";
    head.append(name,badge);root.append(head);
    const info=document.createElement("small");
-   info.textContent="配對已註冊 · "+(n.role==="owner"?"我的電腦":"朋友節點")+" · "+
-     (n.os||"未回報系統")+" · "+(n.gpu||"GPU 未回報")+
-     " · "+(n.ram_gb||0)+"GB RAM · "+(n.share_enabled?"同意共享":"共享關閉")+
-     " · "+(n.owner_enabled?"已授權節點":"已停用節點")+
-     " · "+(n.inference_enabled?"推論已核准":"推論關閉");
+   const heartbeat=Number.isFinite(n.last_heartbeat_seconds)?n.last_heartbeat_seconds:null;
+   const heartbeatText=n.online?"心跳正常"+(heartbeat!==null?"（"+heartbeat+" 秒前）":""):"心跳離線"+(heartbeat!==null?"（"+heartbeat+" 秒前）":"");
+   const hardware=(n.os||"系統未偵測")+" · RAM "+(n.ram_gb||0)+" GB · "+(n.gpu||"GPU 未偵測");
+   info.textContent="✓ 綁定已註冊 · "+heartbeatText+" · "+hardware+" · "+
+     (n.share_enabled?"裝置同意共享":"裝置已停用共享")+" · "+
+     (n.owner_enabled?"Owner 已核准節點":"Owner 已停用節點")+" · "+
+     (n.inference_enabled?"推論授權已開啟（仍需 Ollama）":"推論未核准")+" · "+
+     "實際模型回覆：尚待測試";
    root.append(info);
    const ctr=document.createElement("div");ctr.className="controls";
    const actions=[
@@ -488,6 +491,7 @@ def snapshot(body:Owner):
       "id":r["id"],"label":r["label"],"role":r["role"],"os":r["os"],
       "gpu":r["gpu"],"ram_gb":r["ram_gb"],"cpu":r["cpu"],
       "online":now-r["last_seen"]<=ONLINE_SECONDS,
+      "last_heartbeat_seconds":max(0,int(now-r["last_seen"])),
       "share_enabled":bool(r["share_enabled"]),
       "owner_enabled":bool(r["owner_enabled"]),
       "inference_enabled":bool(r["inference_enabled"])

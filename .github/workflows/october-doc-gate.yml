@@ -1,0 +1,41 @@
+name: October OC-000 Document Governance Gate
+
+on:
+  pull_request:
+    paths:
+      - "training/october/DECISIONS_50.md"
+      - "training/october/REQUIREMENTS_TRACEABILITY.md"
+      - "training/october/ARCHITECTURE_DELIVERY_PLAN.md"
+      - "training/october/IMPLEMENTATION_BACKLOG.md"
+      - "training/october/delivery-gate.mjs"
+      - "training/october/delivery-gate.test.mjs"
+      - ".github/workflows/october-doc-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  october-document-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate decisions, skipped Q24, fixed choices, RTM and backlog
+        run: node --test training/october/delivery-gate.test.mjs
+      - name: Generate OC-000 machine-readable governance report
+        run: node training/october/delivery-gate.mjs
+      - name: Upload documentation-only gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-oc000-document-gate
+          path: artifacts/october-oc000-doc-gate.json
+          if-no-files-found: ignore
+          retention-days: 14
+# A green job means the DECISION DOCUMENTS are internally consistent.
+# This does not execute October/Detroit, confirm Ceres/Slime runtime authorization,
+# approve Self-Build triggers, or authorize production deployment.

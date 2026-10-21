@@ -13,6 +13,8 @@ import platform
 import re
 import sys
 import tempfile
+import time
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 
 from slime_runner_agent import _http, run as run_model
@@ -136,9 +138,20 @@ def setup():
         raise ValueError("WeiGuo 配對結果無效；沒有保存憑證")
     obj={"role":role,"server":server,"label":label,
          "node_id":nodeid,"token":token}
+    # Save first: one-time invitations must never be lost when the immediate
+    # heartbeat fails because of a temporary network or server interruption.
     _save(obj)
-    print("配對成功。裝置 ID："+nodeid)
-    print("節點已加入，但推論需要 Owner 額外在 Telegram 明確核准。")
+    print("配對憑證已安全保存。裝置 ID："+nodeid)
+    try:
+        from slime_runner_agent import _heartbeat
+        state=_heartbeat(server,token)
+        if not state.get("ok"):
+            raise ValueError("heartbeat rejected")
+        print("✓ 配對已綁定 · WeiGuo 心跳已驗證")
+        print("下一步：Telegram → Slime 節點確認在線；需要使用模型則另行核准。")
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError,TypeError):
+        print("! 伺服器已回傳節點憑證，但首次心跳尚未確認。")
+        print("  請保持程式開啟或使用 --status 重試；不要重新消耗配對碼。")
     return obj
 
 
@@ -158,15 +171,28 @@ def leave(settings):
 
 
 def status(settings):
+    from slime_runner_agent import _heartbeat, _models
     try:
-        import slime_runner_agent as runner
-        state=runner._heartbeat(settings["server"],settings["token"])
-        print("● WeiGuo 已回覆 · "+settings["label"])
-        print("節點共享："+("允許" if state.get("owner_enabled") else "Owner 已停用"))
-        print("模型推論："+("已由 Owner 核准" if state.get("inference_enabled") else "未核准／關閉"))
-        print("本機 Ollama："+("可用" if runner._models() else "尚無可用模型"))
-    except Exception:
-        print("○ 連線或 Ollama 尚未就緒；請檢查網路與本機 Ollama。")
+        state=_heartbeat(settings["server"],settings["token"])
+        if not state.get("ok"):
+            print("○ WeiGuo 尚未接受節點心跳，請檢查節點授權。")
+            return False
+    except HTTPError as exc:
+        print("○ WeiGuo 心跳失敗：HTTP "+str(exc.code)+
+              ("（節點憑證無效／已撤銷）" if exc.code in (401,403) else ""))
+        return False
+    except (URLError,TimeoutError,OSError,ValueError,TypeError,KeyError):
+        print("○ 無法連線 WeiGuo HTTPS；請檢查網路、系統代理與防火牆政策。")
+        return False
+    print("✓ 綁定有效 · 心跳已確認 · "+settings["label"])
+    print("節點共享："+("允許" if state.get("owner_enabled") else "Owner 已停用"))
+    print("模型推論："+("已由 Owner 核准" if state.get("inference_enabled") else "未核准／關閉"))
+    try:
+        models=_models()
+        print("本機 Ollama："+(", ".join(models) if models else "沒有已下載的模型"))
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError,KeyError):
+        print("本機 Ollama：未連線（不影響節點配對和心跳）")
+    return True
 
 
 def main():
@@ -187,9 +213,9 @@ def main():
             config=setup()
         if not config:return 0
         if "--status" in flags:
-            status(config)
-            return 0
+            return 0 if status(config) else 2
         print("啟動 Slime 節點："+config["label"])
+        print("若需離線後恢復：本程式會自動重試連線，不需要重新輸入配對碼。")
         print("此電腦只會在你保持程式開啟、節點授權有效時回報／執行。")
         print("按 Ctrl+C 可隨時停止；永久退出請使用 --leave。")
         os.environ["VANILLA_SERVER_URL"]=config["server"]

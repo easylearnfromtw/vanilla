@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
  LEARNED_5D_FEATURES,LEARNED_5D_IDS,fiveSpaceFeatures,
- assertLearnedFiveWeights,forwardLearnedFive,routeLearnedFive
+ assertLearnedFiveWeights,forwardLearnedFive,routeLearnedFive,detectLearnedFiveEvidence
 } from "../src/detroit/penteract-learned.ts";
 import {
  PENTERACT_PROJECTOR_TRAIN,PENTERACT_PROJECTOR_EVAL,validatePenteractProjectorCurriculum
@@ -86,6 +86,30 @@ test("Paired evaluation is synthetic-only, includes abstentions, and always reje
  }
  assert.doesNotMatch(JSON.stringify(report),/passw(or)?d|rawQuestion|chatHistory|apiKey/i);
 });
+test("Understanding-first 5D specialist never guesses on unknown, mixed or conflicting evidence",()=>{
+ const {artifact}=trainFiveProjector({epochs:25});
+ for(const text of ["你好","謝謝","繼續","我不確定","我們再討論一下","請幫我看一下"]){
+  assert.deepEqual(detectLearnedFiveEvidence(text),[],text);
+  const result=routeLearnedFive(text,artifact);
+  assert.equal(result.status,"abstain",text);
+  assert.equal(result.reason,"no-domain-evidence",text);
+ }
+ for(const text of ["先分析投資後做 UI 設計","查核文獻後算 CSV 的平均值",
+  "請修復 Python 程式並修改網站配色","先讀學術資料再做平均數計算",
+  "找法律來源並起草正式報告"]){
+  assert.ok(detectLearnedFiveEvidence(text).length>=2,text);
+  const result=routeLearnedFive(text,artifact);
+  assert.equal(result.status,"abstain",text);
+  assert.equal(result.reason,"multi-domain",text);
+ }
+ const report=compareProjector(artifact);
+ assert.equal(report.modelUnknownFalseNominations,0);
+ assert.equal(report.modelUnknownAbstainRate,1);
+ assert.equal(report.syntheticSafetyVsLexical.didNotIncreaseUnknownNominations,true);
+ assert.equal(report.syntheticSafetyVsLexical.diagnosticPass,true);
+ assert.equal(report.deploymentEligible,false);
+});
+
 test("Trainable shadow is pure CPU only and never imports tool authority or remote inference",()=>{
  for(const path of ["../src/detroit/penteract-learned.ts","../training/october/train-penteract-projector.mjs"]){
   const code=readFileSync(new URL(path,import.meta.url),"utf8");

@@ -177,21 +177,27 @@ button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 <p id="service">正在確認後端服務…</p><div class="separator"></div>
 <div class="notice">ⓘ 推論與公開 API 採獨立開關；新加入的電腦不會自動取得推論權限。</div></div>
 </section>
-<section id="devices" role="tabpanel" hidden>
-<div class="card"><h2>我的節點</h2><p>每台節點需要經過 Owner 授權。撤銷後原裝置 Token 立即失效。</p>
-<div id="node-list" class="nodes"><p>正在讀取節點…</p></div></div>
+<section id="devices" role="tabpanel" aria-labelledby="tab-devices" hidden>
+<div class="section-head"><span class="eyebrow">02 / DEVICE CONTROL</span><h2>我的節點</h2><p>查看裝置、授權模型與管理連線</p></div>
+<div class="card">
+<div class="card-title"><div><span class="eyebrow">TRUSTED DEVICES</span><h2>連線裝置</h2></div><span class="status-pill" id="device-counter">— DEVICES</span></div>
+<p>裝置與模型推論權限分開管理。撤銷配對後，原本的裝置憑證立即失效。</p>
+<div id="node-list" class="nodes" aria-live="polite"><p>正在讀取節點…</p></div>
+<div class="controls"><button class="btn soft full" data-go="pairing">＋ 新增節點</button></div></div>
 </section>
-<section id="pairing" role="tabpanel" hidden>
-<div class="card"><h2>新增節點</h2><p>產生一次性 12 位短配對碼，供電腦首次啟動 Slime 時輸入。</p>
-<div class="notice" style="margin-top:14px">只供本人或已同意加入的朋友使用。
-配對碼有效 10 分鐘、只能使用一次；此頁不會讀取既有裝置的長期 Token。</div>
-<div class="controls"><button id="issue" class="btn primary">＋ 產生短配對碼</button></div>
-<div id="code-box" hidden><div class="code"><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
+<section id="pairing" role="tabpanel" aria-labelledby="tab-pairing" hidden>
+<div class="section-head"><span class="eyebrow">03 / SECURE PAIRING</span><h2>配對新裝置</h2><p>一次性短碼，安全加入你的 Slime 網路</p></div>
+<div class="card"><div class="card-title"><div><span class="eyebrow">ONE-TIME ACCESS</span><h2>建立配對邀請</h2></div><span aria-hidden="true">＋</span></div>
+<p>取得一組 12 位短碼，讓已同意加入的電腦完成第一次連線。配對成功不會自動核准模型推論。</p>
+<div class="pair-steps"><div><b>01</b><span>產生專屬配對碼</span></div><div><b>02</b><span>在電腦輸入短碼</span></div><div><b>03</b><span>回到節點頁確認</span></div></div>
+<div class="controls"><button id="issue" class="btn primary full">＋ 產生一次性配對碼</button></div>
+<div id="code-box" hidden><div class="code"><span class="eyebrow">YOUR PAIRING CODE</span><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
 <div id="qr-box" class="qr" hidden><img id="qr-image" alt="Slime 配對 QR Code，包含本次一次性邀請" width="220" height="220"></div>
-<div class="controls"><button id="copy-code" class="btn primary">複製配對碼</button>
-<button id="copy-link" class="btn">複製邀請連結</button></div></div>
+<div class="controls pair-actions"><button id="copy-code" class="btn primary">⧉ 複製短碼</button>
+<button id="copy-link" class="btn soft">複製備用連結</button></div></div>
 <p class="result" id="pair-result" role="status" aria-live="polite" hidden></p>
-<div class="controls"><a id="installer" class="btn" href="#" target="_blank" rel="noopener noreferrer">↗ Slime 公開下載頁</a></div>
+<div class="notice" style="margin-top:16px">⌁ 僅與取得同意的裝置持有人分享。這裡不會顯示原始的長期節點 Token。</div>
+<div class="controls"><a id="installer" class="btn soft full" href="#" target="_blank" rel="noopener noreferrer">↗ Slime 公開下載頁</a></div>
 </div>
 </section>
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>

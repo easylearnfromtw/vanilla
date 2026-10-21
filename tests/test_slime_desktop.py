@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "weiguo"))
 import slime_desktop as desktop
@@ -14,7 +14,7 @@ class SlimeOnboardingTests(unittest.TestCase):
     def test_one_telegram_code_is_normalized_and_legacy_is_distinct(self):
         self.assertEqual(desktop._invite("abcd-efgh-jkmn"), "ABCD-EFGH-JKMN")
         with self.assertRaises(ValueError):
-            desktop._invite("XXXX-XXXX-XXXX")  # illustrative placeholder, not valid
+            desktop._invite("0000-0000-0000")  # disallowed ambiguous digit
         with self.assertRaises(ValueError):
             desktop._invite("my-model-api-key")
         with self.assertRaises(ValueError):
@@ -52,7 +52,7 @@ class SlimeOnboardingTests(unittest.TestCase):
     def test_status_distinguishes_binding_from_local_model_readiness(self):
         settings = {"server": desktop.DEFAULT_SERVER, "token": "z" * 48, "label": "My PC"}
         with patch.object(runner, "_heartbeat", return_value={"ok": True, "owner_enabled": True, "inference_enabled": False}), \
-             patch.object(runner, "_models", side_effect=ConnectionError):
+             patch.object(runner, "_models", side_effect=URLError("local ollama offline")):
             # Generic connection failures should not cause an invalid pairing diagnosis.
             self.assertTrue(desktop.status(settings))
 

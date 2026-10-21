@@ -67,3 +67,30 @@ jobs:
             october-training-metrics.json
           if-no-files-found: error
           retention-days: 30
+
+  train-five-projector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify five-dimensional learned routing and training split
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/penteract-learned.test.mjs
+      - name: Train ACTUAL CPU weights for 5D projector (not language model)
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/train-penteract-projector.mjs \
+            --output training/october/generated/october-five-projector-weights.json \
+            --report training/october/generated/october-five-projector-report.json
+      - name: Publish 5D synthetic held-out results and CPU weights (NOT deployed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-penteract-learned-cpu-v0.1
+          path: |
+            training/october/generated/october-five-projector-weights.json
+            training/october/generated/october-five-projector-report.json
+          if-no-files-found: error
+          retention-days: 30

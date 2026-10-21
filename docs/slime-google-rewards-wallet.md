@@ -1,4 +1,49 @@
-# Slime Google signup credits and wallet metering
+# Slime Google signup credits, scored rewards and WEEKEN project enrollment
+
+> The new policy supersedes the former flat 100,000 Token signup amount. Details below mentioning the legacy flat amount are historical context.
+
+## Current scored policy (2026-10-21)
+
+- On a successful authenticated capability heartbeat, freeze a reproducible node score in **1–1000** when a verified Google account claims a gift.
+- Scoring (self-reported, **not hardware-attested**):
+  `clamp(14 + min(cpu,32)*11 + floor(min(ram_gb,128)*2) + gpu_points,1,1000)`.
+  GPU points are 90 when a GPU is recognized, plus 18 per GiB of
+  reported VRAM up to 16 GiB. A node must report positive CPU and RAM first.
+- Base credit gift = frozen node score × **100** by default. Ceres Telegram
+  Owner changes the Token-per-score multiplier for future grants (0–10,000).
+- The reward recipient can independently enroll in the **WEEKEN VPN project**.
+  One-time extra gift = `ceil_to_last_digit_9(frozen_score * 100)`.
+  Since the raw amount is a multiple of 100, this is `score*100+9`
+  (e.g., a score of 134 grants 13,400 + 13,409 if the user opts in).
+- WEEKEN consent is separately opt-in with optional contact and hardware status
+  permissions. It never authorizes traffic relaying, VPN tunnel activation,
+  remote file access, network history logging, or remote device control.
+  Every active connection requires separate, affirmative network permission.
+  Users can withdraw WEEKEN consent and optional permissions. Withdrawal
+  does not erase the gift by itself; **deleting the Slime node** revokes
+  both base and extra gifts.
+- Telegram Owner can view project enrollment metadata (node IDs, score,
+  status, grant, opt-in flags) but never raw Google ID token or device bearer.
+  Backend stores a Google subject, consent version/time and user-granted flags.
+- Every owner-initiated deletion still requires the existing one-time Telegram
+  deletion code. A device holder can voluntarily leave locally without it.
+  Both paths record a persistent node tombstone in the registry.
+- A replay-safe Ceres reconciliation revokes the wallet's original signup
+  and WEEKEN gifts, revokes owned API keys, closes WEEKEN enrollment, and
+  writes a forfeiture audit entry. The visible signed balance can become
+  negative after the user already spent some credits. A nonnegative cash
+  cache plus an independent debt record implements signed arithmetic without
+  rebuilding the existing production wallet table.
+- New API usage is refused while spendable credit is zero / debt remains.
+  Refunds first pay down negative debt, then restore spendable balance.
+- Vanilla front end: **Settings → Account & Sync → My Token Wallet**.
+  It uses Google Identity Services and signed ID tokens in volatile tab state,
+  without exposing device credentials or API keys to the public PWA.
+- Per-node hardware telemetry can be spoofed on an untrusted device. These
+  credits should remain strictly promotional; do not assign cash value or
+  broadly allow automated strangers to join without stronger abuse controls.
+
+## Legacy workflow notes
 
 ## Status and release requirements
 
@@ -44,7 +89,7 @@ Eligibility:
 
 Open **Ceres → Slime private Mini App → 獎勵**.
 Set amount from 0 to 10,000,000 credits and switch eligibility on/off.
-The initial setting is 100,000. Owner can inspect recipients, total issued,
+The former initial setting was 100,000; under the scored policy the multiplier is 100. Owner can inspect recipients, total issued,
 and consumed credits. Setting changes are audited in `slime_reward_admin_audit`.
 
 ## Wallet ledger, atomicity and exactness

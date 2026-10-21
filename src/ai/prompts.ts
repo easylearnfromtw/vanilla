@@ -44,7 +44,7 @@ export function vanillaSystemPrompt(options:{task:TaskKind;compact:boolean;lates
  const {task,compact,latestUserText}=options;
  const october=isOctoberModel(options.model||"");
  if(compact)return (october?octoberPromptForTask(task,latestUserText,true)+"\n":COMPACT)+TASK_COMPACT[task]+"\n"+todayLine()+compactToneInstruction(latestUserText);
- const base=(october?CORE.slice(1):CORE).join("\n");
+ const base=october?CORE.split("\n").slice(1).join("\n"):CORE;
  return (october?octoberPromptForTask(task,latestUserText,false)+"\n":"")+base+"\n"+todayLine()+"\n"+TASK_FULL[task]+"\n"+toneInstruction(undefined,latestUserText);
 }
 

@@ -58,7 +58,7 @@ async def register_store_webhook() -> bool:
                 return False
             response = (await client.post(api + "setWebhook", json={
                 "url": url, "secret_token": secret,
-                "allowed_updates": ["message"], "drop_pending_updates": False
+                "allowed_updates": ["message", "callback_query"], "drop_pending_updates": False
             })).json()
             if response.get("ok") is not True or response.get("result") is not True:
                 raise ValueError("registration failed")
@@ -164,5 +164,15 @@ async def store_webhook(request: Request,
     if not _claim(update["update_id"]):
         return {"ok": True}
     text, section = STORE_MESSAGES[command]
+    if isinstance(callback, dict):
+        callback_id = callback.get("id")
+        if isinstance(callback_id, str) and callback_id:
+            token = cfg[0]
+            try:
+                async with httpx.AsyncClient(timeout=8, trust_env=False, follow_redirects=False) as client:
+                    await client.post(f"https://api.telegram.org/bot{token}/answerCallbackQuery",
+                                      json={"callback_query_id": callback_id})
+            except httpx.HTTPError:
+                pass
     await _send(chat_id, text, section=section)
     return {"ok": True}

@@ -109,6 +109,9 @@ export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:
  Promise<{model:string;elapsedMs:number;responseTokens:number|null}>{
  if(!config.endpoint)throw new Error("尚未設定可連接的 Ollama HTTPS 主機");
  const base=normalizeOllamaUrl(config.endpoint);
+ // Production October models must belong to the owner's self-hosted runtime.
+ // Do not accidentally spend third-party Ollama Cloud tokens.
+ if(new URL(base).hostname==="ollama.com")throw new Error("第三方 Ollama Cloud 不是阿土伯自架模型主機");
  const available=await testOllama(config.endpoint);
  if(!available.models.some(x=>x.name===model))throw new Error(model+" 尚未安裝在這台主機");
  const controller=new AbortController();

@@ -32,7 +32,7 @@ _PAIR_CMD = re.compile(r"^(?:/(?:slime|node) (?:pair|code)|(?:請|幫我|麻煩)
 _MUTATE = re.compile(r"^(?:請|幫我|麻煩)?(?:把|將)?\s*(?P<name>.{1,90}?)\s*(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?$", re.I)
 _PREFIX_MUTATE = re.compile(r"^(?P<action>停用|暫停|停止共享|恢復|重新啟用|重新開啟|啟用|移除|刪除|撤銷)(?:節點|電腦)?\s+(?P<name>.{1,90})$", re.I)
 _INFER = re.compile(r"^/slime infer ([a-f0-9]{8,48}) (on|off)$",re.I)
-_CONFIRM = re.compile(r"^確認\s+([A-Fa-f0-9]{8})$")
+_CONFIRM = re.compile(r"^確認\s+([A-Fa-f0-9]{8}|[A-Fa-f0-9]{12})$")
 _CANCEL = re.compile(r"^(?:取消|算了|不要了)$")
 
 
@@ -232,7 +232,7 @@ def handle_slime(chat: int, sub: str, message: str) -> str | None:
             nodes = _lookup(db, sub, target)
             if len(nodes) != 1:
                 return "無法唯一識別節點；請先說「目前有哪些電腦」，再使用完整名稱或 ID。"
-            code = secrets.token_hex(4)
+            code = secrets.token_hex(6) if operation == "revoke" else secrets.token_hex(4)
             db.execute("INSERT OR REPLACE INTO slime_telegram_confirm"
                        "(chat_id,owner,node_id,operation,code_hash,expires)"
                        " VALUES(?,?,?,?,?,?)",

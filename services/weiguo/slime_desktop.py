@@ -143,6 +143,28 @@ def setup():
     return obj
 
 
+def open_reward_claim(settings):
+    """Open a one-time Google claim flow using a token scoped ONLY to rewards.
+
+    The node bearer token is never placed in browser URLs; only an expiring
+    one-claim ticket is returned by the authenticated backend.
+    """
+    import webbrowser
+    reply=_http("POST",settings["server"]+"/v1/slime/node/reward-ticket",
+                {},authorization=settings["token"],timeout=12)
+    link=reply.get("url") if isinstance(reply,dict) else None
+    from urllib.parse import urlsplit
+    parts=urlsplit(link) if isinstance(link,str) else None
+    if (not parts or link.split("#",1)[0]!=settings["server"]+"/v1/slime/rewards"
+        or not re.fullmatch(r"ticket=[A-Za-z0-9_-]{32,160}",parts.fragment)):
+        raise ValueError("後端未提供可信的 Google 獎勵連結")
+    if not webbrowser.open_new_tab(link):
+        print("瀏覽器無法自動開啟領獎連結；請從可用的 Slime 網頁重新開啟。")
+        return False
+    print("已開啟 Google 獎勵領取頁（10 分鐘有效）。")
+    return True
+
+
 def leave(settings):
     print("將解除 Slime 配對，刪除本機憑證並使該節點失效。")
     if not _confirm("確定退出？"):
@@ -173,11 +195,12 @@ def status(settings):
 def main():
     try:
         flags=set(sys.argv[1:])
-        if flags-{"--setup","--status","--leave","--help"} or len(flags)>1:
-            raise ValueError("可用參數：--setup、--status、--leave")
+        if flags-{"--setup","--status","--leave","--reward","--help"} or len(flags)>1:
+            raise ValueError("可用參數：--setup、--status、--leave、--reward")
         if "--help" in flags:
             print("Slime 下載 → 一次性邀請配對 → 授權後啟用 Ollama → Ctrl+C 停止共享")
             print("--status 查詢連線；--leave 退出並撤銷；--setup 顯示配對狀態")
+            print("--reward 重新開啟 Google 節點獎勵領取頁")
             return 0
         config=_load()
         if "--leave" in flags:
@@ -197,7 +220,18 @@ def main():
                 except Exception:
                     # Browser availability never blocks the node's lifecycle.
                     print("節點已配對成功；此裝置目前無法開啟成功頁面。")
+                try:
+                    open_reward_claim(config)
+                except Exception:
+                    print("Google 獎勵目前無法開啟；配對仍已成功。稍後可使用 --reward 再試。")
         if not config:return 0
+        if "--reward" in flags:
+            try:
+                open_reward_claim(config)
+            except Exception:
+                print("尚未能取得有效領獎連結；可能已領取、連結未到期或獎勵服務未啟用。")
+                return 2
+            return 0
         if "--status" in flags:
             status(config)
             return 0

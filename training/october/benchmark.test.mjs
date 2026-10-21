@@ -19,7 +19,7 @@ test("Mocked transport verifies matching sampling budgets, no network and no lea
  };
  const report=await runBenchmark({models,maxCases:10},mock);
  assert.equal(calls.length,22); // one uns cored warm-up per model, ten holdout calls
- assert.deepEqual(report.generation,{temperature:0.2,top_p:0.85,num_ctx:4096,num_predict:512,seed:20261021});
+ assert.deepEqual(report.generation,{temperature:0.2,top_p:0.85,num_ctx:4096,num_predict:512,seed:20261021,think:false});
  assert.equal(report.summary.length,2);
  for(const summary of report.summary){
   assert.equal(summary.n,10);
@@ -39,4 +39,16 @@ test("Quality report correctly records missing provider token counters",async()=
  assert.equal(report.summary[0].avgOutputTokens,null);
  assert.equal(report.summary[0].avgPromptTokens,null);
  assert.equal(report.summary[0].heuristicPassRate,0);
+});
+
+test("Model errors are counted as failures without leaking provider messages",async()=>{
+ const options={models:["october:0.3"],maxCases:2};
+ const r=await runBenchmark(options,async(_,model,prompt)=>{
+  if(prompt.includes("NPV"))return {text:"NPV 是淨現值",elapsedMs:10,promptTokens:2,outputTokens:3,tokensPerSecond:10};
+  throw Error("sensitive-provider-secret");
+ });
+ assert.equal(r.summary[0].heuristicPassRate,0);
+ assert.equal(r.summary[0].failedOrEmpty,2);
+ assert.equal(r.summary[0].avgLatencyMs,null);
+ assert.doesNotMatch(JSON.stringify(r),/sensitive-provider-secret/);
 });

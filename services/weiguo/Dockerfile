@@ -26,11 +26,12 @@ RUN test "$(gridcraft-cli version)" = "gridcraft-cli 0.8.0"
 COPY ceres_store_app.html ./
 # Curriculum imported by the public Ceres Store bot at application startup.
 COPY ceres_academy_curriculum.py ./
+COPY ceres_academy_content.py ./
 COPY slime.py slime_telegram.py policy.py app.py tasks.py notion_schedule.py scouts_search.py server.py security.py auth.py moli_engine.py wordcraft_engine.py pdfcraft_engine.py pdfcraft_native.py pdfcraft_wire.py pdfcraft_remote.py orchestra_capabilities.py canva_adapter.py gridcraft_adapter.py medusa_adapter.py medusa_cloudrun_adapter.py medusa_lite.py medusa_family.py quirinus_family_actions.py ceres_gateway.py quirinus_adapter.py detroit_quirinus_dispatcher.py ceres_dialogue.py ceres_telegram_registration.py ceres_store_bot.py ceres_api_access.py ceres_agent_bridge.py ceres_agent_delivery.py ceres_server_model.py ceres_server_tools.py ceres_server_agent.py ceres_admin_policy.py ceres_admin_bot.py ceres_admin_web.py ceres_slime_web.py family_model_gateway.py ceres_model_catalog.py ceres_model_routes.py ceres_command_center.py ceres_installer.py ceres_model_ops.py ceres_model_ops_routes.py ceres_maintenance.py vanilla_public_api.py vanilla_api_console.py slime_runner_bridge.py october_readonly.py ./
 COPY luca.py ./
 # Build must fail before rollout if Telegram /hub runtime module is absent.
 RUN python3 -c "import ceres_command_center, ceres_model_ops, ceres_model_ops_routes, ceres_maintenance, ceres_slime_web, vanilla_public_api, vanilla_api_console, slime_runner_bridge"
-RUN python3 -c "import ceres_academy_curriculum, ceres_store_bot; assert len(ceres_academy_curriculum.LESSONS) == 324"
+RUN python3 -c "import ceres_academy_curriculum, ceres_academy_content, ceres_store_bot; assert len(ceres_academy_curriculum.LESSONS) == 324; assert len(ceres_academy_content.KNOWLEDGE) == 36"
 RUN python3 -c "import ceres_installer"
 COPY gridcraft-smoke.py ./gridcraft-smoke.py
 RUN python3 gridcraft-smoke.py && rm gridcraft-smoke.py

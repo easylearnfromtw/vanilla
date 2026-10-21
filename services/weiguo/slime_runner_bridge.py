@@ -53,9 +53,10 @@ def _node(authorization):
         node=slime._node(db,authorization)
         # Verify owner-set consent. Never trust the node's self-declared role.
         temp=node["gpu_temp_c"]
+        stale=bool(node["gpu_temp_at"] and time.time()-node["gpu_temp_at"]>180)
         if (not node["share_enabled"] or not node["owner_enabled"]
             or not node["inference_enabled"] or node["max_load_pct"]<10
-            or (temp is not None and temp>=node["thermal_limit_c"])
+            or (temp is not None and temp>=node["thermal_limit_c"]) or stale
             or time.time()-node["last_seen"]>slime.ONLINE_SECONDS):
             raise HTTPException(403,"節點尚未獲 Owner 核准或心跳已逾時")
         return {"id":node["id"],"owner":node["owner"]}
@@ -67,8 +68,9 @@ def _live_nodes(owner: str):
             """SELECT id FROM nodes WHERE owner=? AND share_enabled=1
              AND owner_enabled=1 AND inference_enabled=1 AND max_load_pct>=10
              AND (gpu_temp_c IS NULL OR gpu_temp_c<thermal_limit_c)
+             AND (gpu_temp_at=0 OR gpu_temp_at>=?)
              AND last_seen>=?""",
-            (owner,time.time()-slime.ONLINE_SECONDS)).fetchall()}
+            (owner,time.time()-180,time.time()-slime.ONLINE_SECONDS)).fetchall()}
 
 
 def catalog(owner: str):

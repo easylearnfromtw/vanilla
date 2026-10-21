@@ -271,11 +271,8 @@ def inference_policy(node_id: str, body: Policy, user: FamilyIdentity = Depends(
 
 @router.post("/v1/family/slime/nodes/{node_id}/revoke")
 def revoke(node_id: str, user: FamilyIdentity = Depends(_owner)):
-    with _db() as c:
-        cursor = c.execute("DELETE FROM nodes WHERE id=? AND owner=?", (node_id, user.sub))
-        if not cursor.rowcount:
-            raise HTTPException(404, "找不到節點")
-    return {"ok": True}
+    """Legacy endpoint intentionally fails closed: remote revocation requires a Telegram challenge."""
+    raise HTTPException(403, "請至 Ceres Telegram 私聊撤銷此節點，並輸入獨立確認碼")
 
 @router.post("/v1/family/slime/route")
 def suggest_route(body: RouteRequest, user: FamilyIdentity = Depends(_owner)):

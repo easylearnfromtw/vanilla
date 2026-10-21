@@ -869,7 +869,7 @@ async function send(value=draft):Promise<void>{
      csv:pasted.csv,source:"聊天貼上的 CSV",privateMode,chartKind:pasted.kind
     });
     if(checked.status!=="verified"||!checked.dataset||!checked.result){
-     toolReply(question.slice(0,220),"October 唯讀工作流未完成（"+checked.reason+
+     toolReply("CREAM：分析貼上的 CSV","October 唯讀工作流未完成（"+checked.reason+
       "）；本次沒有可驗證的統計結果，也沒有匯出或儲存。","cream");
      setLastRoute("October / Verifier：未通過驗證");
      return;
@@ -898,7 +898,7 @@ async function send(value=draft):Promise<void>{
     setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
      {role:"assistant",content:"October → Diana → Detroit → Verifier：已實際執行本機 CREAM，並獨立重算核對數值（未呼叫 October 模型）。\n\n"+summarizeCream(result)+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
     setDraft("");setLastRoute("October / Diana / Detroit / Verifier：本機統計已核對");
-   }catch(error){toolReply(question.slice(0,220),"CREAM 分析失敗："+String(error),"cream");}
+   }catch(error){recordClientFault("cream","analysis",error);toolReply("CREAM：分析貼上的 CSV","CREAM 分析失敗：資料格式不符或工具發生錯誤；未儲存或匯出未驗證的報表。","cream");}
    return;
   }
   case "open":{

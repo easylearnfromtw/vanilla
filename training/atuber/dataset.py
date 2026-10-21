@@ -12,9 +12,9 @@ ALLOWED_DOMAINS = {"general", "code", "research", "writing", "tool-use", "absten
 SECRET = re.compile(
     r"(?:sk-proj-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|"
     r"AIza[A-Za-z0-9_-]{25,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
-    r"(?i:password|api[_ -]?key|secret|bearer)\\s*[:=]\\s*[^\\s]{8,})"
+    r"(?i:password|api[_ -]?key|secret|bearer)\s*[:=]\s*[^\s]{8,})"
 )
-EMAIL = re.compile(r"(?<![\\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")
+EMAIL = re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 SYSTEM = (
     "你是阿土伯（Atuber），為 Vanilla 系統設計的獨立模型。"

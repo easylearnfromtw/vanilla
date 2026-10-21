@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {TRAIN,HOLDOUT,audit} from "./teacher-cases.mjs";
+import {PREFERENCE_TRAIN,PREFERENCE_EVAL,validateOctoberPreferences} from "./teacher-preferences.mjs";
 import {reportOctoberPromptBudget} from "./prompt-budget.mjs";
 import {profileFor} from "../../src/ai/model-profiles.ts";
 import {ollamaRequestExtras} from "../../src/ai/generation-config.ts";
@@ -60,5 +61,20 @@ test("October estimated prompt budget is smaller for every common task",()=>{
   assert.ok(row.legacyChars>row.newChars,row.task);
   assert.ok(row.approximateLegacyTokens>row.approximateNewTokens,row.task);
   assert.ok(row.estimatedSavingPct>0,row.task);
+ }
+});
+
+test("October DPO preferences are isolated and teach evidence-based corrections",()=>{
+ const report=validateOctoberPreferences();
+ assert.ok(report.train>=20);
+ assert.ok(report.eval>=6);
+ const sftPrompts=new Set([...TRAIN,...HOLDOUT].map(x=>x.prompt[0].content));
+ const p=[...PREFERENCE_TRAIN,...PREFERENCE_EVAL];
+ assert.ok(p.every(x=>!sftPrompts.has(x.prompt[0].content)),"SFT and DPO prompts must not overlap");
+ for(const row of p){
+  assert.equal(row.prompt[0].role,"user");
+  assert.equal(row.chosen[0].role,"assistant");
+  assert.equal(row.rejected[0].role,"assistant");
+  assert.notEqual(row.chosen[0].content,row.rejected[0].content);
  }
 });

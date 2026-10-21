@@ -374,6 +374,115 @@ class GoogleCredential(BaseModel):
     credential: str=Field(min_length=100,max_length=8192)
 
 
+class WeekenOptIn(GoogleCredential):
+    consent: bool
+    allow_contact: bool=False
+    allow_diagnostics: bool=False
+
+
+@router.post("/v1/slime/rewards/weeken/join")
+def weeken_join(body:WeekenOptIn):
+    """Independent, withdrawable WEEKEN VPN project interest enrollment.
+
+    No VPN traffic, tunnel, relay, file read, device command, or networking
+    permission is activated by recording this consent.
+    """
+    _enabled()
+    if not body.consent:
+        raise HTTPException(422,"需要獨立且明確的 WEEKEN 同意")
+    from slime_reward_policy import bonus_round_up_nine,account_credit,reconcile_node_revocations
+    reconcile_node_revocations()
+    sub=_google(body.credential)
+    now=int(time.time())
+    with _session() as db:
+        _tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        claim=db.execute("""SELECT c.*,w.owner_sub FROM slime_reward_claim c
+            JOIN slime_reward_wallet w ON w.google_sub=c.google_sub
+            WHERE c.google_sub=?""",(sub,)).fetchone()
+        if not claim:
+            raise HTTPException(403,"請先完成 Slime 節點獎勵領取")
+        row=db.execute("SELECT status,bonus FROM slime_weeken_enrollment WHERE google_sub=?",
+                       (sub,)).fetchone()
+        if row:
+            if row["status"]=="node_removed":
+                raise HTTPException(409,"節點已移除，無法加入")
+            if row["status"]=="withdrawn":
+                db.execute("""UPDATE slime_weeken_enrollment SET status='joined',
+                    consent_at=?,changed_at=?,allow_contact=?,allow_diagnostics=?,allow_relay=0
+                    WHERE google_sub=?""",
+                    (now,now,int(body.allow_contact),int(body.allow_diagnostics),sub))
+            return {"joined":True,"alreadyGranted":True,"bonusTokens":row["bonus"],
+                    "consentVersion":1}
+        settings=db.execute("SELECT weeken_enabled FROM slime_reward_config WHERE owner_sub=?",
+                            (claim["owner_sub"],)).fetchone()
+        if settings and not settings["weeken_enabled"]:
+            raise HTTPException(403,"WEEKEN 目前不接受新增登記")
+        # Exclude deleted nodes even when the deletion has not been reconciled.
+        from slime import _db
+        with _db() as nodes:
+            live=nodes.execute("SELECT 1 FROM nodes WHERE id=? AND owner=?",
+                               (claim["node_id"],claim["owner_sub"])).fetchone()
+        if not live:
+            raise HTTPException(409,"節點已退出，不能領取 WEEKEN 額度")
+        score=int(claim["score"])
+        if not 1<=score<=1000:
+            raise HTTPException(409,"此節點缺少能力評分，請聯絡管理員")
+        bonus=bonus_round_up_nine(score*100)
+        account_credit(db,sub,bonus)
+        db.execute("""INSERT INTO slime_weeken_enrollment
+            (google_sub,node_id,score,bonus,status,consent_version,consent_at,
+             changed_at,allow_contact,allow_diagnostics,allow_relay)
+            VALUES(?,?,?,?,?,?,?,?,?,?,0)""",
+            (sub,claim["node_id"],score,bonus,"joined",1,now,now,
+             int(body.allow_contact),int(body.allow_diagnostics)))
+        db.execute("UPDATE slime_reward_claim SET bonus=? WHERE node_id=?",
+                   (bonus,claim["node_id"]))
+        db.execute("""INSERT INTO slime_reward_ledger
+          (id,google_sub,kind,delta,created_at,model,note)
+          VALUES(?,?,?,?,?,?,?)""",
+          (claim["node_id"]+":weeken",sub,"weeken_join",bonus,now,None,
+           "獨立同意 WEEKEN VPN 計畫加入獎勵，尾數無條件進位至 9"))
+    return {"joined":True,"alreadyGranted":False,"bonusTokens":bonus,
+            "score":score,"consentVersion":1}
+
+
+@router.post("/v1/slime/rewards/weeken/leave")
+def weeken_leave(body:GoogleCredential):
+    """Withdrawal takes effect immediately; earned signup gift stays until node revocation."""
+    _enabled()
+    sub=_google(body.credential)
+    now=int(time.time())
+    with _session() as db:
+        _tables(db)
+        db.execute("BEGIN IMMEDIATE")
+        changed=db.execute("""UPDATE slime_weeken_enrollment
+          SET status='withdrawn',changed_at=?,allow_contact=0,
+              allow_diagnostics=0,allow_relay=0
+          WHERE google_sub=? AND status='joined'""",(now,sub))
+    return {"withdrawn":True,"changed":bool(changed.rowcount),
+            "notice":"已撤回 WEEKEN 登記及額外資料使用許可"}
+
+
+@router.post("/v1/slime/rewards/weeken/status")
+def weeken_status(body:GoogleCredential):
+    _enabled()
+    sub=_google(body.credential)
+    with _session() as db:
+        _tables(db)
+        row=db.execute("""SELECT status,bonus,score,consent_version,consent_at,
+          allow_contact,allow_diagnostics,allow_relay FROM slime_weeken_enrollment
+          WHERE google_sub=?""",(sub,)).fetchone()
+    return {"joined":bool(row and row["status"]=="joined"),
+            "status":row["status"] if row else "not_joined",
+            "bonusTokens":row["bonus"] if row else 0,
+            "permissions":({"contact":bool(row["allow_contact"]),
+                            "diagnostics":bool(row["allow_diagnostics"]),
+                            "networkRelay":False} if row else
+                           {"contact":False,"diagnostics":False,"networkRelay":False}),
+            "consentVersion":row["consent_version"] if row else 1}
+
+
 @router.post("/v1/slime/rewards/balance")
 def balance(body:GoogleCredential):
     _enabled()

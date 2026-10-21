@@ -137,3 +137,19 @@ test("task classification",()=>{
  assert.equal(classifyTask("說明光合作用"),"general");
  assert.equal(classifyTask("看看這張",true),"vision");
 });
+
+
+test("Blackhole removes only exact duplicate evidence from the same source ID",()=>{
+ const shared="完整資料：不同的內容和來源都不可被靜默省略。";
+ const contexts=[
+  {id:"file-one",label:"檔案甲",text:shared,priority:1},
+  {id:"file-one",label:"檔案甲重複",text:shared,priority:1},
+  {id:"file-two",label:"檔案乙",text:shared,priority:1},
+  {id:"file-one",label:"檔案甲更新",text:"更新資料，不得刪除。",priority:1},
+ ];
+ const result=composeUserPrompt("請回答",contexts,"",1000);
+ assert.deepEqual(result.included.map(x=>x.label),["檔案甲","檔案乙","檔案甲更新"]);
+ assert.deepEqual(result.omitted,["檔案甲重複（同一來源重複，已省略）"]);
+ assert.match(result.content,/更新資料，不得刪除/);
+ assert.equal(result.content.split(shared).length-1,2);
+});

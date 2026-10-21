@@ -153,9 +153,20 @@ async def _nodes(chat: int, sub: str) -> None:
 async def _invite_card(chat: int, sub: str) -> None:
     from slime_telegram import handle_slime
     result=handle_slime(chat,sub,"/slime invite")
+    buttons=[]
+    # Reuse the already-issued one-time code; never read or reveal device tokens.
+    code_match=re.search(r"節點配對碼（點按可複製）：\\n([A-Za-z0-9_-]{24,160})", result or "")
+    if code_match:
+        code=code_match.group(1)
+        buttons.append([{"text":"複製配對碼","copy_text":{"text":code}}])
+        link_match=re.search(r"https://[^\\s]+/#slime="+re.escape(code),result)
+        if link_match and len(link_match.group(0))<=256:
+            buttons.append([{"text":"複製邀請連結","copy_text":{"text":link_match.group(0)}}])
+    buttons.append([_button("← 返回節點管理","nodes")])
     await say(chat,_title("PAIR / 節點一次性配對")
-              +"<pre>"+escape(result or "配對服務目前不可用")+"</pre>",
-              [[_button("← 返回節點管理","nodes")]],html=True)
+              +"<pre>"+escape(result or "配對服務目前不可用")+"</pre>"
+              +"\\n<i>請在新電腦首次配對時使用。已使用／逾期的碼無法回復，請重新產生。</i>",
+              buttons,html=True)
 
 
 async def _sources(chat: int) -> None:

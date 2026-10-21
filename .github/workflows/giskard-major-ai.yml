@@ -1,0 +1,121 @@
+name: Giskard Major AI Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      depth:
+        description: "Manual run: checks or full live vulnerability scan (main only)"
+        required: true
+        type: choice
+        default: checks
+        options: [checks, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: giskard-ai-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      major: ${{ steps.detect.outputs.major }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate classification policy
+        run: python3 -m unittest discover -s tests -p 'test_giskard_change_detector.py'
+      - name: Classify source change or owner override
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ai-major') }}
+        run: |
+          args=(--base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT")
+          if [[ "$IS_PR" == "true" ]]; then args+=(--pr); fi
+          if [[ "$FORCE" == "true" ]]; then args+=(--force); fi
+          python3 scripts/giskard-change-detector.py "${args[@]}"
+      - name: Save classification evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: giskard-classification
+          path: artifacts/giskard-change-report.json
+          if-no-files-found: ignore
+
+  giskard-checks:
+    needs: classify
+    if: needs.classify.outputs.major == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DO_NOT_TRACK: "1"
+      GISKARD_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Vanilla runtime and Giskard v3 Checks
+        run: |
+          npm install --no-audit --no-fund
+          python -m pip install "giskard>=3,<4"
+      - name: Run Giskard against Vanilla AI code (no LLM/API secrets)
+        run: python scripts/giskard-major-checks.py
+      - name: Save synthetic Giskard regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: giskard-major-results
+          path: |
+            artifacts/giskard-major-summary.json
+            artifacts/giskard-major-junit.xml
+          if-no-files-found: ignore
+
+  giskard-live:
+    needs: [classify, giskard-checks]
+    if: >-
+      ${{ needs.classify.outputs.major == 'true' &&
+          ((github.event_name == 'push' && vars.GISKARD_LIVE_ENABLED == 'true') ||
+           (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.depth == 'full')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      DO_NOT_TRACK: "1"
+      GISKARD_TELEMETRY_DISABLED: "1"
+      GISKARD_TARGET_BASE_URL: ${{ vars.GISKARD_TARGET_BASE_URL }}
+      GISKARD_TARGET_MODEL: ${{ vars.GISKARD_TARGET_MODEL }}
+      GISKARD_JUDGE_MODEL: ${{ vars.GISKARD_JUDGE_MODEL }}
+      GISKARD_TARGET_API_KEY: ${{ secrets.GISKARD_TARGET_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Giskard v3 vulnerability scan
+        run: python -m pip install "giskard[scan,openai]>=3,<4"
+      - name: Red team owned Vanilla inference (trusted main only)
+        run: python scripts/giskard-live-scan.py
+      - name: Upload only aggregate counts, never model traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: giskard-live-aggregate
+          path: artifacts/giskard-live-summary.json
+          if-no-files-found: ignore

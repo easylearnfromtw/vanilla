@@ -1,7 +1,6 @@
 /** Read-only October tool execution boundary; receipts are evidence, never commands. */
 import {planPenteractFunnel} from "./penteract-5d";
 import {shadowPenteractRoute} from "./penteract-shadow";
-import {registerDetroitNativeExecutors,executeDetroitNative} from "./native-executors";
 import {detroitAvailability,findDetroitCapability} from "./capability-bus";
 import {summarizeCream,type CreamResult} from "../cream/core";
 import {wrapExternalText} from "../security/trust-boundary";
@@ -21,7 +20,7 @@ export type AtuberToolReceipt={
 
 export async function executeAtuberReadOnly(
  plan:AtuberReadOnlyPlan,
- options:{privateMode:boolean;signal?:AbortSignal}
+ options:{privateMode:boolean;signal?:AbortSignal;executeCream?:(csv:string,options:{privateMode:boolean;signal?:AbortSignal})=>Promise<CreamResult>}
 ):Promise<AtuberToolReceipt>{
  if(!plan||plan.policy!=="atuber-receipt-v1"||plan.source!=="explicit-user")
   throw Error("ATUBER_TOOL_PLAN_NOT_AUTHORIZED");
@@ -30,12 +29,12 @@ export async function executeAtuberReadOnly(
  switch(plan.capability){
   case "cream":{
    if(typeof plan.csv!=="string"||plan.csv.length>12000||plan.csv.length<6)throw Error("ATUBER_CSV_LIMIT");
-   const result=await executeDetroitNative<CreamResult>("cream",{csv:plan.csv,source:"阿土伯明確請求的本機 CSV"},{privateMode:options.privateMode,signal:options.signal});
+   if(!options.executeCream)throw Error("ATUBER_CREAM_EXECUTOR_MISSING");
+   const result=await options.executeCream(plan.csv,{privateMode:options.privateMode,signal:options.signal});
    evidence="CREAM 已驗證計算的摘要：\n"+summarizeCream(result).slice(0,5000);
    break;
   }
   case "detroit-status":{
-   registerDetroitNativeExecutors();
    const items=detroitAvailability().map(x=>({
     id:x.id,status:x.state,
     networkRequired:findDetroitCapability(x.id)?.requiresNetwork??false,

@@ -76,6 +76,8 @@ import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
 import {runOctoberReadonlyCsv} from "../detroit/october-readonly";
+import {wantsOctoberServerProof,checkOctoberServerProof} from "../detroit/october-proof";
+import {verifyOctoberCsvOnWeiGuo} from "../weiguo/api";
 import {composeDianaCreamDocument,requestedDianaFormat,planDianaNativeArtifact} from "../detroit/diana-auto";
 import {registerDetroitNativeExecutors,executeDetroitNative,type NativeRetinaResult,type NativeJanusResult,type NativeLunaResult} from "../detroit/native-executors";
 import type {VictoriaRecall} from "../detroit/victoria";
@@ -876,6 +878,34 @@ async function send(value=draft):Promise<void>{
     }
     const parsed=checked.dataset;
     const result=checked.result;
+    // Explicit-only external consent: ordinary CSV never leaves the device.
+    // Private mode and an unavailable/disabled backend fail closed.
+    let serverReceiptNote="";
+    if(wantsOctoberServerProof(question)){
+     if(privateMode){
+      toolReply("阿土伯伺服器驗證CSV","目前為私密模式，CSV 沒有上傳；切換一般模式並再次明確提出伺服器驗證，才會傳送指定 CSV。","cream");
+      return;
+     }
+     setBusy(true);
+     try{
+      const taskId=crypto.randomUUID();
+      const source=parsed.source;
+      const proof=await verifyOctoberCsvOnWeiGuo({
+       task_id:taskId,kind:"csv-descriptive-statistics",source,csv:pasted.csv
+      });
+      if(proof.receipt.taskId!==taskId){
+       toolReply("阿土伯伺服器驗證CSV","後端回執任務識別碼與本次請求不符；沒有將報表標記為通過。","cream");return;
+      }
+      const check=await checkOctoberServerProof(pasted.csv,source,result,proof);
+      if(!check.ok){
+       toolReply("阿土伯伺服器驗證CSV","本機與後端資料驗證不一致（"+check.reason+"）；已停止保存與匯出。","cream");return;
+      }
+      serverReceiptNote="\n後端已透過 Google 家庭身分驗證獨立重算，並與本機結果核對一致。簽章回執前綴："+proof.receipt.resultSha256.slice(0,12)+"。";
+     }catch{
+      toolReply("阿土伯伺服器驗證CSV","後端身分驗證、連線或核算未完成。沒有宣稱取得回執，也未替你轉成僅本機成功。請檢查衞國登入與後端是否開啟。","cream");
+      return;
+     }finally{setBusy(false);}
+    }
     setCreamDataset(parsed);
     let note="";
     if(!privateMode)try{
@@ -896,8 +926,8 @@ async function send(value=draft):Promise<void>{
      exported="\nDiana：沒有可以驗證的數值欄位，因此沒有匯出統計報告。";
     }
     setHistory(prev=>[...prev,{role:"user",content:"CREAM：分析貼上的 "+parsed.rows.length+" 筆資料",id:crypto.randomUUID(),createdAt:now},
-     {role:"assistant",content:"October → Diana → Detroit → Verifier：已實際執行本機 CREAM，並獨立重算核對數值（未呼叫 October 模型）。\n\n"+summarizeCream(result)+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
-    setDraft("");setLastRoute("October / Diana / Detroit / Verifier：本機統計已核對");
+     {role:"assistant",content:"October → Diana → Detroit → Verifier：已實際執行本機 CREAM，並獨立重算核對數值（未呼叫 October 模型）。\n\n"+summarizeCream(result)+serverReceiptNote+"\n"+note+exported,cream:result,tool:{...TOOL.cream,status:exportFailed?"partial":"ok",detail:parsed.rows.length+" 筆"},id:crypto.randomUUID(),createdAt:now+1}]);
+    setDraft("");setLastRoute(serverReceiptNote?"October / Verifier：本機與後端雙重核驗成功":"October / Diana / Detroit / Verifier：本機統計已核對");
    }catch(error){recordClientFault("cream","analysis",error);toolReply("CREAM：分析貼上的 CSV","CREAM 分析失敗：資料格式不符或工具發生錯誤；未儲存或匯出未驗證的報表。","cream");}
    return;
   }

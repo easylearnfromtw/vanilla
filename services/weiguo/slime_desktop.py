@@ -146,7 +146,12 @@ def setup():
                 if selection.isdigit() and 1<=int(selection)<=len(peers):
                     peer=peers[int(selection)-1]
                     if _confirm("確認接受 "+peer["name"]+" 的 Slime Friend 配對？不會自動安裝或開啟推論"):
-                        secret=request_invite(peer,server)
+                        print("加入方式：1. 接收電腦確認  2. Telegram Owner 核准")
+                        choice=input("選擇核准方式 [Enter 使用 1]：").strip()
+                        mode="owner" if choice=="2" else "receiver"
+                        if choice not in ("","1","2"):
+                            raise ValueError("請選擇 1 或 2")
+                        secret=request_invite(peer,server,mode=mode)
                         print("✓ Gecko 一次性配對授權已取得（不需輸入 Telegram 代碼）")
             else:
                 print("附近沒有可用的 Gecko 分享，改用一般 Slime 配對。")
@@ -158,11 +163,17 @@ def setup():
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")
         return None
-    print("隱私選項：IP 與約略地區只會顯示於已授權的 Telegram Owner 管理頁。")
-    geo_opt_in=_confirm("同意經 IPify HTTPS 查詢裝置對外 IP，供 Owner 估算城市？") if sys.stdin.isatty() else False
-    public_ip=_public_ip() if geo_opt_in else ""
-    print("電源控制：預設停用。若核准，Telegram Owner 仍需二次確認才能關機。")
-    shutdown_opt_in=_confirm("允許 Telegram Owner 遠端關閉本機電源？") if sys.stdin.isatty() else False
+    is_gecko=role=="friend" and secret is not None and 'peer' in locals() and locals().get("peer") is not None
+    if is_gecko:
+        # Gecko grants never escalate to public-IP disclosure or power control.
+        geo_opt_in=False;public_ip="";shutdown_opt_in=False
+        print("Gecko 安全配對：不啟用 IP 位置分享與遠端關機，推論仍需 Owner 核准。")
+    else:
+        print("隱私選項：IP 與約略地區只會顯示於已授權的 Telegram Owner 管理頁。")
+        geo_opt_in=_confirm("同意經 IPify HTTPS 查詢裝置對外 IP，供 Owner 估算城市？") if sys.stdin.isatty() else False
+        public_ip=_public_ip() if geo_opt_in else ""
+        print("電源控制：預設停用。若核准，Telegram Owner 仍需二次確認才能關機。")
+        shutdown_opt_in=_confirm("允許 Telegram Owner 遠端關閉本機電源？") if sys.stdin.isatty() else False
     # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
     compact=re.sub(r"[-\s]","",secret).upper()
     short=bool(SHORT_CODE.fullmatch(compact))

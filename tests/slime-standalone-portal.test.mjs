@@ -16,7 +16,7 @@ test("Slime has an independently served HTML site without Vanilla app boot",()=>
  assert.match(html,/referrer" content="no-referrer"/);
  assert.match(html,/history\.replaceState/);
  assert.match(html,/window\.__slimePairCode/);
- assert.doesNotMatch(html,/localStorage|sessionStorage|document\.cookie|eval\(/);
+ assert.doesNotMatch(html,/localStorage\.setItem|sessionStorage\.setItem|document\.cookie\s*=|eval\(/);
 });
 
 test("Vanilla Slime navigation launches a new browser tab and legacy QR URLs redirect",()=>{

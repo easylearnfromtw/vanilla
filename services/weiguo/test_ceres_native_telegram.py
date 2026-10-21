@@ -35,6 +35,54 @@ class NativeTelegramTests(unittest.TestCase):
     def run_async(self,coro):
         return asyncio.run(coro)
 
+    def test_owner_start_welcome_and_single_tap_transition(self):
+        from ceres_command_center import welcome
+        with patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as tg:
+            self.run_async(welcome(CHAT))
+            method,payload=tg.await_args.args
+            self.assertEqual(method,"sendMessage")
+            self.assertEqual(payload["parse_mode"],"HTML")
+            self.assertIn("歡迎回到你的 AI 控制中心",payload["text"])
+            items=[item for row in payload["reply_markup"]["inline_keyboard"] for item in row]
+            self.assertIn("hub:welcome_go",[item.get("callback_data") for item in items])
+            self.assertFalse(any("token" in str(item).lower() for item in items))
+        with patch("ceres_command_center._telegram",new_callable=AsyncMock,return_value=True),patch(
+                "ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as tg:
+            self.run_async(callback(CHAT,"cb-welcome","hub:welcome_go",message_id=98))
+            self.assertEqual(tg.await_args.args[0],"editMessageText")
+            self.assertEqual(tg.await_args.args[1]["message_id"],98)
+            self.assertIn("私人 AI 控制中心",tg.await_args.args[1]["text"])
+
+    def test_private_signed_start_webhook_deduplicated_and_not_ai_queued(self):
+        update={"update_id":935122,"message":{"message_id":56,
+                "text":"/start","from":{"id":CHAT,"is_bot":False},
+                "chat":{"id":CHAT,"type":"private"}}}
+        async def req(body):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                         base_url="https://example.invalid") as client:
+                return await client.post("/v1/ceres/telegram/webhook",json=body,
+                   headers={"X-Telegram-Bot-Api-Secret-Token":SECRET})
+        with patch("ceres_command_center.welcome",new_callable=AsyncMock) as greet:
+            first=self.run_async(req(update))
+            repeat=self.run_async(req(update))
+            self.assertEqual(first.status_code,200)
+            self.assertTrue(first.json()["accepted"])
+            self.assertFalse(repeat.json()["accepted"])
+            greet.assert_awaited_once_with(CHAT)
+        outsider=dict(update)
+        outsider["update_id"]=935123
+        outsider["message"]={**update["message"],
+            "from":{"id":CHAT+1},"chat":{"id":CHAT+1,"type":"private"}}
+        with patch("ceres_command_center.welcome",new_callable=AsyncMock) as greet:
+            result=self.run_async(req(outsider))
+            self.assertFalse(result.json()["accepted"])
+            greet.assert_not_awaited()
+        # /start never enters the AI job/inbox queue.
+        import sqlite3
+        with sqlite3.connect(os.environ["CERES_DB_PATH"]) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM ceres_admin_updates").fetchone()[0],1)
+            self.assertFalse(db.execute("SELECT name FROM sqlite_master WHERE name='ceres_inbox'").fetchone())
+
     def test_hub_renders_telegram_html_and_inline_buttons(self):
         with patch("ceres_admin_bot._telegram",new_callable=AsyncMock,return_value=True) as outgoing:
             self.run_async(command(CHAT,"/hub"))

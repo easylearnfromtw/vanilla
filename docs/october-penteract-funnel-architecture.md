@@ -81,3 +81,19 @@ node --experimental-strip-types --experimental-loader ./tests/ts-extension-loade
 ```
 
 GitHub Actions uploads the `october-penteract-learned-cpu-v0.1` artifact containing an **experimental** weight file and the diagnostic report. Neither is automatically used to answer queries or authorize tools.
+
+## R5 paired CPU latency measurement (experimental)
+
+The Oct 21 CI now runs \`training/october/benchmark-penteract-cpu.mjs\` and archives the report together with CPU-trained weights. This is a **CPU benchmark**, not power draw, and not LLM token-generation time.
+
+- 68 fixed GPT-authored synthetic requests, repeated 30 times each (**2,040 calls per implementation**).
+- Run the same input through the lexical shadow router and the learned R5 router, alternating order between rounds to reduce systematic warmup/order bias.
+- Record measured p50/p95/p99 and mean using local Node \`performance.now()\`. No prompts, model responses, or user identifiers appear in the report.
+- CI sample from GitHub Actions run \`39615227386\`: lexical p95 **0.01901 ms**, learned R5 p95 **0.05704 ms**; the learned version was about **3.0× slower relative**, but remained below 0.1 ms p95 on that runner. These figures are one run of synthetic inputs on GitHub hardware, NOT a promise for phones, PCs, browsers, or real workloads.
+- Relative and absolute CPU timing may shift due to JIT warmup, CPU load, power management and timer granularity. No GPU model, RTX 3050, NVIDIA watt counter or electrical energy was measured.
+
+\`\`\`sh
+node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/benchmark-penteract-cpu.mjs --output training/october/generated/october-five-projector-cpu-latency.json
+\`\`\`
+
+The artifact \`october-penteract-learned-cpu-v0.1\` contains this CPU latency JSON alongside the experimental learned weights and task-routing diagnostic. Actual model-power allocation toward *understanding the user request* still requires host-level power metering for each inference stage and comparisons against correctness/latency baselines; a planned 55% token budget must not be presented as measured GPU energy.

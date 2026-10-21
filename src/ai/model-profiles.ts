@@ -94,8 +94,16 @@ function localProfile(model:string):ModelProfile{
 
 function ollamaProfile(model:string):ModelProfile{
  const name=model.toLowerCase();
- const paramsB=parseParamsB(name)||(/taide/.test(name)?8:7);
- const thinking:ThinkingStyle=/deepseek-r1|qwq/.test(name)?"always":/qwen3|magistral/.test(name)?"ollama-think":"none";
+ // Owner-hosted aliases hide the base Qwen model name. Without an explicit
+ // lineage mapping, all three would be treated as unknown 7B models and
+ // 14B/30B would silently lose their intended thinking configuration.
+ const octoberBaseParams:Record<string,number>={
+  "october:sm":4,"october:ml":14,"october:lg":30
+ };
+ const aliasParams=octoberBaseParams[name];
+ const paramsB=aliasParams??(parseParamsB(name)||(/taide/.test(name)?8:7));
+ const thinking:ThinkingStyle=/deepseek-r1|qwq/.test(name)?"always":
+  (/qwen3|magistral/.test(name)||aliasParams!==undefined)?"ollama-think":"none";
  const scale=paramsB>=27?14:paramsB>=12?11:paramsB>=7?8:paramsB>=3?4:paramsB>=1.5?1:-5;
  const taide=/taide/.test(name);
  return {source:"ollama",model,family:taide?"taide":name.split(/[:/]/).pop()?.split(/[-_]/)[0]||"ollama",

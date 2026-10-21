@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.01-slime-installer-onboarding",
-  "description": "Slime desktop downloads, consent-first one-time pairing, safe Owner/Friend installers and Ollama runner integration"
+  "build": "2026.10.21.02-slime-short-pair",
+  "description": "Slime short 4-4-4 pairing code, local QR, verified one-use redemption and desktop compatibility"
 }

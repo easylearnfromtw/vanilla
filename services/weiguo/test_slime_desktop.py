@@ -108,8 +108,8 @@ class SlimeDesktopOnboardingTests(unittest.TestCase):
         secret="gck_"+("A"*48)
         with patch.dict(os.environ,{"GECKO_ENROLLMENT_TOKEN":secret,
                   "GECKO_DEVICE_CONSENT":"","SLIME_INSTALL_ROLE":"friend"}),patch.object(
-                  app.sys.stdin,"isatty",return_value=False),patch.object(
-                  app,"_http") as request:
+                  app.sys,"stdin") as stdin,patch.object(app,"_http") as request:
+            stdin.isatty.return_value=False
             self.assertIsNone(app.setup_fleet())
             request.assert_not_called()
 

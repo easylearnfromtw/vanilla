@@ -4,7 +4,7 @@
  */
 import type {TaskKind} from "./task-kind";
 import {toneInstruction,compactToneInstruction} from "./tone-adaptation";
-import {isOctoberModel,OCTOBER_RUNTIME_CONTRACT,OCTOBER_COMPACT_CONTRACT} from "./october-persona";
+import {isOctoberModel,octoberPromptForTask} from "./october-persona";
 
 export function todayLine(now=new Date()):string{
  try{
@@ -43,9 +43,9 @@ const COMPACT="你是 Vanilla 家庭助理。用臺灣繁體中文回答，先�
 export function vanillaSystemPrompt(options:{task:TaskKind;compact:boolean;latestUserText:string;image?:boolean;model?:string}):string{
  const {task,compact,latestUserText}=options;
  const october=isOctoberModel(options.model||"");
- if(compact)return (october?OCTOBER_COMPACT_CONTRACT+"\n":COMPACT)+TASK_COMPACT[task]+"\n"+todayLine()+compactToneInstruction(latestUserText);
- const base=october?CORE.replace("你是 Vanilla，一個家庭專用、以人為本的 AI 助理（A More Human AI）。\n",""):CORE;
- return (october?OCTOBER_RUNTIME_CONTRACT+"\n":"")+base+"\n"+todayLine()+"\n"+TASK_FULL[task]+"\n"+toneInstruction(undefined,latestUserText);
+ if(compact)return (october?octoberPromptForTask(task,latestUserText,true)+"\n":COMPACT)+TASK_COMPACT[task]+"\n"+todayLine()+compactToneInstruction(latestUserText);
+ const base=(october?CORE.slice(1):CORE).join("\n");
+ return (october?octoberPromptForTask(task,latestUserText,false)+"\n":"")+base+"\n"+todayLine()+"\n"+TASK_FULL[task]+"\n"+toneInstruction(undefined,latestUserText);
 }
 
 /** For JSON / code-patch generation (Sheets AI, Self-Build): no persona, no Markdown habits. */

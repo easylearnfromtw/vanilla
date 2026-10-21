@@ -229,7 +229,7 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
 <div class="section-head"><span class="eyebrow">02 / DEVICE CONTROL</span><h2>我的節點</h2><p>查看裝置、授權模型與管理連線</p></div>
 <div class="card">
 <div class="card-title"><div><span class="eyebrow">TRUSTED DEVICES</span><h2>連線裝置</h2></div><span class="status-pill" id="device-counter">— DEVICES</span></div>
-<p>裝置與模型推論權限分開管理。撤銷配對後，原本的裝置憑證立即失效。</p>
+<p>裝置與模型推論權限分開管理。遠端撤銷請至 Ceres Telegram 私聊發送「撤銷 裝置名稱」，再回覆 Bot 的獨立 8 位確認碼；Slime 初次配對碼不可用於刪除。裝置持有人仍能在本機停止共享及卸載。</p>
 <div id="node-list" class="nodes" aria-live="polite"><p>正在讀取節點…</p></div>
 <div class="controls"><button class="btn soft full" data-go="pairing">＋ 新增節點</button></div></div>
 </section>
@@ -308,12 +308,19 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
    const actions=[
     {label:n.owner_enabled?"停用節點":"啟用節點",kind:"node",enable:!n.owner_enabled},
     {label:n.inference_enabled?"停止推論":"核准推論",kind:"inference",enable:!n.inference_enabled},
-    {label:"撤銷配對",kind:"revoke",enable:false}
+    {label:"Telegram 驗證後撤銷",kind:"revoke",enable:false}
    ];
    actions.forEach(a=>{
     const button=document.createElement("button");button.type="button";
     button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
-    button.addEventListener("click",()=>plan(n,a.kind,a.enable));ctr.append(button);
+    button.addEventListener("click",()=>{
+      if(a.kind==="revoke"){
+       const command="撤銷 "+n.label;
+       copy(command).then(()=>notice("已複製：「"+command+"」。請回到 Ceres Telegram 私聊貼上，依 Bot 提示輸入獨立 8 位撤銷確認碼。"));
+       return;
+      }
+      plan(n,a.kind,a.enable);
+     });ctr.append(button);
    });
    root.append(ctr);return root;
  }
@@ -537,6 +544,8 @@ def issue(body:Owner):
 def plan(body:Plan):
     chat,sub=_owner(body.init_data)
     _enabled()
+    if body.operation=="revoke":
+        raise HTTPException(403,"請至 Ceres Telegram 私聊執行撤銷，並輸入獨立確認碼")
     with _db() as db:
         row=db.execute("SELECT id,label FROM nodes WHERE id=? AND owner=?",
                        (body.node_id,sub)).fetchone()
@@ -573,7 +582,7 @@ def confirm(body:Confirm):
     with _db() as db:
         db.execute("BEGIN IMMEDIATE")
         if row["operation"]=="revoke":
-            changed=db.execute("DELETE FROM nodes WHERE id=? AND owner=?",(row["node_id"],sub))
+            raise HTTPException(403,"此舊版撤銷確認已停用；請透過 Ceres Telegram 私聊確認")
         elif row["operation"]=="node":
             changed=db.execute("UPDATE nodes SET owner_enabled=? WHERE id=? AND owner=?",
                                (row["enabled"],row["node_id"],sub))

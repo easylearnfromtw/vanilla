@@ -107,6 +107,19 @@ class SlimeOpsTests(unittest.TestCase):
                       authorization="Bearer "+result["token"])
         self.assertFalse(state["thermal_paused"])
         self.assertTrue(state["inference_enabled"])
+        with slime._db() as db:
+            db.execute("UPDATE nodes SET gpu_temp_at=? WHERE id=?",
+                       (time.time()-250,result["node_id"]))
+        stale=heartbeat(Heartbeat(capabilities=Caps(cpu=8)),
+                        authorization="Bearer "+result["token"])
+        self.assertTrue(stale["temperature_stale"])
+        self.assertFalse(stale["inference_enabled"])
+        from slime_runner_bridge import _live_nodes
+        self.assertNotIn(result["node_id"],_live_nodes(self.owner))
+        renewed=heartbeat(Heartbeat(capabilities=Caps(gpu_temp_c=64)),
+                          authorization="Bearer "+result["token"])
+        self.assertFalse(renewed["temperature_stale"])
+        self.assertTrue(renewed["inference_enabled"])
 
 
 if __name__=="__main__":

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.08-atuber-single-driver",
-  "description": "Atuber-only main chat controller with guarded tools and no other-model fallback"
+  "build": "2026.10.21.09-atuber-tool-receipts",
+  "description": "Atuber-controlled chat plus verified read-only tool receipts for CREAM, Detroit and 5D"
 }

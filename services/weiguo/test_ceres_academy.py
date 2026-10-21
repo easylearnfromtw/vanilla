@@ -85,15 +85,45 @@ class AcademyBotTests(unittest.TestCase):
         self.assertIn("模型推論", self.sent[-1][1])
         self.assertIn("進階", self.sent[-1][1])
         asyncio.run(bot._learn(202, "master"))
-        self.assertIn("模型推論｜核心原理", self.sent[-1][1])
+        self.assertIn("本課：核心原理", self.sent[-1][1])
         asyncio.run(bot._learn(202, "level:0"))
-        self.assertIn("模型推論｜核心原理", self.sent[-1][1])
+        self.assertIn("本課：核心原理", self.sent[-1][1])
         db, row = bot._learning_state(202)
         try:
             self.assertEqual(json.loads(row[2]), [0])
             self.assertEqual(row[0], "0")
         finally:
             db.close()
+
+
+    def test_catalog_quiz_and_level_switch_preserve_position(self):
+        asyncio.run(bot._learn(505, "chapter:16"))
+        self.assertIn("RAG 檢索", self.sent[-1][1])
+        asyncio.run(bot._learn(505, "level:3"))
+        self.assertIn("RAG 檢索", self.sent[-1][1])
+        self.assertIn("進階", self.sent[-1][1])
+        asyncio.run(bot._learn(505, "quiz"))
+        self.assertIn("自我測驗", self.sent[-1][1])
+        asyncio.run(bot._learn(505, "answer"))
+        self.assertIn("參考解答", self.sent[-1][1])
+        asyncio.run(bot._learn(505, "catalog"))
+        self.assertIn("章節目錄", self.sent[-1][1])
+        asyncio.run(bot._learn(505, "topic:0"))
+        self.assertIn("AI 基礎", self.sent[-1][1])
+        db, row = bot._learning_state(505)
+        try:
+            self.assertEqual(row[1], 16 * 9)
+            self.assertEqual(row[0], "3")
+        finally:
+            db.close()
+
+    def test_current_lesson_displays_both_source_links_and_line_breaks(self):
+        asyncio.run(bot._learn(606, "view"))
+        body = self.sent[-1][1]
+        self.assertIn("【延伸資料／來源】", body)
+        self.assertGreaterEqual(body.count("https://"), 2)
+        self.assertNotIn("\\n", body)
+        self.assertLessEqual(len(body), 4096)
 
     def test_bad_progress_state_recovers(self):
         db, _ = bot._learning_state(303)
@@ -109,8 +139,11 @@ class AcademyBotTests(unittest.TestCase):
         async def fake_tg(method, data):
             self.sent.append((method, data))
         with patch.object(bot, "_send", self.real_sender), patch.object(bot, "_tg", fake_tg):
-            with self.assertRaises(ValueError):
-                asyncio.run(bot._send(1, "a" * 4097))
+            asyncio.run(bot._send(1, "a" * 4097))
+            self.assertEqual(len(self.sent), 2)
+            self.assertTrue(all(len(payload["text"]) <= 4096 for _, payload in self.sent))
+            self.assertNotIn("reply_markup", self.sent[0][1])
+            self.assertIn("reply_markup", self.sent[1][1])
             asyncio.run(bot._send(1, "正常中文\n第二段"))
             self.assertEqual(self.sent[-1][1]["text"], "正常中文\n第二段")
 

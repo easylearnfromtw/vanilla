@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** October teacher preference pairs: synthetic, manually authored safety/accuracy
+/** October GPT-6-authored preference pairs: synthetic safety/accuracy
  * examples. These are NOT DPO-trained model weights. NOODLES check-only
  * validates the schema; adapter training remains explicit and GPU-gated.
  */

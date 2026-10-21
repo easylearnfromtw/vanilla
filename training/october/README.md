@@ -191,3 +191,32 @@ ollama run october:lite
 ## Commercial safeguards
 
 Model classification is never authorization. Backend identity, per-tenant checks, real scheduler persistence, scoped tools, audit, idempotency, replay, manual approval for high impact operations, emergency stop and data provenance are required before any real customer use. No customer data or regulated financial transaction in this training corpus.
+
+
+## October v0.4 品質驗證與微調限制（2026-10-21）
+
+這些證據必須分別報告，不可混為模型準確率：
+
+- 工程 CI：run 39579723455 通過前後端測試、建置與 Detroit 發佈檢查；不代表正式部署。
+- 分離訓練的 Policy Head：2,600 參數、12,000 合成訓練例；GitHub run 39577841690 記錄的合成盲測分類正確率為 99.5%。它不是 October 4B 的知識問答正確率。
+- Prompt 預算：同一 CI 的五類系統提示詞靜態估算平均減少 38.3% Token；這不是 Ollama 實際計數，也不是推論速度提高 38.3%。
+- Qwen / Claude 真正 A/B：尚未取得具有同題、同硬體、同條件且已完成的推論回執；不可聲稱已勝過其他模型。
+
+訓練資料：teacher-cases.mjs 含 38 筆示範及 10 筆隔離 holdout；teacher-preferences.mjs 含 24 筆 chosen/rejected 偏好及 6 筆隔離驗證題。這些是人工撰寫的實驗級合成資料，尚未經財經、醫療或法律領域專家完整審查，也不是真實使用者資料。CI 中使用 NOODLES --check-only 驗證格式與分割，絕不等於完成 Qwen 權重微調；資料量也不足以主張跨領域高準確率。
+
+有本機 Ollama 且同時安裝 October/Qwen3 時，才可執行實際比較：
+
+    ollama pull qwen3:4b
+    ollama create october:0.3 -f training/october/Modelfile
+    node training/october/benchmark.mjs --models october:0.3,qwen3:4b --cases 10 --output ./october-ab-results.json
+
+benchmark.mjs 限定 loopback Ollama，兩組固定 temperature、top_p、seed、num_ctx、num_predict、think:false。紀錄實際 prompt_eval_count、eval_count、elapsed time 和 token/s。回答超時、截斷或錯誤視為失敗。字詞評分只是啟發式覆蓋率，不是語意正確率；報告預設不儲存提示詞或回答全文。需要外部測試題、人工雙盲評審與多次重複才可作為產品選型依據。
+
+生成與驗證資料的命令：
+
+    node training/october/teacher-cases.mjs
+    node training/october/teacher-preferences.mjs
+    python training/noodles_train.py --mode sft --train training/october/generated/october-teacher-sft-train.jsonl --eval training/october/generated/october-teacher-sft-eval.jsonl --check-only
+    python training/noodles_train.py --mode dpo --train training/october/generated/october-preference-train.jsonl --eval training/october/generated/october-preference-eval.jsonl --check-only
+
+真正執行 LoRA / DPO 需 GPU、相容基礎模型權重、合法授權、明確 --run-training 與外部基準測試。未經 Owner 審核，不合併或正式部署。

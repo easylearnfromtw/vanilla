@@ -37,3 +37,26 @@ Use Three.js to render a funnel shell with the wide understanding basin at top, 
 - Test adversarial ambiguity, private-mode denial, malformed JSON, missing model, GPU exhaustion, retries, hallucinated receipts and disabled telemetry.
 - No production rollout until the new router beats or matches the baseline on correctness and policy, with a measurable cost/latency benefit.
 - No automatic high-privilege tool access, deployment, training or cloud transfers.
+
+## Prototype implementation snapshot — October 2026
+
+These are completed pieces on the experimental PR branch, not published model improvements:
+
+- \`src/detroit/penteract-5d.ts\` implements genuine R5 vectors, 32 penteract vertices, 80 edges, ten rotation planes, a regular 5-simplex of six expert prototypes, and transparent deterministic lexical/hashed query embedding. The embedder is **not** a trained neural semantic projection. Rotations preserve true 5D distances.
+- \`src/detroit/penteract-camera.ts\` rotates the *projected R3 geometry* with a bounded orbit camera, independent of R5 rotation. \`PenteractFunnelPanel.tsx\` renders R5→R3→R2 on-demand through lightweight SVG. Interactive yaw/pitch/zoom need no continuous GPU render loop.
+- \`src/detroit/penteract-section.ts\` computes a mathematically exact intrinsic-axis intersection:
+  \[[-1,1]^5 \cap \{w=w_0,v=v_0\}=[-1,1]^3\times\{(w_0,v_0)\}.\]
+  For -1≤w₀,v₀≤1 this contains eight vertices, twelve edges. **Section first, then rotate:** this is NOT claiming to clip the rotated polytope against fixed world-axis hyperplanes. W/V sliders modify that exact embedded section.
+- \`src/detroit/penteract-shadow.ts\` is read-only, local, non-authoritative: it **abstains** on missing lexical evidence or nearly tied geometric neighbors instead of routing a high-risk action to a guessed tool. It does not replace or bypass Diana, Ceres, Quirinus, Merlin, Veritas or Slime scheduling.
+- \`training/october/penteract-routing-audit.mjs\` evaluates 50 fixed, **GPT-authored synthetic** prompts across six familiar domains and unknown/mixed requests. The CI report separates top-one classification accuracy and shadow abstention. This is a sanity check only: it cannot establish semantic generalization, real tool-choice accuracy or LLM improvement.
+- \`src/detroit/penteract-telemetry.ts\` and October's explicit deep Ollama comprehension pass record provider-reported generation tokens and latency in volatile memory. A 55% comprehension-output-token target is a **reference threshold**, not verified GPU energy, not FLOPs, and not a reason to consume extra tokens on simple questions.
+
+### Test and report commands
+
+\`\`\`sh
+npm run test:october-quality
+node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs training/october/penteract-routing-audit.mjs --output training/october/generated/october-penteract-shadow-audit.json
+npm run build
+\`\`\`
+
+No background worker, model download, cloud call, new permission grant or real tool execution is performed by those tests. A real rollout requires blind operator-reviewed requests and a Diana baseline under identical hardware/model conditions, plus quantitative correctness/latency/energy measurements. GPU joules/request must remain unavailable until real host metering is installed.

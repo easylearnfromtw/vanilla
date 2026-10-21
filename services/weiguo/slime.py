@@ -85,6 +85,8 @@ def _db():
                 c.execute("ALTER TABLE nodes ADD COLUMN "+key+" "+definition)
         c.execute("""CREATE TABLE IF NOT EXISTS slime_owner_sequence(
           owner TEXT PRIMARY KEY,last_number INTEGER NOT NULL)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS slime_reward_revocation(
+          node_id TEXT PRIMARY KEY, owner_sub TEXT NOT NULL, revoked_at INTEGER NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_short_pair(
           digest TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS slime_pair_failures(
@@ -453,8 +455,17 @@ def power_poll(authorization: str | None = Header(default=None)):
 @node_router.post("/v1/slime/node/leave")
 def leave(authorization: str | None = Header(default=None)):
     _enabled()
-    now=time.time()
     with _db() as c:
-        r = _node(c, authorization)
-        c.execute("DELETE FROM nodes WHERE id=?", (r["id"],))
-    return {"ok": True}
+        c.execute("BEGIN IMMEDIATE")
+        r=_node(c,authorization)
+        from slime_reward_policy import note_deleted_node
+        note_deleted_node(c,r["id"],r["owner"])
+        c.execute("DELETE FROM nodes WHERE id=?",(r["id"],))
+        c.commit()
+    # A holder's exit is unconditional: wallet reconciliation retries safely.
+    try:
+        from slime_reward_policy import reconcile_node_revocations
+        reconcile_node_revocations()
+    except Exception:
+        pass
+    return {"ok":True,"notice":"已退出，已發節點獎勵將被追回"}

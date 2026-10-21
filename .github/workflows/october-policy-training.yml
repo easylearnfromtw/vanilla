@@ -32,6 +32,10 @@ jobs:
           python training/noodles_train.py --mode dpo --train training/october/generated/october-preference-train.jsonl --eval training/october/generated/october-preference-eval.jsonl --check-only
           node training/october/quant-sft.mjs
           python training/noodles_train.py --mode sft --train training/october/generated/october-numeric-sft-train.jsonl --eval training/october/generated/october-numeric-sft-eval.jsonl --check-only
+          node training/october/quant-holdout-export.mjs
+          python training/october/adapter-evaluate.py --check-only
+          python training/october/gpu-preflight.py
+          python -m unittest discover -s tests -p 'test_noodles_october_gpu.py'
       - name: Install PyTorch CPU
         run: python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch
       - name: Train October policy weights via gradient descent

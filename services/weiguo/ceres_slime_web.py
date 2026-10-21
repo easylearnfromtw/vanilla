@@ -91,55 +91,124 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 .confirm p{margin:8px 0}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* SLIME / CERES premium monochrome Hub */
+:root{--accent:var(--ink);--accentText:var(--paper);--radius:23px}
+body{max-width:700px;padding:14px 14px calc(90px + env(safe-area-inset-bottom));font-size:14px;line-height:1.6}
+button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.hero{position:relative;overflow:hidden;isolation:isolate;border-radius:26px;padding:22px 24px 18px;background:var(--paper);box-shadow:0 9px 35px #00000005}
+.hero:before{content:"";position:absolute;right:-92px;top:100px;width:270px;height:270px;border:1px solid var(--line);border-radius:50%;z-index:-1}
+.hero:after{content:"";position:absolute;right:-46px;top:151px;width:180px;height:180px;border:1px solid var(--line);border-radius:50%;z-index:-1}
+.hub-top{display:flex;align-items:center;gap:10px;padding-bottom:19px;border-bottom:1px solid var(--line)}
+.hub-mark{width:38px;height:38px;display:grid;place-items:center;background:var(--ink);color:var(--paper);border-radius:12px;font-size:19px;font-weight:850}
+.hub-brand{display:flex;flex-direction:column;gap:3px}.hub-brand .eyebrow{font-size:9px}.hub-brand b{font-size:12px;letter-spacing:.05em}
+.hub-private{margin-left:auto;border:1px solid var(--line);padding:7px 9px;border-radius:99px;color:var(--muted);font-size:10px;white-space:nowrap}
+.hero-copy{padding:31px 2px 32px}
+.hero-kicker{font-size:10px;letter-spacing:.13em;font-weight:770;color:var(--muted)}
+.hero h1{font-size:clamp(37px,8vw,51px);letter-spacing:-.07em;line-height:1.12;margin:18px 0 15px;font-weight:820}
+.hero h1 span{color:var(--muted)}.hero p{font-size:12px;line-height:1.85}
+.hero-foot{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:13px;color:var(--muted);font-size:9px;letter-spacing:.1em;font-weight:750}
+.tabs{top:8px;border-radius:16px;padding:5px;margin-bottom:20px;background:var(--soft);border:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 23px #00000009}
+.tabs button{min-height:46px;border-radius:12px;font-size:12px;font-weight:750;transition:background .16s,color .16s;display:flex;align-items:center;justify-content:center;gap:7px}
+.tabs button[aria-selected=true]{box-shadow:0 3px 8px #00000013}.tab-icon{font-size:15px;font-weight:850;display:inline-grid;width:20px;place-items:center}
+.section-head{padding:5px 2px 18px}.section-head h2{font-size:27px;letter-spacing:-.06em;margin:5px 0 2px}.section-head p{font-size:12px;color:var(--muted)}
+.card{border-radius:23px;padding:21px;border-color:var(--line);box-shadow:0 5px 24px #00000005}
+.card-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}
+.card-title h2{font-size:19px;margin:4px 0 0}.card-title .eyebrow{font-size:9px}
+.status-pill{font-size:10px;color:var(--muted);background:var(--soft);border:1px solid var(--line);padding:8px 10px;border-radius:99px;white-space:nowrap}
+.status-pill[data-state=ready]{color:var(--ink)}.status-pill[data-state=error]{color:#b64d4d}
+.cards{gap:9px}.metric{min-height:133px;padding:16px;border:1px solid var(--line);border-radius:17px;position:relative;justify-content:flex-end;gap:2px}
+.metric strong{font-size:clamp(34px,8vw,44px);font-weight:760;letter-spacing:-.08em;line-height:1.05;margin-bottom:5px}.metric span{color:var(--ink);font-size:11.5px;font-weight:700}
+.metric .metric-top{position:absolute;top:10px;right:13px;color:var(--muted);font-size:15px}.metric small{font-size:9px;letter-spacing:.09em}
+.btn{min-height:47px;border-radius:13px;font-weight:710;padding:12px 14px;touch-action:manipulation}
+.btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn.soft{background:var(--soft);color:var(--ink);border:1px solid var(--line)}.btn.danger{color:#b84848;border-color:color-mix(in srgb,#b84848 32%,var(--line))}
+.btn.danger.solid{color:#fff;background:#b84848;border-color:#b84848}.btn.full{width:100%}
+.overview-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
+.note{font-size:11px!important;color:var(--muted);line-height:1.75!important;margin-top:13px!important}
+.separator{height:1px;background:var(--line);margin:16px 0}
+.node{padding:16px;background:var(--soft);border:1px solid var(--line);border-radius:17px}
+.node strong{font-size:14px;line-height:1.55}.node small{line-height:1.85;margin-top:10px}.node .controls{gap:8px;margin-top:13px}
+.node .btn{min-width:112px;flex:1;min-height:44px;font-size:11px}
+.state{font-size:10px;font-weight:750}.state[data-online=true]{color:var(--ink);background:var(--paper)}
+.pair-steps{margin:18px 0;border:1px solid var(--line);border-radius:15px;padding:0 12px}
+.pair-steps div{display:flex;gap:13px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line);font-size:12px;font-weight:690}
+.pair-steps div:last-child{border:0}.pair-steps b{font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px;letter-spacing:.08em}
+.code{padding:25px 11px;background:var(--soft);border:1px solid var(--line);border-radius:18px;margin-top:18px}
+.code strong{display:block;letter-spacing:.08em;margin:10px 0;font-size:clamp(21px,5vw,32px)}
+.qr{background:var(--soft);padding:13px;border-radius:15px;margin:12px 0}
+.qr img{border:0}.pair-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.toast{position:fixed;z-index:12;bottom:calc(17px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(540px,calc(100% - 30px));padding:14px 16px;text-align:center;border-radius:13px;box-shadow:0 12px 35px #00000022;background:var(--ink);color:var(--paper);font-size:12px;font-weight:680;white-space:normal}
+.sheet-backdrop{position:fixed;z-index:20;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px max(12px,env(safe-area-inset-bottom));background:#0008;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.sheet-body{width:min(540px,100%);background:var(--paper);border-radius:26px;padding:13px 20px 21px;box-shadow:0 30px 75px #0003}
+.sheet-handle{margin:0 auto 20px;background:var(--line);width:34px;height:4px;border-radius:9px}
+.sheet-body strong{font-size:22px;letter-spacing:-.05em;display:block;margin:6px 0 9px}.sheet-body p{font-size:12px;line-height:1.8;color:var(--muted)}
+.sheet-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:20px}
+@media(min-width:630px){.hero{padding:25px 30px}.card{padding:25px}.sheet-backdrop{align-items:center}}
+@media(max-width:380px){.hero{padding:18px}.hub-private{font-size:9px;padding:6px 7px}.metric{padding:12px;min-height:115px}.metric strong{font-size:34px}.pair-actions{grid-template-columns:1fr}.node .btn{min-width:0}}
+@media(prefers-reduced-motion:reduce){.tabs button{transition:none}}
 </style></head><body>
-<header class="hero"><div class="eyebrow">CERES / SLIME · OWNER ONLY</div>
-<h1>Slime<br>節點控制中心。</h1>
-<p>獨立的 Telegram Mini App。裝置管理、短碼配對與模型推論權限集中於此。
-此頁不會出現在公開 Vanilla 下載頁。</p></header>
+<header class="hero">
+<div class="hub-top"><div class="hub-mark" aria-hidden="true">S</div><div class="hub-brand"><span class="eyebrow">CERES / OWNER STUDIO</span><b>SLIME NETWORK</b></div><span class="hub-private">◇ 私人控制台</span></div>
+<div class="hero-copy"><span class="hero-kicker">● YOUR COMPUTE FABRIC</span>
+<h1>算力，<br><span>盡在掌握。</span></h1><p>管理你的本地節點、模型權限與一次性配對。<br>僅限經過身分驗證的 Owner。</p></div>
+<div class="hero-foot"><span>SLIME / CONTROL STUDIO</span><span>OWNER ONLY</span></div>
+</header>
 <nav class="tabs" role="tablist" aria-label="Slime 管理分頁">
-<button role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">總覽</button>
-<button role="tab" aria-selected="false" aria-controls="devices" data-tab="devices">節點</button>
-<button role="tab" aria-selected="false" aria-controls="pairing" data-tab="pairing">配對</button>
+<button type="button" role="tab" id="tab-overview" aria-selected="true" tabindex="0" aria-controls="overview" data-tab="overview"><span class="tab-icon" aria-hidden="true">◫</span>總覽</button>
+<button type="button" role="tab" id="tab-devices" aria-selected="false" tabindex="-1" aria-controls="devices" data-tab="devices"><span class="tab-icon" aria-hidden="true">▤</span>節點</button>
+<button type="button" role="tab" id="tab-pairing" aria-selected="false" tabindex="-1" aria-controls="pairing" data-tab="pairing"><span class="tab-icon" aria-hidden="true">＋</span>配對</button>
 </nav>
 <main>
-<section id="overview" role="tabpanel">
-<div class="card"><h2>網路概況</h2><p>統計來自 Slime 節點心跳；在線不代表實際推論成功。</p>
-<div class="cards" style="margin-top:14px">
-<div class="metric"><strong id="total">—</strong><span>已註冊裝置</span></div>
-<div class="metric"><strong id="online">—</strong><span>目前在線</span></div>
-<div class="metric"><strong id="approved">—</strong><span>已核准推論</span></div>
-<div class="metric"><strong id="models">—</strong><span>已登錄可用模型</span></div>
+<section id="overview" role="tabpanel" aria-labelledby="tab-overview">
+<div class="section-head"><span class="eyebrow">01 / OVERVIEW</span><h2>網路總覽</h2><p>當前 Slime 節點的即時摘要</p></div>
+<div class="card">
+<div class="card-title"><div><span class="eyebrow">NETWORK PULSE</span><h2>裝置運行</h2></div><span class="status-pill" id="sync-pill">● 同步中</span></div>
+<div class="cards">
+<div class="metric"><span class="metric-top" aria-hidden="true">▦</span><strong id="total">—</strong><span>已加入裝置</span><small>DEVICES</small></div>
+<div class="metric"><span class="metric-top" aria-hidden="true">●</span><strong id="online">—</strong><span>目前在線</span><small>ONLINE</small></div>
+<div class="metric"><span class="metric-top" aria-hidden="true">◇</span><strong id="approved">—</strong><span>推論已授權</span><small>APPROVED</small></div>
+<div class="metric"><span class="metric-top" aria-hidden="true">▤</span><strong id="models">—</strong><span>可用模型</span><small>MODELS</small></div>
 </div>
-<div class="controls"><button class="btn primary" id="refresh">↻ 重新整理</button>
-<button class="btn" data-go="devices">管理節點 →</button></div></div>
-<div class="card"><h2>執行狀態</h2><p id="service">正在確認後端服務…</p>
-<p style="margin-top:8px">推論與公開 API 是不同的開關；新節點預設不會被授予推論權限。</p></div>
+<div class="overview-actions"><button class="btn primary" id="refresh">↻ 重新同步</button>
+<button class="btn soft" data-go="devices">查看所有節點 ↗</button></div>
+<p class="note">數據來自節點心跳與模型登錄；在線不代表模型已完成推論。</p></div>
+<div class="card"><div class="card-title"><div><span class="eyebrow">RUNTIME STATUS</span><h2>服務狀態</h2></div><span aria-hidden="true">◎</span></div>
+<p id="service">正在確認後端服務…</p><div class="separator"></div>
+<div class="notice">ⓘ 推論與公開 API 採獨立開關；新加入的電腦不會自動取得推論權限。</div></div>
 </section>
-<section id="devices" role="tabpanel" hidden>
-<div class="card"><h2>我的節點</h2><p>每台節點需要經過 Owner 授權。撤銷後原裝置 Token 立即失效。</p>
-<div id="node-list" class="nodes"><p>正在讀取節點…</p></div></div>
+<section id="devices" role="tabpanel" aria-labelledby="tab-devices" hidden>
+<div class="section-head"><span class="eyebrow">02 / DEVICE CONTROL</span><h2>我的節點</h2><p>查看裝置、授權模型與管理連線</p></div>
+<div class="card">
+<div class="card-title"><div><span class="eyebrow">TRUSTED DEVICES</span><h2>連線裝置</h2></div><span class="status-pill" id="device-counter">— DEVICES</span></div>
+<p>裝置與模型推論權限分開管理。撤銷配對後，原本的裝置憑證立即失效。</p>
+<div id="node-list" class="nodes" aria-live="polite"><p>正在讀取節點…</p></div>
+<div class="controls"><button class="btn soft full" data-go="pairing">＋ 新增節點</button></div></div>
 </section>
-<section id="pairing" role="tabpanel" hidden>
-<div class="card"><h2>新增節點</h2><p>產生一次性 12 位短配對碼，供電腦首次啟動 Slime 時輸入。</p>
-<div class="notice" style="margin-top:14px">只供本人或已同意加入的朋友使用。
-配對碼有效 10 分鐘、只能使用一次；此頁不會讀取既有裝置的長期 Token。</div>
-<div class="controls"><button id="issue" class="btn primary">＋ 產生短配對碼</button></div>
-<div id="code-box" hidden><div class="code"><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
+<section id="pairing" role="tabpanel" aria-labelledby="tab-pairing" hidden>
+<div class="section-head"><span class="eyebrow">03 / SECURE PAIRING</span><h2>配對新裝置</h2><p>一次性短碼，安全加入你的 Slime 網路</p></div>
+<div class="card"><div class="card-title"><div><span class="eyebrow">ONE-TIME ACCESS</span><h2>建立配對邀請</h2></div><span aria-hidden="true">＋</span></div>
+<p>取得一組 12 位短碼，讓已同意加入的電腦完成第一次連線。配對成功不會自動核准模型推論。</p>
+<div class="pair-steps"><div><b>01</b><span>產生專屬配對碼</span></div><div><b>02</b><span>在電腦輸入短碼</span></div><div><b>03</b><span>回到節點頁確認</span></div></div>
+<div class="controls"><button id="issue" class="btn primary full">＋ 產生一次性配對碼</button></div>
+<div id="code-box" hidden><div class="code"><span class="eyebrow">YOUR PAIRING CODE</span><strong id="code">—</strong><small>10 分鐘後失效 · 一次性使用</small></div>
 <div id="qr-box" class="qr" hidden><img id="qr-image" alt="Slime 配對 QR Code，包含本次一次性邀請" width="220" height="220"></div>
-<div class="controls"><button id="copy-code" class="btn primary">複製配對碼</button>
-<button id="copy-link" class="btn">複製邀請連結</button></div></div>
+<div class="controls pair-actions"><button id="copy-code" class="btn primary">⧉ 複製短碼</button>
+<button id="copy-link" class="btn soft">複製備用連結</button></div></div>
 <p class="result" id="pair-result" role="status" aria-live="polite" hidden></p>
-<div class="controls"><a id="installer" class="btn" href="#" target="_blank" rel="noopener noreferrer">↗ Slime 公開下載頁</a></div>
+<div class="notice" style="margin-top:16px">⌁ 僅與取得同意的裝置持有人分享。這裡不會顯示原始的長期節點 Token。</div>
+<div class="controls"><a id="installer" class="btn soft full" href="#" target="_blank" rel="noopener noreferrer">↗ Slime 公開下載頁</a></div>
 </div>
 </section>
 <div class="card" id="auth-block" hidden><h2>需要 Telegram 身分驗證</h2>
 <p>請從已授權的 Ceres Owner 私聊使用「Slime 私人管理頁」按鈕開啟。
 一般瀏覽器直接開啟網址不會取得管理權限。</p></div>
-<div class="card" id="confirm-box" hidden><div class="confirm"><strong id="confirm-title">確認操作</strong>
-<p id="confirm-description"></p>
-<div class="controls"><button id="approve" class="btn danger">確認執行</button>
-<button id="cancel" class="btn">取消</button></div></div></div>
-<div id="message" class="result" role="status" aria-live="polite" hidden></div>
+<div id="confirm-box" class="sheet-backdrop" hidden><div class="sheet-body" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+<div class="sheet-handle" aria-hidden="true"></div><span class="eyebrow">SECURE ACTION / REVIEW</span>
+<strong id="confirm-title">確認操作</strong><p id="confirm-description"></p>
+<div class="sheet-actions"><button type="button" id="approve" class="btn danger solid">確認執行</button>
+<button type="button" id="cancel" class="btn soft">取消，返回</button></div></div></div>
+<div id="message" class="toast" role="status" aria-live="polite" hidden></div>
 </main>
 <script nonce="__NONCE__">
 (function(){
@@ -147,11 +216,21 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
  const tg=window.Telegram?.WebApp;
  const auth=tg?.initData||"";
  const $=id=>document.getElementById(id);
- let nodes=[],issued=null,pending=null,busy=false;
- function notice(txt){$("message").hidden=false;$("message").textContent=String(txt);}
+ let nodes=[],issued=null,pending=null,busy=false,flash=null,requesting=false;
+ function haptic(){try{tg?.HapticFeedback?.selectionChanged?.();}catch(e){}}
+ function notice(txt){
+   const box=$("message");box.hidden=false;box.textContent=String(txt);
+   if(flash)clearTimeout(flash);
+   flash=setTimeout(()=>{box.hidden=true;},4200);
+ }
  function setTab(value){
-   document.querySelectorAll("[data-tab]").forEach(btn=>btn.setAttribute("aria-selected",String(btn.dataset.tab===value)));
+   if(!["overview","devices","pairing"].includes(value))return;
+   document.querySelectorAll("[data-tab]").forEach(btn=>{
+     const active=btn.dataset.tab===value;
+     btn.setAttribute("aria-selected",String(active));btn.tabIndex=active?0:-1;
+   });
    ["overview","devices","pairing"].forEach(key=>$(key).hidden=key!==value);
+   haptic();
  }
  async function api(route,extra){
    if(!auth)throw Error("Telegram Owner 驗證未就緒；請從 Bot 私聊重新開啟。");
@@ -166,7 +245,9 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
    const root=document.createElement("article");root.className="node";
    const head=document.createElement("div");head.className="node-top";
    const name=document.createElement("strong");name.textContent=n.label;
-   const badge=document.createElement("span");badge.className="state";badge.textContent=n.online?"● 在線":"○ 離線";
+   const badge=document.createElement("span");badge.className="state";
+   badge.dataset.online=String(Boolean(n.online));
+   badge.textContent=n.online?"● 在線":"○ 離線";
    head.append(name,badge);root.append(head);
    const info=document.createElement("small");
    info.textContent=(n.role==="owner"?"我的電腦":"朋友節點")+" · "+
@@ -183,12 +264,15 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
    ];
    actions.forEach(a=>{
     const button=document.createElement("button");button.type="button";
-    button.className="btn"+(a.kind==="revoke"?" danger":"");button.textContent=a.label;
+    button.className="btn "+(a.kind==="revoke"?"danger":"soft");button.textContent=a.label;
     button.addEventListener("click",()=>plan(n,a.kind,a.enable));ctr.append(button);
    });
    root.append(ctr);return root;
  }
  async function reload(){
+  if(requesting)return;
+  requesting=true;$("refresh").disabled=true;
+  $("sync-pill").textContent="● 正在同步";$("sync-pill").dataset.state="loading";
   try{
    const data=await api("snapshot");
    nodes=data.nodes||[];
@@ -197,15 +281,21 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
    $("approved").textContent=String(data.counts.inferenceApproved);
    $("models").textContent=String(data.counts.catalogModels);
    $("service").textContent=data.service.message;
+   $("sync-pill").textContent="● 已同步";$("sync-pill").dataset.state="ready";
+   $("device-counter").textContent=nodes.length+" DEVICES";
    const list=$("node-list");list.replaceChildren();
    if(!nodes.length){const p=document.createElement("p");p.textContent="尚未註冊節點。可前往「配對」新增第一台電腦。";list.append(p);}
    else nodes.forEach(n=>list.append(nodeCard(n)));
    $("installer").href=data.publicInstaller;
-  }catch(e){notice(e.message);}
+  }catch(e){
+   $("sync-pill").textContent="● 連線失敗";$("sync-pill").dataset.state="error";
+   notice(e.message);
+  }finally{requesting=false;$("refresh").disabled=false;}
  }
  async function issue(){
   const button=$("issue");button.disabled=true;$("pair-result").hidden=true;
   try{
+   button.textContent="正在建立安全配對碼…";
    const obj=await api("issue");
    issued={code:obj.code,link:obj.link};
    $("code").textContent=issued.code;$("code-box").hidden=false;
@@ -214,7 +304,7 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
    $("pair-result").hidden=false;
    $("pair-result").textContent="新配對碼已建立。僅私下提供給已同意加入的電腦持有人。";
   }catch(e){$("pair-result").hidden=false;$("pair-result").textContent=e.message;}
-  finally{button.disabled=false;}
+  finally{button.disabled=false;button.textContent="＋ 產生一次性配對碼";}
  }
  async function copy(content){
   if(!content)return;
@@ -233,7 +323,7 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
    $("confirm-title").textContent=obj.title;
    $("confirm-description").textContent=warning+" 確認後才會寫入後端。";
    $("confirm-box").hidden=false;
-   $("confirm-box").scrollIntoView({block:"nearest"});
+   $("cancel").focus();
   }catch(e){notice(e.message);}
  }
  async function approve(){
@@ -259,7 +349,16 @@ font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
  $("copy-code").addEventListener("click",()=>copy(issued?.code));
  $("copy-link").addEventListener("click",()=>copy(issued?.link));
  $("approve").addEventListener("click",approve);
- $("cancel").addEventListener("click",()=>{pending=null;$("confirm-box").hidden=true;});
+ function closeConfirm(){pending=null;$("confirm-box").hidden=true;}
+ $("cancel").addEventListener("click",closeConfirm);
+ $("confirm-box").addEventListener("click",event=>{if(event.target===$("confirm-box"))closeConfirm();});
+ document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&!$("confirm-box").hidden){event.preventDefault();closeConfirm();}
+  if(["ArrowLeft","ArrowRight"].includes(event.key)&&event.target?.matches?.('[role="tab"]')){
+   const tabs=[...document.querySelectorAll("[data-tab]")],i=tabs.indexOf(event.target);
+   if(i>=0){const next=tabs[(i+(event.key==="ArrowRight"?1:tabs.length-1))%tabs.length];setTab(next.dataset.tab);next.focus();}
+  }
+ });
  void reload();
 })();
 </script></body></html>"""

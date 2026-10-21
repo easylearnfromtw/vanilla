@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {PENTERACT_VERTICES,PENTERACT_EDGES,ROTATION_PLANES,
+import {PENTERACT_VERTICES,PENTERACT_EDGES,ROTATION_PLANES,FIVE_SIMPLEX,
  rotate5D,project5D,embedFiveSpace,distance5D,
  FIVE_EXPERTS,planPenteractFunnel} from "../src/detroit/penteract-5d.ts";
 
@@ -83,4 +83,31 @@ test("UI route is lazy-loaded and uses accessible SVG with no background GPU loo
  assert.match(style,/prefers-reduced-motion:reduce/);
  assert.doesNotMatch(panel,/requestAnimationFrame|setInterval|webgl|WebGLRenderingContext/);
  assert.doesNotMatch(panel,/fetch\(|localStorage|sessionStorage/);
+});
+
+test("Six equal expert anchors form a regular 5-simplex with 5 independent geometric axes",()=>{
+ assert.equal(FIVE_SIMPLEX.length,6);
+ const distances=[];
+ for(let i=0;i<6;i++){
+  const v=FIVE_SIMPLEX[i];
+  assert.equal(v.length,5);
+  assert.ok(Math.abs(Math.hypot(...v)-1)<1e-12,"unit vertex "+i);
+  for(let j=i+1;j<6;j++){
+   const dot=v.reduce((s,x,k)=>s+x*FIVE_SIMPLEX[j][k],0);
+   assert.ok(Math.abs(dot+0.2)<1e-12,"equal simplex dot "+i+"/"+j);
+   distances.push(distance5D(v,FIVE_SIMPLEX[j]));
+  }
+ }
+ assert.equal(distances.length,15);
+ assert.ok(Math.max(...distances)-Math.min(...distances)<1e-12);
+ const expected=[
+  ["投資報酬率","finance"],["查核最新文獻","research"],
+  ["修復 Python 程式","code"],["排版 UI 介面","design"],
+  ["撰寫電子郵件","writing"],["CSV 統計","numbers"]
+ ];
+ for(const [question,expert] of expected){
+  const plan=planPenteractFunnel(question);
+  assert.equal(plan.routes[0].id,expert,question);
+  assert.equal(plan.routes[0].distance,0,question);
+ }
 });

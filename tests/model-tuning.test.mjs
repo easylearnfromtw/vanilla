@@ -5,7 +5,7 @@ import {webllmRequestOptions,ollamaRequestExtras,geminiGenerationConfig,geminiTh
 import {estimateTokens,truncateToTokens,composeUserPrompt,fitHistory} from "../src/ai/context-budget.ts";
 import {stripThinking,collapseRepetition,cleanModelOutput} from "../src/ai/output-cleanup.ts";
 import {readNDJSON,readSSE} from "../src/ai/stream-parsers.ts";
-import {vanillaSystemPrompt,todayLine} from "../src/ai/prompts.ts";
+import {vanillaSystemPrompt,todayLine,isAtuberModel,STRUCTURED_SYSTEM_PROMPT} from "../src/ai/prompts.ts";
 import {classifyTask} from "../src/ai/task-kind.ts";
 
 globalThis.localStorage??={_m:new Map(),getItem(k){return this._m.get(k)??null;},setItem(k,v){this._m.set(k,String(v));},removeItem(k){this._m.delete(k);}};
@@ -136,4 +136,39 @@ test("task classification",()=>{
  assert.equal(classifyTask("這段 python 為什麼報錯"),"code");
  assert.equal(classifyTask("說明光合作用"),"general");
  assert.equal(classifyTask("看看這張",true),"vision");
+});
+
+
+test("Blackhole removes only exact duplicate evidence from the same source ID",()=>{
+ const shared="完整資料：不同的內容和來源都不可被靜默省略。";
+ const contexts=[
+  {id:"file-one",label:"檔案甲",text:shared,priority:1},
+  {id:"file-one",label:"檔案甲重複",text:shared,priority:1},
+  {id:"file-two",label:"檔案乙",text:shared,priority:1},
+  {id:"file-one",label:"檔案甲更新",text:"更新資料，不得刪除。",priority:1},
+ ];
+ const result=composeUserPrompt("請回答",contexts,"",1000);
+ assert.deepEqual(result.included.map(x=>x.label),["檔案甲","檔案乙","檔案甲更新"]);
+ assert.deepEqual(result.omitted,["檔案甲重複（同一來源重複，已省略）"]);
+ assert.match(result.content,/更新資料，不得刪除/);
+ assert.equal(result.content.split(shared).length-1,2);
+});
+
+
+test("only Atuber models receive modern Tongcheng style; structured outputs remain neutral",()=>{
+ assert.equal(isAtuberModel("Qwen3-0.6B-q4f16_1-MLC"),true);
+ assert.equal(isAtuberModel("qwen3:0.6b"),true);
+ assert.equal(isAtuberModel("atuber:latest"),true);
+ assert.equal(isAtuberModel("qwen3:1.7b"),false);
+ const full=vanillaSystemPrompt({task:"general",compact:false,latestUserText:"說明 GPU",tongcheng:true});
+ const small=vanillaSystemPrompt({task:"general",compact:true,latestUserText:"說明 GPU",tongcheng:true});
+ const other=vanillaSystemPrompt({task:"general",compact:false,latestUserText:"一般模型"});
+ for(const str of [full,small]){
+  assert.match(str,/言有物/);
+  assert.match(str,/言有序/);
+  assert.match(str,/白話/);
+ }
+ assert.doesNotMatch(other,/桐城義法/);
+ assert.doesNotMatch(STRUCTURED_SYSTEM_PROMPT,/言有物/);
+ assert.ok(estimateTokens(small)<230);
 });

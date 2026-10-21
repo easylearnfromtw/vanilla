@@ -1,5 +1,5 @@
 import type {ChatTurn} from "../local-ai/engine";
-import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT,OCTOBER_READONLY_PLANNER_PROMPT,OCTOBER_FUNNEL_UNDERSTAND_PROMPT} from "./prompts";
+import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT,OCTOBER_READONLY_PLANNER_PROMPT,OCTOBER_FUNNEL_UNDERSTAND_PROMPT,isAtuberModel} from "./prompts";
 import {isOctoberModel} from "./october-persona";
 import {validateOctoberUnderstanding,summarizeOctoberUnderstanding,octoberUnderstandingOutputBudget} from "../detroit/penteract-understanding";
 import {classifyTask,type TaskKind} from "./task-kind";
@@ -131,7 +131,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  const profile=profileFor("ollama",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
  let system=octoberPlan?OCTOBER_READONLY_PLANNER_PROMPT:octoberUnderstand?OCTOBER_FUNNEL_UNDERSTAND_PROMPT:structured?STRUCTURED_SYSTEM_PROMPT:
-  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,model})+
+  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,model,tongcheng:isAtuberModel(model)})+
   (options.toolGrounding?"\n\n[Vanilla 應用程式提供的可信任工具事實；僅用於解釋功能，非操作授權]\n"+options.toolGrounding:"");
  // Deep October only: one extra bounded, untrusted comprehension pass.
  // No extra request for quick/default tasks or October Lite.

@@ -44,7 +44,7 @@ export default function SlimePanel(){
  const pairCode=useMemo(()=>{
   if(!invite)return null;
   const token=invite.match(/#slime=([^#&?]+)$/)?.[1]??"";
-  return /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(token)?token:null;
+  return /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}(?:-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}){2}$/.test(token)?token:null;
  },[invite]);
  const asset=useMemo(()=>trustedAsset(release,role,os),[release,role,os]);
  useEffect(()=>{
@@ -85,20 +85,21 @@ export default function SlimePanel(){
   <header className="slime-hero">
    <div className="slime-overline"><span className="slime-dot"/> VANILLA / SLIME NETWORK</div>
    <h2>讓你的電腦<br/><span>成為 AI 節點。</span></h2>
-   <p>下載、配對、上線。電腦只會在取得裝置持有人同意後加入 Vanilla，並由 Telegram Owner 決定是否允許模型推論。</p>
+   <p>配對碼僅由 Ceres Telegram Owner 核發。Vanilla 網頁不會再產生另一組代碼；下載、配對及推論授權各自有獨立狀態。</p>
    <div className="slime-hero-status"><ShieldCheck size={16}/> 只向 WeiGuo 主動連線 · 不開放本地 Ollama 連接埠</div>
   </header>
   {invite&&<article className="slime-card slime-invite-ready">
-   <div className="slime-heading"><div><span className="slime-kicker">INVITE DETECTED</span><h3>收到 Slime 一次性邀請</h3></div><LockKeyhole size={20}/></div>
-   <p>此邀請僅保留在當次頁面，已從網址列移除。新電腦第一次開啟 Slime 時輸入配對碼即可。10 分鐘有效，使用一次後失效。</p>
+   <div className="slime-heading"><div><span className="slime-kicker">TELEGRAM CODE · READ ONLY</span><h3>Telegram 的同一組配對碼</h3></div><LockKeyhole size={20}/></div>
+   <p>這是 Telegram Ceres 核發的同一組短碼，不是 Vanilla 網頁新產生的代碼。邀請已從網址列移除。請在新版 Slime Windows 安裝程式輸入此碼；10 分鐘有效，使用一次後失效。</p>
    {pairCode&&<div className="slime-short-code" aria-label="本次 Slime 節點配對碼">
-    <span>一次性節點配對碼</span><strong>{pairCode}</strong>
+    <span>來源：Telegram Owner · 同一組短碼</span><strong>{pairCode}</strong>
     <small>每 4 位分組 · 使用後自動作廢</small>
    </div>}
-   {pairCode&&<button className="slime-main-action" type="button" onClick={()=>void copyPairCode()}><Copy size={16}/> 複製配對碼 <ChevronRight size={16}/></button>}
+   {pairCode&&<button className="slime-main-action" type="button" onClick={()=>void copyPairCode()}><Copy size={16}/> 複製到 Windows Slime <ChevronRight size={16}/></button>}
    <button className="slime-outline-action" type="button" onClick={()=>void copyInvite()}><Copy size={16}/> 複製備用邀請連結</button>
    <small role="status" aria-live="polite">{copyResult||"不要公開此連結，也不要將邀請碼貼到客服或社群。"}</small>
   </article>}
+  {!invite&&<article className="slime-card" role="status"><div className="slime-heading"><div><span className="slime-kicker">PAIRING CODE SOURCE</span><h3>尚未收到配對碼</h3></div><LockKeyhole size={20}/></div><p>請由 Ceres Telegram Owner 的 /hub → Slime 產生一次性短碼；網頁只顯示該組短碼，不會另外核發。不要填模型 API Key 或舊版 Windows Node 授權。</p></article>}
   <article className="slime-card">
    <div className="slime-heading"><div><span className="slime-kicker">STEP 01 · DOWNLOAD</span><h3>下載你的 Slime</h3></div><Download size={20}/></div>
    <div className="slime-switcher" role="group" aria-label="下載身分">
@@ -124,8 +125,8 @@ export default function SlimePanel(){
    <div className="slime-heading"><div><span className="slime-kicker">STEP 02–04 · CONNECT</span><h3>首次執行與配對</h3></div><Monitor size={19}/></div>
    <ol className="slime-steps">
     <li><span className="slime-step-number">01</span><div><strong>開啟安裝檔</strong><p>Windows 雙擊 Slime 程式；macOS 解壓後開啟對應 .command，Linux 解壓後執行 start-slime.sh。不要執行來源不明的同名檔案。</p></div></li>
-    <li><span className="slime-step-number">02</span><div><strong>輸入一次性短配對碼</strong><p>由 管理者私人的 Ceres 控制介面 的 Owner 私聊產生配對碼，將短碼交給要加入的電腦使用者。首次配對時填寫電腦名稱並同意共享。</p></div></li>
-    <li><span className="slime-step-number">03</span><div><strong>確認節點上線</strong><p>裝置會安全儲存專用 Token，以 HTTPS 回報心跳。Owner 在 Telegram 的 /hub → Slime 節點核對裝置；重開程式會連回相同節點，不需重新索取邀請。</p></div></li>
+    <li><span className="slime-step-number">02</span><div><strong>輸入 Telegram 的同一組短配對碼</strong><p>Ceres Telegram Owner 是唯一核發處。網頁右側僅唯讀顯示該組短碼，不會產生第二組；請勿輸入模型 API Key、GitHub Token 或舊版 Node 授權。</p></div></li>
+    <li><span className="slime-step-number">03</span><div><strong>分別確認配對及在線</strong><p>成功配對只代表已註冊；實際在線還需 HTTPS 心跳。Owner 在 Telegram /hub → Slime 查看節點、硬體與可用模型；重開程式不需重複配對。</p></div></li>
     <li><span className="slime-step-number">04</span><div><strong>需要 AI 推論時才核准</strong><p>安裝並啟動本機 Ollama；Owner 另外同意推論後，才允許外部 Vanilla API 模型任務傳入此電腦。一般節點心跳不等於開放模型。</p></div></li>
    </ol>
   </article>

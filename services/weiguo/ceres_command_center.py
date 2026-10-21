@@ -142,11 +142,20 @@ async def _nodes(chat: int, sub: str) -> None:
             buttons.append([_button(icon+" · "+label,"infer_"+direction+":"+node["id"])])
     except (ValueError,TypeError,KeyError,RuntimeError):
         pass
+    buttons.insert(0,[_button("＋ 產生新節點配對碼","invite")])
     buttons.extend(_page_buttons("nodes"))
     await say(chat,_title("NODES / Slime 節點")
               +"<pre>"+escape(result or "Slime 節點控制尚未設定。")+"</pre>"
               +"\n<i>開啟推論後，已授權的 API 使用者提示可能傳送至此電腦。核准需二次確認。</i>",
               buttons,html=True)
+
+
+async def _invite_card(chat: int, sub: str) -> None:
+    from slime_telegram import handle_slime
+    result=handle_slime(chat,sub,"/slime invite")
+    await say(chat,_title("PAIR / 節點一次性配對")
+              +"<pre>"+escape(result or "配對服務目前不可用")+"</pre>",
+              [[_button("← 返回節點管理","nodes")]],html=True)
 
 
 async def _sources(chat: int) -> None:
@@ -256,6 +265,8 @@ async def command(chat: int, body: str) -> None:
         await say(chat, _title("TOOLS / Detroit 工具")+"<pre>"+escape(_tools_text())+"</pre>", _page_buttons("tools"),html=True)
     elif action in ("nodes", "slime", "節點"):
         await _nodes(chat, sub)
+    elif action in ("invite", "pair", "配對", "密碼"):
+        await _invite_card(chat,sub)
     elif action in ("sources", "projects", "開源"):
         await _sources(chat)
     elif action in ("github", "search"):
@@ -451,6 +462,8 @@ async def _handle_callback(chat: int, action: str) -> None:
     if action in {"home", "status", "tools", "nodes", "sources",
                   "accounts", "providers"}:
         await command(chat, "/hub " + action)
+    elif action == "invite":
+        await command(chat,"/hub invite")
     elif re.fullmatch(r"infer_(on|off):[a-f0-9]{24}",action):
         from slime_telegram import handle_slime
         sub=owner_subject(chat)

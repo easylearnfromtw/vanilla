@@ -115,7 +115,7 @@ def _gpu_name():
     """Read-only NVIDIA discovery, throttled to avoid repeated GPU wake-ups."""
     global _last_gpu_scan,_cached_gpu
     now=time.monotonic()
-    if _last_gpu_scan and now-_last_gpu_scan<300:
+    if _last_gpu_scan and now-_last_gpu_scan<3600:
         return _cached_gpu
     _last_gpu_scan=now
     if not shutil.which("nvidia-smi"):
@@ -198,7 +198,18 @@ def run():
                 continue
             now=time.monotonic()
             if now-last_register>=50:
-                models=_models()
+                try:
+                    models=_models()
+                except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError):
+                    print("Ollama 本地模型尚未就緒；30 秒後重試，不影響 Slime 心跳。")
+                    last_register=now
+                    time.sleep(30)
+                    continue
+                if not models:
+                    print("Ollama 沒有已下載的模型；30 秒後重試，不輪詢遠端任務。")
+                    last_register=now
+                    time.sleep(30)
+                    continue
                 _register(server,token,models)
                 last_register=now
                 if models and now-last_model_scan>300:
@@ -208,7 +219,7 @@ def run():
                 polled=_http("GET",server+"/v1/slime/node/runner/poll",authorization=token)
                 job=polled.get("job")
                 if not job:
-                    time.sleep(2)
+                    time.sleep(3)
                     continue
                 payload={"job_id":job["id"],"ok":False}
                 try:

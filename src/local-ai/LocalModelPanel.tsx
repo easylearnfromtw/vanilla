@@ -3,7 +3,8 @@ import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-
 import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,diagnoseLocalModelDownload,type LocalModelId} from "./engine";
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
-import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL} from "../ai/atuber-control-plane";
+import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS} from "../ai/atuber-control-plane";
+import {getOllamaConfig} from "../ai/ollama";
 
 type Props={
  selected:LocalModelId;
@@ -39,6 +40,7 @@ export default function LocalModelPanel(props:Props){
  const current=getLoadedLocalModel();
  const entry=LOCAL_MODELS.find(x=>x.id===props.selected);
  const visibleModels=ATUBER_SINGLE_DRIVER?LOCAL_MODELS.filter(x=>x.id===ATUBER_LOCAL_MODEL):LOCAL_MODELS;
+ const hostModels=new Set([getOllamaConfig().model,...getOllamaConfig().models]);
  const state=props.ready?"已就緒":props.loading?"下載／初始化中 "+props.progress+"%":!props.webgpu?"無法使用 WebGPU":props.error?"載入失敗":props.cached?"已快取，可離線載入":"尚未下載";
  return <div className="local-model-panel">
   <div className="local-model-heading">
@@ -55,6 +57,13 @@ export default function LocalModelPanel(props:Props){
     <button type="button" disabled={!props.webgpu||props.loading||props.repairingCache||props.ready} onClick={props.onLoad}><Download size={15}/>{props.loading?"載入中":props.ready?"已載入":props.cached?"載入":"下載"}</button>
    </div>
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
+   {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="阿土伯模型級距">
+    <p className="local-model-note"><strong>阿土伯三層模型</strong> · 下列為自架 Ollama 的可選型號；此處只顯示設定狀態，不代表模型權重已下載或主機在線。</p>
+    {ATUBER_TIERS.map(t=><p key={t.tier} className="local-model-note">
+     <strong>{t.label}</strong> · {t.model} · 約 {t.approxDownloadGB} GB 權重檔 · {hostModels.has(t.model)?"已登記（尚待連線驗證）":"尚未登記"}
+    </p>)}
+    <p className="local-model-note">私密模式固定使用裝置端 0.6B；大型模型須由已授權的自架節點承載，並不會自行訂購雲端算力或將資料轉給其他供應商。</p>
+   </section>}
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}
    <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>
    {(props.error||props.cached)&&!props.ready&&<button type="button" className="local-cache-repair" disabled={props.loading||props.repairingCache} onClick={props.onRepairCache}>{props.repairingCache?"正在清除本模型快取…":"清除這個模型的快取後重試"}</button>}

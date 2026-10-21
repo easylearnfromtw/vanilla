@@ -28,6 +28,8 @@ jobs:
         run: |
           node training/october/teacher-cases.mjs
           python training/noodles_train.py --mode sft --train training/october/generated/october-teacher-sft-train.jsonl --eval training/october/generated/october-teacher-sft-eval.jsonl --check-only
+          node training/october/teacher-preferences.mjs
+          python training/noodles_train.py --mode dpo --train training/october/generated/october-preference-train.jsonl --eval training/october/generated/october-preference-eval.jsonl --check-only
       - name: Install PyTorch CPU
         run: python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu torch
       - name: Train October policy weights via gradient descent

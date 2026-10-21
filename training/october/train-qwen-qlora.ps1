@@ -13,12 +13,12 @@ Push-Location $repo
 try {
   if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw "Node.js 22+ is required." }
   if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw "Python training environment is required." }
-  node training/agent_sandbox/integrated-dataset.mjs
-  if ($LASTEXITCODE -ne 0) { throw "Dataset generation failed." }
-  node training/agent_sandbox/to-noodles.mjs
-  if ($LASTEXITCODE -ne 0) { throw "SFT export failed." }
-  $train = "training/agent_sandbox/generated/integrated-noodles-sft-train.jsonl"
-  $validation = "training/agent_sandbox/generated/integrated-noodles-sft-validation.jsonl"
+  # The October-specific GPT-6-authored dataset is separate from Agent Sandbox.
+  # This prepares examples; it does NOT train Qwen base weights on its own.
+  node training/october/teacher-cases.mjs
+  if ($LASTEXITCODE -ne 0) { throw "October teacher corpus failed to generate." }
+  $train = "training/october/generated/october-teacher-sft-train.jsonl"
+  $validation = "training/october/generated/october-teacher-sft-eval.jsonl"
   python training/noodles_train.py --mode sft --train $train --eval $validation --check-only
   if ($LASTEXITCODE -ne 0) { throw "SFT data validation failed." }
   if (-not $RunTraining) {

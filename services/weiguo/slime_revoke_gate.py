@@ -83,6 +83,8 @@ def consume_revoke(owner: str, node_id: str, code: str, chat_id: int | None = No
                 "刪除碼驗證失敗；輸錯 5 次將作廢，請重新從 Telegram 取得",
                 429 if failures >= 5 else 403,
             )
+        from slime_reward_policy import note_deleted_node
+        note_deleted_node(db,node_id,owner)
         updated = db.execute("DELETE FROM nodes WHERE id=? AND owner=?", (node_id, owner))
         if updated.rowcount != 1:
             db.rollback()
@@ -90,3 +92,10 @@ def consume_revoke(owner: str, node_id: str, code: str, chat_id: int | None = No
         db.execute("DELETE FROM slime_telegram_confirm WHERE chat_id=?", (row["chat_id"],))
         _audit(db, owner, row["chat_id"], "revoke_telegram_verified", node_id)
         db.commit()
+    # Reward settlement uses a separate durable DB; node revocation succeeds
+    # regardless of reward-service health, and the event can be replayed safely.
+    try:
+        from slime_reward_policy import reconcile_node_revocations
+        reconcile_node_revocations()
+    except Exception:
+        pass

@@ -137,6 +137,10 @@ def _key_from_header(authorization: str|None):
         raise HTTPException(503,"Vanilla 模型 API 尚未開放")
     supplied=authorization[7:] if isinstance(authorization,str) and authorization.startswith("Bearer ") else ""
     match=_KEY.fullmatch(supplied)
+    if match:
+        # A pending Slime delete is applied before any new API key can run.
+        from slime_reward_policy import reconcile_node_revocations
+        reconcile_node_revocations()
     if not match:
         raise HTTPException(401,"無效的 Vanilla API Key",headers={"WWW-Authenticate":"Bearer"})
     now=int(time.time())
@@ -246,9 +250,8 @@ def _finish(keyid:str,job:str,reservation:int,*,usage=None,status="failed",laten
             if refund<0:
                 raise HTTPException(502,"Token 使用量超出預留上限")
             if refund:
-                db.execute("""UPDATE slime_reward_wallet
-                    SET balance=balance+?,spent=spent-? WHERE google_sub=?""",
-                    (refund,refund,mapping["google_sub"]))
+                from slime_reward_policy import account_credit
+                account_credit(db,mapping["google_sub"],refund,refund=True)
                 db.execute("""INSERT INTO slime_reward_ledger
                     (id,google_sub,kind,delta,created_at,model,note)
                     VALUES(?,?,?,?,?,?,?)""",
@@ -320,8 +323,11 @@ async def client_usage(authorization: str|None=Header(default=None)):
         reward_tables(db)
         reward_key=db.execute("SELECT google_sub FROM slime_reward_key WHERE key_id=?",
                               (key["id"],)).fetchone()
-        reward_balance=(db.execute("SELECT balance FROM slime_reward_wallet WHERE google_sub=?",
+        reward_cash=(db.execute("SELECT balance FROM slime_reward_wallet WHERE google_sub=?",
                       (reward_key["google_sub"],)).fetchone()["balance"] if reward_key else None)
+        from slime_reward_policy import signed_balance
+        reward_balance=(signed_balance(db,reward_key["google_sub"],reward_cash)
+                        if reward_key else None)
         stats=db.execute("""SELECT COUNT(*) calls,
            SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) today,
            SUM(CASE WHEN created_at>=? THEN charged_tokens ELSE 0 END) month_total,

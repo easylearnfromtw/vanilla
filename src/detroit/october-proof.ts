@@ -6,7 +6,11 @@
 import type {CreamResult} from "../cream/core";
 import type {OctoberServerProof} from "../weiguo/api";
 
-export const OCTOBER_SERVER_COMMAND=/^(?:阿土伯|October)伺服器驗證CSV\s*[：:]?$/i;
+export const OCTOBER_SERVER_COMMAND=/^(?:阿土伯|October)(?:規劃並)?伺服器驗證CSV\s*[：:]?$/i;
+export const OCTOBER_PLAN_COMMAND=/^(?:阿土伯|October)(?:規劃分析CSV|規劃並伺服器驗證CSV)\s*[：:]?$/i;
+export function wantsOctoberPlanner(message:string):boolean{
+ return OCTOBER_PLAN_COMMAND.test(message.split(/\r?\n/,1)[0].trim());
+}
 export function wantsOctoberServerProof(message:string):boolean{
  return OCTOBER_SERVER_COMMAND.test(message.split(/\r?\n/,1)[0].trim());
 }

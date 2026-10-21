@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.22.03-atuber-three-tiers",
-  "description": "Three owner-hosted October model tiers plus honest independent-weights training stage and smoke test"
+  "build": "2026.10.22.04-merlin-taiwan-pragmatics",
+  "description": "Merlin Taiwan Mandarin semantic pragmatics, local context alignment and human-reviewed Atuber training data gate"
 }

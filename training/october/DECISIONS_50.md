@@ -1,6 +1,6 @@
 # October（阿土伯）｜50 題模型與產品設計決策紀錄
 
-狀態：進行中 · 共 50 題 · 目前已確定 41 題 · 已略過 1 題（Q24）
+狀態：進行中 · 共 50 題 · 目前已確定 42 題 · 已略過 1 題（Q24）
 
 > 此文件只記錄使用者已確定的設計決策。未經確認的後續題目不得當作既定需求。這是產品規格，不代表功能已實作、模型已微調或正式上線。
 
@@ -1328,8 +1328,45 @@ October 的經濟學專業能力以 **C：結構化計量模型、量化預測�
 - 嘗試透過 workspace UI、組織 admin、外部 API Key、被偽造的 Owner Telegram username／callback、共享 README、團隊聊天指令提權為 Vanilla 管理員或觸發 Self-Build；後端均應拒絕並記錄安全事件。
 - 複核成員移除、孤兒專案／任務、歷史审計、資料合法保留與分享撤銷，確認已撤銷的 session／cache／invite token 不可在同步後重新取回權限。
 
+## Q43 / 50 — C：企業級 SSO 與身分生命週期系統（SAML/OIDC × Enterprise IdP × SCIM × Revocation × Audit）
+
+**決策：C — 企業級 SSO 與身分生命週期系統。使用者於 2026-10-21 正式確認。**
+
+使用者原始決策：「採企業級SSO與身分生命週期系統：整合SAML／OIDC SSO、企業Identity Provider、SCIM自動建立與停用帳號、離職撤權與身分稽核。」
+
+**選項邊界**：正式選擇 **C，而不是 D**。本題採企業 IdP 整合、登入聯邦與 SCIM 帳號生命週期，不將 D 選項的統一零信任 IAM 全面建設、風險感知登入引擎、所有裝置的細粒度風險評分、自動 Passkey／MFA 功能視為本題已批准新增項目。既有認證安全、權限保護、工作階段失效與 Ceres Owner 隔離要求仍應遵守，不得因只選 C 而降低必要的登入安全。
+
+### 企業身分架構及執行契約
+
+1. **企業 SSO 與工作空間整合**：將 Q42 Organization Workspace 與特定 Enterprise Identity Provider（IdP）綁定；建立 org_id、idp_connection_id、protocol、issuer/entity_id、client_id 或 SP entity、簽章／驗證憑證參照、登入路由、allowed_domains、claim mapping、security policy version、enable_state。只依有權的組織管理者及後端驗證操作建立連線，不以電子郵件網域一致就自動取得資源權限。
+2. **SAML 2.0 聯邦登入**：以後端可信 SP 驗證 IdP assertion 的數位簽章、issuer、audience、recipient／destination、InResponseTo、有效期限、NameID/subject、response ID 防重播與允許的 binding；憑證輪替採受控配置。不得接受未簽署、過期、錯誤 audience、重播或由其他組織 IdP 發出的 assertion，也不得將 SAML assertion 當作 API Key 或 Global Owner 授權。
+3. **OpenID Connect SSO**：透過正確 OIDC discovery 或核准設定驗證 issuer、client、redirect URI、PKCE（適用時）、state、nonce、ID token 簽章、audience、exp/iat 與可信 JWKS；服務端建立受限 Vanilla session，防 token substitution、login CSRF 和混用組織 IdP。OIDC access token 不得被任意轉用為其他第三方服務權杖或 Ceres Telegram 管理憑證。
+4. **外部身分與本地 user_id 對應**：以 (org_id, issuer, immutable subject/externalId) 映射平台 principal；email/displayName 僅作展示或需經核驗的輔助欄位，不作唯一不可變身分。相同 Email 的跨 IdP／跨租戶使用者不得自動連結身分；身分合併、改名、改網域和帳號重新啟用要有可信政策及稽核。
+5. **SCIM 2.0 Provisioning/Deprovisioning**：建立獨立 SCIM 端點與受控 OAuth/token 授權 scope，支援必要的 Users／Groups create、update、patch、deactivate、delete（依資料保留政策）及 group membership 同步；對 externalId、version／ETag、pagination、filter、atomic update、duplicate prevention、rate limits 和重試需具真實相容性驗證，不能僅據 IdP 的同步請求就假定權限已生效。
+6. **角色映射與權限上限**：企業 IdP／SCIM groups 可映射至 Q42 預先核准的 org／team roles；角色更新由後端強制檢查 mapping whitelist、ACL、resource boundaries、license／plan constraints 及最小權限。IdP 不能宣告 Vanilla owner/admin、Detroit system admin、API 全域 key manager、Slime controller、Self-Build maintainer 或 Ceres Owner；同樣名稱的外部 group 或 claim 不構成 Global Owner 身分。
+7. **自動停用與離職撤權**：SCIM active=false／remove group、IdP account disabled、組織撤銷成員或合法管理員手動停用時，以受信事件及版本化狀態撤銷 Vanilla 新工作階段、workspace tokens、共享 ACL、委派 Agent capability、後續 DAG steps、後續同步及模型 API 的個人授權；依 Q36/Q38 對進行中的副作用任務安全停用或查證，不能在重試後重新取得被撤銷的權限。
+8. **同步延遲與存取防護**：SCIM webhook／polling 並非瞬時同步，必須依後端實際狀態和短期 token/session 週期做有效撤權；對需要立即停權的情境設定可信後端 invalidate／deny-list 並定期重新核對 IdP 或已可信接受的撤權事件。不可承諾在尚未收到停用訊號或支援不足的外部平台上瞬間回收所有已下載資料。
+9. **身分生命週期狀態**：記錄 invited、provisioning、active、suspended、deprovisioning、deactivated、deleted／retained_by_policy 等狀態，以及最後 IdP 同步時間、同步失敗、同步決策版本與原因；SCIM 暫時失敗時不得自動視作所有人正常，且不能在 IdP 關閉後憑舊 cache 建立新的全權 session。
+10. **登入與既有帳號銜接**：企業登入可依組織政策與既有個人帳號共存，但兩者 session、tenant scope、user context 需清楚切換和隔離。原有 Q41 Vanilla 右上登入、一般用戶與 API 開發者登入不能因 SSO 導入變成可取得他人 workspace 或全域設定的通道。企業 SSO 的密碼及 MFA 強度以 IdP 實際配置和適用政策為基礎，不宣稱本題已自行開發 Passkeys／MFA 自主引擎。
+11. **安全自助設定與密鑰治理**：企業組織的獲授權 admin 可管理自身 IdP／SCIM 連線設定、群組映射和 SSO 是否強制登入，但部署／修改全域 trust anchors、共享秘鑰和會影響跨租戶的 Identity Gateway 規則仍需本人 Ceres Telegram 核准。IdP client secrets、SCIM bearer tokens、SAML 私鑰及 JWKS 不得放在瀏覽器 bundle、聊天、LUCA 或公開文件；輪替、撤銷及測試須有具體紀錄。
+12. **身分／存取稽核（Identity Audit）**：保存 tenant_id、identity provider ID、federated subject 的最小可識別參照、SSO/SCIM event_id、認證結果、resource/role mapping、provision／deprovision 時間、撤權回執、actor、policy_version 及必要錯誤類型。依 Q40 最小化個資與保留限制管理，LUCA 僅聚合必要診斷，不將原始 assertion、ID token、SCIM bearer 或員工私密資料寫入共用日志。
+13. **Owner Ceres 身分絕對隔離**：Vanilla 企業 IdP、SAML NameID、OIDC groups、SCIM roles、企業 workspace_admin、外部 API Keys 均不能建立／對映／委任單一 Ceres Telegram Owner 身分；系統級高風險動作要求可信後端驗證獨立 Owner user_id/chat_id、一次性 action nonce、target resource、version／scope、期限與原平台權限。登入成功與企業管理員批准皆不能視作此類批准。
+14. **Self-Build 背景觸發隔離**：登入事件、SSO 回應、SCIM webhook、離職撤權、IdP 訊息、企業員工自然語言與共享 Artifact 都不能直接／間接觸發 Self-Build。維持 Q27–Q30 可信後端排程／經嚴格來源驗證的內部品質事件才可啟動；身分異常／登入失敗可進安全監控與人工待辦，但不能被外部訊息洗成自動修改系統的可信指令。
+15. **實作與選項誠實性**：本題為已確認的企業 SSO／SCIM 身分生命週期設計規格，**不代表**已接通任何特定 IdP、SAML／OIDC 實際可登入、SCIM endpoint 已部署、Passkeys／MFA 已建置、身分稽核已完善或正式環境已經啟用。任何「已登入」「員工已停權」「SSO 配置成功」必須有真實後端狀態與驗證回執。
+
+### 驗收測試（尚待實作及正式驗收）
+
+- 在測試 Organization 使用兩個不同 IdP 建立 SAML／OIDC 登入，對 issuer／audience／recipient／signature／exp／nonce／state／PKCE／replay／redirect URI 各種合法與惡意變形做驗證，非法 SSO 回應必須拒絕。
+- 以相同 email 但不同 issuer/sub、不同租戶和已撤銷 IdP 連線的帳號測試映射，不能錯誤合併或取得其他企業資源、記憶或帳單。
+- 透過 SCIM 建立、改名、更新群組、停用、重啟及刪除測試成員，檢查 group/role mapping、版本／ETag 衝突、重複請求、亂序事件及網路重試不造成重複 user 或非預期的權限復活。
+- 模擬員工離職時還有進行中的 Detroit DAG、Slime lease、外部 OAuth、API Key 與多裝置 session，確保後續未授權步驟被拒絕，checkpoint 恢復與斷線重連不得恢復失效 scope。
+- 嘗試經企業 IdP 管理員角色、OIDC 自訂 claims、SAML attributes、SCIM groups、外部 API Key、偽造 Ceres callback 來取得 Vanilla 全域 admin 或 Self-Build 權限，後端全部拒絕。
+- 驗證真正的 IdP／SCIM token 不會進入公開前端、LUCA、外部 Artifact 或一般管理員視圖；Audit 能追蹤最小必要身分事件和撤權時序，受限租戶不可查看其他企業 IdP 的敏感設定。
+- 模擬企業 IdP 失聯、憑證輪替、SCIM 429 與同步延遲，檢查降級狀態、禁止離職已停用身分重新登入，以及真實 IdP 未可用時不虛稱已通過驗證。
+- 以 SSO／SCIM webhook 及登入錯誤訊息冒充內部品質事件觸發 Self-Build，確認事件來源邊界阻擋，且不影響既有可信背景改善治理。
+
 ### 待決事項
 
-**Q43 / 50：October／Vanilla 應如何整合安全登入、Passkeys／多因素驗證、企業 SSO、成員自動建立／停用與裝置工作階段管理，並防止企業身分系統取得 Ceres Owner 的全域管理權限？** 尚待使用者答覆。
+**Q44 / 50：October 如何透過語音、影像、螢幕畫面與即時多模態互動理解使用者需求，安全地串接 Retina／Detroit 與既有工具，並在低階裝置或離線時清楚降級？** 尚待使用者答覆。
 
 ---

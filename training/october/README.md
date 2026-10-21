@@ -8,6 +8,8 @@
 - [ARCHITECTURE_DELIVERY_PLAN.md](ARCHITECTURE_DELIVERY_PLAN.md)：系統架構依賴、實況證據、MVP 定義、M0–M7 Gate、Owner 權限與驗收規則。
 - [REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)：Q01–Q50 追蹤矩陣、驗收焦點、實作／測試／部署狀態定義。
 - [IMPLEMENTATION_BACKLOG.md](IMPLEMENTATION_BACKLOG.md)：OC-000–OC-023 共 24 個候選工程 Epic，包含優先級、依賴、拒絕／復原測試與 DoD。
+- [OC000_BASELINE_20261021.md](OC000_BASELINE_20261021.md)：第一輪只讀程式盤點、已知 P0 權限落差（含 Self-Build 舊有前端 Draft PR 入口）及尚未完成的 runtime 驗收。
+- [delivery-gate.mjs](delivery-gate.mjs) 與 [delivery-gate.test.mjs](delivery-gate.test.mjs)：用 `npm run test:october-delivery` 執行**文件治理**負面測試，不代表完整 October、Ceres 或 Slime 已通過端到端測試。
 
 **狀態界線**：以上是 GitHub 上的設計與工程 Backlog，**並不證明** October 的完整自主 Agent、Slime 多機 30B、Ceres 全域管理、SDK、真實訂閱收費、跨平台安裝器或跨平台資料移轉已正式可用。依每項程式碼、測試、真正 Provider Receipt 與部署記錄逐一更新狀態。Self-Build 僅可信後端背景可觸發；全域高風險操作仍需本人 Ceres Telegram 核准。
 

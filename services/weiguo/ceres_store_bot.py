@@ -12,8 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from ceres_academy_curriculum import LESSONS, TOPICS, CHAPTERS
-from ceres_academy_enriched import quiz_text
-from ceres_academy_content import render_lesson
+from ceres_academy_content import render_lesson, render_quiz
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
@@ -232,7 +231,7 @@ async def _learn(chat_id, action):
             await _send(chat_id, f"ACADEMY / {TOPICS[topic]}\n\n選擇要學習的章節，每章 9 課。", _buttons(rows))
             return
         if action in ("quiz", "answer"):
-            await _send(chat_id, quiz_text(step, reveal=action == "answer"), _buttons([
+            await _send(chat_id, render_quiz(step, reveal=action == "answer"), _buttons([
                 [("✅ 顯示解析", "learn:answer")] if action == "quiz" else [("✅ 我學會了", "learn:master")],
                 [("〈 返回課程", "learn:view"), ("下一課 ▶", "learn:next")],
             ]))

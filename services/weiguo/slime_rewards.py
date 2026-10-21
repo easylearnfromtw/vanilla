@@ -22,8 +22,8 @@ from google.oauth2 import id_token
 from ceres_gateway import _session
 
 router=APIRouter(tags=["slime-rewards"])
-DEFAULT_REWARD=100_000
-MAX_REWARD=10_000_000
+DEFAULT_REWARD=100 # Token per score point
+MAX_REWARD=10_000 # Max configurable multiplier
 TICKET_TTL=600
 ABANDONED_RESERVATION_SECONDS=900  # Above bounded inference execution time.
 _ID=re.compile(r"^[a-f0-9]{24}$")
@@ -64,6 +64,26 @@ def _tables(db):
     db.execute("""CREATE TABLE IF NOT EXISTS slime_reward_admin_audit(
       id INTEGER PRIMARY KEY AUTOINCREMENT, owner_sub TEXT NOT NULL,
       amount INTEGER NOT NULL, enabled INTEGER NOT NULL, at INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS slime_weeken_enrollment(
+      google_sub TEXT PRIMARY KEY, node_id TEXT NOT NULL UNIQUE,
+      score INTEGER NOT NULL, bonus INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('joined','withdrawn','node_removed')),
+      consent_version INTEGER NOT NULL, consent_at INTEGER NOT NULL,
+      changed_at INTEGER NOT NULL, allow_contact INTEGER NOT NULL DEFAULT 0,
+      allow_diagnostics INTEGER NOT NULL DEFAULT 0,
+      allow_relay INTEGER NOT NULL DEFAULT 0)""")
+    from slime_reward_policy import _debt_tables
+    _debt_tables(db)
+    cols={r["name"] for r in db.execute("PRAGMA table_info(slime_reward_config)")}
+    if "score_multiplier" not in cols:
+        db.execute("ALTER TABLE slime_reward_config ADD COLUMN score_multiplier INTEGER NOT NULL DEFAULT 100")
+    if "weeken_enabled" not in cols:
+        db.execute("ALTER TABLE slime_reward_config ADD COLUMN weeken_enabled INTEGER NOT NULL DEFAULT 1")
+    cols={r["name"] for r in db.execute("PRAGMA table_info(slime_reward_claim)")}
+    if "score" not in cols:
+        db.execute("ALTER TABLE slime_reward_claim ADD COLUMN score INTEGER NOT NULL DEFAULT 0")
+    if "bonus" not in cols:
+        db.execute("ALTER TABLE slime_reward_claim ADD COLUMN bonus INTEGER NOT NULL DEFAULT 0")
 
 
 
@@ -148,23 +168,30 @@ def _owner_chat(sub: str) -> int:
 def config(owner_sub: str) -> dict:
     with _session() as db:
         _tables(db)
-        row=db.execute("SELECT amount,enabled FROM slime_reward_config WHERE owner_sub=?",
+        row=db.execute("SELECT score_multiplier,enabled,weeken_enabled FROM slime_reward_config WHERE owner_sub=?",
                        (owner_sub,)).fetchone()
-    return {"amount":row["amount"] if row else DEFAULT_REWARD,
-            "enabled":bool(row["enabled"]) if row else True}
+    multiplier=row["score_multiplier"] if row else DEFAULT_REWARD
+    return {"amount":multiplier,"multiplier":multiplier,
+            "enabled":bool(row["enabled"]) if row else True,
+            "weekenEnabled":bool(row["weeken_enabled"]) if row else True}
 
 
-def set_config(owner_sub: str, amount: int, enabled: bool) -> dict:
+def set_config(owner_sub: str, amount: int, enabled: bool,
+               weeken_enabled: bool=True) -> dict:
+    """Legacy 'amount' request parameter now means tokens per score point."""
     if type(amount) is not int or not 0<=amount<=MAX_REWARD:
-        raise HTTPException(422,"獎勵 Token 額度超過允許範圍")
+        raise HTTPException(422,"每評分點的 Token 倍率超出範圍")
     now=int(time.time())
     with _session() as db:
         _tables(db)
         db.execute("BEGIN IMMEDIATE")
-        db.execute("""INSERT INTO slime_reward_config(owner_sub,amount,enabled,changed_at)
-          VALUES(?,?,?,?) ON CONFLICT(owner_sub) DO UPDATE SET
-          amount=excluded.amount,enabled=excluded.enabled,changed_at=excluded.changed_at""",
-                   (owner_sub,amount,int(enabled),now))
+        db.execute("""INSERT INTO slime_reward_config
+          (owner_sub,amount,enabled,changed_at,score_multiplier,weeken_enabled)
+          VALUES(?,?,?,?,?,?) ON CONFLICT(owner_sub) DO UPDATE SET
+          score_multiplier=excluded.score_multiplier,
+          enabled=excluded.enabled,weeken_enabled=excluded.weeken_enabled,
+          changed_at=excluded.changed_at""",
+          (owner_sub,100000,int(enabled),now,amount,int(weeken_enabled)))
         db.execute("INSERT INTO slime_reward_admin_audit(owner_sub,amount,enabled,at) VALUES(?,?,?,?)",
                    (owner_sub,amount,int(enabled),now))
     return config(owner_sub)

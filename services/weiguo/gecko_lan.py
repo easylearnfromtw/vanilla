@@ -19,7 +19,7 @@ import secrets
 import socket
 import threading
 import time
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, build_opener, ProxyHandler
 from urllib.error import HTTPError, URLError
 
 DISCOVER_PORT=41437
@@ -99,6 +99,14 @@ def official_manifest() -> dict:
     return {"tag":tag,"urls":urls,"hashes":hashes}
 
 
+def _sha256(path:Path) -> str:
+    digest=hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda:stream.read(65536),b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _stream_cache(manifest:dict, target:Path, stop:threading.Event) -> None:
     target.mkdir(parents=True,exist_ok=True)
     for name in FILES:
@@ -106,7 +114,7 @@ def _stream_cache(manifest:dict, target:Path, stop:threading.Event) -> None:
         destination=target/name
         digest=manifest["hashes"][name]
         if destination.is_file() and destination.stat().st_size<=MAX_INSTALLER_BYTES:
-            if hashlib.file_digest(destination.open("rb"),"sha256").hexdigest()==digest:
+            if _sha256(destination)==digest:
                 continue
         temp=target/("."+name+"."+secrets.token_hex(6)+".part")
         try:
@@ -141,7 +149,8 @@ def _page(name: str, host: str, manifest: dict|None, cache:Path) -> bytes:
         title={"Slime-Friend.exe":"Windows","Slime-Friend-macos.zip":"macOS",
                "Slime-Friend-linux.tar.gz":"Linux"}[file]
         tag=manifest["tag"] if manifest else ""
-        source=(f"/file/{file}" if manifest and (cache/file).is_file() else
+        source=(f"/file/{file}" if manifest and (cache/file).is_file()
+                and _sha256(cache/file)==manifest["hashes"][file] else
                 f"{OFFICIAL}/releases/latest")
         items.append(f'<a href="{html.escape(source,quote=True)}" rel="noopener noreferrer">'+
                      f'下載 {title} Slime Friend</a>')
@@ -185,7 +194,6 @@ class GeckoHost:
                 self.send_header("Cache-Control","no-store")
                 self.send_header("X-Content-Type-Options","nosniff")
                 self.send_header("X-Frame-Options","DENY")
-                self.send_header("Access-Control-Allow-Origin","null" if False else "none")
                 self.end_headers()
                 self.wfile.write(content)
             def do_GET(self):
@@ -194,12 +202,14 @@ class GeckoHost:
                     return self._send(200,_page(host.settings["label"],host.ip,host.manifest,host.cache),"text/html; charset=utf-8")
                 if self.path=="/manifest":
                     data={"type":"vanilla-gecko-v1","label":host.settings["label"],
-                          "server":host.settings["server"],"cached":[x for x in FILES if (host.cache/x).is_file()]}
+                          "server":host.settings["server"],"cached":[x for x in FILES if host.manifest and (host.cache/x).is_file()
+                                   and _sha256(host.cache/x)==host.manifest["hashes"][x]]}
                     return self._send(200,json.dumps(data).encode("utf-8"))
                 name=self.path.removeprefix("/file/")
                 if self.path.startswith("/file/") and name in FILES and host.manifest:
                     file=host.cache/name
-                    if not file.is_file() or file.stat().st_size>MAX_INSTALLER_BYTES:
+                    if (not file.is_file() or file.stat().st_size>MAX_INSTALLER_BYTES
+                        or _sha256(file)!=host.manifest["hashes"][name]):
                         return self._send(404,b"Not Found","text/plain")
                     if not TRANSFER.acquire(blocking=False):
                         return self._send(429,b"Transfer in progress","text/plain")
@@ -345,7 +355,8 @@ def request_invite(peer:dict,server:str) -> str:
     req=Request("http://"+str(addr)+":"+str(WEB_PORT)+"/invite",
         data=b'{"consent":true}',method="POST",
         headers={"Content-Type":"application/json","X-Gecko-Consent":"v1"})
-    with urlopen(req,timeout=12) as response:
+    # Never forward an RFC1918 joining request to an HTTP proxy.
+    with build_opener(ProxyHandler({})).open(req,timeout=12) as response:
         if response.status!=200:raise ValueError("Gecko 節點未核准")
         raw=response.read(1025)
     if len(raw)>1024:raise ValueError("Gecko 回覆過大")

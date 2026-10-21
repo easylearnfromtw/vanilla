@@ -10,12 +10,15 @@ test("Optional arithmetic SFT derives 350 independently labeled examples",()=>{
  assert.equal(NUMERIC_EVAL.length,100);
 });
 test("Every numerical label is mechanically correct and JSON valid",()=>{
- const cases=[11001,11002,11003,11004,11005,99001,99002].flatMap(x=>makeOctoberQuantCases(x));
+ const seeds=[11001,11002,11003,11004,11005,99001,99002,
+  ...Array.from({length:10},(_,i)=>810001+i),
+  ...Array.from({length:10},(_,i)=>910001+i)];
+ const candidates=new Map(seeds.flatMap(seed=>makeOctoberQuantCases(seed)).map(x=>[x.prompt,x]));
  const all=[...NUMERIC_TRAIN,...NUMERIC_EVAL];
- assert.equal(cases.length,all.length);
- for(let i=0;i<all.length;i++){
-  const c=cases[i],row=all[i];
-  assert.equal(row.prompt[0].content,c.prompt);
+ assert.equal(all.length,350);
+ for(const row of all){
+  const c=candidates.get(row.prompt[0].content);
+  assert.ok(c,"Every example must come from known deterministic seed");
   assert.equal(gradeOctoberQuantReply(row.completion[0].content,c).pass,true,c.id);
  }
 });

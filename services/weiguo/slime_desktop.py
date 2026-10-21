@@ -132,7 +132,8 @@ def setup():
     response=_http("POST",server+endpoint,payload,timeout=12)
     token=response.get("token")
     nodeid=response.get("node_id")
-    if not isinstance(token,str) or not 32<=len(token)<=256 or not isinstance(nodeid,str):
+    if (not isinstance(token,str) or not 32<=len(token)<=256 or
+        not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid)):
         raise ValueError("WeiGuo 配對結果無效；沒有保存憑證")
     obj={"role":role,"server":server,"label":label,
          "node_id":nodeid,"token":token}
@@ -184,7 +185,18 @@ def main():
             else: print("尚未配對。")
             return 0
         if not config or "--setup" in flags:
+            first_pairing=config is None
             config=setup()
+            if config and first_pairing:
+                # A separate local success page is shown only after the real
+                # backend pairing response has been validated and saved.
+                # Never expose a device token or one-time invite in a URL/page.
+                try:
+                    from slime_success import open_success
+                    open_success(config)
+                except Exception:
+                    # Browser availability never blocks the node's lifecycle.
+                    print("節點已配對成功；此裝置目前無法開啟成功頁面。")
         if not config:return 0
         if "--status" in flags:
             status(config)

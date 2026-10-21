@@ -144,7 +144,7 @@ def issue_short_pair(owner: str) -> dict:
             "notice":"只能配對一次，不是裝置的永久密碼"}
 
 
-def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str, geo_opt_in:bool=False, shutdown_opt_in:bool=False) -> dict:
+def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str, geo_opt_in:bool=False, shutdown_opt_in:bool=False, public_ip:str="") -> dict:
     """Atomically consume code and create a device, with persistent brute-force limits."""
     _enabled()
     now=time.time()
@@ -183,7 +183,7 @@ def _redeem_short_pair(*, code:str, label:str, role:str, client_address:str, geo
         pair_number=c.execute("SELECT last_number FROM slime_owner_sequence WHERE owner=?",
                               (found["owner"],)).fetchone()[0]
         from slime_ops import valid_public_ip
-        ip=valid_public_ip(client_address) if geo_opt_in else ""
+        ip=(valid_public_ip(public_ip) or valid_public_ip(client_address)) if geo_opt_in else ""
         c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen,
           paired_at,pair_number,geo_opt_in,public_ip,shutdown_opt_in)
           VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
@@ -224,6 +224,7 @@ class JoinRequest(BaseModel):
     role: str = "friend"
     geo_opt_in: bool = False
     shutdown_opt_in: bool = False
+    public_ip: str = Field(default="", max_length=48)
 
 class Caps(BaseModel):
     cpu: int = Field(default=0, ge=0, le=512)
@@ -335,6 +336,7 @@ class PairRequest(BaseModel):
     role: str = "friend"
     geo_opt_in: bool = False
     shutdown_opt_in: bool = False
+    public_ip: str = Field(default="", max_length=48)
 
 
 @node_router.post("/v1/slime/node/pair")
@@ -344,7 +346,8 @@ def pair(body: PairRequest, request: Request):
     return _redeem_short_pair(code=body.code,label=body.label,
                               role=body.role,client_address=address,
                               geo_opt_in=body.geo_opt_in,
-                              shutdown_opt_in=body.shutdown_opt_in)
+                              shutdown_opt_in=body.shutdown_opt_in,
+                              public_ip=body.public_ip)
 
 
 @node_router.post("/v1/slime/node/join")
@@ -369,11 +372,13 @@ def join(body: JoinRequest):
             ON CONFLICT(owner) DO UPDATE SET last_number=last_number+1""",(invited["owner"],))
         number=c.execute("SELECT last_number FROM slime_owner_sequence WHERE owner=?",
                          (invited["owner"],)).fetchone()[0]
+        from slime_ops import valid_public_ip
+        public_ip=valid_public_ip(body.public_ip) if body.geo_opt_in else ""
         c.execute("""INSERT INTO nodes(id,owner,token_digest,label,role,last_seen,
-          paired_at,pair_number,geo_opt_in,shutdown_opt_in)
-          VALUES(?,?,?,?,?,?,?,?,?,?)""",
+          paired_at,pair_number,geo_opt_in,public_ip,shutdown_opt_in)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
           (node_id,invited["owner"],_digest(token),body.label.strip(),body.role,
-           now,now,number,int(body.geo_opt_in),int(body.shutdown_opt_in)))
+           now,now,number,int(body.geo_opt_in),public_ip,int(body.shutdown_opt_in)))
         c.commit()
     return {"node_id": node_id, "token": token, "heartbeat_interval_seconds": 60,
             "inference_enabled": False}

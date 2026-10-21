@@ -18,9 +18,28 @@ function convert(c){
  return {prompt:[{role:"user",content:c.prompt}],
   completion:[{role:"assistant",content:answer}]};
 }
-const build=seeds=>seeds.flatMap(seed=>makeOctoberQuantCases(seed).map(convert));
-export const NUMERIC_TRAIN=build(TRAIN_SEEDS);
-export const NUMERIC_EVAL=build(EVAL_SEEDS);
+const reservedBenchmark=new Set(makeOctoberQuantCases(20261021).map(x=>x.prompt));
+const allPrompts=new Set(reservedBenchmark);
+function build(seeds,target,fallbackStart){
+ const records=[];
+ const addSeed=seed=>{
+  for(const testCase of makeOctoberQuantCases(seed)){
+   if(allPrompts.has(testCase.prompt))continue;
+   allPrompts.add(testCase.prompt);
+   records.push(convert(testCase));
+   if(records.length===target)return true;
+  }
+  return false;
+ };
+ for(const seed of seeds)if(addSeed(seed))return records;
+ // Random draws may collide. Replace them instead of weakening leakage gates.
+ for(let seed=fallbackStart;seed<fallbackStart+100;seed++){
+  if(addSeed(seed))return records;
+ }
+ throw Error("Insufficient unique verified numeric cases");
+}
+export const NUMERIC_TRAIN=build(TRAIN_SEEDS,250,810001);
+export const NUMERIC_EVAL=build(EVAL_SEEDS,100,910001);
 export function validateOctoberNumericCurriculum(){
  const seen=new Set();
  for(const pair of [...NUMERIC_TRAIN,...NUMERIC_EVAL]){
@@ -29,8 +48,7 @@ export function validateOctoberNumericCurriculum(){
   seen.add(prompt);
   if(prompt.length<8||pair.completion[0].content.length<8)throw Error("Invalid numeric SFT row");
  }
- const benchmark=new Set(makeOctoberQuantCases(20261021).map(x=>x.prompt));
- if([...seen].some(q=>benchmark.has(q)))throw Error("Numeric evaluation benchmark appears in training");
+ if([...seen].some(q=>reservedBenchmark.has(q)))throw Error("Numeric evaluation benchmark appears in training");
  return {train:NUMERIC_TRAIN.length,eval:NUMERIC_EVAL.length,
   templateFamilies:10,benchmarkSeedExcluded:true};
 }

@@ -362,10 +362,10 @@ html.slime-white .card,html.slime-white .hero{background:#ffffff}
   finally{button.disabled=false;button.textContent="＋ 產生一次性配對碼";}
  }
  async function copy(content){
-  if(!content)return;
+  if(!content)return false;
   try{
-   await navigator.clipboard.writeText(content);notice("已複製，請透過私人方式交給裝置持有人。");
-  }catch(e){notice("無法使用剪貼簿，請手動複製。");}
+   await navigator.clipboard.writeText(content);notice("已複製，請透過私人方式交給裝置持有人。");return true;
+  }catch(e){notice("無法使用剪貼簿，請手動複製。");return false;}
  }
  async function plan(n,kind,enable){
   if(busy)return;

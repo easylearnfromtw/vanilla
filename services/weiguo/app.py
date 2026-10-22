@@ -52,7 +52,7 @@ from orchestra_capabilities import orchestra_capabilities
 from canva_adapter import router as canva_router
 from pdfcraft_native import probe_sandbox
 from pdfcraft_engine import PdfCraftUnavailable, PdfCraftFailed
-from pdfcraft_remote import combine_pdfs, remote_requested, remote_ready
+from pdfcraft_remote import combine_pdfs, worker_requested as remote_requested, remote_ready
 from policy import PolicyError, allow_hosts, validate_url, validate_steps, validate_tools_manifest, private_operator_route
 from tasks import initialize as init_tasks, start as new_task, fetch as lookup_task, update as update_task
 from auth import google_login, family_user, family_reader, FamilyIdentity
@@ -96,12 +96,12 @@ async def lifespan(app: FastAPI):
     if os.environ.get("WEIGUO_PDFCRAFT_SANDBOX") == "bubblewrap":
         print("Orchestra PdfCraft kernel sandbox: " + ("supported" if probe_sandbox() else "unavailable; native PDF execution denied"))
     if remote_requested():
-        # This authenticates against the independently isolated VM worker,
+        # This authenticates against the explicitly selected external worker,
         # using the existing server-only key. Never include keys or PDF bytes
         # in application logs, and do not pretend readiness on HTTP 200 alone.
         worker_ok = await remote_ready()
-        print("Orchestra PdfCraft signed remote readiness: "
-              + ("PASS" if worker_ok else "FAIL (remote PDF unavailable)"), flush=True)
+        print("Orchestra PdfCraft signed worker readiness: "
+              + ("PASS" if worker_ok else "FAIL (PDF worker unavailable)"), flush=True)
     if os.environ.get("MEDUSA_ENGINE") == "lite" and os.environ.get("MEDUSA_ENABLED") == "true":
         from medusa_lite import production_selftest
         passed = production_selftest()

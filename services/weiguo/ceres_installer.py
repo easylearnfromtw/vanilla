@@ -15,7 +15,7 @@ import re
 import secrets
 import stat
 from typing import Mapping
-from urllib.parse import urlsplit
+from public_origin import valid_ceres_webhook
 
 TOKEN_RE = re.compile(r"^[0-9]{5,15}:[A-Za-z0-9_-]{30,80}$")
 SECRET_RE = re.compile(r"^[A-Za-z0-9_-]{32,256}$")
@@ -52,23 +52,8 @@ def _owner_binding(env: Mapping[str, str]) -> bool:
     )
 
 
-def _webhook_url(value: str) -> bool:
-    try:
-        parsed = urlsplit(value)
-        return bool(
-            parsed.scheme == "https"
-            and parsed.hostname
-            and parsed.hostname.endswith(".up.railway.app")
-            and parsed.port is None
-            and parsed.username is None
-            and parsed.password is None
-            and parsed.path == WEBHOOK_PATH
-            and not parsed.query
-            and not parsed.fragment
-            and value == "https://" + parsed.hostname + WEBHOOK_PATH
-        )
-    except ValueError:
-        return False
+def _webhook_url(value: str, env: Mapping[str, str] | None = None) -> bool:
+    return valid_ceres_webhook(value, env)
 
 
 def _vault_valid(value: str) -> bool:
@@ -91,8 +76,8 @@ def inspect_settings(env: Mapping[str, str] | None = None) -> list[tuple[str, bo
         ("Telegram Bot 身分", bool(TOKEN_RE.fullmatch(cfg.get("CERES_TELEGRAM_BOT_TOKEN", "")))
          and bool(NAME_RE.fullmatch(cfg.get("CERES_TELEGRAM_EXPECTED_USERNAME", ""))),
          "請配置 Bot Token 與預期帳號名稱"),
-        ("Webhook HTTPS 地址", _webhook_url(cfg.get("CERES_TELEGRAM_WEBHOOK_URL", "")),
-         "需為精確的 Railway HTTPS Webhook 路徑"),
+        ("Webhook HTTPS 地址", _webhook_url(cfg.get("CERES_TELEGRAM_WEBHOOK_URL", ""), cfg),
+         "需為受信任主機的精確 HTTPS Webhook 路徑"),
         ("Webhook 驗證密鑰", bool(SECRET_RE.fullmatch(telegram)),
          "請使用獨立隨機密鑰"),
         ("Google Owner 身分綁定", _owner_binding(cfg),
@@ -106,7 +91,7 @@ def inspect_settings(env: Mapping[str, str] | None = None) -> list[tuple[str, bo
          and not (db_path == "/tmp" or db_path.startswith("/tmp/")),
          "需使用私有持久卷，且不可放在 /tmp"),
         ("公開端點防護", cfg.get("WEIGUO_PUBLIC_FAMILY_ONLY", "").lower() == "true",
-         "公開 Railway 實例應啟用 family-only 邊界"),
+         "公開後台實例應啟用 family-only 邊界"),
     ]
 
 

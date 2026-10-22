@@ -5,6 +5,7 @@ only accepted input. Only the operator-owned environment selects the model.
 No untrusted chat content is promoted to server tool or admin authority.
 """
 from __future__ import annotations
+from public_origin import backend_runtime_label
 
 import asyncio
 import json
@@ -277,7 +278,7 @@ async def agent_status(user: FamilyIdentity = Depends(family_reader)):
         ).fetchone()
     return {
         "enabled": enabled(), "modelConfigured": model_settings() is not None,
-        "serverReady": ready(), "runtime": "railway-server",
+        "serverReady": ready(), "runtime": backend_runtime_label(),
         "foregroundPhoneRequired": False,
         "states": {row["status"]: row["n"] for row in rows},
         "latestState": latest["status"] if latest else None,

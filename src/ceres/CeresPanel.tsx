@@ -137,10 +137,10 @@ export default function CeresPanel(){
   {ready&&info?.linked&&<>
    <h3>Ceres · Telegram 智慧聊天狀態</h3>
    <p>{serverAgent?.serverReady
-     ?"常駐 AI 已設定完成：可以不開啟 Vanilla，也能由 Railway 接收訊息並交給你連接的模型回覆。"
+     ?"常駐 AI 已設定完成：可以不開啟 Vanilla，也能由已連線的衞國後台接收訊息並交給你連接的模型回覆。"
      :serverAgent?.enabled
-       ?"常駐回覆開關已開啟，但模型端點或金鑰尚未通過設定檢查。請到 Railway → weiguo-browser → Variables 配置 CERES_SERVER_MODEL_*。"
-       :"目前只有手機前景橋接；直接切換到 Telegram 會讓 iPhone 暫停本地 WebLLM，因此無法全天候智慧聊天。要常駐聊天需設定 Railway 的 CERES_SERVER_MODEL_* 並啟用 CERES_SERVER_AGENT_ENABLED。"
+       ?"常駐回覆開關已開啟，但模型端點或金鑰尚未通過設定檢查。請到 後台的私人環境設定 配置 CERES_SERVER_MODEL_*。"
+       :"目前只有手機前景橋接；直接切換到 Telegram 會讓 iPhone 暫停本地 WebLLM，因此無法全天候智慧聊天。要常駐聊天需設定 後台的 CERES_SERVER_MODEL_* 並啟用 CERES_SERVER_AGENT_ENABLED。"
    }</p>
    {serverAgent?.latestState&&<p>最近一則 Telegram 任務：{({
       queued:"待處理", "server-processing":"模型處理中", completed:"已回覆",
@@ -150,7 +150,7 @@ export default function CeresPanel(){
     } as Record<string,string>)[serverAgent.latestState]||"待人工檢查"}</p>}
    <h3>Detroit × Ceres · Telegram 第二對話入口</h3>
    <p>可在本機使用 Merlin、Diana、Zeus 與受控唯讀工具。只在目前裝置的 Vanilla PWA 處於前景且本地模型已載入時運作；關閉或背景化手機後不會繼續推論。</p>
-   <p>{bridgeStatus?.enabled?"Railway 本地橋接已啟用":"Railway 尚未啟用前景橋接"} · {runtimeStatus}</p>
+   <p>{bridgeStatus?.enabled?"後台本地橋接已啟用":"後台尚未啟用前景橋接"} · {runtimeStatus}</p>
    <label className="detroit-consent"><input type="checkbox" checked={bridgeOn} disabled={!bridgeStatus?.enabled} onChange={e=>toggleBridge(e.target.checked)}/>允許這個家庭帳號在本裝置前景自動回覆 Telegram 訊息（無須逐則確認發送，僅限安全文字與唯讀工具）</label>
    <p>高權限工具（部署、程式執行、寄信、檔案寫入、付款等）不會由 Telegram 自動執行，必須返回 Vanilla 個別授權。</p>
    <label>選擇收到的訊息
@@ -192,6 +192,6 @@ export default function CeresPanel(){
     </>}
    </>}
   </>}
-  <p>手動草稿仍須逐次確認。手機前景模式依賴本地模型；Railway 常駐模式則需另外連接經過驗證的模型端點。兩種模式都不會授予 Telegram 管理員權限。</p>
+  <p>手動草稿仍須逐次確認。手機前景模式依賴本地模型；後台常駐模式則需另外連接經過驗證的模型端點。兩種模式都不會授予 Telegram 管理員權限。</p>
  </section>;
 }

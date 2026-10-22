@@ -18,12 +18,17 @@ from pdfcraft_engine import (
     MAX_OUTPUT, combine_pdfs as local_combine,
 )
 from pdfcraft_wire import READY_PATH, COMBINE_PATH, WireDenied, sign_request, worker_key
+from pdfcraft_local_worker import local_worker_requested, local_worker_ready, local_worker_combine
 
 TIMEOUT = httpx.Timeout(connect=4.0, read=210.0, write=30.0, pool=3.0)
 
 
 def remote_requested() -> bool:
     return os.environ.get("WEIGUO_PDFCRAFT_REMOTE_ENABLED") == "true"
+
+
+def worker_requested() -> bool:
+    return remote_requested() or local_worker_requested()
 
 
 def remote_origin() -> str | None:
@@ -53,6 +58,8 @@ def remote_origin() -> str | None:
 
 
 async def remote_ready() -> bool:
+    if local_worker_requested():
+        return await local_worker_ready()
     origin = remote_origin()
     if not origin:
         return False
@@ -75,6 +82,8 @@ async def remote_ready() -> bool:
 
 
 async def combine_pdfs(encoded_pdfs: list[str]) -> bytes:
+    if local_worker_requested():
+        return await local_worker_combine(encoded_pdfs)
     if not remote_requested():
         return await local_combine(encoded_pdfs)
     origin = remote_origin()

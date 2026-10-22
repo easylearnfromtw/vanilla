@@ -52,7 +52,7 @@ export default function CeresForegroundBridge(){
      serverChecked=Date.now();
      serverEnabled=Boolean(status.enabled&&status.linked&&!status.privilegedExecution);
     }
-    if(!serverEnabled){setStatus("Railway 尚未啟用 Ceres 本地橋接");return;}
+    if(!serverEnabled){setStatus("衞國後台尚未啟用 Ceres 本地橋接");return;}
     setStatus("本地 Ceres 已連線，等待 Telegram 新訊息");
     const {job}=await claimCeresBridgeJob();
     if(!job)return;

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from urllib.parse import urlsplit
+from public_origin import valid_ceres_webhook
 
 from fastapi import HTTPException
 
@@ -29,15 +29,7 @@ def _settings() -> tuple[str, str, str, str] | None:
     url = os.getenv("CERES_TELEGRAM_WEBHOOK_URL", "")
     if not _TOKEN.fullmatch(token) or not _USERNAME.fullmatch(username):
         return None
-    try:
-        parsed = urlsplit(url)
-        if (parsed.scheme != "https" or not parsed.hostname
-            or not parsed.hostname.endswith(".up.railway.app")
-            or parsed.port is not None or parsed.username or parsed.password
-            or parsed.path != _ENDPOINT or parsed.query or parsed.fragment
-            or url != "https://" + parsed.hostname + _ENDPOINT):
-            return None
-    except ValueError:
+    if not valid_ceres_webhook(url, os.environ):
         return None
     try:
         secret = _secret()

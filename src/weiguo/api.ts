@@ -378,7 +378,7 @@ export async function getWeiGuoCanvaJob(kind:CanvaKind,id:string):Promise<CanvaJ
 /** Private Ceres server-model diagnostic: no secrets or message bodies. */
 export type CeresServerAgentStatus={
  enabled:boolean;modelConfigured:boolean;serverReady:boolean;
- runtime:"railway-server";foregroundPhoneRequired:false;
+ runtime:"railway-server"|"self-hosted-server";foregroundPhoneRequired:false;
  states:Record<string,number>;latestState:string|null;
  tools:string[];privilegedExecution:false;
 };

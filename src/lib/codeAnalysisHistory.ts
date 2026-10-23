@@ -15,6 +15,10 @@ export interface AnalysisSnapshot {
   revision: string;
   createdAt: string;
   findings: CodeFinding[];
+  /** Exact source paths inspected; omitted for legacy snapshots. */
+  analyzedPaths?: string[];
+  /** Pattern metadata, never the complete source or evidence excerpts. */
+  patterns?: Array<{path:string;pattern:string;line:number}>;
 }
 export interface FindingTrend {
   fingerprint: string;
@@ -34,7 +38,7 @@ export function compareSnapshots(previous: AnalysisSnapshot | null, current: Ana
     output.push({ fingerprint: key, status: old.has(key) ? "persistent" : "new", current: finding, previous: old.get(key) });
   }
   for (const [key, finding] of old) {
-    if (!now.has(key)) output.push({ fingerprint: key, status: "resolved", previous: finding });
+    if (!now.has(key) && (!current.analyzedPaths || current.analyzedPaths.includes(finding.path))) output.push({ fingerprint: key, status: "resolved", previous: finding });
   }
   return output;
 }

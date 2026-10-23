@@ -9,6 +9,7 @@ import {parseCreamCSV,fromCreamRows} from "../cream/core";
 import {persistCreamDataset} from "../cream/history-store";
 import {attachmentOwner} from "../library/attachment-vault";
 import {signedChatAccount} from "../vault/chat-sync";
+import CodeIntelligencePanel from "./CodeIntelligencePanel";
 import "./project-hub.css";
 function parseAPIData(text:string,source:string){
  let json:unknown;try{json=JSON.parse(text);}catch{throw Error("回傳不是 JSON 表格；已讀取但不會假造 CREAM 數值");}
@@ -157,6 +158,7 @@ export default function ProjectHub(){
  return <section className="project-hub">
   <div className="project-hub-title"><div><small>VANILLA / PROJECT INTELLIGENCE</small><h2>PROJECT HUB</h2><p>把你自己的程式碼、功能與 API 統一成 Vanilla 可檢索的知識資產，再透過 Self-Build 轉成可審核的程式修改。</p></div><Blocks size={29}/></div>
   <div className="project-hub-stats"><div><strong>{corpora.length}</strong><small>已索引專案</small></div><div><strong>{corpora.reduce((n,x)=>n+x.files.length,0)}</strong><small>已讀原始碼檔案</small></div><div><strong>{apis.length}</strong><small>已登錄 API</small></div></div>
+  <CodeIntelligencePanel corpora={corpora}/>
   <div className="project-hub-columns">
    <div className="project-hub-left">
     <section className="project-hub-panel">

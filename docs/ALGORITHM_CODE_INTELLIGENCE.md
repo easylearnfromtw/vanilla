@@ -29,4 +29,4 @@ Extend the existing code-analysis snapshot module with an explainable algorithm 
 Use an Apple-HIG-inspired split-view: source code on left, explanation and visual trace on right, with timeline tabs for historical comparisons. Accessible keyboard navigation and reduced-motion fallback are required.
 
 ## Integration status
-This document is a roadmap. Algorithm tracing, UI, IDE extension and persistent monitoring are **not implemented** by this change.
+The first usable Project Hub UI, heuristic pattern classification, static import topology, opt-in Drive snapshot storage, deterministic revision hashing, and Diana/Detroit routing have been implemented on the feature branch. Dynamic algorithm tracing, full formal complexity verification, IDE extension, private-repository access, and continuous monitoring remain roadmap items. The feature branch must pass CI, review and merge before production release.

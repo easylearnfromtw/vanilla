@@ -30,6 +30,7 @@ jobs:
           npm run test:detroit
           npm run test:detroit-bus
           npm run test:diana
+          npm run test:code-intelligence
           node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres
           npm run test:ceres-slime-ui

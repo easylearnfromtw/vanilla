@@ -7,15 +7,17 @@ import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {DETROIT_CAPABILITIES,detroitAvailability} from "./capability-bus";
 import {makeHumanizeRequest} from "../erya/humanize";
 import {creamInstruction} from "../cream/core";
-export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"canva"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"notion"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
+export type DianaTarget="code-intelligence"|"diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"canva"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"notion"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire";
 export type DianaDecision={kind:"delegate"|"open"|"report";tool:DianaTarget;label:string;reason:string;alternatives:string[];command?:string;event?:string;tab?:string;message?:string;nextSteps?:DianaTarget[]};
 const NAMES:Record<string,DianaTarget>={
+ "code-intelligence":"code-intelligence",codeintel:"code-intelligence",
  diana:"diana",merlin:"merlin",cream:"cream",scouts:"scouts",atriensis:"atriensis",
  janus:"janus",retina:"retina",orchestra:"orchestra",bard:"bard",luna:"luna",canva:"canva",jensen:"jensen-huang",
  "jensen-huang":"jensen-huang",zeus:"zeus",athena:"athena",medusa:"medusa",ceres:"ceres",gridcraft:"gridcraft",
  moli:"moli","persistent-jobs":"persistent-jobs",luca:"luca",quirinus:"quirinus",notion:"notion",erya:"er-ya",humanize:"er-ya","er-ya":"er-ya",weiguo:"weiguo",venus:"venus",veritas:"veritas",mnemosyne:"mnemosyne",hermes:"hermes",chronos:"chronos",dionysus:"dionysus","holy-roman-empire":"holy-roman-empire"
 };
 const LABELS:Record<DianaTarget,string>={
+ "code-intelligence":"Code Intelligence",
  diana:"Diana",merlin:"Merlin",cream:"CREAM",scouts:"Scouts",atriensis:"Atriensis",
  janus:"Janus",retina:"Retina",orchestra:"Orchestra",bard:"Bard",luna:"LUNA",canva:"Canva Cloud",
  "jensen-huang":"JENSEN HUANG / Self-Build CODE",zeus:"Zeus",athena:"Athena",medusa:"Medusa",ceres:"Ceres",
@@ -71,6 +73,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
  if(/(?:CSV|統計|數據|趨勢|分析資料|折線圖|圓餅圖|圖表|長期追蹤|體重|血壓|心率)/i.test(q))add("cream",84,"數據分析應優先使用確定性的 CREAM");
  // Analyze source data before producing a document or sending it into a visual editor.
  if(/(?:CSV|統計|數據|趨勢|折線圖|圓餅圖|圖表|長期追蹤)/i.test(q)&&/(?:PDF|DOCX|PPTX|Word|簡報|報告書|電子報)/i.test(q))add("cream",110,"先使用 CREAM 驗證數據，再交給輸出工具；不跳過資料核對");
+ if(/(?:分析|檢查|審查|檢測|追蹤|評估).{0,35}(?:GitHub|repo|程式碼|原始碼|專案演算法)|(?:程式碼|原始碼|專案演算法).{0,35}(?:分析|檢查|審查|追蹤)|Code\s*Intelligence/i.test(q))add("code-intelligence",103,"程式碼與演算法分析進入 Project Hub；只執行使用者選取的檔案，雲端保存另行同意");
  if(/(?:修改|修復|開發|重構|新增|實作).{0,25}(?:Vanilla|GitHub|原始碼|程式碼|bug)|Self[- ]?Build\s*CODE/i.test(q))add("jensen-huang",82,"原始碼工作使用 Self-Build CODE 並審核變更");
  if(/(?:檔案|附件|已儲存|雲端檔案)/i.test(q))add("atriensis",80,"檔案使用既有的 Atriensis 存取權限");
  if(/(?:搜尋|上網|網路|網址|網站|最新|時事|新聞|文獻|論文|研究|查資料|https:\/\/)/i.test(q))add("scouts",78,"公開資料交由 Scouts 查詢真實來源");
@@ -112,6 +115,7 @@ export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:Diana
   if(ctx.hasModel===false)return report(tool,"爾雅需要已載入或已連接的文字模型；目前沒有可用的模型。","模型未就緒");
   try{return choose({kind:"delegate",command:makeHumanizeRequest(task)});}catch(e){return report(tool,"爾雅未接收內容："+(e instanceof Error?e.message:String(e)),"輸入驗證");}
  }
+ if(tool==="code-intelligence")return choose({kind:"open",event:"vanilla-open-projects"});
  if(tool==="janus")return choose({kind:"open",event:"vanilla-open-email"});
  if(tool==="ceres")return choose({kind:"open",event:"vanilla-open-detroit",tab:"ceres"});
  if(tool==="notion")return choose({kind:"open",event:"vanilla-open-detroit",tab:"notion"});

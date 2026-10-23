@@ -1,4 +1,5 @@
 import type { AnalysisSnapshot, CodeFinding } from "./codeAnalysisHistory";
+import { redactProjectText } from "../projects/project-core";
 
 export interface SourceFile { path: string; content: string }
 export interface AlgorithmInsight {
@@ -23,17 +24,18 @@ function normalizePath(path: string): string { return path.replace(/\\/g,"/"); }
 export function analyzeSourceFiles(repository: string, revision: string, files: SourceFile[], now = new Date().toISOString()): CodeAnalysisResult {
   if (!repository.trim() || !revision.trim()) throw new Error("Repository and revision are required");
   if (files.length > 200) throw new Error("File count limit exceeded");
-  const insights: AlgorithmInsight[] = [], findings: CodeFinding[] = [], warnings: string[] = [];
+  const insights: AlgorithmInsight[] = [], findings: CodeFinding[] = [], warnings: string[] = [], analyzedPaths: string[] = [];
   for (const file of files) {
     const path = normalizePath(file.path);
     if (!path || path.startsWith("/") || path.split("/").includes("..")) { warnings.push("Skipped unsafe path"); continue; }
     if (file.content.length > 250_000) { warnings.push(`Skipped oversized file: ${path}`); continue; }
     if (!/\.(?:[cm]?[jt]sx?|py|java|go|rs|cpp|cc|c|h)$/.test(path)) continue;
+    analyzedPaths.push(path);
     const lines = file.content.split(/\r?\n/);
     for (const rule of RULES) {
       const evidence = rule.tests.map(test => {
         const index = lines.findIndex(line => test.test(line));
-        return index < 0 ? null : { line:index+1, text:lines[index].trim().slice(0,180) };
+        return index < 0 ? null : { line:index+1, text:redactProjectText(lines[index].trim()).slice(0,180) };
       });
       if (evidence.some(x=>x===null)) continue;
       insights.push({path,pattern:rule.name,confidence:"heuristic",evidence:evidence.filter((x):x is {line:number;text:string}=>x!==null),explanation:rule.explanation,complexity:rule.complexity,questions:rule.questions});
@@ -42,5 +44,5 @@ export function analyzeSourceFiles(repository: string, revision: string, files: 
       if (/\beval\s*\(/.test(line)) findings.push({ruleId:"dangerous-eval",path,line:index+1,severity:"high",title:"Dynamic eval call",explanation:"Executing strings as code can introduce injection risks depending on input provenance.",suggestion:"Replace eval with explicit parsing or a restricted interpreter."});
     });
   }
-  return {snapshot:{id:`${repository}@${revision}`,repository,revision,createdAt:now,findings},insights,warnings};
+  return {snapshot:{id:`${repository}@${revision}`,repository,revision,createdAt:now,findings,analyzedPaths: [...new Set(analyzedPaths)].sort(),patterns:insights.map(x=>({path:x.path,pattern:x.pattern,line:x.evidence[0]?.line||1}))},insights,warnings};
 }

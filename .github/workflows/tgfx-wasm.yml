@@ -1,0 +1,56 @@
+name: TGFX WebAssembly research build
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/tgfx-wasm.yml'
+      - 'src/luna/**'
+      - 'tests/luna-render-adapter.test.mjs'
+jobs:
+  vanilla-adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-package-lock
+      - run: node --test tests/luna-render-adapter.test.mjs
+      - run: npm run build
+  tgfx-demo:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Tencent/tgfx
+          path: tgfx
+      - uses: actions/checkout@v4
+        with:
+          repository: emscripten-core/emsdk
+          path: emsdk
+      - name: Install pinned Emscripten
+        run: |
+          ./emsdk/emsdk install 4.0.15
+          ./emsdk/emsdk activate 4.0.15
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build upstream single-thread WebGL demo
+        shell: bash
+        run: |
+          source emsdk/emsdk_env.sh
+          npm install -g depsync
+          cd tgfx
+          depsync
+          cd web
+          npm install --no-package-lock
+          npm run build:st
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tgfx-upstream-webgl-demo
+          path: |
+            tgfx/web/demo/wasm/*.js
+            tgfx/web/demo/wasm/*.wasm
+          if-no-files-found: error

@@ -1,7 +1,8 @@
 import {useEffect,useRef,useState,type ChangeEvent,type PointerEvent as PointerEvt,type KeyboardEvent as KeyEvt} from "react";
 import {ArrowDown,ArrowUp,Copy,Download,FileJson,ImagePlus,Layers,Plus,Redo2,Save,Shapes,Sparkles,Trash2,Type,Undo2,Upload} from "lucide-react";
 import {LUNA_MAX_LAYERS,LUNA_MAX_PROJECTS,LUNA_PALETTE,LUNA_TEMPLATES,addLunaLayer,clamp,createLuna,duplicateLuna,lunaStorageKey,moveLuna,orderLuna,parseLuna,parseLunaLibrary,promptLuna,type LunaDoc,type LunaLayer,type LunaLibrary,type LunaTemplate} from "./model";
-import {importLunaImage,lunaPNG,saveLunaFile} from "./export";
+import {importLunaImage,saveLunaFile} from "./export";
+import {renderLunaPNG} from "./render-adapter";
 import LunaAdvancedTools from "./LunaAdvancedTools";
 import "./luna.css";
 
@@ -69,7 +70,7 @@ export default function LunaStudio({owner}:{owner:string}){
  }
  function saveJSON(){saveLunaFile(filename(doc.name)+".json",new Blob([JSON.stringify(doc,null,2)],{type:"application/json"}));setNotice("已輸出可再次編輯的 JSON 檔。");}
  async function savePNG(){
-  setBusy(true);try{saveLunaFile(filename(doc.name)+".png",await lunaPNG(doc));setNotice("已產生 PNG；請在裝置下載項目查看。");}
+  setBusy(true);try{saveLunaFile(filename(doc.name)+".png",await renderLunaPNG(doc));setNotice("已產生 PNG；請在裝置下載項目查看。");}
   catch(e){setNotice("輸出失敗："+String(e instanceof Error?e.message:e));}finally{setBusy(false);}
  }
  function startDrag(e:PointerEvt<HTMLDivElement>,l:LunaLayer){

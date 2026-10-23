@@ -81,7 +81,7 @@ export async function readOwnedGitHubSourceBySha(repo:string,path:string,sha:str
  if(!/^[0-9a-f]{40}$/i.test(sha))throw Error("GitHub 原始碼 SHA 無效；請重新建立索引");
  const data=await jsonFetch(API+"/repos/"+repository+"/git/blobs/"+sha) as
   {encoding?:string;content?:string;size?:number;sha?:string};
- if(data.encoding!=="base64"||!data.content||!Number.isSafeInteger(data.size)||data.size!>250000||
+ if(data.encoding!=="base64"||!data.content||typeof data.size!=="number"||!Number.isSafeInteger(data.size)||data.size>250000||
   (data.sha&&data.sha.toLowerCase()!==sha.toLowerCase()))throw Error("GitHub 原始碼過大或 blob 不符合索引");
  const binary=atob(data.content.replace(/\s/g,""));
  const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));

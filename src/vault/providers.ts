@@ -116,7 +116,7 @@ export async function generateCloudReply(provider:Provider,history:ChatTurn[],im
   const structured=options.purpose==="structured";
   const system=structured?STRUCTURED_SYSTEM_PROMPT:
    vanillaSystemPrompt({task,compact:false,latestUserText:history[history.length-1]?.content||"",image:false})+
-   (options.toolGrounding?"\\n\\n[工具事實]\\n"+options.toolGrounding:"");
+   (options.toolGrounding?"\n\n[工具事實]\n"+options.toolGrounding:"");
   const reply=await relayVanillaVault(provider,"chat",{messages:[
    {role:"system",content:system},
    ...history.slice(-18).map(x=>({role:x.role,content:x.content}))

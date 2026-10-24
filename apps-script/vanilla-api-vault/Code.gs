@@ -214,8 +214,49 @@ function telegram_(req) {
   return {ok:true,provider:"telegram",operation:operation,
     message_id:result.message_id||null,accepted:true};
 }
+function canvaToken_() {
+  // Canva access tokens expire. Refresh tokens rotate and are single-use.
+  const props=PropertiesService.getScriptProperties(),now=Math.floor(Date.now()/1000);
+  const current=key_("VAULT_KEY_CANVA");
+  const expiry=Number(key_("VAULT_CANVA_EXPIRES_AT")||"0");
+  if(current&&(!expiry||expiry>now+90))return current;
+  const clientId=key_("VAULT_CANVA_CLIENT_ID"),clientSecret=key_("VAULT_CANVA_CLIENT_SECRET");
+  if(!clientId||!clientSecret||!key_("VAULT_CANVA_REFRESH_TOKEN"))throw Error("CANVA_REAUTH_REQUIRED");
+  const lock=LockService.getScriptLock();
+  if(!lock.tryLock(7000))throw Error("BUSY");
+  try {
+    const latest=key_("VAULT_KEY_CANVA");
+    const recentExpiry=Number(key_("VAULT_CANVA_EXPIRES_AT")||"0");
+    if(latest&&recentExpiry>Math.floor(Date.now()/1000)+90)return latest;
+    const refresh=key_("VAULT_CANVA_REFRESH_TOKEN");
+    const options={method:"post",muteHttpExceptions:true,followRedirects:false,
+      contentType:"application/x-www-form-urlencoded",
+      headers:{Authorization:"Basic "+Utilities.base64Encode(clientId+":"+clientSecret)},
+      payload:"grant_type=refresh_token&refresh_token="+encodeURIComponent(refresh)};
+    const reply=UrlFetchApp.fetch("https://api.canva.com/rest/v1/oauth/token",options);
+    if(reply.getResponseCode()!==200)throw Error("CANVA_REAUTH_REQUIRED");
+    const content=reply.getContentText("UTF-8");
+    if(content.length>12000)throw Error("UPSTREAM_TOO_LARGE");
+    const data=JSON.parse(content);
+    if(data.token_type!=="Bearer"||typeof data.access_token!=="string"||
+       typeof data.refresh_token!=="string"||
+       data.access_token.length<20||data.refresh_token.length<20||
+       !digits_(data.expires_in)||data.expires_in<60||data.expires_in>86400)
+      throw Error("CANVA_REAUTH_REQUIRED");
+    props.setProperties({
+      VAULT_KEY_CANVA:data.access_token,
+      VAULT_CANVA_REFRESH_TOKEN:data.refresh_token,
+      VAULT_CANVA_EXPIRES_AT:String(Math.floor(Date.now()/1000)+data.expires_in)
+    },false);
+    return data.access_token;
+  }catch(ex) {
+    const code=String(ex&&ex.message||"");
+    if(code==="UPSTREAM_TOO_LARGE"||code==="BUSY")throw ex;
+    throw Error("CANVA_REAUTH_REQUIRED");
+  }finally{lock.releaseLock();}
+}
 function canva_(req) {
-  const token=key_("VAULT_KEY_CANVA");
+  const token=canvaToken_();
   if(!token) throw Error("KEY_NOT_CONFIGURED");
   const p=req.payload||{},root="https://api.canva.com/rest/v1";
   let method="get",path="",body;
@@ -384,7 +425,7 @@ function doPost(e) {
       "BAD_MODEL","BAD_MESSAGES","BAD_ROLE","INPUT_TOO_LARGE","BAD_MAX_TOKENS",
       "INVALID_OUTPUT_LIMIT","INVALID_INPUT","OUTPUT_TRUNCATED","UPSTREAM_TOO_LARGE",
       "UPSTREAM_BAD_JSON","UPSTREAM_REJECTED","BAD_CHAT_ID","CHAT_NOT_ALLOWED",
-      "BAD_JOB_ID","BAD_REPOSITORY","NOTION_SCOPE_DENIED","DATA_SOURCE_NOT_CONFIGURED"
+      "BAD_JOB_ID","BAD_REPOSITORY","NOTION_SCOPE_DENIED","DATA_SOURCE_NOT_CONFIGURED","CANVA_REAUTH_REQUIRED"
     ];
     const code=String(ex&&ex.message||"INTERNAL");
     // Do not forward upstream error bodies, credentials, URLs, prompts or stack traces.

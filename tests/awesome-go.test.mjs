@@ -40,7 +40,8 @@ test("Diana sends a Go evaluation to the live audit UI, not a canned report",()=
  assert.equal(result.kind,"open");
  assert.equal(result.tool,"awesome");
  assert.equal(result.tab,"awesome");
- assert.equal(routeMessage(question,context).kind,"diana");
+ assert.equal(routeMessage(question,context).kind,"go-research");
+ assert.equal(routeMessage(question,context).role,"ceres");
  assert.equal(chooseDianaTool(question,{...context,privateMode:true}).kind,"report");
 });
 test("imperative install/deploy and unrelated messages bypass knowledge-only routing",()=>{
@@ -53,4 +54,13 @@ test("imperative install/deploy and unrelated messages bypass knowledge-only rou
  }
  assert.notEqual(routeMessage("幫我安裝 Go 套件",context).kind,"tool-knowledge");
  assert.equal(formatAwesomeGoPlan("Google 地圖"),"");
+});
+
+test("model-backed Go questions stay conversational, no-model questions keep factual fallback",()=>{
+ const q="Awesome Go 是什麼";
+ assert.equal(routeMessage(q,{...context,hasModel:true}).kind,"continue");
+ assert.equal(routeMessage(q,{...context,hasModel:false}).kind,"tool-knowledge");
+ for(const intent of ["推薦 Slime 的 Go 套件","評估 Ceres Go 通訊套件","Quirinus Go 資安套件選型"]){
+  assert.equal(routeMessage(intent,{...context,hasModel:true}).kind,"go-research");
+ }
 });

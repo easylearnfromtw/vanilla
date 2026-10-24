@@ -75,6 +75,8 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
+import {auditGoCandidates} from "../detroit/awesome-go-live";
+import {goResearchEvidence,goResearchFallback} from "../detroit/awesome-go-conversation";
 import {planAtuberReadOnly} from "../detroit/atuber-tool-plan";
 import {parseAtuberPlannerRequest,buildAtuberPlannerPrompt,authorizeAtuberModelProposal} from "../detroit/atuber-model-tool-plan";
 import {executeAtuberReadOnly} from "../detroit/atuber-tool-coordinator";
@@ -818,13 +820,37 @@ async function send(value=draft):Promise<void>{
  // Preserve explicit /建立 and /改程式 intent before Diana's proactive routing.
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
- const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
+ const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream),hasModel:canReply});
  if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;
  let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
+ let goEvidence=""; // Populated by the audited Go route, consumed only after Veritas checks.
  switch(route.kind){
+  case "go-research":{
+   // Never auto-install third-party Go source or send conversation text to GitHub.
+   if(privateMode||!online){
+    if(canReply)break; // Curated, explicitly limited local fallback.
+    toolReply(question,privateMode?
+     "私密模式不會聯網查核 GitHub；目前也沒有載入可用的文字模型。":
+     "目前離線，不能查核 GitHub；也沒有可用的文字模型。","diana");return;
+   }
+   setBusy(true);setLastRoute("正在讀取公開 GitHub 候選專案實際狀態…");
+   try{
+    const receipts=await auditGoCandidates(route.role);
+    goEvidence=goResearchEvidence(route.role,receipts);
+    if(!canReply){
+     toolReply(question,goResearchFallback(route.role,receipts),"diana");return;
+    }
+   }catch(error){
+    const reason=error instanceof Error?error.message:String(error);
+    if(!canReply){toolReply(question,"Go 專案查核失敗："+reason+"；未產生分析結論。","diana");return;}
+    goEvidence="GitHub 中繼資料查核未成功："+reason+"。只能提供待驗證的技術方向，不得聲稱取得最新資料或實際安裝。";
+   }finally{setBusy(false);}
+   // Fall through to common Veritas fact checks and model route.
+   break;
+  }
   case "diana":{
    if(await runVenusImageLookup(route.request,question))return;
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);
@@ -1191,7 +1217,7 @@ async function send(value=draft):Promise<void>{
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
  }
- await answerWithModel(question,{inlineFileContext,webContext,webSources,factGuidance},visibleClarificationAnswer);
+ await answerWithModel(question,{inlineFileContext,webContext,webSources,toolEvidence:goEvidence||undefined,factGuidance},visibleClarificationAnswer);
 }
 
 async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string},visibleQuestion?:string){
@@ -1357,7 +1383,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
- const trustedToolGrounding=!humanize?toolKnowledgeGuidance(question):"";
+ const trustedToolGrounding=!humanize&&!toolEvidence?.startsWith("Awesome Go 實際查核回條")?toolKnowledgeGuidance(question):"";
  const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding+factGuidance;
  const compose=(candidate:ModelCandidate)=>{
   const budget=promptBudgetFor(candidate,task);

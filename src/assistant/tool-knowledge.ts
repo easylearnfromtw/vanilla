@@ -3,7 +3,7 @@
  */
 import {DETROIT_CAPABILITIES,detroitAvailability,type DetroitCapability} from "../detroit/capability-bus";
 import {BUILTIN_TOOLS} from "../weiguo/registry";
-import {isAwesomeGoQuestion,formatAwesomeGoPlan} from "../detroit/awesome-go";
+import {isAwesomeGoQuestion,selectAwesomeGo,formatAwesomeGoPlan} from "../detroit/awesome-go";
 import {technicalKnowledgeGuidance} from "./technical-knowledge";
 
 export type ToolKnowledgeIntent={scope:"overview"|"named"|"go-catalog";ids:string[]};
@@ -86,7 +86,13 @@ export function toolKnowledgeAnswer(question:string):string{
 export function toolKnowledgeGuidance(question:string):string{
  const q=question.trim();
  if(!q||q.length>2200||QUOTED.test(q))return "";
- const goGrounding=isAwesomeGoQuestion(q)?formatAwesomeGoPlan(q):"";
+ const goPlan=isAwesomeGoQuestion(q)?selectAwesomeGo(q):null;
+ const goGrounding=goPlan?
+  "[Awesome Go 精選技術線索，非已安裝服務]\n"+
+  "來源："+goPlan.source+"。這是套件清單不是可執行的 Go 後端。\n"+
+  goPlan.recommendations.slice(0,2).map(x=>x.reference.name+"（"+x.reference.url+"）："+x.reference.summary+"；限制："+x.reference.tradeoff).join("\n")+
+  "\n請直接回答使用者的具體疑問，不能把清單當成已執行／已部署的工具，也不要照著固定格式逐項朗讀。":"";
+
  const overview=toolKnowledgeIntent(q)?.scope==="overview"||
   /(?:Detroit|底特律|Vanilla|我的|我有|我還有|我們的|其他).{0,20}(?:工具|模組|引擎|架構|能力)/i.test(q)||
   /(?:所有|全部|各個|整個).{0,12}(?:工具|模組|引擎)/.test(q);

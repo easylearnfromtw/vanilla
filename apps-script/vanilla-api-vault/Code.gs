@@ -11,7 +11,7 @@ const PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter","telegr
 const CHAT_PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter"];
 const ACTIONS = {
   gemini:["chat"], openai:["chat"], deepseek:["chat"], anthropic:["chat"], openrouter:["chat"],
-  telegram:["send_message"], canva:["profile","designs","image_generate","design_generate","job_status"],
+  telegram:["send_message","edit_message","answer_callback"], canva:["profile","designs","image_generate","design_generate","job_status"],
   notion:["search","query_tasks","read_task","create_task","update_task"], brave:["search"], tavily:["search"], github:["repo"]
 };
 const MAX_INBOUND = 72000;
@@ -183,16 +183,36 @@ function chat_(provider,req) {
     usage:{input_tokens:(data.usage||{}).prompt_tokens||0,output_tokens:(data.usage||{}).completion_tokens||0}};
 }
 function telegram_(req) {
-  const p=req.payload||{}, chat=String(p.chat_id||"");
-  if(!/^-?[0-9]{5,20}$/.test(chat)) throw Error("BAD_CHAT_ID");
+  const p=req.payload||{};
+  const token=key_("VAULT_KEY_TELEGRAM");
+  if(!/^[0-9]{5,15}:[A-Za-z0-9_-]{30,100}$/.test(token))throw Error("KEY_NOT_CONFIGURED");
+  const api="https://api.telegram.org/bot"+token+"/";
+  const operation=req.operation;
+  if(operation==="answer_callback"){
+    const callback=text_(p.callback_query_id,200);
+    if(!/^[A-Za-z0-9_-]{4,200}$/.test(callback))throw Error("INVALID_INPUT");
+    const data=request_(api+"answerCallbackQuery",{},"post",{callback_query_id:callback});
+    if(!data.ok)throw Error("UPSTREAM_REJECTED");
+    return {ok:true,provider:"telegram",operation:operation,accepted:true};
+  }
+  const chat=String(p.chat_id||"");
+  if(!/^-?[0-9]{5,20}$/.test(chat))throw Error("BAD_CHAT_ID");
   const allowed=key_("VAULT_TELEGRAM_CHAT_IDS").split(",").map(x=>x.trim()).filter(Boolean);
-  if(!allowed.includes(chat)) throw Error("CHAT_NOT_ALLOWED");
-  const msg=text_(p.text,4096), token=key_("VAULT_KEY_TELEGRAM");
-  if(!/^[0-9]{5,15}:[A-Za-z0-9_-]{30,100}$/.test(token)) throw Error("KEY_NOT_CONFIGURED");
-  const data=request_("https://api.telegram.org/bot"+token+"/sendMessage",{},"post",
-    {chat_id:chat,text:msg,disable_web_page_preview:true});
-  if(!data.ok) throw Error("UPSTREAM_REJECTED");
-  return {ok:true,provider:"telegram",operation:"send_message",message_id:(data.result||{}).message_id||null};
+  if(!allowed.includes(chat))throw Error("CHAT_NOT_ALLOWED");
+  const msg=text_(p.text,4096);
+  let method,body;
+  if(operation==="send_message"){
+    method="sendMessage";body={chat_id:chat,text:msg,disable_web_page_preview:true};
+  }else if(operation==="edit_message"){
+    if(!digits_(p.message_id)||p.message_id<1)throw Error("INVALID_INPUT");
+    method="editMessageText";body={chat_id:chat,message_id:p.message_id,text:msg,
+      disable_web_page_preview:true};
+  }else throw Error("ACTION_NOT_ALLOWED");
+  const data=request_(api+method,{},"post",body);
+  const result=data.result||{};
+  if(!data.ok||!result.chat||String(result.chat.id)!==chat)throw Error("UPSTREAM_REJECTED");
+  return {ok:true,provider:"telegram",operation:operation,
+    message_id:result.message_id||null,accepted:true};
 }
 function canva_(req) {
   const token=key_("VAULT_KEY_CANVA");

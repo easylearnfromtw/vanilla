@@ -7,12 +7,12 @@
  * Fixed upstream hosts and operations; NO caller-controlled URL forwarding.
  */
 const VAULT_VERSION = "1.0.0";
-const PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter","telegram","canva","notion","brave","github"];
+const PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter","telegram","canva","notion","brave","tavily","github"];
 const CHAT_PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter"];
 const ACTIONS = {
   gemini:["chat"], openai:["chat"], deepseek:["chat"], anthropic:["chat"], openrouter:["chat"],
   telegram:["send_message"], canva:["profile","designs","image_generate","design_generate","job_status"],
-  notion:["search"], brave:["search"], github:["repo"]
+  notion:["search"], brave:["search"], tavily:["search"], github:["repo"]
 };
 const MAX_INBOUND = 72000;
 const MAX_TEXT = 30000;
@@ -238,6 +238,17 @@ function brave_(req) {
     (((data.web||{}).results)||[]).slice(0,5).map(x=>({title:String(x.title||"").slice(0,200),
       url:x.url||"",description:String(x.description||"").slice(0,400)}))};
 }
+function tavily_(req) {
+  const token=key_("VAULT_KEY_TAVILY");
+  if(!token) throw Error("KEY_NOT_CONFIGURED");
+  const query=text_((req.payload||{}).query,250);
+  const data=request_("https://api.tavily.com/search",
+    {Authorization:"Bearer "+token},"post",
+    {query:query,search_depth:"basic",max_results:5,include_answer:false,include_raw_content:false});
+  return {ok:true,provider:"tavily",operation:"search",results:
+    (data.results||[]).slice(0,5).map(x=>({title:String(x.title||"").slice(0,200),
+      url:x.url||"",description:String(x.content||"").slice(0,400)}))};
+}
 function github_(req) {
   const p=req.payload||{};
   if(typeof p.owner!=="string"||typeof p.repo!=="string"||
@@ -264,6 +275,7 @@ function dispatch_(req) {
   if(provider==="canva") return canva_(req);
   if(provider==="notion") return notion_(req);
   if(provider==="brave") return brave_(req);
+  if(provider==="tavily") return tavily_(req);
   if(provider==="github") return github_(req);
   throw Error("ACTION_NOT_ALLOWED");
 }

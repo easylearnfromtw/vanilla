@@ -82,6 +82,8 @@ jobs:
           npm run test:reliability
           npm run test:archive
           npm run test:providers
+      - name: GAS Vault signed protocol and relay tests
+        run: node --test tests/gas-api-vault.test.mjs
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Slime secure pairing and reconnect regression tests

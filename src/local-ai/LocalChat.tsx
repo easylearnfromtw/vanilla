@@ -128,7 +128,7 @@ function prettyModel(model:string):string{
 function sourceLabel(turn:ChatTurn):string{
  if(turn.source==="local")return "本機";
  if(turn.source==="ollama")return turn.model&&isTaideModel(turn.model)?"TAIDE":"Ollama";
- return turn.source==="gemini"?"Gemini":"DeepSeek";
+ return ({gemini:"Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter"} as Record<string,string>)[turn.source]||"Cloud";
 }
 
 export default function LocalChat({onNavigate}:{onNavigate?:(section:"library"|"settings"|"cream")=>void}){
@@ -1322,7 +1322,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   return;
  }
  const chosen:ModelCandidate[]=!ATUBER_SINGLE_DRIVER&&!nativeArtifact&&!nativeOrchestra&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
- const cloud=chosen.filter(x=>x.source==="gemini"||x.source==="deepseek");
+ const cloud=chosen.filter(x=>["gemini","deepseek","openai","anthropic","openrouter"].includes(x.source));
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
   const providersUsed=[...new Set(cloud.map(x=>x.source))];
@@ -1331,7 +1331,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    let allowed=false;try{allowed=localStorage.getItem(key)==="yes";}catch{}
    if(allowed)continue;
    const models=cloud.filter(x=>x.source===provider).map(x=>x.label).join("、");
-   const service=provider==="gemini"?"Google Gemini":"DeepSeek";
+   const service=({gemini:"Google Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter"} as Record<string,string>)[provider]||provider;
    if(!window.confirm("準備使用 "+service+"（"+models+"）。\n\n會傳送：本次問題、最近最多 20 則對話；與問題相關時也會自動附上：附件內容、網頁擷取、Google Drive 記憶節錄、PROJECT HUB 程式碼、CREAM 歷史數據、你明確啟用的 Victoria 舊對話節錄，以及你附加的圖片。\n\n記憶／CREAM／專案的自動附加可以在「模型與工具」面板逐項關閉。比較模式可能增加用量與費用。\n\n同意傳送至這個供應商嗎？")){setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
    try{localStorage.setItem(key,"yes");}catch{}
   }

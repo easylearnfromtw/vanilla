@@ -45,6 +45,26 @@ ollama list
 
 此入口不負責**核發** Key／付款／代為配置雲端服務。既有 Owner 推論 API 預設仍關閉；只有確實啟動自有推論服務並通過 Owner 安全閘道驗證後才能對外提供。
 
+
+## OCTUBER SUMPTUOUS 真正本地 30B（不需 OpenRouter）
+
+此處「本地」指 **你自己的電腦、工作站或家用伺服器** 執行權重（Windows、macOS、Linux）。若在 iPhone 開啟 Vanilla GitHub Pages，30B **不會下載到 iPhone**，而是由你有權控制且完成授權的本地電腦運算；手機顯示答案。
+
+1. 在電腦安裝 Ollama、下載並確認真正的 30B 模型：
+   ```sh
+   ollama pull qwen3:30b
+   ollama run qwen3:30b "請只回答：連線成功"
+   ollama list
+   ```
+   如果使用其他原生標籤，也可選擇 `qwen3:30b-a3b`、`qwen3:30b-a3b-instruct-2507` 或專精程式的 `qwen3-coder:30b`，前提是 **你目前的 Ollama registry 真正提供且可下載這個標籤**。32B Dense 為 `qwen3:32b`。具體模型與量化方式以 `ollama list` 為準。
+2. 如果直接在同一台電腦使用 Vanilla 網頁，可以嘗試用 `http://localhost:11434`；需允許 Vanilla 網站來源通過 Ollama CORS 設定。瀏覽器可能另外限制 HTTPS 頁面對 HTTP 的存取。
+3. 如果在 iPhone／另一台電腦使用，請在本地主機前加上 **有身分驗證的 HTTPS 反向代理／私人網路隧道**，切勿把 `11434` 無保護地對公網開放。iPhone 裡的 `localhost` 是 iPhone 自己，不是桌機。
+4. Vanilla「設定 → AI 模型 → OCTUBER · API 與運算主機」填網址，點「測試連線／取得模型」；選擇已列出的 `qwen3:30b`，點「儲存並啟用」，最後按「測試模型實際回答」。
+5. 只有在 `/api/tags` 列出模型 **且** `/api/chat` 回傳完整非空答案時，才會把原生 30B 候選納入 OCTUBER 對話路由；成功驗證後自動把規格偏好設為「SUMPTUOUS」。未驗證、重新整理、端點更換或未安裝，都不應顯示可用。使用者仍要先同意把對話傳到自己的主機。私密／只用本地（此裝置）模式不把資料傳到電腦。
+6. 30B MoE Q4 通常約 19 GB 權重，執行還需要 KV 快取、記憶體／VRAM 與 Ollama runtime。桌機 24 GB GPU VRAM 或 32 GB 以上整體 RAM 是較常見起點，不是硬體保證；記憶體不足也可嘗試 CPU offload，但速度會非常慢。量化越高、上下文越長需要越多記憶體。模型名稱、安裝和測試流程不會替使用者購買 GPU，也不會憑空訓練 OCTUBER 獨立權重。
+
+本地電腦路線與已另行提供的 OpenRouter 託管 30B **兩者並存**，沒有強迫轉向付費雲端。
+
 ## 真正可用的託管 14B／30B／32B 路徑（新增）
 
 - 使用者可在「設定 → AI 模型 → OCTUBER 14B／30B／32B · 直接啟用雲端推論」選擇 OpenRouter 的真實 Qwen3 14B、Qwen3-30B-A3B-Instruct-2507、Qwen3 32B 模型。

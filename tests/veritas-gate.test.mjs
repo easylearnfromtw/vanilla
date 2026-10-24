@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {routeMessage} from "../src/assistant/chat-router.ts";
-import {classifyFactRequest,evaluateFactEvidence,officialExamPages,qualifiedFactModels} from "../src/detroit/veritas-gate.ts";
+import {classifyFactRequest,evaluateFactEvidence,officialExamPages,qualifiedFactModels,requiresVerifiedExactFact,mayCompleteWithBoundedAnalysis,boundedAnalysisGuidance} from "../src/detroit/veritas-gate.ts";
 import {implicitResearchQuery} from "../src/search/search-evidence.ts";
 
 const context={privateMode:false,hasCreamResult:false};
@@ -60,4 +60,22 @@ test("Veritas executes before any factual model generation",()=>{
  assert.match(c,/const evidence=evaluateFactEvidence\(question,webIndex\)/);
  assert.match(c,/candidates=qualifiedFactModels\(candidates,classifyFactRequest\(question\)\)/);
  assert.ok(c.indexOf("const evidence=evaluateFactEvidence(question,webIndex)")<c.indexOf("await answerWithModel(question"),"source check must precede model");
+});
+
+test("Veritas no longer turns open-ended research into a source-only non-answer",()=>{
+ const missing={status:"missing",pages:[],reason:"未取得來源"};
+ const indexed={status:"index",pages:[{title:"研究索引",url:"https://example.org/research",kind:"snippet",excerpt:"公開摘要"}],reason:"僅有索引"};
+ for(const q of ["分析今年醫療產業政策與市場趨勢","目前半導體產業政策與供應鏈風險有哪些"]){
+  assert.equal(classifyFactRequest(q).needsLiveSources,true);
+  assert.equal(mayCompleteWithBoundedAnalysis(q,missing,true),true);
+  assert.equal(mayCompleteWithBoundedAnalysis(q,indexed,true),true);
+ }
+ assert.match(boundedAnalysisGuidance(missing),/仍須回答使用者真正要求/);
+ assert.match(boundedAnalysisGuidance(indexed),/不要只列連結/);
+ assert.equal(mayCompleteWithBoundedAnalysis("目前醫療產業的趨勢有哪些",missing,false),false);
+ for(const q of ["今年學測時間","今年 PGY 招生時程","目前股價多少"]){
+  assert.equal(requiresVerifiedExactFact(q),true,q);
+  assert.equal(mayCompleteWithBoundedAnalysis(q,missing,true),false,q);
+  assert.equal(mayCompleteWithBoundedAnalysis(q,indexed,true),false,q);
+ }
 });

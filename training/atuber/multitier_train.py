@@ -2,10 +2,10 @@
 Actual optimization requires --train --approve-gpu-and-download and reviewed data.
 """
 from __future__ import annotations
-import argparse,json,math,sys
+import argparse,hashlib,json,math,os,sys
 from datetime import datetime,timezone
 from pathlib import Path
-from multitier_plan import TIERS,config,latest_checkpoint,fingerprint,verified_manifest,verify_resume
+from multitier_plan import TIERS,config,latest_checkpoint,fingerprint,verify_resume
 
 def hardware():
  try:
@@ -14,6 +14,14 @@ def hardware():
   return {"cuda":True,"gpu_count":torch.cuda.device_count(),"gpu_0":torch.cuda.get_device_name(0),
           "vram_gib":round(torch.cuda.get_device_properties(0).total_memory/1024**3,2)}
  except ImportError:return {"cuda":False,"gpu_count":0,"status":"TORCH_NOT_INSTALLED"}
+
+def verify_no_leakage(train,holdout):
+ train_ids={x["id"] for x in train}
+ eval_ids={x["id"] for x in holdout}
+ if train_ids & eval_ids:raise ValueError("TRAIN_EVAL_ID_LEAKAGE")
+ def prompts(rows):
+  return {hashlib.sha256(x["user"].strip().casefold().encode()).hexdigest() for x in rows}
+ if prompts(train) & prompts(holdout):raise ValueError("TRAIN_EVAL_PROMPT_LEAKAGE")
 
 def execute(args,approved,training,evaluation,request):
  try:
@@ -24,12 +32,21 @@ def execute(args,approved,training,evaluation,request):
   from trl import SFTConfig,SFTTrainer
  except ImportError as err:raise SystemExit("TRAINING_DEPENDENCIES_NOT_INSTALLED") from err
  if not torch.cuda.is_available():raise SystemExit("CUDA_GPU_REQUIRED_NO_TRAINING_STARTED")
+ props=torch.cuda.get_device_properties(torch.cuda.current_device())
+ if props.total_memory/1024**3 < TIERS[args.tier].min_vram_gib_recommendation:
+  raise SystemExit("INSUFFICIENT_SINGLE_GPU_VRAM_FOR_TIER")
+ if not args.allow_model_download:
+  os.environ["HF_HUB_OFFLINE"]="1"
+  os.environ["TRANSFORMERS_OFFLINE"]="1"
  dest=Path(args.output).resolve()
+ if dest in (Path.cwd().resolve(),Path.home().resolve()):raise SystemExit("UNSAFE_OUTPUT_DIRECTORY")
  request_path=dest/"training-request.json"
  if args.resume:
   if not request_path.is_file():raise SystemExit("MISSING_RESUME_REQUEST_MANIFEST")
   verify_resume(json.loads(request_path.read_text(encoding="utf8")),request)
   checkpoint=latest_checkpoint(dest/"checkpoints")
+  if not (checkpoint/"optimizer.pt").is_file() or not (checkpoint/"scheduler.pt").is_file():
+   raise SystemExit("RESUME_REQUIRES_OPTIMIZER_AND_SCHEDULER_STATE")
  else:
   if dest.exists() and any(dest.iterdir()):raise SystemExit("OUTPUT_MUST_BE_NEW_OR_EMPTY")
   dest.mkdir(parents=True,exist_ok=True)
@@ -37,7 +54,7 @@ def execute(args,approved,training,evaluation,request):
   request_path.chmod(0o600)
   checkpoint=None
  desc=TIERS[args.tier]
- tokenizer=AutoTokenizer.from_pretrained(desc.base_model,trust_remote_code=False)
+ tokenizer=AutoTokenizer.from_pretrained(desc.base_model,trust_remote_code=False,local_files_only=not args.allow_model_download)
  if tokenizer.pad_token is None:tokenizer.pad_token=tokenizer.eos_token
  bf16=bool(torch.cuda.is_bf16_supported())
  quant=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type="nf4",
@@ -45,7 +62,7 @@ def execute(args,approved,training,evaluation,request):
                          bnb_4bit_compute_dtype=torch.bfloat16 if bf16 else torch.float16)
  model=AutoModelForCausalLM.from_pretrained(desc.base_model,quantization_config=quant,
                                            device_map={"":torch.cuda.current_device()},
-                                           trust_remote_code=False)
+                                           trust_remote_code=False,local_files_only=not args.allow_model_download)
  model.config.use_cache=False
  model=prepare_model_for_kbit_training(model)
  peft=LoraConfig(r=desc.lora_rank,lora_alpha=2*desc.lora_rank,lora_dropout=0.05,
@@ -79,7 +96,7 @@ def execute(args,approved,training,evaluation,request):
  record={"schema":1,"product":"October","tier":args.tier,"base_model":desc.base_model,
  "training_state":"completed","created_at_utc":datetime.now(timezone.utc).isoformat(),
  "completed_optimizer_steps":final_step,"requested_optimizer_steps":request["gradient_updates_requested"],
- "data_sha256":request["dataset_sha256"],"reviewed_rows":len(approved),"training_rows":len(training),
+ "data_sha256":request["dataset_sha256"],"eval_data_sha256":request["eval_dataset_sha256"],"reviewed_rows":len(approved),"training_rows":len(training),
  "holdout_rows":len(evaluation),"train_loss":float(outcome.training_loss),
  "eval_loss":float(metrics.get("eval_loss",float("nan"))),
  "adapter_sha256":fingerprint(weights),"gpu":torch.cuda.get_device_name(0),
@@ -92,7 +109,8 @@ def execute(args,approved,training,evaluation,request):
 def main(argv=None):
  ap=argparse.ArgumentParser()
  ap.add_argument("--tier",required=True,choices=TIERS.keys())
- ap.add_argument("--dataset",help="Private human-reviewed and consented JSONL")
+ ap.add_argument("--dataset",help="Private human-reviewed and consented training JSONL")
+ ap.add_argument("--eval-dataset",help="Separate human-reviewed evaluation JSONL; never optimized on")
  ap.add_argument("--output")
  ap.add_argument("--steps",type=int,default=150000)
  ap.add_argument("--max-length",type=int)
@@ -103,7 +121,10 @@ def main(argv=None):
  ap.add_argument("--train",action="store_true")
  ap.add_argument("--validate-data",action="store_true")
  ap.add_argument("--resume",action="store_true")
- ap.add_argument("--approve-gpu-and-download",action="store_true")
+ ap.add_argument("--approve-gpu-compute",action="store_true")
+ ap.add_argument("--ack-model-license",action="store_true")
+ ap.add_argument("--allow-model-download",action="store_true",
+                 help="Explicit download permission; otherwise use offline cached weights")
  ap.add_argument("--approve-150k",action="store_true")
  args=ap.parse_args(argv)
  if args.resume and not args.train:ap.error("--resume requires --train")
@@ -114,12 +135,14 @@ def main(argv=None):
    eval_every=args.eval_every,learning_rate=args.learning_rate)
  except ValueError as err:ap.error(str(err))
  if args.validate_data:
-  if not args.dataset:ap.error("--validate-data requires --dataset")
-  from dataset import validate_jsonl,to_conversations
-  rows,digest=validate_jsonl(args.dataset)
-  train,holdout=to_conversations(rows)
-  print(json.dumps({"mode":"DATASET_VALIDATION_ONLY","rows":len(rows),"training_rows":len(train),
-    "holdout_rows":len(holdout),"dataset_sha256":digest,"training_executed":False},ensure_ascii=False))
+  if not args.dataset or not args.eval_dataset:ap.error("--validate-data requires --dataset and --eval-dataset")
+  from dataset import validate_jsonl
+  train,digest=validate_jsonl(args.dataset,min_rows=1000 if args.steps>5000 else 100)
+  holdout,edigest=validate_jsonl(args.eval_dataset,min_rows=100)
+  verify_no_leakage(train,holdout)
+  print(json.dumps({"mode":"DATASET_VALIDATION_ONLY","rows":len(train)+len(holdout),
+    "training_rows":len(train),"holdout_rows":len(holdout),"dataset_sha256":digest,
+    "eval_sha256":edigest,"training_executed":False},ensure_ascii=False))
   return 0
  available=hardware()
  if not args.train:
@@ -127,15 +150,25 @@ def main(argv=None):
                     "dataset_available":bool(args.dataset and Path(args.dataset).is_file()),
                     "training_executed":False},indent=2,ensure_ascii=False))
   return 0
- if not args.approve_gpu_and_download:ap.error("Explicit --approve-gpu-and-download required")
+ if not args.approve_gpu_compute:ap.error("Explicit --approve-gpu-compute required")
+ if not args.ack_model_license:ap.error("Explicit --ack-model-license required")
  if args.steps>5000 and not args.approve_150k:ap.error("Long training requires --approve-150k")
- if not args.dataset or not args.output:ap.error("--train requires --dataset and --output")
+ if not args.dataset or not args.eval_dataset or not args.output:
+  ap.error("--train requires --dataset, --eval-dataset and --output")
  if not available["cuda"]:raise SystemExit("CUDA_GPU_REQUIRED_NO_TRAINING_STARTED")
- from dataset import validate_jsonl,to_conversations
- rows,digest=validate_jsonl(args.dataset)
- training,evaluation=to_conversations(rows)
+ from dataset import validate_jsonl,SYSTEM
+ rows,digest=validate_jsonl(args.dataset,min_rows=1000 if args.steps>5000 else 100)
+ holdout,edigest=validate_jsonl(args.eval_dataset,min_rows=100)
+ verify_no_leakage(rows,holdout)
+ def conversation(row):return {"messages":[{"role":"system","content":SYSTEM},
+    {"role":"user","content":row["user"]},{"role":"assistant","content":row["assistant"]}]}
+ training=[conversation(x) for x in rows]
+ evaluation=[conversation(x) for x in holdout]
  plan["dataset_sha256"]=digest
- request=verified_manifest(plan,args.dataset,rows=len(rows),train_rows=len(training),holdout_rows=len(evaluation))
+ plan["eval_dataset_sha256"]=edigest
+ request={**plan,"approved_rows":len(rows)+len(holdout),
+          "training_rows":len(rows),"holdout_rows":len(holdout)}
+ request["request_digest"]=hashlib.sha256(json.dumps(request,sort_keys=True,ensure_ascii=False,separators=(",",":")).encode()).hexdigest()
  execute(args,rows,training,evaluation,request)
  return 0
 if __name__=="__main__":sys.exit(main())

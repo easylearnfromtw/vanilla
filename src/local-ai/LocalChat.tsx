@@ -282,9 +282,10 @@ useEffect(()=>{
  if(isLocalModelReady(selectedLocalModel))return;
  if(!capabilities.webgpu){setStatus("此裝置沒有可用 WebGPU，無法載入本地模型。");setUpgradeDialog(true);return;}
  if(startupModelAttempt.current)return;
- startupModelAttempt.current=true;
  let active=true;
  const timer=window.setTimeout(()=>{
+  if(startupModelAttempt.current)return;
+  startupModelAttempt.current=true;
   void isLocalModelCached(selectedLocalModel).then(cached=>{
    if(!active)return;
    setModelCached(cached);

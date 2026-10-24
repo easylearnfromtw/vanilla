@@ -32,8 +32,7 @@ ollama create octuber:modest -f deployment/ollama/Modelfile.atuber-ml
 ollama pull qwen3:30b
 ollama create octuber:sumptuous -f deployment/ollama/Modelfile.atuber-lg
 ollama pull qwen3:32b
-# 32B Dense 需要採用對應的 Modelfile，而非重用 30B 的 FROM 設定。
-# 以專屬 Modelfile 部署，並經實測才加入白名單。
+ollama create octuber:sumptuous-32b -f deployment/ollama/Modelfile.octuber-sumptuous-32b
 ollama list
 ```
 

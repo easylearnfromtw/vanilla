@@ -6,7 +6,7 @@ import {geminiLiteSibling,isGeminiLite} from "../ai/model-profiles";
 import {readSSE} from "../ai/stream-parsers";
 import {stripThinking,cleanModelOutput} from "../ai/output-cleanup";
 import {ensureZhTw,toTaiwanese} from "../ai/zh-tw";
-export type Provider="gemini"|"deepseek";
+export type Provider="gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
 export type ProviderConfig={provider:Provider;key:string;model:string};
 const configs=new Map<Provider,ProviderConfig>();
 export function setProvider(config:ProviderConfig){configs.set(config.provider,config);window.dispatchEvent(new Event("vanilla-providers-changed"));}
@@ -20,10 +20,10 @@ export function chooseProvider(question:string,options?:{localReady?:boolean;onl
  if(!online)return "local";
  if(/只用本地|僅用本地|不要上傳|離線回答|私密回答/.test(q))return "local";
  const gemini=configs.has("gemini"),deepseek=configs.has("deepseek");
- if(!gemini&&!deepseek)return "local";
+ if(!getConfigs().length)return "local";
  if(ready&&/^(你好|哈囉|嗨|謝謝|晚安|早安|測試|hello|hi)[！!。.?？ ]*$/i.test(q))return "local";
  if(/程式|代碼|debug|typescript|python|github|修復|編譯/i.test(q)&&deepseek)return "deepseek";
- return gemini?"gemini":"deepseek";
+ return gemini?"gemini":deepseek?"deepseek":getConfigs()[0].provider;
 }
 export type ImageInput={mimeType:string;data:string};
 export type CloudOptions={task?:TaskKind;onText?:(text:string)=>void;signal?:AbortSignal;
@@ -126,6 +126,9 @@ export async function generateCloudReply(provider:Provider,history:ChatTurn[],im
   options.onText?.(raw);
   return raw;
  }
+ // Raw browser-side API keys are intentionally unsupported for new providers.
+ if(config.key!=="managed:gas"&&provider!=="gemini"&&provider!=="deepseek")
+  throw new Error(provider+" 必須由已驗證的 Google Apps Script API Vault 代理呼叫");
  if(config.key==="managed:weiguo"){
   if(provider!=="gemini"||image)throw new Error("目前受控雲端代理只支援 Gemini 純文字");
   const {generateWeiGuoGemini}=await import("../weiguo/api");

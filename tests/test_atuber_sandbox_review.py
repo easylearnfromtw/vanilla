@@ -27,7 +27,7 @@ class AtuberSandboxPromotionTests(unittest.TestCase):
             "assistant": '{"tool":"inspect"}', "domain": "tool-use",
             "source": "synthetic-sandbox", "reviewed": False, "consent": False,
             "eligibleForTraining": False, "holdout": i%10==0
-        } for i in range(111)]
+        } for i in range(121)]
         write_jsonl(self.queue, self.items)
 
     def decisions_from_template(self):
@@ -36,7 +36,7 @@ class AtuberSandboxPromotionTests(unittest.TestCase):
 
     def test_template_does_not_mark_approval(self):
         rows=self.decisions_from_template()
-        self.assertEqual(len(rows),111)
+        self.assertEqual(len(rows),121)
         self.assertTrue(all(not x["approved"] for x in rows))
         with self.assertRaisesRegex(ValueError,"NEED_100"):
             promote(self.queue,self.decisions,self.output)
@@ -48,9 +48,11 @@ class AtuberSandboxPromotionTests(unittest.TestCase):
             r.update({"approved": True, "quality_checked": True, "rights_confirmed": True, "reviewer": "tester-human-review"})
         write_jsonl(self.decisions, rows)
         receipt=promote(self.queue,self.decisions,self.output)
-        self.assertEqual(receipt["approvedRows"],99)
-        # NOTE: 111 records with index 0..110: 12 holdouts; 99 others.
-        # The promotion must refuse insufficient reviewed non-holdout count.
+        self.assertEqual(receipt["approvedRows"],108)
+        data,digest=validate_jsonl(self.output)
+        self.assertEqual(len(data),108)
+        self.assertTrue(bool(digest))
+        self.assertTrue(all(x["reviewed"] and x["consent"] for x in data))
 
     def test_tampered_hash_rejected(self):
         rows=self.decisions_from_template()

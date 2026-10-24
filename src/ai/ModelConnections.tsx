@@ -4,6 +4,7 @@ import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConf
 import {getVoteCount,getRatingCount,resetModelChoices} from "./model-orchestrator";
 import {clearModelHealth,recordModelRun} from "./model-health";
 import {isTaiwanTaideEnabled,setTaiwanTaideEnabled,isTaideModel} from "./taiwan-routing";
+import {ATUBER_TIERS} from "./atuber-control-plane";
 export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
  const [url,setUrl]=useState(stored.endpoint);
@@ -13,12 +14,13 @@ export default function ModelConnections(){
  const [models,setModels]=useState<OllamaModel[]>([]);
  const [busy,setBusy]=useState(false);
  const [notice,setNotice]=useState("");
+ const [inferenceVerified,setInferenceVerified]=useState(false);
  const [count,setCount]=useState(getVoteCount);
  const [ratingCount,setRatingCount]=useState(getRatingCount);
  const [taiwanRoute,setTaiwanRoute]=useState(isTaiwanTaideEnabled);
  async function test(){
   if(!url.trim()){setNotice("請先輸入 Ollama 主機網址");return;}
-  setBusy(true);setNotice("正在連接 Ollama 並讀取模型清單…");
+  setBusy(true);setInferenceVerified(false);setNotice("正在連接 Ollama 並讀取模型清單…");
   try{
    const result=await testOllama(url,secret.trim()||undefined);
    setModels(result.models);
@@ -33,7 +35,7 @@ export default function ModelConnections(){
   try{
    if(!url.trim()||!model.trim()){setNotice("請提供連線網址與模型名稱");return;}
    setOllamaConfig({endpoint:url,model,models:enabledModels.includes(model)?enabledModels:[model,...enabledModels].slice(0,4)},secret.trim()||undefined);
-   setStored(getOllamaConfig());setSecret("");
+   setStored(getOllamaConfig());setSecret("");setInferenceVerified(false);
    setNotice("已儲存 Ollama 連線。若尚未測試，使用時可能因 CORS 或網路設定而失敗。");
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
  }
@@ -45,21 +47,39 @@ export default function ModelConnections(){
    const reply=await generateOllamaReply([{role:"user",content:"這是連線測試。請只回答：OK"}],stored.model);
    const seconds=Math.max(0.1,(Date.now()-started)/1000);
    recordModelRun("ollama:"+stored.model,true,Date.now()-started);
-   setNotice("推論成功（"+seconds.toFixed(1)+" 秒），回覆：「"+reply.slice(0,80)+"」。已把耗時納入本機模型排序。");
+   setInferenceVerified(true);setNotice("推論成功（"+seconds.toFixed(1)+" 秒），回覆：「"+reply.slice(0,80)+"」。已把耗時納入本機模型排序。");
   }catch(error){
+   setInferenceVerified(false);
    recordModelRun("ollama:"+stored.model,false,Date.now()-started);
    setNotice("模型推論測試失敗："+(error instanceof Error?error.message:String(error)));
   }finally{setBusy(false);}
  }
-  function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setNotice("已移除 Ollama 連線設定");}
+  function remove(){clearOllamaConfig();setStored(getOllamaConfig());setUrl("");setModel("");setSecret("");setModels([]);setEnabledModels([]);setInferenceVerified(false);setNotice("已移除 Ollama 連線設定");}
  return <section className="model-connection-panel">
-  <div className="connection-title"><Cable size={20}/><h3>Ollama · 可更換模型連線</h3></div>
+  <div className="connection-title"><Cable size={20}/><h3>OCTUBER · API 與運算主機</h3></div>
+  <div className="octuber-api-steps" aria-label="API 授權後設定流程">
+   <div className={url?"done":""}><span>01</span><strong>填入 API 授權</strong><small>HTTPS 網址／必要時的 Key</small></div>
+   <div className={models.length?"done":""}><span>02</span><strong>取得可用模型</strong><small>{models.length?"偵測到 "+models.length+" 個":"連線後讀取實際安裝型號"}</small></div>
+   <div className={stored.endpoint?"done":""}><span>03</span><strong>儲存使用設定</strong><small>可調整規格與自動路由</small></div>
+   <div className={inferenceVerified?"done":""}><span>04</span><strong>驗證實際回答</strong><small>{inferenceVerified?"已通過此分頁測試":"避免僅取得 API 就顯示已上線"}</small></div>
+  </div>
+  <p className="octuber-api-note">拿到 API Key 後：貼到下方保護欄位 → 測試連線 → 選擇已安裝的 OCTUBER 規格 → 儲存並執行推論驗證。Key 只保存在本次瀏覽工作階段，不進入網址或聊天紀錄。</p>
   <p>可連接受 HTTPS 保護的自架 Ollama、家用電腦、雲端 VM，或 Ollama 官方雲端。你可隨時修改模型 ID、網址與候選模型；更換前可先測試連線。<strong>這不是 iPhone 裝置端運算</strong>。自架推論通常沒有逐次 API 費，但需自行負擔設備；官方 Ollama Cloud 僅有有限的免費起始點數，可能另行計費。</p>
   <label htmlFor="ollama-address">HTTPS 連線網址</label>
   <input id="ollama-address" type="url" value={url} spellCheck={false} autoCapitalize="none" placeholder="https://your-private-ollama.example" onChange={e=>setUrl(e.target.value)} />
   <label htmlFor="ollama-model">模型 ID（可隨時替換）</label>
   <input id="ollama-model" type="text" value={model} spellCheck={false} autoCapitalize="none" list="ollama-model-list" placeholder="例如 qwen2.5:3b" onChange={e=>setModel(e.target.value)} />
   <datalist id="ollama-model-list">{models.map(m=><option key={m.name} value={m.name}>{m.details?.parameter_size||""}</option>)}</datalist>
+  <div className="octuber-host-preset" aria-label="OCTUBER 快速選擇規格">
+   {ATUBER_TIERS.map(t=>{
+    const installed=[t.publicAlias,t.model].find(alias=>models.some(m=>m.name===alias));
+    return <button key={t.tier} type="button" disabled={Boolean(models.length)&&!installed}
+     className={model===(installed||t.publicAlias)?"active":""}
+     onClick={()=>{setModel(installed||t.publicAlias);setEnabledModels(before=>[...new Set([installed||t.publicAlias,...before])].slice(0,4));setInferenceVerified(false);}}>
+     <strong>{t.brand}</strong><small>{t.base} · 約 {t.approxDownloadGB} GB</small><small>{models.length?(installed?"主機已安裝":"主機尚未安裝"):"尚未偵測主機"}</small>
+    </button>;
+   })}
+  </div>
   {models.length>0&&<p className="connection-models">已偵測：{models.slice(0,8).map(x=>x.name).join("、")}{models.length>8?" 等":""}</p>}
   {models.length>0&&<fieldset className="ollama-model-pool"><legend>允許自動選擇的模型（最多 4 個）</legend>
   <p>只勾選確定已下載、願意讓 Vanilla 使用的模型。大型模型可能較慢，也會占用伺服器記憶體。</p>

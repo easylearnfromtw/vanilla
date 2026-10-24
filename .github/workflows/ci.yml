@@ -29,6 +29,7 @@ jobs:
           npm run test:weiguo
           npm run test:weiguo-auth-ui
           npm run test:detroit
+          npm run test:sandbox
           npm run test:detroit-bus
           npm run test:diana
           npm run test:awesome

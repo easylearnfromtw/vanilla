@@ -46,3 +46,9 @@ npm install
 npm run build
 npm run dev
 ```
+
+## Awesome Discovery（唯讀開源技術探索）
+
+Detroit Studio 的 **Awesome 探索**分頁與 `/Awesome` 指令會在一般模式下、使用者主動點擊後讀取 [sindresorhus/awesome](https://github.com/sindresorhus/awesome) 的公開索引。可依主題進入各清單，再進入個別 GitHub 儲存庫，檢視公開 stars、最近推送時間、封存狀態與 GitHub API 回報的 SPDX 授權。分數只是初步篩選，**不等於安全掃描或授權審查**。
+
+選定候選後可複製或下載 **Markdown 整合提案**，交由現有 Self-Build Worker／Quirinus 與 GitHub PR 流程人工審核；**不會自動安裝程式、執行遠端腳本、提交 PR 或部署第三方外掛**。私密模式禁止公開 GitHub 查詢。提案與輸出不加自家裝飾性浮水印，但上游的 LICENSE、NOTICE、必要署名及商標條款不得任意移除。

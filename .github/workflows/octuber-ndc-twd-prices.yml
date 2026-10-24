@@ -1,0 +1,73 @@
+name: OCTUBER Taiwan NDC retail price calibration
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "training/atuber/ndc_taiwan_price_train.py"
+      - "tests/test_octuber_ndc_prices.py"
+      - "docs/OCTUBER_TAIWAN_PRICE_CALIBRATION.md"
+      - ".github/workflows/octuber-ndc-twd-prices.yml"
+  workflow_dispatch:
+  # Will take effect only after this workflow lands on the default branch.
+  schedule:
+    - cron: "0 2 * * 1"
+permissions:
+  contents: read
+jobs:
+  official-ndc-price-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify parser and authorized-data policy (toy fixtures only)
+        run: python -m unittest discover -s tests -p "test_octuber_ndc_prices.py" -v
+      - name: Install CPU numeric arrays for optional genuine neural calibration
+        run: python -m pip install --no-input --disable-pip-version-check "numpy>=1.26,<3"
+      - name: Download exactly the official NDC government open-data CSV
+        run: |
+          curl --fail --show-error --location --retry 2 --connect-timeout 20 --max-time 110 \
+            "https://ws.ndc.gov.tw/001/administrator/10/relfile/0/9862/17300d07-7b9f-4c88-a1ab-0e406342def4.csv" \
+            --output /tmp/octuber-ndc-22933.csv
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          f=Path("/tmp/octuber-ndc-22933.csv")
+          assert 30 <= f.stat().st_size < 20_000_000, "Unexpected official CSV size"
+          print("NDC_OFFICIAL_CSV_BYTES",f.stat().st_size)
+          print("NDC_OFFICIAL_SOURCE_SHA256",hashlib.sha256(f.read_bytes()).hexdigest())
+          PY
+      - name: Train only on actual government TWD observations with enough holdout diversity
+        run: |
+          python training/atuber/ndc_taiwan_price_train.py \
+            --input /tmp/octuber-ndc-22933.csv \
+            --output artifacts/octuber-ndc-twd-calibration \
+            --train-neural --steps 500
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path("artifacts/octuber-ndc-twd-calibration/report.json").read_text())
+          print("NDC_ACCEPTED_REAL_ROWS",report["rows_accepted"])
+          print("NDC_DISTINCT_PRODUCTS",report["distinct_products"])
+          print("NDC_NEWEST_DATE",report["newest_observation"])
+          print("NDC_CURRENT_REFERENCE",report["current_reference_only"])
+          print("NDC_NEURAL_TRAINED",report["neural_trained"])
+          print("NDC_COMPARISON_SITE_ROWS",report["comparison_site_price_rows"])
+          assert report["comparison_site_price_rows"]==0
+          assert report["qwen_weight_updates"]==0
+          assert report["not_live_retail_quote"] if "not_live_retail_quote" in report else not report["merchant_identity_known"]
+          assert not report["automatic_repricing_enabled"]
+          PY
+      - name: Save aggregate-only, no raw purchase or retailer data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octuber-official-taiwan-price-calibration
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            artifacts/octuber-ndc-twd-calibration/report.json
+            artifacts/octuber-ndc-twd-calibration/model-ndc-public-twd.npz

@@ -2,6 +2,7 @@ import {useState} from "react";
 import {Cloud,ShieldCheck,Unplug} from "lucide-react";
 import {OCTUBER_HOSTED_OPTIONS,hostedOctuberState,verifyHostedOctuber,clearHostedOctuber,type HostedOctuberModel} from "./octuber-hosted";
 import "./octuber-api.css";
+import {setOctuberTierPreference} from "./atuber-control-plane";
 
 /**
  * Unlike model aliases, this panel only enables a tier after an actual paid
@@ -20,6 +21,9 @@ export default function HostedOctuberPanel(){
   try{
    const report=await verifyHostedOctuber(model,key);
    setActive(hostedOctuberState());setKey("");
+   // Explicitly selected and verified tier becomes the preferred chat capacity.
+   const approved=OCTUBER_HOSTED_OPTIONS.find(item=>item.id===model);
+   if(approved)setOctuberTierPreference(approved.tier);
    setNotice("實際推論成功 · "+(report.elapsedMs/1000).toFixed(1)+" 秒 · "+report.answer);
    if(!metered&&window.confirm("已驗證大型模型。要啟用對話中的「允許計費雲端 API」嗎？之後回覆可能產生服務商費用，首次傳送聊天內容前仍會確認。")){
     try{localStorage.setItem("vanilla.models.allow-metered.v1","true");}catch{}

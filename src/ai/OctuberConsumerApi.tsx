@@ -19,7 +19,7 @@ export default function OctuberConsumerApi(){
   let parsed:URL;try{parsed=new URL(endpoint.trim());}catch{throw new Error("請輸入已授權 API 的完整 HTTPS 網址");}
   if(parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.search||parsed.hash)
    throw new Error("API 網址需為 HTTPS，且不得包含帳密、查詢參數或片段");
-  if(/\b(?:localhost|127\.0\.0\.1)\b/i.test(parsed.hostname))
+  if(["localhost","127.0.0.1","[::1]"].includes(parsed.hostname))
    throw new Error("公用網站請使用可連線的 HTTPS 推論閘道，不可使用 localhost");
   const path=parsed.pathname.replace(/\/+$/,"").replace(/\/v1$/,"");
   return parsed.origin+path+"/v1";
@@ -66,7 +66,7 @@ export default function OctuberConsumerApi(){
   }catch(error){setStatus("推論測試失敗："+String(error instanceof Error?error.message:error));}
   finally{setWorking(false);}
  }
- const sample='curl -X POST "https://YOUR-DOMAIN/v1/chat/completions" \\\n  -H "Authorization: Bearer vnl_YOUR_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model":"vanilla-default","messages":[{"role":"user","content":"你好"}],"max_tokens":256,"stream":false}\'';
+ const sample="curl -X POST \"https://YOUR-DOMAIN/v1/chat/completions\" \\\n  -H \"Authorization: Bearer vnl_YOUR_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"vanilla-default\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}],\"max_tokens\":256,\"stream\":false}'";
  return <section className="octuber-consumer-api" aria-label="OCTUBER 使用者 API">
   <div className="connection-title"><KeyRound size={20}/><h3>已取得 API Key？在這裡啟用</h3></div>
   <p>適用於 Vanilla 自家核發的 <code>vnl_</code> API Key，不是 Gemini、DeepSeek 或 Ollama 的供應商金鑰。只在按下測試時送出請求，不會自動啟用第三方付費服務。</p>

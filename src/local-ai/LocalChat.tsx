@@ -75,6 +75,8 @@ import {prepareHumanization,finalizeHumanizedText} from "../erya/humanize";
 import {athenaScanFile,athenaScanText} from "../detroit/athena";
 import DetroitStages from "../detroit/DetroitStages";
 import {chooseDianaTool} from "../detroit/diana";
+import {auditGoCandidates} from "../detroit/awesome-go-live";
+import {goResearchEvidence,goResearchFallback} from "../detroit/awesome-go-conversation";
 import {planAtuberReadOnly} from "../detroit/atuber-tool-plan";
 import {parseAtuberPlannerRequest,buildAtuberPlannerPrompt,authorizeAtuberModelProposal} from "../detroit/atuber-model-tool-plan";
 import {executeAtuberReadOnly} from "../detroit/atuber-tool-coordinator";
@@ -818,13 +820,41 @@ async function send(value=draft):Promise<void>{
  // Preserve explicit /建立 and /改程式 intent before Diana's proactive routing.
  const slashTail=slashCommand?routeTail(question):null;
  // Image attachments take the image-capable path; preserve slash handling for text commands.
- const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream)});
+ const route=image?({kind:"continue"} as const):slashTail&&slashTail.kind!=="continue"?slashTail:routeMessage(question,{privateMode,hasCreamResult:history.some(x=>x.cream),hasModel:canReply});
  if(!image&&route.kind!=="diana"&&await runVenusImageLookup(question))return;
  let inlineFileContext="";
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
  switch(route.kind){
+  case "go-research":{
+   // The user requested actual Go technical evaluation: fetch bounded public
+   // GitHub metadata, then let the selected language model reason over receipts.
+   // Do not send private chat text to GitHub, install binaries or claim execution.
+   if(privateMode||!online){
+    if(canReply)break; // Local/offline model may answer from marked curated references.
+    toolReply(question,privateMode?
+     "私密模式不會聯網查核 GitHub；目前也沒有載入可用的文字模型。":
+     "目前離線，不能查核 GitHub；也沒有可用的文字模型。","diana");return;
+   }
+   setBusy(true);setLastRoute("正在讀取公開 GitHub 候選專案實際狀態…");
+   try{
+    const receipts=await auditGoCandidates(route.role);
+    const evidence=goResearchEvidence(route.role,receipts);
+    setBusy(false);
+    if(canReply){
+     await answerWithModel(question,{inlineFileContext:"",webContext:"",webSources:[],toolEvidence:evidence},question);
+    }else toolReply(question,goResearchFallback(route.role,receipts),"diana");
+   }catch(error){
+    setBusy(false);
+    const reason=error instanceof Error?error.message:String(error);
+    if(canReply){
+     await answerWithModel(question,{inlineFileContext:"",webContext:"",webSources:[],
+      toolEvidence:"GitHub 中繼資料查核未成功："+reason+"。只能提供待驗證的技術方向，不得聲稱取得最新資料或實際安裝。"},question);
+    }else toolReply(question,"Go 專案查核失敗："+reason+"。目前沒有可用文字模型；未產生分析結論。","diana");
+   }
+   return;
+  }
   case "diana":{
    if(await runVenusImageLookup(route.request,question))return;
    const pick=chooseDianaTool(route.request,{privateMode,hasCreamResult:history.some(x=>x.cream),online,hasModel:canReply},route.forcedTool);

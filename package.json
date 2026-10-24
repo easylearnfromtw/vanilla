@@ -37,6 +37,7 @@
     "eval:atuber-finance": "node scripts/atuber-finance-smoke.mjs",
     "test:atuber-preflight": "node --test tests/atuber-preflight.test.mjs",
     "test:octuber-hosted": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-hosted.test.mjs",
+    "test:octuber-native": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-native-local.test.mjs",
     "test:octuber-pricing": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-price-intelligence.test.mjs",
     "preflight:atuber": "node scripts/atuber-runtime-preflight.mjs",
     "test:atuber-model": "python3 -m unittest discover -s tests -p 'test_atuber_independent_model.py' && python3 -m unittest discover -s tests -p 'test_taiwan_pragmatics_dataset.py'",

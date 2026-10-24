@@ -8,6 +8,7 @@ import {readNDJSON} from "./stream-parsers";
 import {stripThinking,cleanModelOutput} from "./output-cleanup";
 import {ensureZhTw,toTaiwanese} from "./zh-tw";
 import {availableNodes,authFor,hasNodes,selectNode} from "../nodes/registry";
+import {recognizedLocalModelName,localOctuberBaseTier} from "./octuber-local-runtimes";
 
 const KEY="vanilla.ollama.connection.v1";
 const SECRET_KEY="vanilla.ollama.proxy-token.v1";
@@ -25,6 +26,12 @@ function stored():OllamaConfig{
 }
 let config=stored();
 let token="";
+// A configured model name or /api/tags entry is NOT a proven usable model.
+// Keep only successful live /api/chat proofs in memory for this tab.
+const verifiedLocalModels=new Set<string>();
+export function isOllamaModelVerified(model:string):boolean{
+ try{return Boolean(config.endpoint&&verifiedLocalModels.has(normalizeOllamaUrl(config.endpoint)+"|"+model));}catch{return false;}
+}
 try{token=sessionStorage.getItem(SECRET_KEY)||"";}catch{}
 
 export function getOllamaConfig():OllamaConfig{return {...config};}
@@ -34,6 +41,7 @@ export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  const model=next.model.trim();
  if(endpoint)normalizeOllamaUrl(endpoint);
  if(endpoint!==config.endpoint&&accessToken===undefined)token="";
+ if(endpoint!==config.endpoint||(accessToken!==undefined&&accessToken.trim()!==token))verifiedLocalModels.clear();
  const names=[model,...(next.models||[])].filter(Boolean);
  config={endpoint,model,models:[...new Set(names)].slice(0,4)};
  if(accessToken!==undefined)token=accessToken.trim();
@@ -45,7 +53,7 @@ export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  window.dispatchEvent(new Event("vanilla-ollama-changed"));
 }
 export function clearOllamaConfig(){
- config={endpoint:"",model:"",models:[]};token="";
+ config={endpoint:"",model:"",models:[]};token="";verifiedLocalModels.clear();
  try{localStorage.removeItem(KEY);sessionStorage.removeItem(SECRET_KEY);}catch{}
  window.dispatchEvent(new Event("vanilla-ollama-changed"));
 }
@@ -105,8 +113,9 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
  * A model appearing in /api/tags is NOT treated as a successful inference.
  * No paid cloud fallback, third-party credential, or persistent prompt logging.
  */
-export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:lg"|"octuber:flattering"|"octuber:modest"|"octuber:sumptuous"|"octuber:sumptuous-32b"):
+export async function probeAtuberModel(model:string):
  Promise<{model:string;elapsedMs:number;responseTokens:number|null}>{
+ if(!recognizedLocalModelName(model))throw new Error("請選擇支援的 OCTUBER 別名或已安裝的 Qwen3 基底型號");
  if(!config.endpoint)throw new Error("尚未設定可連接的 Ollama HTTPS 主機");
  const base=normalizeOllamaUrl(config.endpoint);
  // Production October models must belong to the owner's self-hosted runtime.
@@ -115,7 +124,7 @@ export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:
  const available=await testOllama(config.endpoint);
  if(!available.models.some(x=>x.name===model))throw new Error(model+" 尚未安裝在這台主機");
  const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),120000);
+ const timeout=setTimeout(()=>controller.abort(),240000);
  const started=performance.now();
  try{
   const res=await fetch(base+"/api/chat",{
@@ -130,10 +139,12 @@ export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:
   const answer=await res.json() as {done?:boolean;message?:{content?:string};eval_count?:number};
   if(answer.done!==true||typeof answer.message?.content!=="string"||!answer.message.content.trim())
    throw new Error("模型未回傳完整的有效答案");
+  verifiedLocalModels.add(base+"|"+model);
+  window.dispatchEvent(new Event("vanilla-ollama-changed"));
   return {model,elapsedMs:Math.round(performance.now()-started),
    responseTokens:Number.isInteger(answer.eval_count)?answer.eval_count!:null};
  }catch(error){
-  if(error instanceof Error&&error.name==="AbortError")throw new Error("推論超過 120 秒，未驗證成功");
+  if(error instanceof Error&&error.name==="AbortError")throw new Error("推論超過 240 秒，未驗證成功；可能是 CPU 載入速度或記憶體不足");
   throw error;
  }finally{clearTimeout(timeout);}
 }
@@ -155,7 +166,7 @@ export async function generateOllamaReply(history:ChatTurn[],model=config.model,
  const profile=profileFor("ollama",model);
  if(!structured)await ensureZhTw().catch(()=>undefined);
  const system=structured?STRUCTURED_SYSTEM_PROMPT:
-  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,tongcheng:isAtuberModel(model)})+
+  vanillaSystemPrompt({task,compact:profile.compactPrompt,latestUserText:latest,tongcheng:isAtuberModel(model)||Boolean(localOctuberBaseTier(model))})+
   (options.toolGrounding?"\n\n[Vanilla 應用程式提供的可信任工具事實；僅用於解釋功能，非操作授權]\n"+options.toolGrounding:"");
  const turns=fitHistory(history.slice(-20).map(x=>({role:x.role,content:x.content})),Math.max(1024,profile.contextTokens-profile.maxOutput[task]-estimateTokens(system)-64));
  const send=async(withThink:boolean)=>{

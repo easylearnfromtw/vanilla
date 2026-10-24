@@ -4,7 +4,8 @@ import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,s
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
 import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,octuberTierPreference,setOctuberTierPreference,type OctuberTierPreference} from "../ai/atuber-control-plane";
-import {getOllamaConfig,probeAtuberModel} from "../ai/ollama";
+import {getOllamaConfig,probeAtuberModel,isOllamaModelVerified} from "../ai/ollama";
+import {installedTierModel,localOctuberBaseNames} from "../ai/octuber-local-runtimes";
 import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
 
 type Props={
@@ -31,7 +32,7 @@ export default function LocalModelPanel(props:Props){
  const [diagnosedModel,setDiagnosedModel]=useState<string|null>(null);
  const [tierProbe,setTierProbe]=useState<Record<string,{ok:boolean;note:string}>>({});
  const [probingTier,setProbingTier]=useState<string|null>(null);
- async function runTierProbe(model:"october:sm"|"october:ml"|"october:lg"|"octuber:flattering"|"octuber:modest"|"octuber:sumptuous"|"octuber:sumptuous-32b"){
+ async function runTierProbe(model:string){
   if(probingTier)return;
   setProbingTier(model);
   setTierProbe(prev=>({...prev,[model]:{ok:false,note:"正在驗證模型推論…"}}));
@@ -75,7 +76,7 @@ export default function LocalModelPanel(props:Props){
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
    {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
    {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="OCTUBER 模型級距">
-    <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（本機 0.6B／自架 4B）、MODEST（14B）、SUMPTUOUS（30B MoE／32B Dense）。選擇偏好僅在對應自架模型已配置時生效，不會自動下載主機權重。</p>
+    <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（手機 0.6B／電腦 4B）、MODEST（電腦 14B）、SUMPTUOUS（電腦 30B MoE／32B Dense）。可以直接使用已裝好的 <code>qwen3:30b</code>，不必建立自訂別名；大型權重放在你的電腦，不下載到 iPhone。</p>
     <label className="local-model-note" htmlFor="octuber-tier-choice">運算規格偏好</label>
     <select id="octuber-tier-choice" value={tierChoice} onChange={event=>{const next=event.target.value as OctuberTierPreference;setTierChoice(next);setOctuberTierPreference(next);}}>
      <option value="auto">自動依任務選擇（預設）</option>
@@ -83,16 +84,16 @@ export default function LocalModelPanel(props:Props){
     </select>
     <p className="local-model-note">私密模式一律留在本機；複雜任務仍遵循最低能力級距，未連線或測試失敗的主機不應視為可用。</p>
     {[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].map(t=><div key={t.tier} className="local-model-note">
-     <strong>{t.brand}</strong> · {t.base} · 約 {t.approxDownloadGB} GB 權重檔 · {[t.model,t.publicAlias].some(name=>hostModels.has(name))?"已登記（待驗證）":"尚未登記"}
-     <p>部署別名：<code>{t.publicAlias}</code>（相容 <code>{t.model}</code>）</p>
-     {Boolean(getOllamaConfig().endpoint)&&[t.model,t.publicAlias].some(name=>hostModels.has(name))&&<button
+     <strong>{t.brand}</strong> · {t.base} · 約 {t.approxDownloadGB} GB 權重檔 · {(()=>{const detected=installedTierModel([...hostModels],t.tier,[t.model,t.publicAlias]);return detected?(isOllamaModelVerified(detected)?"已通過主機推論":"已設定（待實測）"):"未設定真實模型";})()}
+     <p>本地 Ollama：<code>{localOctuberBaseNames(t.tier).join("／")}</code>；可選擇使用部署別名 <code>{t.publicAlias}</code>。</p>
+     {Boolean(getOllamaConfig().endpoint)&&installedTierModel([...hostModels],t.tier,[t.model,t.publicAlias])&&<button
       type="button" disabled={probingTier!==null||!props.online}
-      onClick={()=>void runTierProbe(hostModels.has(t.publicAlias)?t.publicAlias:t.model)}>
-      {probingTier===(hostModels.has(t.publicAlias)?t.publicAlias:t.model)?"正在測試…":"實際推論測試"}
+      onClick={()=>void runTierProbe(installedTierModel([...hostModels],t.tier,[t.model,t.publicAlias])||t.model)}>
+      {probingTier===(installedTierModel([...hostModels],t.tier,[t.model,t.publicAlias])||t.model)?"正在測試…":"實際推論測試"}
      </button>}
-     {(tierProbe[t.model]||tierProbe[t.publicAlias])&&<p role="status" aria-live="polite" className={(tierProbe[t.model]||tierProbe[t.publicAlias]).ok?"local-model-status":"local-model-note"}>{(tierProbe[t.model]||tierProbe[t.publicAlias]).note}</p>}
+     {(()=>{const name=installedTierModel([...hostModels],t.tier,[t.model,t.publicAlias]);const result=name?tierProbe[name]:null;return result?<p role="status" aria-live="polite" className={result.ok?"local-model-status":"local-model-note"}>{result.note}</p>:null;})()}
     </div>)}
-    <p className="local-model-note">私密模式使用裝置端 0.6B；其他型號需由已授權主機承載，不會自行購買算力或轉用第三方模型。</p>
+    <p className="local-model-note">私密模式僅使用目前裝置端 0.6B；已授權的本地電腦 30B 屬於另一台裝置上的推論，會透過網路傳送內容，需在一般模式授權後使用。不會自行購買算力或轉用第三方模型。</p>
    </section>}
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}
    <div role="status" className={props.error?"local-model-error":"local-model-status"}>{props.status}{current&&current!==props.selected?" · 目前記憶體內為 "+(LOCAL_MODELS.find(x=>x.id===current)?.label||current):""}</div>

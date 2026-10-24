@@ -74,6 +74,7 @@ jobs:
       - run: npm run test:chat-router
       - run: npm run test:email
       - run: npm run test:model-tuning
+      - run: npm run test:octuber-native
       - run: npm run test:octuber-hosted
       - run: npm run test:atuber-preflight
       - run: npm run test:atuber-model

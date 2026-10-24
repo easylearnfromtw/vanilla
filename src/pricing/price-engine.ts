@@ -22,7 +22,7 @@ export function priceSearchSources():Array<{id:PriceSource;label:string;url:stri
  return [
   {id:"biggo",label:"BigGo 比個夠",url:"https://biggo.com.tw/"},
   {id:"feebee",label:"飛比價格",url:"https://feebee.com.tw/"},
-  {id:"lbj",label:"樂天比價網",url:"https://www.lbj.tw/BJ/Default.aspx"}
+  {id:"lbj",label:"比價撿便宜",url:"https://www.lbj.tw/BJ/Default.aspx"}
  ];
 }
 function parseCsvLine(line:string):string[]{
@@ -83,7 +83,9 @@ export function parsePriceRecords(raw:string,now=Date.now()):PriceRecord[]{
   const observed=normalize(row.observed_at??row.observedAt);
   let observedAt:number|null=null;
   if(observed){
-   const d=Date.parse(observed);if(!Number.isFinite(d)||d>now+300000)throw new Error("第 "+(index+1)+" 筆觀察時間不正確");
+   const numeric=Number(observed);
+   const d=Number.isFinite(numeric)&&numeric>100000000000?numeric:Date.parse(observed);
+   if(!Number.isFinite(d)||d>now+300000)throw new Error("第 "+(index+1)+" 筆觀察時間不正確");
    observedAt=d;
   }
   return {id:String(now)+"-"+index,product,sku,merchant,source,price,currency:"TWD" as const,url,observedAt,importedAt:now};
@@ -114,7 +116,7 @@ export function comparePrices(records:PriceRecord[],selectedKey:string,opts:{
  notes.push("尚未納入運費、折價券、規格版本、庫存與會員價格，採用前需人工覆核");
  let targetPrice:number|null=null;
  if(count>=2&&Number.isFinite(opts.currentPrice)&&opts.currentPrice>0
-   &&Number.isFinite(opts.cost)&&opts.cost>=0&&opts.minimumMargin>=0&&opts.minimumMargin<1){
+   &&Number.isFinite(opts.cost)&&opts.cost>=0&&marginValid){
   const maxChange=Math.min(0.25,Math.max(0.01,opts.maxChangeRate??0.1));
   const ceiling=opts.currentPrice*(1+maxChange);
   const lower=Math.max(floorPrice,opts.currentPrice*(1-maxChange));

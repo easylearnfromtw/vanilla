@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {parsePriceRecords,comparePrices,priceProductKey,priceSearchSources} from "../src/pricing/price-engine.ts";
-import {ATUBER_TIERS,ATUBER_LOCAL_MODEL,octuberTierPreference,setOctuberTierPreference} from "../src/ai/atuber-control-plane.ts";
+import {ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,ATUBER_LOCAL_MODEL,octuberTierPreference,setOctuberTierPreference} from "../src/ai/atuber-control-plane.ts";
 const STAMP=Date.parse("2026-10-24T11:00:00+08:00");
 const FEED=[
  {product:"Sony ABC",sku:"SONY-ABC-1",merchant:"店 A",source:"biggo",price:1680,observed_at:"2026-10-24T10:00:00+08:00"},
@@ -15,6 +15,8 @@ test("OCTUBER branding preserves verified legacy aliases and 0.6B bootstrap",()=
   "OCTUBER FLATTERING","OCTUBER MODEST","OCTUBER SUMPTUOUS"
  ]);
  assert.deepEqual(ATUBER_TIERS.map(x=>x.model),["october:sm","october:ml","october:lg"]);
+ assert.equal(OCTUBER_HIGH_CAPACITY.base,"qwen3:32b");
+ assert.equal(OCTUBER_HIGH_CAPACITY.label,"OCTUBER SUMPTUOUS · 32B Dense");
  assert.deepEqual(ATUBER_TIERS.map(x=>x.publicAlias),[
   "octuber:flattering","octuber:modest","octuber:sumptuous"
  ]);

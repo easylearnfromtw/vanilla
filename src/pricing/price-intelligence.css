@@ -1,0 +1,29 @@
+.octuber-pricing{display:flex;flex-direction:column;gap:16px}
+.octuber-pricing-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.octuber-pricing-head h2{font-size:24px;margin:8px 0}
+.octuber-pricing-head p{font-size:14px;line-height:1.6;opacity:.75}
+.octuber-pricing-overline{font-size:11px;letter-spacing:.14em;font-weight:750;opacity:.65}
+.octuber-price-sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px}
+.octuber-price-sites a{border:1px solid rgba(127,127,127,.22);border-radius:14px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;color:inherit;text-decoration:none;font-weight:650;font-size:13px}
+.octuber-price-sites a:hover{background:rgba(127,127,127,.075)}
+.octuber-pricing-note{font-size:12px;line-height:1.65;opacity:.68;display:flex;gap:7px;align-items:flex-start}
+.octuber-pricing-upload{display:flex;flex-direction:column;gap:9px;padding:16px;border:1px solid rgba(127,127,127,.20);border-radius:16px}
+.octuber-pricing-upload textarea{width:100%;max-width:100%;box-sizing:border-box;min-height:100px;resize:vertical;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;border:1px solid rgba(127,127,127,.25);border-radius:11px;padding:12px;background:transparent;color:inherit}
+.octuber-pricing-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.octuber-pricing-actions button,.octuber-file-label{display:inline-flex;gap:6px;align-items:center;border:1px solid rgba(127,127,127,.25);border-radius:11px;padding:10px 12px;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}
+.octuber-pricing-actions button.primary{background:#262b32;border-color:#262b32;color:#fff}
+.octuber-pricing-actions button:disabled{opacity:.45;cursor:not-allowed}
+.octuber-file-label input{display:none}
+.octuber-pricing-analysis{border-top:1px solid rgba(127,127,127,.22);padding-top:16px;display:flex;flex-direction:column;gap:14px}
+.octuber-pricing-analysis label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:600}
+.octuber-pricing-analysis input,.octuber-pricing-analysis select{border:1px solid rgba(127,127,127,.25);border-radius:11px;padding:10px 12px;color:inherit;background:var(--surface,#fff);max-width:100%}
+.octuber-pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.octuber-pricing-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.octuber-pricing-metrics>div{border:1px solid rgba(127,127,127,.18);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.octuber-pricing-metrics span{font-size:11px;opacity:.7}
+.octuber-pricing-metrics strong{font-size:15px;font-variant-numeric:tabular-nums}
+.octuber-pricing-table{overflow-x:auto;border:1px solid rgba(127,127,127,.20);border-radius:13px}
+.octuber-pricing-table table{width:100%;border-collapse:collapse;font-size:12px}
+.octuber-pricing-table th,.octuber-pricing-table td{padding:11px 12px;text-align:left;border-bottom:1px solid rgba(127,127,127,.12)}
+.octuber-pricing-table th{opacity:.7}
+@media (max-width:700px){.octuber-pricing-grid{grid-template-columns:1fr}.octuber-pricing-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

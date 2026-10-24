@@ -79,6 +79,8 @@ jobs:
           npm run test:octuber-pricing
           npm run test:atuber-preflight
           npm run test:atuber-model
+          python3 -m unittest discover -s tests -p 'test_octuber_multitier.py'
+          python3 training/atuber/multitier_train.py --tier 4b --steps 20 > /dev/null
           npm run test:small-model
           npm run test:reliability
           npm run test:archive

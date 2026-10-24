@@ -8,6 +8,7 @@ import type {TaskKind} from "./task-kind";
 import {isAtuberModel} from "./prompts";
 import {hostedOctuberOption,isHostedOctuberReady} from "./octuber-hosted";
 import {localOctuberBaseTier} from "./octuber-local-runtimes";
+import {isOllamaModelVerified} from "./ollama";
 
 export const ATUBER_SINGLE_DRIVER=true as const;
 export const ATUBER_LOCAL_MODEL="Qwen3-0.6B-q4f16_1-MLC" as const;
@@ -48,7 +49,7 @@ export function atuberTier(candidate:ModelCandidate):AtuberTier|null{
  // Real locally installed Ollama model weights are valid drivers without an
  // owner-created model alias. The runtime list and inference proof are separate.
  const native=localOctuberBaseTier(model);
- if(native)return native;
+ if(native&&isOllamaModelVerified(candidate.model))return native;
  // Backward-compatible owner-created October aliases. Unknown capacity is
  // deliberately NOT counted as a verified large model.
  return /^(?:october|octuber|atuber|阿土伯)(?::[a-z0-9._-]+)?$/i.test(candidate.model)&&isAtuberModel(candidate.model)?"custom":null;

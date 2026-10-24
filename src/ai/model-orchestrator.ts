@@ -11,8 +11,9 @@ import {profileFor,geminiLiteSibling} from "./model-profiles";
 import {ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY} from "./atuber-control-plane";
 import {localInferenceQueue} from "../detroit/zeus";
 import {createGenerationWatchdog,assertUsableModelAnswer} from "./generation-reliability";
+import {hostedOctuberState,hostedOctuberOption,generateHostedOctuber} from "./octuber-hosted";
 
-export type ModelSource="local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
+export type ModelSource="local"|"ollama"|"octuber-hosted"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
 import {classifyTask,type TaskKind} from "./task-kind";
 export {classifyTask,type TaskKind};
@@ -67,6 +68,11 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
   }
  }
  if(!options.online)return result;
+ // Paid third-party capacity is eligible ONLY after a real completion proved it works in this tab.
+ const hosted=hostedOctuberState();
+ if(hosted&&hostedOctuberOption(hosted.model))result.push({id:"octuber-hosted:"+hosted.model,source:"octuber-hosted",model:hosted.model,
+  label:hostedOctuberOption(hosted.model)!.label,location:"OpenRouter 託管雲端",
+  note:"實際 API 回答已驗證；可能計費，並將經確認的對話資料送至 OpenRouter"});
  const cfg=getConfigs();
  const gemini=cfg.find(x=>x.provider==="gemini");
  if(gemini){
@@ -87,7 +93,7 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
 }
 /** Quality prior from the model profile, adjusted per task (fast models win casual chat). */
 function baseScore(candidate:ModelCandidate,task:TaskKind):number{
- const profile=profileFor(candidate.source,candidate.model);
+ const profile=profileFor(candidate.source==="octuber-hosted"?"ollama":candidate.source,candidate.model);
  let score=profile.tier;
  if(task==="casual")score=candidate.source==="local"?90:Math.min(score,70)-4;
  if(candidate.source==="local"&&task!=="casual")score-=4; // phone models: honest about depth
@@ -106,7 +112,7 @@ export function rankedCandidates(candidates:ModelCandidate[],task:TaskKind,prior
   const approvals=graded.filter(r=>r.liked).length;
   const rejections=graded.length-approvals;
   const feedbackScore=Math.max(-12,Math.min(12,30*(approvals-rejections)/(6+graded.length)));
-  const params=profileFor(candidate.source,candidate.model).paramsB;
+  const params=profileFor(candidate.source==="octuber-hosted"?"ollama":candidate.source,candidate.model).paramsB;
   const localBonus=priority==="local-first"&&candidate.source==="local"&&params>=1.5&&(task==="general"||task==="casual")?26:0;
   const qualityBonus=priority==="quality"&&candidate.source==="gemini"?8:0;
   const selfHostedBonus=priority==="local-first"&&candidate.source==="ollama"&&candidate.location==="自架主機"?8:0;
@@ -124,7 +130,8 @@ export function topComparisonCandidates(candidates:ModelCandidate[],task:TaskKin
 /** Tokens available for the newest user message (question + attached context) per candidate.
  * Local phones have a 4K window; cloud models are capped for cost and latency, not capability. */
 export function promptBudgetFor(candidate:ModelCandidate,task:TaskKind):number{
- const profile=profileFor(candidate.source,candidate.model);
+ const profile=profileFor(candidate.source==="octuber-hosted"?"ollama":candidate.source,candidate.model);
+ if(candidate.source==="octuber-hosted")return 14000;
  if(candidate.source==="local")return Math.max(600,profile.contextTokens-profile.maxOutput[task]-(profile.compactPrompt?220:520)-520);
  if(candidate.source==="ollama")return Math.max(1200,profile.contextTokens-profile.maxOutput[task]-900-1200);
  return 24000;
@@ -146,6 +153,7 @@ export async function generateCandidate(candidate:ModelCandidate,history:ChatTur
    watchdog.signal
   );
   else if(candidate.source==="ollama")result=await generateOllamaReply(history,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding});
+  else if(candidate.source==="octuber-hosted")result=await generateHostedOctuber(history,candidate.model,{task,onText:report,signal:watchdog.signal,toolGrounding:optimization?.toolGrounding});
   else result=await generateCloudReply(candidate.source,history,image,candidate.model,{task,onText:report,signal:watchdog.signal,deep:optimization?.deep,toolGrounding:optimization?.toolGrounding});
   watchdog.assertCompleted();
   assertUsableModelAnswer(result);

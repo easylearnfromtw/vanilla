@@ -54,7 +54,7 @@ class VaultProtocolTests(unittest.TestCase):
     def test_exact_operation_allowlist(self):
         self.assertEqual(set(gas_relay._ALLOWED),
                          {"gemini","openai","deepseek","anthropic","openrouter",
-                          "telegram","canva","notion","brave","github"})
+                          "telegram","canva","notion","brave","tavily","github"})
         for methods in gas_relay._ALLOWED.values():
             self.assertNotIn("proxy", methods)
             self.assertNotIn("fetch_url", methods)

@@ -36,7 +36,7 @@ import {getSearchBridge,fetchSearchBridge} from "../search/search-bridge";
 import {canSearchViaWeiGuo} from "../weiguo/api";
 import {formatIndexedPages,type IndexedPage} from "../search/search-evidence";
 import {shouldAutoRunScouts} from "../search/scouts-execution";
-import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels} from "../detroit/veritas-gate";
+import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels,mayCompleteWithBoundedAnalysis,boundedAnalysisGuidance} from "../detroit/veritas-gate";
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import {toolKnowledgeAnswer,toolKnowledgeGuidance} from "../assistant/tool-knowledge";
@@ -1157,8 +1157,10 @@ async function send(value=draft):Promise<void>{
  }
  // Veritas checks provenance before factual answers reach any language model.
  const factPlan=classifyFactRequest(question);
+ let factGuidance="";
  if(!image&&!inlineFileContext&&!fileContext&&factPlan.needsLiveSources){
   const evidence=evaluateFactEvidence(question,webIndex);
+  if(!mayCompleteWithBoundedAnalysis(question,evidence,canReply)){
   if(evidence.status==="missing"){
    const reason=privateMode?"私密模式不會連網。":!contextPrefs.web?"自動查證已關閉。":
     "本次 Scouts 沒有取得足夠的可核對資料。";
@@ -1175,6 +1177,9 @@ async function send(value=draft):Promise<void>{
    {...TOOL.search,status:evidence.status==="official"?"ok":"partial",detail:evidence.reason},
    {webSources:evidence.pages.map(page=>({title:page.title,url:page.url,kind:page.kind}))});
   return;
+  }
+  // Open-ended current analysis is not reduced to a link list or a generic refusal.
+  factGuidance=boundedAnalysisGuidance(evidence);
  }
  if(!canReply){
   if(image){const reason=retinaUnavailableMessage({privateMode,localOnly:privateMode,online,geminiConfigured:providers.includes("gemini"),cloudAllowed:allowMetered});setFileStatus(reason);setLastRoute(reason);return;}
@@ -1186,11 +1191,11 @@ async function send(value=draft):Promise<void>{
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
  }
- await answerWithModel(question,{inlineFileContext,webContext,webSources},visibleClarificationAnswer);
+ await answerWithModel(question,{inlineFileContext,webContext,webSources,factGuidance},visibleClarificationAnswer);
 }
 
-async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string},visibleQuestion?:string){
- const {inlineFileContext,webContext,webSources,toolEvidence}=found;
+async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string},visibleQuestion?:string){
+ const {inlineFileContext,webContext,webSources,toolEvidence,factGuidance=""}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
  const nativeOrchestra=!image&&!nativeArtifact?planOrchestraAutoDraft(question):null;
@@ -1353,7 +1358,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
  const trustedToolGrounding=!humanize?toolKnowledgeGuidance(question):"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding;
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding+factGuidance;
  const compose=(candidate:ModelCandidate)=>{
   const budget=promptBudgetFor(candidate,task);
   // Small local/Ollama models need evidence, not 1K+ words of tool and style instructions.
@@ -1361,7 +1366,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const compact=candidate.source==="local"||candidate.source==="ollama"?
    compileSmallModelInput({question:modelQuestion,model:candidate.model,task,contexts,budgetTokens:budget,
     tableRequested:tableExpected,artifactRequested:Boolean(nativeOrchestra||nativeArtifact),
-    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):""}):null;
+    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):"",evidenceGuidance:factGuidance}):null;
   const prepared=compact?.reduced?compact:null;
   const finalGuidance=prepared?.guidance??(
    guidance+

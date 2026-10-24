@@ -100,3 +100,29 @@ export function qualifiedFactModels<T extends RouteCandidate>(candidates:T[],pla
  if(!plan.restrictTinyModel)return candidates;
  return candidates.filter(candidate=>candidate.source!=="local"||parseParamsB(candidate.model)>=1.2);
 }
+
+/** Strict exact-current facts must not be composed from unverified snippets.
+ * Open-ended analysis can instead explain its framework while acknowledging absent evidence.
+ * This separates an honest uncertainty disclosure from a non-answer.
+ */
+export function requiresVerifiedExactFact(question:string):boolean{
+ if(isExamScheduleQuestion(question))return true;
+ const q=question.trim();
+ return /(?:PGY|招生|招募|報名|考試|補助).{0,32}(?:時程|日期|時間|截止|哪天|何時|幾號|金額)/i.test(q)||
+  /(?:時程|日期|截止|哪天|何時|幾號).{0,26}(?:PGY|招生|招募|報名|考試)/i.test(q)||
+  /(?:股價|匯率|利率|票價|價格|現價|氣溫|溫度).{0,18}(?:多少|幾點|幾度|數字|價格)/i.test(q)||
+  /(?:多少|幾點|幾度).{0,18}(?:股價|匯率|利率|票價|價格|氣溫|溫度)/i.test(q);
+}
+/** Only a model-backed, non-exact analysis may continue after source indexing. */
+export function mayCompleteWithBoundedAnalysis(question:string,evidence:FactEvidence,hasModel:boolean):boolean{
+ if(!hasModel||!classifyFactRequest(question).needsLiveSources)return false;
+ if(requiresVerifiedExactFact(question))return false;
+ // Even a source index does not prove current facts; model must qualify claims.
+ return evidence.status==="missing"||evidence.status==="index";
+}
+/** This is guidance, not source content or evidence of a successful fetch. */
+export function boundedAnalysisGuidance(evidence:FactEvidence):string{
+ if(evidence.status==="missing")return "\n[Veritas｜無即時證據的需求完成原則] 此次沒有取得可核對的最新來源。仍須回答使用者真正要求的分析、原理、方法、決策比較或可執行檢查步驟；把未知的當期數字、官方日期、現行法條與具體事件逐一標成『未查證』，不可補造。不要只回覆『缺乏資料』，也不能假裝搜尋成功。\n";
+ if(evidence.status==="index")return "\n[Veritas｜來源層級] 本次僅取得公開來源索引／摘要，尚未完成語意及時效查證。先根據可取得的內容與穩定的背景知識回答需求，清楚區分已取得摘錄、一般推論和仍待官方核實的具體事實；摘要不可冒充全文。不要只列連結、不要虛構引用。\n";
+ return "";
+}

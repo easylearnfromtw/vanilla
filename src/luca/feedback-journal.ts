@@ -10,7 +10,7 @@ import {currentChatMode} from "../local-ai/chat-session";
 import type {TaskKind} from "../ai/task-kind";
 
 export type FeedbackAction="up"|"down"|"chosen";
-export type FeedbackProvider="local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter"|"other";
+export type FeedbackProvider="local"|"ollama"|"octuber-hosted"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter"|"other";
 export type LucaFeedback={id:string;at:string;action:FeedbackAction;task:TaskKind;provider:FeedbackProvider};
 export const LUCA_FEEDBACK_EVENT="vanilla-luca-feedback-changed";
 const PREFIX="vanilla.luca.feedback.v1.";
@@ -18,7 +18,7 @@ const MAX_EVENTS=500;
 const RETAIN_MS=90*24*60*60*1000;
 const ACTIONS:readonly FeedbackAction[]=["up","down","chosen"];
 const TASKS:readonly TaskKind[]=["casual","code","analysis","writing","vision","general"];
-const PROVIDERS:readonly FeedbackProvider[]=["local","ollama","gemini","deepseek","openai","anthropic","openrouter","other"];
+const PROVIDERS:readonly FeedbackProvider[]=["local","ollama","octuber-hosted","gemini","deepseek","openai","anthropic","openrouter","other"];
 const guest:LucaFeedback[]=[];
 
 function accountKey():string|null{

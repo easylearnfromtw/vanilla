@@ -71,7 +71,9 @@
     "test:slime-inference": "node --experimental-strip-types --test tests/slime-inference-backend.test.mjs",
     "test:sandbox": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-sandbox.test.mjs tests/detroit-sandbox-contest.test.mjs tests/detroit-sandbox-redteam.test.mjs",
     "test:atuber-sandbox": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/atuber-sandbox-5000.test.mjs",
-    "eval:atuber-sandbox": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs scripts/atuber-sandbox-5000.mjs --out artifacts/atuber-sandbox-5000"
+    "eval:atuber-sandbox": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs scripts/atuber-sandbox-5000.mjs --out artifacts/atuber-sandbox-5000",
+    "test:october-professional": "node --test tests/october-professional-150k.test.mjs",
+    "eval:october-professional": "node scripts/october-professional-150k.mjs --out artifacts/october-professional-150k"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

@@ -20,6 +20,12 @@ function money(value:number):string{return "NT$ "+Math.round(value).toLocaleStri
 export default function PriceIntelligencePanel(){
  const [rows,setRows]=useState<PriceRecord[]>(loadStoredPrices);
  const [feed,setFeed]=useState("");
+ const [manualProduct,setManualProduct]=useState("");
+ const [manualSku,setManualSku]=useState("");
+ const [manualMerchant,setManualMerchant]=useState("");
+ const [manualPrice,setManualPrice]=useState("");
+ const [manualSource,setManualSource]=useState("merchant");
+ const [manualUrl,setManualUrl]=useState("");
  const [status,setStatus]=useState("尚未載入報價。請提供你有權使用的 CSV／JSON 價格資料。");
  const [selected,setSelected]=useState("");
  const [current,setCurrent]=useState("");
@@ -46,6 +52,17 @@ export default function PriceIntelligencePanel(){
   try{const items=parsePriceRecords(feed);if(!items.length)throw Error("請先提供至少一筆報價");updateRows(items);setFeed("");}
   catch(error){setStatus("匯入失敗："+String(error instanceof Error?error.message:error));}
  }
+ function captureManualPrice(){
+  try{
+   const source=manualSource;
+   const records=parsePriceRecords(JSON.stringify([{
+    product:manualProduct,sku:manualSku,merchant:manualMerchant,source,
+    price:manualPrice,url:manualUrl,observed_at:new Date().toISOString(),currency:"TWD"
+   }]));
+   updateRows(records);
+   setManualMerchant("");setManualPrice("");setManualUrl("");
+  }catch(error){setStatus("價格紀錄無法保存："+String(error instanceof Error?error.message:error));}
+ }
  function exportPrices(){
   const data=JSON.stringify(rows,null,2);
   const blob=new Blob([data],{type:"application/json"});
@@ -60,6 +77,19 @@ export default function PriceIntelligencePanel(){
    {priceSearchSources().map(site=><a key={site.id} href={site.url} target="_blank" rel="noopener noreferrer">{site.label} <ArrowUpRight size={13}/></a>)}
   </div>
   <p className="octuber-pricing-note"><ShieldCheck size={14}/> 以上為外部人工比價入口，並非已連接的 API。飛比禁止未授權自動化蒐集，樂天比價網也有網站驗證；取得合法 API／資料授權後才可接入自動同步。</p>
+  <div className="octuber-pricing-upload">
+   <strong>快速擷取一筆價格</strong>
+   <p className="octuber-pricing-note">從上方比價網站查看商品後，填入當下看到的真實商家與售價。這是使用者確認的手動紀錄，系統不會聲稱自動讀取網站。</p>
+   <div className="octuber-pricing-grid">
+    <label>商品名稱<input value={manualProduct} onChange={e=>setManualProduct(e.target.value)} placeholder="商品名稱與完整規格"/></label>
+    <label>SKU／型號<input value={manualSku} onChange={e=>setManualSku(e.target.value)} placeholder="最好提供精確型號"/></label>
+    <label>賣家名稱<input value={manualMerchant} onChange={e=>setManualMerchant(e.target.value)} placeholder="商家名稱"/></label>
+    <label>售價（NT$）<input type="number" inputMode="decimal" min="1" value={manualPrice} onChange={e=>setManualPrice(e.target.value)} placeholder="1599"/></label>
+    <label>資料來源<select value={manualSource} onChange={e=>setManualSource(e.target.value)}><option value="merchant">商家官網</option><option value="biggo">BigGo</option><option value="feebee">飛比</option><option value="lbj">樂天比價網</option><option value="authorized-feed">授權資料</option></select></label>
+    <label>原始商品網址（選填）<input type="url" value={manualUrl} onChange={e=>setManualUrl(e.target.value)} placeholder="https://..."/></label>
+   </div>
+   <div className="octuber-pricing-actions"><button type="button" className="primary" disabled={!manualProduct.trim()||!manualMerchant.trim()||!manualPrice.trim()} onClick={captureManualPrice}>儲存這筆報價</button></div>
+  </div>
   <div className="octuber-pricing-upload">
    <label htmlFor="octuber-feed">匯入授權來源價格資料（CSV 或 JSON）</label>
    <textarea id="octuber-feed" rows={4} value={feed} onChange={e=>setFeed(e.target.value)} placeholder={"product,sku,merchant,source,price,observed_at\n商品型號,SKU-123,商家甲,biggo,1599,2026-10-24T10:00:00+08:00"}/>

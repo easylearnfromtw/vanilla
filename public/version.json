@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.01-octuber-30b-training-pipeline",
-  "description": "30B model R&D pipeline: real opt-in QLoRA, reviewed data, merged safetensors/GGUF provenance; trained weights do not yet exist"
+  "build": "2026.10.25.02-hermes-firecrawl-research",
+  "description": "Pinned 210 Hermes core/optional skill catalog, explicit OCTUBER skill reference, user-authorized Firecrawl v2 scrape and human-reviewed knowledge intake; neural weights untrained"
 }

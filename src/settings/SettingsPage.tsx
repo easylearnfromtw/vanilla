@@ -4,6 +4,7 @@ import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import ToneSettings from "../ai/ToneSettings";
 import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
+import HermesSkillsPanel from "../hermes/HermesSkillsPanel";
 import ModelConnections from "../ai/ModelConnections";
 import OctuberConsumerApi from "../ai/OctuberConsumerApi";
 import HostedOctuberPanel from "../ai/HostedOctuberPanel";
@@ -59,7 +60,7 @@ export default function SettingsPage(){
   <section className="panel settings-card" id="models"><h2>AI 模型</h2><OctuberConsumerApi/><div className="octuber-api-divider"/><HostedOctuberPanel/><div className="octuber-api-divider"/><ModelConnections/><ApiVaultPanel/></section>
   <TuningCard/>
   <section className="panel settings-card" id="pricing"><PriceIntelligencePanel/></section>
-  <section className="panel settings-card" id="style"><h2>語氣與來源</h2><ToneSettings/><SourceSettings/></section>
+  <section className="panel settings-card" id="style"><h2>語氣與來源</h2><ToneSettings/><SourceSettings/><HermesSkillsPanel/></section>
   <section className="panel settings-card" id="appearance"><h2>外觀</h2>
    <div className="font-settings"><h3>字型</h3><p>自動模式依文字語系使用系統字型（iPhone 為蘋方）；也可以手動指定，設定保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div>
   </section>

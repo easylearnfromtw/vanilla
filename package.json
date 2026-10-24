@@ -42,6 +42,7 @@
     "preflight:atuber": "node scripts/atuber-runtime-preflight.mjs",
     "test:atuber-model": "python3 -m unittest discover -s tests -p 'test_atuber_independent_model.py' && python3 -m unittest discover -s tests -p 'test_taiwan_pragmatics_dataset.py'",
     "test:octuber-weights": "python3 -m unittest discover -s tests -p 'test_octuber_sumptuous_30b.py'",
+    "test:hermes-firecrawl": "node --experimental-strip-types --test tests/hermes-firecrawl.test.mjs && python3 -m unittest discover -s tests -p 'test_octuber_knowledge_ingest.py'",
     "test:small-model": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/small-model-scaffold.test.mjs",
     "test:reliability": "node --experimental-strip-types --test tests/generation-reliability.test.mjs",
     "test:archive": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/conversation-archive.test.mjs",

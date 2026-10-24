@@ -99,7 +99,8 @@ function ollamaProfile(model:string):ModelProfile{
  // 14B/30B would silently lose their intended thinking configuration.
  const octoberBaseParams:Record<string,number>={
   "october:sm":4,"october:ml":14,"october:lg":30,
-  "octuber:flattering":4,"octuber:modest":14,"octuber:sumptuous":30
+  "octuber:flattering":4,"octuber:modest":14,"octuber:sumptuous":30,
+  "octuber:sumptuous-32b":32
  };
  const aliasParams=octoberBaseParams[name];
  const paramsB=aliasParams??(parseParamsB(name)||(/taide/.test(name)?8:7));

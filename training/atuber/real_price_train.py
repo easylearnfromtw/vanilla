@@ -166,6 +166,9 @@ def train_price_model(rows, source_file: Path, output: Path, *, steps: int = 150
     baseline=[by_category.get(r["category"],fallback) for r in test]
     neural_err=report_error(actual,pred)
     baseline_err=report_error(actual,baseline)
+    # Do not silently overwrite a prior training run or its provenance.
+    if output.exists() and any(output.iterdir()):
+        raise ValueError("PRICE_TRAINING_OUTPUT_MUST_BE_NEW_AND_EMPTY")
     output.mkdir(parents=True,exist_ok=True)
     weights=output/"price-model.pt"
     torch.save({"state":model.state_dict(),"categories":categories,

@@ -5,6 +5,7 @@ import ToneSettings from "../ai/ToneSettings";
 import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
 import ModelConnections from "../ai/ModelConnections";
+import ApiVaultPanel from "../weiguo/ApiVaultPanel";
 import DriveConnection from "../vault/DriveConnection";
 import SlimeWalletPanel from "../slime/SlimeWalletPanel";
 import "../slime/slime-wallet.css";
@@ -52,7 +53,7 @@ export default function SettingsPage(){
    <p>每個家庭成員使用自己的 Google 帳號與私有 Drive 空間；共用資料需另外授權，不會自動混合。</p>
    <DriveConnection/><ChatSyncSettings/><SlimeWalletPanel/>
   </section>
-  <section className="panel settings-card" id="models"><h2>AI 模型</h2><ModelConnections/></section>
+  <section className="panel settings-card" id="models"><h2>AI 模型</h2><ModelConnections/><ApiVaultPanel/></section>
   <TuningCard/>
   <section className="panel settings-card" id="style"><h2>語氣與來源</h2><ToneSettings/><SourceSettings/></section>
   <section className="panel settings-card" id="appearance"><h2>外觀</h2>

@@ -108,6 +108,24 @@ async function callDeepSeek(config:ProviderConfig,model:string,history:ChatTurn[
 export async function generateCloudReply(provider:Provider,history:ChatTurn[],image?:ImageInput,modelOverride?:string,options:CloudOptions={}):Promise<string>{
  if(image&&provider!=="gemini")throw new Error("圖片辨識目前僅支援 Gemini，請切換至 Gemini API");
  const config=configs.get(provider);if(!config)throw new Error("尚未連接 "+provider+" API");
+ if(config.key==="managed:gas"){
+  if(image)throw new Error("GAS API Vault 目前僅支援文字模型；圖片請使用受控的其他路由");
+  const {relayVanillaVault}=await import("../weiguo/api");
+  const model=config.model;
+  const task=options.task??classifyTask(history[history.length-1]?.content||"",false);
+  const structured=options.purpose==="structured";
+  const system=structured?STRUCTURED_SYSTEM_PROMPT:
+   vanillaSystemPrompt({task,compact:false,latestUserText:history[history.length-1]?.content||"",image:false})+
+   (options.toolGrounding?"\n\n[工具事實]\n"+options.toolGrounding:"");
+  const reply=await relayVanillaVault(provider,"chat",{messages:[
+   {role:"system",content:system},
+   ...history.slice(-18).map(x=>({role:x.role,content:x.content}))
+  ],max_tokens:1024},model);
+  if(typeof reply.text!=="string"||!reply.text.trim())throw new Error("GAS API Vault 未回傳模型文字");
+  const raw=structured?stripThinking(reply.text).text.trim():toTaiwanese(cleanModelOutput(reply.text));
+  options.onText?.(raw);
+  return raw;
+ }
  if(config.key==="managed:weiguo"){
   if(provider!=="gemini"||image)throw new Error("目前受控雲端代理只支援 Gemini 純文字");
   const {generateWeiGuoGemini}=await import("../weiguo/api");

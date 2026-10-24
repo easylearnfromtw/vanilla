@@ -36,6 +36,7 @@ from ceres_slime_web import router as ceres_slime_web_router
 from ceres_model_routes import router as ceres_model_router
 from ceres_model_ops_routes import router as ceres_ops_router
 from family_model_gateway import router as family_model_router
+from gas_relay import router as gas_relay_router
 from vanilla_public_api import router as vanilla_public_router, admin_router as vanilla_admin_router
 from slime_runner_bridge import router as slime_runner_router
 from vanilla_api_console import router as vanilla_console_router
@@ -188,6 +189,7 @@ app.include_router(ceres_slime_web_router)
 app.include_router(ceres_model_router)
 app.include_router(ceres_ops_router)
 app.include_router(family_model_router)
+app.include_router(gas_relay_router)
 app.include_router(vanilla_public_router)
 app.include_router(slime_runner_router)
 app.include_router(vanilla_admin_router)

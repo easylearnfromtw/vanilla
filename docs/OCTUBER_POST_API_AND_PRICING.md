@@ -15,7 +15,8 @@
 | OCTUBER FLATTERING | 裝置端 | Qwen3 0.6B | 直接以 WebLLM 識別碼載入 | 同上 |
 | OCTUBER FLATTERING | 自架 Ollama | qwen3:4b | `octuber:flattering` | `october:sm` |
 | OCTUBER MODEST | 自架 Ollama | qwen3:14b | `octuber:modest` | `october:ml` |
-| OCTUBER SUMPTUOUS | 自架 Ollama | qwen3:30b | `octuber:sumptuous` | `october:lg` |
+| OCTUBER SUMPTUOUS | 自架 Ollama | qwen3:30b MoE | `octuber:sumptuous` | `october:lg` |
+| OCTUBER SUMPTUOUS（進階）| 自架 Ollama | qwen3:32b Dense | `octuber:sumptuous-32b` | 新增規格 |
 
 > 這些是**展示名稱與部署別名**，不等於重新訓練、合併、通過效能測試或買了算力。介面中的容量是基底權重約略下載大小，不代表實際裝置 RAM／VRAM 需求。
 
@@ -30,6 +31,9 @@ ollama pull qwen3:14b
 ollama create octuber:modest -f deployment/ollama/Modelfile.atuber-ml
 ollama pull qwen3:30b
 ollama create octuber:sumptuous -f deployment/ollama/Modelfile.atuber-lg
+ollama pull qwen3:32b
+# 32B Dense 需要採用對應的 Modelfile，而非重用 30B 的 FROM 設定。
+# 以專屬 Modelfile 部署，並經實測才加入白名單。
 ollama list
 ```
 

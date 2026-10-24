@@ -1341,7 +1341,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
  const trustedToolGrounding=!humanize?toolKnowledgeGuidance(question):"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"");
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding;
  const compose=(candidate:ModelCandidate)=>{
   const budget=promptBudgetFor(candidate,task);
   // Small local/Ollama models need evidence, not 1K+ words of tool and style instructions.
@@ -1352,7 +1352,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):""}):null;
   const prepared=compact?.reduced?compact:null;
   const finalGuidance=prepared?.guidance??(
-   guidance+(candidate.source==="local"?trustedToolGrounding:"")+
+   guidance+
    venusPresentationGuidance(question,task,candidate.source==="local"));
   const composed=composeUserPrompt(modelQuestion,prepared?.contexts??contexts,finalGuidance,budget);
   const labels=composed.included.map(x=>x.label+(x.truncated?"（節錄）":""));

@@ -90,7 +90,7 @@ test("iOS device detection also covers iPadOS desktop-user-agent mode",()=>{
  assert.equal(isIOSWebLLMDevice("Mozilla/5.0", "MacIntel",0),false);
  assert.equal(isIOSWebLLMDevice("Mozilla/5.0 (X11; Linux x86_64)"),false);
 });
-test("iPhone cached weights are never auto-initialized and large models require confirmation",()=>{
+test("legacy iPhone auto-cache guard and manual large-model warning remain conservative",()=>{
  assert.equal(shouldAutoLoadCachedModel(true),false);
  assert.equal(shouldAutoLoadCachedModel(false),true);
  assert.equal(needsMobileMemoryConfirmation(true,945),false);
@@ -114,6 +114,9 @@ test("all devices require explicit opt-in for UI-thread WebGPU inference",()=>{
  assert.match(engine,/await releaseEngine\(old\)/);
  assert.match(panel,/checked=\{worker==="auto"\}/);
  assert.match(panel,/所有裝置在背景執行緒失敗時都不會自動回退主執行緒/);
- assert.match(chat,/shouldAutoLoadCachedModel\(iosDevice\)/);
+ assert.match(chat,/startupModelAttempt\.current/);
+ assert.match(chat,/if\(!cached&&\(saveData\|\|!navigator\.onLine\)\)/);
+ assert.match(chat,/setUpgradeDialog\(true\)/);
+ assert.doesNotMatch(chat,/mayFallbackToMainThread\(/);
  assert.match(chat,/if\(!iosDevice&&/);
 });

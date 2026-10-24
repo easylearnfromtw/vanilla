@@ -1,0 +1,75 @@
+name: OCTUBER licensed historical prices 1M lab
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "training/atuber/uci_retail_million.py"
+      - "tests/test_octuber_uci_retail_million.py"
+      - "docs/OCTUBER_MILLION_REAL_RETAIL_TRAINING.md"
+      - ".github/workflows/octuber-million-public-prices.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  licensed-real-price-pilot:
+    # Public, no GPU, no secrets, no merchant writes or private API requests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify source parser using invented unit-test fixtures (never training inputs)
+        run: python -m unittest discover -s tests -p 'test_octuber_uci_retail_million.py' -v
+      - name: Install CPU scientific array package
+        run: python -m pip install --no-input --disable-pip-version-check "numpy>=1.26,<3"
+      - name: Obtain official CC BY 4.0 UCI source — no BigGo/Feebee/LBJ scraping
+        run: |
+          curl --fail --show-error --location --retry 2 --connect-timeout 25 \
+            --max-time 240 \
+            "https://archive.ics.uci.edu/static/public/502/online%2Bretail%2Bii.zip" \
+            --output /tmp/octuber-uci-online-retail-ii.zip
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          path=Path("/tmp/octuber-uci-online-retail-ii.zip")
+          assert path.stat().st_size > 10000000, "UCI source suspiciously small"
+          with zipfile.ZipFile(path) as z:
+              assert any(f.endswith(".xlsx") for f in z.namelist())
+          print("VERIFIED_UCI_SOURCE_BYTES",path.stat().st_size)
+          PY
+      - name: Process licensed historical transactions and train neural GBP research model
+        run: |
+          python training/atuber/uci_retail_million.py \
+            --dataset /tmp/octuber-uci-online-retail-ii.zip \
+            --out artifacts/octuber-uci-gbp-history \
+            --train-neural
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          result=json.loads(Path("artifacts/octuber-uci-gbp-history/ingestion-summary.json").read_text())
+          train=json.loads(Path("artifacts/octuber-uci-gbp-history/training-report.json").read_text())
+          print("TRUE_ROWS_READ",result["actual_processed_rows"])
+          print("TRUE_ROWS_ACCEPTED",result["accepted_valid_unique_price_rows"])
+          print("TRUE_TRAINING_ROWS",train["training_records_actually_used"])
+          print("MILLION_TRAINING_ROWS_CONFIRMED",result["million_training_rows_reached"])
+          print("TRUE_NEURAL_UPDATES",train["model_optimizer_updates"])
+          assert result["accepted_valid_unique_price_rows"] <= result["actual_processed_rows"]
+          assert train["training_records_actually_used"] <= result["partition_rows"]["train"]
+          assert train["suitable_for_2026_taiwan_retail_quote"] is False
+          assert train["real_qwen_lora_steps"] == 0
+          PY
+      - name: Preserve reports and model only — never upload customer or invoice data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octuber-real-historical-price-audit
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/octuber-uci-gbp-history/ingestion-summary.json
+            artifacts/octuber-uci-gbp-history/training-report.json
+            artifacts/octuber-uci-gbp-history/model-uk-historical-prices.npz

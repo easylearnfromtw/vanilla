@@ -1,11 +1,12 @@
 import {useState} from "react";
 import "./octuber-api.css";
 import {Cable,CheckCircle2,RefreshCw,ShieldAlert} from "lucide-react";
-import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConfig,testOllama,generateOllamaReply,type OllamaModel} from "./ollama";
+import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConfig,testOllama,generateOllamaReply,probeAtuberModel,isOllamaModelVerified,type OllamaModel} from "./ollama";
 import {getVoteCount,getRatingCount,resetModelChoices} from "./model-orchestrator";
 import {clearModelHealth,recordModelRun} from "./model-health";
 import {isTaiwanTaideEnabled,setTaiwanTaideEnabled,isTaideModel} from "./taiwan-routing";
-import {ATUBER_TIERS,OCTUBER_HIGH_CAPACITY} from "./atuber-control-plane";
+import {ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,setOctuberTierPreference} from "./atuber-control-plane";
+import {localOctuberBaseTier,installedTierModel,recognizedLocalModelName,localOctuberBaseNames} from "./octuber-local-runtimes";
 export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
  const [url,setUrl]=useState(stored.endpoint);
@@ -15,7 +16,7 @@ export default function ModelConnections(){
  const [models,setModels]=useState<OllamaModel[]>([]);
  const [busy,setBusy]=useState(false);
  const [notice,setNotice]=useState("");
- const [inferenceVerified,setInferenceVerified]=useState(false);
+ const [inferenceVerified,setInferenceVerified]=useState(()=>Boolean(getOllamaConfig().model&&isOllamaModelVerified(getOllamaConfig().model)));
  const [count,setCount]=useState(getVoteCount);
  const [ratingCount,setRatingCount]=useState(getRatingCount);
  const [taiwanRoute,setTaiwanRoute]=useState(isTaiwanTaideEnabled);
@@ -26,15 +27,16 @@ export default function ModelConnections(){
    const result=await testOllama(url,secret.trim()||undefined);
    setModels(result.models);
    const discovered=result.models.map(x=>x.name);
-   setEnabledModels(previous=>[...new Set([model,...previous.filter(x=>discovered.includes(x))].filter(Boolean))].slice(0,4));
+   setEnabledModels(previous=>[...new Set([model,...previous.filter(x=>discovered.includes(x))].filter(x=>discovered.includes(x))].slice(0,4));
    setNotice("成功連線："+result.models.length+" 個已下載模型。請選擇其中之一並儲存。");
-   if(!model&&result.models.length){setModel(result.models[0].name);setEnabledModels([result.models[0].name]);}
+   if(!result.models.some(x=>x.name===model)&&result.models.length){setModel(result.models[0].name);setEnabledModels([result.models[0].name]);}
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}
   finally{setBusy(false);}
  }
  function save(){
   try{
    if(!url.trim()||!model.trim()){setNotice("請提供連線網址與模型名稱");return;}
+   if(models.length>0&&!models.some(x=>x.name===model)){setNotice("這個模型未出現在主機的 /api/tags；請先在電腦下載完成，再取得模型清單。");return;}
    setOllamaConfig({endpoint:url,model,models:enabledModels.includes(model)?enabledModels:[model,...enabledModels].slice(0,4)},secret.trim()||undefined);
    setStored(getOllamaConfig());setSecret("");setInferenceVerified(false);
    setNotice("已儲存 Ollama 連線。若尚未測試，使用時可能因 CORS 或網路設定而失敗。");
@@ -45,10 +47,14 @@ export default function ModelConnections(){
   setBusy(true);setNotice("正在測試已儲存的 "+stored.model+"，低效能 CPU 可能需要一段時間…");
   const started=Date.now();
   try{
-   const reply=await generateOllamaReply([{role:"user",content:"這是連線測試。請只回答：OK"}],stored.model);
+   const named=recognizedLocalModelName(stored.model);
+   const reply=named?await probeAtuberModel(stored.model):null;
+   const text=reply?"已連線":await generateOllamaReply([{role:"user",content:"這是連線測試。請只回答：OK"}],stored.model);
+   if(reply){const tier=localOctuberBaseTier(stored.model)??[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].find(t=>t.model===stored.model||t.publicAlias===stored.model)?.tier;
+    if(tier)setOctuberTierPreference(tier);}
    const seconds=Math.max(0.1,(Date.now()-started)/1000);
    recordModelRun("ollama:"+stored.model,true,Date.now()-started);
-   setInferenceVerified(true);setNotice("推論成功（"+seconds.toFixed(1)+" 秒），回覆：「"+reply.slice(0,80)+"」。已把耗時納入本機模型排序。");
+   setInferenceVerified(true);setNotice("主機實際推論成功（"+seconds.toFixed(1)+" 秒），回覆：「"+(typeof text==="string"?text.slice(0,80):"已連線")+"」。已可在聊天選用本地大型模型；模型在電腦而非手機運算。");
   }catch(error){
    setInferenceVerified(false);
    recordModelRun("ollama:"+stored.model,false,Date.now()-started);
@@ -64,20 +70,20 @@ export default function ModelConnections(){
    <div className={stored.endpoint?"done":""}><span>03</span><strong>儲存使用設定</strong><small>可調整規格與自動路由</small></div>
    <div className={inferenceVerified?"done":""}><span>04</span><strong>驗證實際回答</strong><small>{inferenceVerified?"已通過此分頁測試":"避免僅取得 API 就顯示已上線"}</small></div>
   </div>
-  <p className="octuber-api-note">拿到 API Key 後：貼到下方保護欄位 → 測試連線 → 選擇已安裝的 OCTUBER 規格 → 儲存並執行推論驗證。Key 只保存在本次瀏覽工作階段，不進入網址或聊天紀錄。</p>
+  <p className="octuber-api-note"><strong>本地 30B 不需要付費雲端 Key。</strong>在你自己的 Windows／Mac／Linux 電腦用 Ollama 下載 30B，這裡讀取已安裝的 <code>qwen3:30b</code>／<code>qwen3:30b-a3b</code>／<code>qwen3-coder:30b</code>；不必額外建立 octuber 別名。若從 iPhone 使用，請提供有授權和 HTTPS 的電腦推論端點。</p>
   <p>可連接受 HTTPS 保護的自架 Ollama、家用電腦、雲端 VM，或 Ollama 官方雲端。你可隨時修改模型 ID、網址與候選模型；更換前可先測試連線。<strong>這不是 iPhone 裝置端運算</strong>。自架推論通常沒有逐次 API 費，但需自行負擔設備；官方 Ollama Cloud 僅有有限的免費起始點數，可能另行計費。</p>
   <label htmlFor="ollama-address">HTTPS 連線網址</label>
-  <input id="ollama-address" type="url" value={url} spellCheck={false} autoCapitalize="none" placeholder="https://your-private-ollama.example" onChange={e=>setUrl(e.target.value)} />
+  <input id="ollama-address" type="url" value={url} spellCheck={false} autoCapitalize="none" placeholder="https://your-private-ollama.example" onChange={e=>{setUrl(e.target.value);setModels([]);setInferenceVerified(false);}} />
   <label htmlFor="ollama-model">模型 ID（可隨時替換）</label>
   <input id="ollama-model" type="text" value={model} spellCheck={false} autoCapitalize="none" list="ollama-model-list" placeholder="例如 qwen2.5:3b" onChange={e=>setModel(e.target.value)} />
   <datalist id="ollama-model-list">{models.map(m=><option key={m.name} value={m.name}>{m.details?.parameter_size||""}</option>)}</datalist>
   <div className="octuber-host-preset" aria-label="OCTUBER 快速選擇規格">
    {[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].map(t=>{
-    const installed=[t.publicAlias,t.model].find(alias=>models.some(m=>m.name===alias));
+    const installed=installedTierModel(models.map(m=>m.name),t.tier,[t.publicAlias,t.model]);
     return <button key={t.tier} type="button" disabled={Boolean(models.length)&&!installed}
      className={model===(installed||t.publicAlias)?"active":""}
      onClick={()=>{setModel(installed||t.publicAlias);setEnabledModels(before=>[...new Set([installed||t.publicAlias,...before])].slice(0,4));setInferenceVerified(false);}}>
-     <strong>{t.brand}</strong><small>{t.base} · 約 {t.approxDownloadGB} GB</small><small>{models.length?(installed?"主機已安裝":"主機尚未安裝"):"尚未偵測主機"}</small>
+     <strong>{t.brand}</strong><small>本地型號：{localOctuberBaseNames(t.tier).join("／")} · 權重約 {t.approxDownloadGB} GB</small><small>{models.length?(installed?"已偵測 "+installed+" · 待實測":"主機尚未安裝"):"尚未偵測主機"}</small>
     </button>;
    })}
   </div>
@@ -98,7 +104,7 @@ export default function ModelConnections(){
    {stored.endpoint&&<button type="button" disabled={busy} onClick={()=>void testInference()}>測試模型實際回答</button>}
    {stored.endpoint&&<button type="button" disabled={busy} onClick={remove}>中斷連線</button>}
   </div>
-  {stored.endpoint&&<p className="connection-current"><CheckCircle2 size={14}/>已設定：{stored.model}（候選模型 {stored.models.length} 個）。儲存設定不代表主機持續在線。</p>}
+  {stored.endpoint&&<p className="connection-current"><CheckCircle2 size={14}/>已設定：{stored.model}（候選模型 {stored.models.length} 個）。{isOllamaModelVerified(stored.model)?"本分頁已通過實際推論，現在可選用。":"尚未通過實際推論；30B 不能只憑名稱視為可用。"}主機仍需持續開機。</p>}
   <div className="connection-status" role="status">{notice}</div>
   <div className="connection-security"><ShieldAlert size={16}/><span>iPhone 開啟的 GitHub Pages 網站使用 HTTPS，無法可靠連接家中未加密的 HTTP 服務。瀏覽器中的 localhost 指的是 iPhone，而不是家庭伺服器。可透過已驗證的 HTTPS 私有代理提供連線。</span></div>
   <div className="connection-preferences"><div>

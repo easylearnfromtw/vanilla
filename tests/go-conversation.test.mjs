@@ -45,7 +45,7 @@ test("chat feeds metadata into the model and never treats Go research as a scrip
  const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  assert.match(chat,/case "go-research":/);
  assert.match(chat,/auditGoCandidates\(route.role\)/);
- assert.match(chat,/answerWithModel\(question,\{inlineFileContext:"",webContext:"",webSources:\[\],toolEvidence:evidence\},question\)/);
+ assert.match(chat,/await answerWithModel\(question,\{inlineFileContext,webContext,webSources,toolEvidence:goEvidence\|\|undefined,factGuidance\}/);
  assert.match(chat,/if\(privateMode\|\|!online\)/);
  const ctx={privateMode:false,hasCreamResult:false,hasModel:true};
  assert.equal(routeMessage("推薦 Slime 的 Go 套件",ctx).kind,"go-research");

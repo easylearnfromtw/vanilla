@@ -3,7 +3,7 @@ import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-
 import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,diagnoseLocalModelDownload,type LocalModelId} from "./engine";
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
-import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,octuberTierPreference,setOctuberTierPreference,type OctuberTierPreference} from "../ai/atuber-control-plane";
+import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,octuberTierPreference,setOctuberTierPreference,type OctuberTierPreference} from "../ai/atuber-control-plane";
 import {getOllamaConfig,probeAtuberModel} from "../ai/ollama";
 import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
 
@@ -31,7 +31,7 @@ export default function LocalModelPanel(props:Props){
  const [diagnosedModel,setDiagnosedModel]=useState<string|null>(null);
  const [tierProbe,setTierProbe]=useState<Record<string,{ok:boolean;note:string}>>({});
  const [probingTier,setProbingTier]=useState<string|null>(null);
- async function runTierProbe(model:"october:sm"|"october:ml"|"october:lg"|"octuber:flattering"|"octuber:modest"|"octuber:sumptuous"){
+ async function runTierProbe(model:"october:sm"|"october:ml"|"october:lg"|"octuber:flattering"|"octuber:modest"|"octuber:sumptuous"|"octuber:sumptuous-32b"){
   if(probingTier)return;
   setProbingTier(model);
   setTierProbe(prev=>({...prev,[model]:{ok:false,note:"正在驗證模型推論…"}}));
@@ -75,14 +75,14 @@ export default function LocalModelPanel(props:Props){
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
    {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
    {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="OCTUBER 模型級距">
-    <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（本機 0.6B／自架 4B）、MODEST（14B）、SUMPTUOUS（30B）。選擇偏好僅在對應自架模型已配置時生效，不會自動下載主機權重。</p>
+    <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（本機 0.6B／自架 4B）、MODEST（14B）、SUMPTUOUS（30B MoE／32B Dense）。選擇偏好僅在對應自架模型已配置時生效，不會自動下載主機權重。</p>
     <label className="local-model-note" htmlFor="octuber-tier-choice">運算規格偏好</label>
     <select id="octuber-tier-choice" value={tierChoice} onChange={event=>{const next=event.target.value as OctuberTierPreference;setTierChoice(next);setOctuberTierPreference(next);}}>
      <option value="auto">自動依任務選擇（預設）</option>
-     {ATUBER_TIERS.map(t=><option key={t.tier} value={t.tier}>{t.label}</option>)}
+     {[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].map(t=><option key={t.tier} value={t.tier}>{t.label}</option>)}
     </select>
     <p className="local-model-note">私密模式一律留在本機；複雜任務仍遵循最低能力級距，未連線或測試失敗的主機不應視為可用。</p>
-    {ATUBER_TIERS.map(t=><div key={t.tier} className="local-model-note">
+    {[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].map(t=><div key={t.tier} className="local-model-note">
      <strong>{t.brand}</strong> · {t.base} · 約 {t.approxDownloadGB} GB 權重檔 · {[t.model,t.publicAlias].some(name=>hostModels.has(name))?"已登記（待驗證）":"尚未登記"}
      <p>部署別名：<code>{t.publicAlias}</code>（相容 <code>{t.model}</code>）</p>
      {Boolean(getOllamaConfig().endpoint)&&[t.model,t.publicAlias].some(name=>hostModels.has(name))&&<button

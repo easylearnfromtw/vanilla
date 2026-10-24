@@ -49,7 +49,7 @@ ollama list
 三個站點僅是**人工開啟的比價入口**：
 - BigGo <https://biggo.com.tw/>
 - 飛比 <https://feebee.com.tw/>
-- 樂天比價網 <https://www.lbj.tw/BJ/Default.aspx>
+- 比價撿便宜 <https://www.lbj.tw/BJ/Default.aspx>
 
 沒有經過授權不得爬取受保護的網站。若日後取得官方 API／合作來源的授權，才加入後端定期同步與完整資料憑證。現階段只處理使用者有權提供的資料，沒有聲稱站點已整合或目前價格已讀取。
 

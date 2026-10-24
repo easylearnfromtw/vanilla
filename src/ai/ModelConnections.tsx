@@ -5,7 +5,7 @@ import {getOllamaConfig,getOllamaTokenConfigured,setOllamaConfig,clearOllamaConf
 import {getVoteCount,getRatingCount,resetModelChoices} from "./model-orchestrator";
 import {clearModelHealth,recordModelRun} from "./model-health";
 import {isTaiwanTaideEnabled,setTaiwanTaideEnabled,isTaideModel} from "./taiwan-routing";
-import {ATUBER_TIERS} from "./atuber-control-plane";
+import {ATUBER_TIERS,OCTUBER_HIGH_CAPACITY} from "./atuber-control-plane";
 export default function ModelConnections(){
  const [stored,setStored]=useState(getOllamaConfig);
  const [url,setUrl]=useState(stored.endpoint);
@@ -72,7 +72,7 @@ export default function ModelConnections(){
   <input id="ollama-model" type="text" value={model} spellCheck={false} autoCapitalize="none" list="ollama-model-list" placeholder="例如 qwen2.5:3b" onChange={e=>setModel(e.target.value)} />
   <datalist id="ollama-model-list">{models.map(m=><option key={m.name} value={m.name}>{m.details?.parameter_size||""}</option>)}</datalist>
   <div className="octuber-host-preset" aria-label="OCTUBER 快速選擇規格">
-   {ATUBER_TIERS.map(t=>{
+   {[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].map(t=>{
     const installed=[t.publicAlias,t.model].find(alias=>models.some(m=>m.name===alias));
     return <button key={t.tier} type="button" disabled={Boolean(models.length)&&!installed}
      className={model===(installed||t.publicAlias)?"active":""}

@@ -83,6 +83,8 @@ jobs:
           npm run test:reliability
           npm run test:archive
           npm run test:providers
+      - name: Atuber review-only SFT safety gate
+        run: python3 -m unittest discover -s tests -p 'test_atuber_sandbox_review.py'
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Slime secure pairing and reconnect regression tests

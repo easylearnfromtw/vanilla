@@ -95,3 +95,11 @@ test("low remaining budget fails visibly rather than fabricating context",()=>{
  assert.ok(compiled.notices.some(x=>x.includes("上下文不足")));
  assert.ok(compiled.notices.some(x=>x.includes("原始問題過長")));
 });
+
+test("tiny model preserves task completion guidance when latest research is unverified",()=>{
+ const x=compileSmallModelInput({...defaults,question:"分析今年醫療市場",contexts:[],evidenceGuidance:"沒有取得最新公開報告；先完成一般分析，具體營收數字不得假稱已驗證。"});
+ assert.equal(x.reduced,true);
+ assert.match(x.guidance,/查證邊界/);
+ assert.match(x.guidance,/先完成一般分析/);
+ assert.match(x.guidance,/優先完成原題需求/);
+});

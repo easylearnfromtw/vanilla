@@ -43,10 +43,16 @@ jobs:
           PY
       - name: Train only on actual government TWD observations with enough holdout diversity
         run: |
+          # PR runs demonstrate one-off historical calibration. Scheduled runs
+          # only retrain if the official observation date is genuinely recent.
+          extra=""
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            extra="--research-historical"
+          fi
           python training/atuber/ndc_taiwan_price_train.py \
             --input /tmp/octuber-ndc-22933.csv \
             --output artifacts/octuber-ndc-twd-calibration \
-            --train-neural --steps 500
+            --train-neural --steps 500 $extra
           python - <<'PY'
           import json
           from pathlib import Path

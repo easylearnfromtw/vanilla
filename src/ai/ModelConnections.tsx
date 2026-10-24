@@ -27,7 +27,7 @@ export default function ModelConnections(){
    const result=await testOllama(url,secret.trim()||undefined);
    setModels(result.models);
    const discovered=result.models.map(x=>x.name);
-   setEnabledModels(previous=>[...new Set([model,...previous.filter(x=>discovered.includes(x))].filter(x=>discovered.includes(x))].slice(0,4));
+   setEnabledModels(previous=>[...new Set([model,...previous].filter(x=>discovered.includes(x)))].slice(0,4));
    setNotice("成功連線："+result.models.length+" 個已下載模型。請選擇其中之一並儲存。");
    if(!result.models.some(x=>x.name===model)&&result.models.length){setModel(result.models[0].name);setEnabledModels([result.models[0].name]);}
   }catch(e){setNotice(e instanceof Error?e.message:String(e));}

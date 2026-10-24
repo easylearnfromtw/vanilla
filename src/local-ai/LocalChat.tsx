@@ -40,6 +40,7 @@ import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels,mayComplete
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import {toolKnowledgeAnswer,toolKnowledgeGuidance} from "../assistant/tool-knowledge";
+import {activeHermesSkillContext} from "../hermes/hermes-skills";
 import {discoverPythonTools} from "../detroit/python-tool-discovery";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
@@ -1396,6 +1397,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  if(victoriaContext)contexts.push({id:"victoria",label:"Victoria 舊對話",priority:2,text:victoriaContext});
  if(projectExtra)contexts.push({id:"project",label:"專案程式碼",priority:3,text:projectExtra});
  if(creamExtra)contexts.push({id:"cream",label:"CREAM 歷史",priority:3,text:creamExtra});
+ // User-selected Hermes SKILL.md is external procedural reference only: no new tool rights.
+ if(!humanize){const hermesContext=await activeHermesSkillContext(privateMode);
+  if(hermesContext)contexts.push({id:"hermes-selected",label:"Hermes 已選用技能（僅參考）",priority:4,text:hermesContext});}
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
  const trustedToolGrounding=!humanize&&!toolEvidence?.startsWith("Awesome Go 實際查核回條")?toolKnowledgeGuidance(question):"";

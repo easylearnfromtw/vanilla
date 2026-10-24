@@ -166,6 +166,7 @@ def main(argv=None):
  ap.add_argument("--input",required=True,type=Path)
  ap.add_argument("--output",required=True,type=Path)
  ap.add_argument("--train-neural",action="store_true")
+ ap.add_argument("--research-historical",action="store_true",help="Explicit one-off study on older sourced data; never for scheduled recurring refresh")
  ap.add_argument("--steps",type=int,default=500)
  args=ap.parse_args(argv)
  if args.output.exists() and any(args.output.iterdir()):raise ValueError("OUTPUT_MUST_BE_NEW_EMPTY_DIRECTORY")
@@ -187,11 +188,15 @@ def main(argv=None):
          "automatic_repricing_enabled":False,"neural_trained":False}
  args.output.mkdir(parents=True,exist_ok=True)
  if args.train_neural:
-  try:
-   result["calibration"]=train_model(parts,steps=args.steps,output=args.output)
-   result["neural_trained"]=True
-  except ValueError as err:
-   result["calibration_status"]="SKIPPED_"+str(err)
+  if age>14 and not args.research_historical:
+   result["calibration_status"]="SKIPPED_STALE_NDC_SOURCE_NO_RETRAIN"
+  else:
+   try:
+    result["calibration"]=train_model(parts,steps=args.steps,output=args.output)
+    result["neural_trained"]=True
+    result["calibration_context"]="HISTORICAL_RESEARCH_ONLY" if age>14 else "RECENT_SOURCE_RESEARCH_ONLY"
+   except ValueError as err:
+    result["calibration_status"]="SKIPPED_"+str(err)
  result_path=args.output/"report.json"
  result_path.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf8")
  print("OCTUBER_TAIWAN_PRICE_CALIBRATION",json.dumps(result,ensure_ascii=False))

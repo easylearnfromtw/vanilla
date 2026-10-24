@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from auth import FamilyIdentity, family_user
 from ceres_admin_policy import check_identity, enforce, provider_key, provider_enabled
+from gas_relay import gas_provider_enabled, gas_service_call, _relay as gas_relay
 
 router = APIRouter(prefix="/v1/family/canva", tags=["canva"])
 _API = "https://api.canva.com/rest/v1"
@@ -47,6 +48,8 @@ def _token() -> str:
         enabled=os.environ.get("WEIGUO_CANVA_ENABLED", "").lower()=="true"
     if not enabled:
         raise HTTPException(503, "Canva 雲端適配器預設停用")
+    if gas_provider_enabled("canva"):
+        return "managed:gas"
     value = provider_key("canva") or os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()
     if len(value) < 20 or "\n" in value or "\r" in value:
         raise HTTPException(503, "Canva OAuth 存取權杖尚未在後端安全配置")
@@ -63,6 +66,23 @@ def _safe_url(raw: object) -> str | None:
 
 
 async def _canva_call(method: str, suffix: str, token: str, payload: dict | None = None) -> dict:
+    # Both backends use the same fixed approved Canva paths.
+    if gas_provider_enabled("canva"):
+        if method == "POST" and suffix == "/image-generations":
+            operation, data = "image_generate", payload or {}
+        elif method == "POST" and suffix == "/generations":
+            operation, data = "design_generate", payload or {}
+        elif method == "GET" and suffix.startswith("/image-generations/"):
+            operation, data = "job_status", {"kind": "image", "job_id": suffix.split("/")[-1]}
+        elif method == "GET" and suffix.startswith("/generations/"):
+            operation, data = "job_status", {"kind": "presentation", "job_id": suffix.split("/")[-1]}
+        else:
+            raise HTTPException(400, "不支援的 Canva GAS 操作")
+        upstream = await gas_service_call("canva", operation, data)
+        response_data = upstream.get("data")
+        if not isinstance(response_data, dict) or not isinstance(response_data.get("job"), dict):
+            raise HTTPException(502, "Canva GAS 回應未提供任務資訊")
+        return response_data["job"]
     # Fixed API origin, method and path. No URL input is accepted from a model or user.
     try:
         async with httpx.AsyncClient(timeout=20, follow_redirects=False, trust_env=False) as client:
@@ -122,9 +142,18 @@ async def status(user: FamilyIdentity = Depends(family_user)):
     enabled = provider_enabled("canva")
     if enabled is None:
         enabled = os.environ.get("WEIGUO_CANVA_ENABLED", "").lower() == "true"
-    configured = enabled and len(provider_key("canva") or os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()) >= 20
+    if enabled and gas_provider_enabled("canva"):
+        try:
+            inventory=await gas_relay({"action": "status"})
+            configured=bool(inventory.get("providers", {}).get("canva", {}).get("configured"))
+        except HTTPException:
+            configured=False
+        mode="gas-vault-token"
+    else:
+        configured = enabled and len(provider_key("canva") or os.environ.get("WEIGUO_CANVA_ACCESS_TOKEN", "").strip()) >= 20
+        mode="operator-provisioned-oauth-token"
     return {"configured": configured, "enabled": enabled, "preview": True,
-            "authMode": "operator-provisioned-oauth-token",
+            "authMode": mode,
             "availableKinds": ["image", "presentation"] if configured else []}
 
 

@@ -93,6 +93,7 @@ export function summarizeTeachers(state:TeacherState):TeacherSummary{
   thumbsUp:examples.filter(x=>x.selectedBy==="thumbs-up").length,
   byProvider:{local:examples.filter(x=>x.teacher.provider==="local").length,
    ollama:examples.filter(x=>x.teacher.provider==="ollama").length,
+   "octuber-hosted":examples.filter(x=>x.teacher.provider==="octuber-hosted").length,
    gemini:examples.filter(x=>x.teacher.provider==="gemini").length,
    deepseek:examples.filter(x=>x.teacher.provider==="deepseek").length,
    openai:examples.filter(x=>x.teacher.provider==="openai").length,

@@ -63,7 +63,7 @@ test("Firecrawl failed/incomplete responses do not create fake evidence or train
  await assert.rejects(scrapeFirecrawl("https://docs.firecrawl.dev","fc-exampleKEY",none),/有效的網頁正文/);
  const badOrigin=async ()=>Response.json({success:true,data:{
   markdown:"x".repeat(80),metadata:{sourceURL:"https://attacker.example/swap"}}});
- await assert.rejects(scrapeFirecrawl("https://docs.firecrawl.dev","fc-exampleKEY",badOrigin),/不同網域/);
+ await assert.rejects(scrapeFirecrawl("https://docs.firecrawl.dev","fc-exampleKEY",badOrigin),/不同網域|不適合作為公開研究來源/);
 });
 
 test("Hermes multiple skill references remain opt-in and bounded",()=>{

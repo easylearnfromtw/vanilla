@@ -17,18 +17,20 @@ function harness(settings={}){
  const context={
   PropertiesService:{getScriptProperties:()=>({
    getProperty:(key)=>values.get(key)||null,
-   setProperty:(key,value)=>{values.set(key,value);return null;}
+   setProperty:(key,value)=>{values.set(key,value);return null;},
+   setProperties:(items)=>{for(const [key,value] of Object.entries(items))values.set(key,value);return null;}
   })},
   LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})},
   ContentService:{MimeType:{JSON:"json"},createTextOutput:s=>({value:s,setMimeType(){return this;}})},
   Utilities:{
    getUuid:()=>"00000000-0000-4000-8000-000000000000",
+   base64Encode:(value)=>Buffer.from(value,"utf8").toString("base64"),
    computeHmacSha256Signature:(text,secret)=>[...crypto.createHmac("sha256",secret).update(text).digest()].map(n=>n>127?n-256:n),
    base64DecodeWebSafe:(encoded)=>[...Buffer.from(encoded,"base64")].map(n=>n>127?n-256:n),
    newBlob:(bytes)=>({getDataAsString:()=>Buffer.from(bytes.map(n=>n&255)).toString("utf8")})
   },
   UrlFetchApp:{fetch:(url,opts)=>{calls.push({url,opts});return {
-   getResponseCode:()=>200,getContentText:()=>JSON.stringify(upstream)
+   getResponseCode:()=>200,getContentText:()=>JSON.stringify(typeof upstream==="function"?upstream(url,opts):upstream)
   };}},
   console
  };
@@ -157,4 +159,28 @@ test("Status lists all eleven approved providers with no credentials",()=>{
  assert.deepEqual(Object.keys(providers).sort(),
  ["gemini","openai","deepseek","anthropic","openrouter","telegram",
   "canva","notion","brave","tavily","github"].sort());
+});
+
+test("Canva OAuth refresh rotates single-use credentials without returning secrets",()=>{
+ const h=harness({
+  VAULT_KEY_CANVA:"expired-access-token-123456789012345",
+  VAULT_CANVA_EXPIRES_AT:String(Math.floor(Date.now()/1000)-40),
+  VAULT_CANVA_CLIENT_ID:"canva-client-demo",
+  VAULT_CANVA_CLIENT_SECRET:"canva-secret-demo",
+  VAULT_CANVA_REFRESH_TOKEN:"refresh-token-abcdefghijklmnop"
+ });
+ h.setUpstream(url=>url.endsWith("/oauth/token")?{
+  token_type:"Bearer",access_token:"new-access-token-abcdefghijklmnop",
+  refresh_token:"new-refresh-token-abcdefghijklmnop",expires_in:14400
+ }:{id:"me"});
+ const packet=h.sign({action:"relay",approved_cloud_send:true,
+  provider:"canva",operation:"profile",payload:{}});
+ const result=h.send(packet);
+ assert.equal(result.ok,true);
+ assert.equal(h.calls.length,2);
+ assert.equal(h.values.get("VAULT_CANVA_REFRESH_TOKEN"),
+   "new-refresh-token-abcdefghijklmnop");
+ assert.equal(JSON.stringify(result).includes("new-refresh-token-"),false);
+ assert.equal(h.calls[1].opts.headers.Authorization,
+   "Bearer new-access-token-abcdefghijklmnop");
 });

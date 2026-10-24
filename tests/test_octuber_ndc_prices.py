@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"training"/"atuber"))
-from ndc_taiwan_price_train import parse_date,read_prices,group_split
+from ndc_taiwan_price_train import parse_date,read_prices,group_split,main
 
 def item(n):
  return {"日期":"114/10/24","商品類別":"分類"+str(n%6),"商品名稱":f"測試商品編號{n:03d}",
@@ -51,4 +51,17 @@ class NDCTaiwanPricing(unittest.TestCase):
    path.write_text("product,merchant,price\nApple,ABC,100\n",encoding="utf8")
    with self.assertRaisesRegex(ValueError,"NDC_EXPECTED_COLUMN"):
     read_prices(path)
+ def test_scheduled_refresh_skips_stale_data_instead_of_faking_new_prices(self):
+  import json
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/"source.csv"
+   output=Path(d)/"out"
+   fixture(path,[item(i) for i in range(120)])
+   self.assertEqual(main(["--input",str(path),"--output",str(output),
+                          "--train-neural","--steps","100"]),0)
+   report=json.loads((output/"report.json").read_text(encoding="utf8"))
+   self.assertEqual(report["calibration_status"],"SKIPPED_STALE_NDC_SOURCE_NO_RETRAIN")
+   self.assertFalse(report["neural_trained"])
+   self.assertFalse((output/"model-ndc-public-twd.npz").exists())
+
 if __name__=="__main__":unittest.main()

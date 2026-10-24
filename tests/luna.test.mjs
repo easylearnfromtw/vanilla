@@ -11,6 +11,7 @@ test("LUNA templates produce original editable documents",()=>{
   assert.ok(doc.layers.length>=4);
   assert.deepEqual(parseLuna(JSON.parse(JSON.stringify(doc))),doc);
   assert.equal(new Set(doc.layers.map(x=>x.id)).size,doc.layers.length);
+  assert.ok(doc.layers.filter(x=>x.kind==="text").every(x=>!/LUNA\s*\/\s*VANILLA|VANILLA AI/i.test(x.text||"")),"preset exports should not include product branding as a watermark");
  }
 });
 test("offline prompt composition labels genuine deterministic templates",()=>{

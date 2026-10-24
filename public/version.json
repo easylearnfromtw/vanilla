@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.24.10-octuber-native-local-30b",
-  "description": "Verified paid Qwen3 14B / 30B MoE / 32B hosted inference directly available in OCTUBER chat"
+  "build": "2026.10.25.01-octuber-30b-training-pipeline",
+  "description": "30B model R&D pipeline: real opt-in QLoRA, reviewed data, merged safetensors/GGUF provenance; trained weights do not yet exist"
 }

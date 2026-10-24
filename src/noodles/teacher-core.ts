@@ -4,7 +4,7 @@
  * Third-party output reuse is opt-in and subject to the provider's terms/rights.
  */
 export type TeacherTask="casual"|"code"|"analysis"|"writing"|"vision"|"general";
-export type TeacherOrigin="local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
+export type TeacherOrigin="local"|"ollama"|"octuber-hosted"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
 export type TeacherExample={
  id:string;at:number;task:TeacherTask;prompt:string;chosen:string;rejected?:string;
  teacher:{provider:TeacherOrigin;model:string};
@@ -19,7 +19,7 @@ export const TEACHER_DEFAULT:TeacherState={version:1,settings:{enabled:true,allo
 const MAX_EXAMPLES=60;
 const MAX_AGE=90*86400000;
 const TASKS:TeacherTask[]=["casual","code","analysis","writing","vision","general"];
-const PROVIDERS:TeacherOrigin[]=["local","ollama","gemini","deepseek","openai","anthropic","openrouter"];
+const PROVIDERS:TeacherOrigin[]=["local","ollama","octuber-hosted","gemini","deepseek","openai","anthropic","openrouter"];
 const MODEL_SAFE=/^[\w.\/:-]{1,100}$/;
 const BLOCKLIST=[
  /\b(?:sk-[A-Za-z0-9_-]{12,}|GOCSPX-[A-Za-z0-9_-]{6,}|github_pat_[A-Za-z0-9_]{12,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/i,

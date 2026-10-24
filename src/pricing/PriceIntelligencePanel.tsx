@@ -1,4 +1,5 @@
 import {useMemo,useState} from "react";
+import "./price-intelligence.css";
 import {ArrowUpRight,BarChart3,Download,RefreshCw,ShieldCheck} from "lucide-react";
 import {comparePrices,parsePriceRecords,priceProductKey,priceSearchSources,type PriceRecord} from "./price-engine";
 

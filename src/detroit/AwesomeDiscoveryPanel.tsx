@@ -1,7 +1,9 @@
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import {ArrowLeft,ArrowUpRight,Clipboard,Download,Search,ShieldCheck} from "lucide-react";
 import {currentChatMode} from "../local-ai/chat-session";
 import {awesomeIntegrationProposal,loadAwesomeCatalog,loadAwesomeProjects,reviewAwesomeRepo,type AwesomeEntry,type AwesomeReview} from "./awesome-discovery";
+import {auditGoCandidates,goIntegrationTask,GO_ROLE_LABELS,type GoAudit} from "./awesome-go-live";
+import type {GoRole} from "./awesome-go";
 import "./awesome-discovery.css";
 
 export default function AwesomeDiscoveryPanel(){
@@ -13,6 +15,30 @@ export default function AwesomeDiscoveryPanel(){
  const [category,setCategory]=useState("全部");
  const [busy,setBusy]=useState(false);
  const [notice,setNotice]=useState("尚未連接 Awesome 公開索引。");
+ const [goRole,setGoRole]=useState<GoRole>("slime");
+ const [goAudits,setGoAudits]=useState<GoAudit[]>([]);
+ const [goBusy,setGoBusy]=useState(false);
+ const [goNotice,setGoNotice]=useState("選擇模組後按下查核，即時查詢 GitHub 候選專案；不會執行程式碼。");
+ const goController=useRef<AbortController|null>(null);
+ useEffect(()=>()=>goController.current?.abort(),[]);
+ function chooseGoRole(role:GoRole){goController.current?.abort();setGoRole(role);setGoAudits([]);setGoBusy(false);setGoNotice("已切換模組；尚未查核新的候選專案。");}
+ async function auditGo(){
+  if(privateMode){setGoNotice("私密模式禁止對外查核；請在一般模式主動執行。");return;}
+  goController.current?.abort();const controller=new AbortController();goController.current=controller;
+  setGoAudits([]);setGoBusy(true);setGoNotice("正在向 GitHub 查核公開專案維護資訊及授權；不傳送聊天紀錄。");
+  try{
+   const result=await auditGoCandidates(goRole,{signal:controller.signal});
+   if(controller.signal.aborted)return;
+   setGoAudits(result);
+   setGoNotice("已完成 "+result.length+" 筆候選查核。通過只代表可進入隔離驗證，不代表套件已安裝。");
+  }catch(e){if(!controller.signal.aborted)setGoNotice("查核失敗："+(e instanceof Error?e.message:String(e)));}
+  finally{if(goController.current===controller)setGoBusy(false);}
+ }
+ function handoffGo(audit:GoAudit){
+  if(privateMode)return setGoNotice("私密模式禁止移交程式工作台。");
+  try{window.dispatchEvent(new CustomEvent("vanilla-open-builder",{detail:{idea:goIntegrationTask(audit),mode:"code"}}));}
+  catch(e){setGoNotice("交接失敗："+(e instanceof Error?e.message:String(e)));}
+ }
  const privateMode=currentChatMode()==="private";
  const showing=selected?projects:catalog;
  const categories=useMemo(()=>["全部",...new Set(showing.map(item=>item.category))], [showing]);
@@ -70,6 +96,36 @@ export default function AwesomeDiscoveryPanel(){
    {selected&&<button type="button" disabled={busy} onClick={()=>{setSelected(null);setReview(null);setQuery("");setCategory("全部");setNotice("已回到主題目錄。");}}><ArrowLeft size={15}/>返回主題</button>}
    {selected&&<a href={selected.url} target="_blank" rel="noopener noreferrer">查看主題原始清單 <ArrowUpRight size={13}/></a>}
   </div>}
+  <section className="awesome-go-live" aria-label="Awesome Go 即時查核與實作交接">
+   <div className="awesome-section-label"><span>GO / EXECUTABLE NEXT STEP</span><span>LIVE METADATA · OPT-IN</span></div>
+   <h3>從清單走到實作</h3>
+   <p>選模組 → 查核真實 GitHub 專案 → 選擇候選 → 將經過驗證的實作工作交給 Self-Build。這不是自動安裝，需有人審核 PR。</p>
+   <div className="awesome-go-controls">
+    <label htmlFor="awesome-go-role">目標模組
+     <select id="awesome-go-role" value={goRole} disabled={goBusy} onChange={e=>chooseGoRole(e.target.value as GoRole)}>
+      {(Object.keys(GO_ROLE_LABELS) as GoRole[]).map(role=><option key={role} value={role}>{GO_ROLE_LABELS[role]}</option>)}
+     </select>
+    </label>
+    <button type="button" className="detroit-primary" disabled={goBusy||privateMode} onClick={()=>void auditGo()}>{goBusy?"正在查核…":"查核實際 GitHub 候選"}</button>
+   </div>
+   <p role="status" className="awesome-status">{goNotice}</p>
+   {!!goAudits.length&&<div className="awesome-go-results">
+    {goAudits.map(item=><article key={item.reference.id}>
+     <div><strong>{item.reference.name}</strong><small>{item.reference.category} · {item.status==="verified"?"已取得可評估資訊":item.status==="blocked"?"授權或封存阻擋":item.status==="unresolved"?"找不到實際專案":"查核失敗"}</small></div>
+     <p>{item.reason}</p>
+     {item.review&&<dl>
+      <div><dt>初步評估</dt><dd>{item.review.score}/100</dd></div>
+      <div><dt>更新日期</dt><dd>{item.review.updated?.slice(0,10)||"未知"}</dd></div>
+      <div><dt>SPDX</dt><dd>{item.review.license}</dd></div>
+     </dl>}
+     {!!item.review?.warnings.length&&<ul>{item.review.warnings.map(w=><li key={w}>{w}</li>)}</ul>}
+     <div className="awesome-item-actions">
+      <a href={item.reference.url} target="_blank" rel="noopener noreferrer">原始來源 <ArrowUpRight size={13}/></a>
+      <button type="button" disabled={item.status!=="verified"||privateMode||goBusy} onClick={()=>handoffGo(item)}>交給 Self-Build 建立實作 PR</button>
+     </div>
+    </article>)}
+   </div>}
+  </section>
   <p className="awesome-status" role="status">{notice}</p>
   {!!catalog.length&&<div className="awesome-filters">
    <label><Search size={16}/>搜尋 {selected?"候選專案":"主題"}<input value={query} onChange={e=>setQuery(e.target.value)} maxLength={100} placeholder={selected?"專案名稱或用途":"AI、安全、Python、UI…"} disabled={busy}/></label>

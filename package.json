@@ -48,7 +48,7 @@
     "test:retina": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/retina-exports.test.mjs",
     "test:diana": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/diana.test.mjs tests/diana-auto.test.mjs tests/local-schedule.test.mjs tests/notion-browser-handoff.test.mjs",
     "test:awesome": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/awesome-discovery.test.mjs",
-    "test:awesome-go": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/awesome-go.test.mjs",
+    "test:awesome-go": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/awesome-go.test.mjs tests/awesome-go-live.test.mjs",
     "test:detroit": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit.test.mjs",
     "test:victoria": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/victoria.test.mjs",
     "test:detroit-bus": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/detroit-capability-bus.test.mjs",

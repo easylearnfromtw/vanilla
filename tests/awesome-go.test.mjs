@@ -34,12 +34,14 @@ test("knowledge questions work offline without triggering source execution",()=>
  assert.match(answer,/不自動安裝/);
  assert.match(toolKnowledgeGuidance("比較 Slime Go 技術選型"),/Ollama/);
 });
-test("Diana routes requested technology evaluation to a report, not an executor",()=>{
- const result=chooseDianaTool("推薦 Ceres 的 Go 通訊套件",context);
- assert.equal(result.kind,"report");
- assert.equal(result.tool,"diana");
- assert.match(result.message||"",/NATS/);
- assert.match(result.message||"",/尚未|不自動安裝/);
+test("Diana sends a Go evaluation to the live audit UI, not a canned report",()=>{
+ const question="推薦 Ceres 的 Go 通訊套件";
+ const result=chooseDianaTool(question,context);
+ assert.equal(result.kind,"open");
+ assert.equal(result.tool,"awesome");
+ assert.equal(result.tab,"awesome");
+ assert.equal(routeMessage(question,context).kind,"diana");
+ assert.equal(chooseDianaTool(question,{...context,privateMode:true}).kind,"report");
 });
 test("imperative install/deploy and unrelated messages bypass knowledge-only routing",()=>{
  for(const q of [

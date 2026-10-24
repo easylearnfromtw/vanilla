@@ -826,13 +826,12 @@ async function send(value=draft):Promise<void>{
  let webContext="";
  let webSources:WebCitation[]=[];
  let webIndex:IndexedPage[]=[];
+ let goEvidence=""; // Populated by the audited Go route, consumed only after Veritas checks.
  switch(route.kind){
   case "go-research":{
-   // The user requested actual Go technical evaluation: fetch bounded public
-   // GitHub metadata, then let the selected language model reason over receipts.
-   // Do not send private chat text to GitHub, install binaries or claim execution.
+   // Never auto-install third-party Go source or send conversation text to GitHub.
    if(privateMode||!online){
-    if(canReply)break; // Local/offline model may answer from marked curated references.
+    if(canReply)break; // Curated, explicitly limited local fallback.
     toolReply(question,privateMode?
      "私密模式不會聯網查核 GitHub；目前也沒有載入可用的文字模型。":
      "目前離線，不能查核 GitHub；也沒有可用的文字模型。","diana");return;
@@ -840,20 +839,17 @@ async function send(value=draft):Promise<void>{
    setBusy(true);setLastRoute("正在讀取公開 GitHub 候選專案實際狀態…");
    try{
     const receipts=await auditGoCandidates(route.role);
-    const evidence=goResearchEvidence(route.role,receipts);
-    setBusy(false);
-    if(canReply){
-     await answerWithModel(question,{inlineFileContext:"",webContext:"",webSources:[],toolEvidence:evidence},question);
-    }else toolReply(question,goResearchFallback(route.role,receipts),"diana");
+    goEvidence=goResearchEvidence(route.role,receipts);
+    if(!canReply){
+     toolReply(question,goResearchFallback(route.role,receipts),"diana");return;
+    }
    }catch(error){
-    setBusy(false);
     const reason=error instanceof Error?error.message:String(error);
-    if(canReply){
-     await answerWithModel(question,{inlineFileContext:"",webContext:"",webSources:[],
-      toolEvidence:"GitHub 中繼資料查核未成功："+reason+"。只能提供待驗證的技術方向，不得聲稱取得最新資料或實際安裝。"},question);
-    }else toolReply(question,"Go 專案查核失敗："+reason+"。目前沒有可用文字模型；未產生分析結論。","diana");
-   }
-   return;
+    if(!canReply){toolReply(question,"Go 專案查核失敗："+reason+"；未產生分析結論。","diana");return;}
+    goEvidence="GitHub 中繼資料查核未成功："+reason+"。只能提供待驗證的技術方向，不得聲稱取得最新資料或實際安裝。";
+   }finally{setBusy(false);}
+   // Fall through to common Veritas fact checks and model route.
+   break;
   }
   case "diana":{
    if(await runVenusImageLookup(route.request,question))return;
@@ -1221,7 +1217,7 @@ async function send(value=draft):Promise<void>{
   }
   setLastRoute("AI 模型尚未就緒。可以使用 CREAM、PROJECT HUB 與文件索引；文字生成請載入本地 AI 或連線 Ollama／Gemini。");return;
  }
- await answerWithModel(question,{inlineFileContext,webContext,webSources,factGuidance},visibleClarificationAnswer);
+ await answerWithModel(question,{inlineFileContext,webContext,webSources,toolEvidence:goEvidence||undefined,factGuidance},visibleClarificationAnswer);
 }
 
 async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string},visibleQuestion?:string){

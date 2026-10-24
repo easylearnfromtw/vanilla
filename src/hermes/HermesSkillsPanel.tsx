@@ -1,10 +1,10 @@
 import {useState} from "react";
-import {HERMES_SKILLS,HERMES_UPSTREAM_REVISION,searchHermesSkills,selectedHermesSkill,selectHermesSkill,readHermesSkill,findHermesSkill} from "./hermes-skills";
+import {HERMES_SKILLS,HERMES_UPSTREAM_REVISION,searchHermesSkills,selectedHermesSkills,toggleHermesSkill,readHermesSkill,findHermesSkill} from "./hermes-skills";
 
 /** Opt-in, read-only preview of actual upstream Hermes SKILL.md procedures. */
 export default function HermesSkillsPanel(){
  const [query,setQuery]=useState("");
- const [selected,setSelected]=useState(selectedHermesSkill);
+ const [selected,setSelected]=useState(selectedHermesSkills);
  const [preview,setPreview]=useState("");
  const [notice,setNotice]=useState("");
  const [busy,setBusy]=useState(false);
@@ -22,12 +22,12 @@ export default function HermesSkillsPanel(){
   <p>上游版號：<code>{HERMES_UPSTREAM_REVISION.slice(0,12)}</code> · <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noreferrer">原始專案（MIT）</a></p>
   <label htmlFor="hermes-skill-search">尋找技能（例如 research、code、finance、browser）</label>
   <input id="hermes-skill-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="輸入技能名稱或分類" />
-  <p>目前套用：<strong>{selected?findHermesSkill(selected)?.name:"未啟用任何第三方技能"}</strong></p>
+  <p>目前套用：<strong>{selected.length?selected.map(id=>findHermesSkill(id)?.name).join("、"):"未啟用任何第三方技能"}</strong>（最多 3 項；僅參考）</p>
   <div style={{maxHeight:300,overflowY:"auto",display:"grid",gap:7,marginTop:10}}>
    {visible.map(s=><div key={s.id} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"6px 0",borderBottom:"1px solid var(--border, #dddddd)"}}>
     <span style={{flex:"1 1 160px"}}><strong>{s.name}</strong><small style={{display:"block"}}>{s.category} · {s.optional?"選配":"核心"}</small></span>
     <button type="button" disabled={busy} onClick={()=>void open(s.id)}>閱讀技能</button>
-    <button type="button" className={selected===s.id?"primary":""} onClick={()=>{selectHermesSkill(selected===s.id?"":s.id);setSelected(selectedHermesSkill());setNotice(selected===s.id?"已停用技能":"已設定為下次聊天的參考技能。僅在一般模式且可以取得文件時讀取。");}}>{selected===s.id?"停用":"選用"}</button>
+    <button type="button" className={selected.includes(s.id)?"primary":""} disabled={busy||(!selected.includes(s.id)&&selected.length>=3)} onClick={()=>{try{const next=toggleHermesSkill(s.id);setSelected(next);setNotice(next.includes(s.id)?"已加入參考技能（不會安裝或執行）。":"已停用這項技能。");}catch(e){setNotice(String(e));}}}>{selected.includes(s.id)?"停用":"選用"}</button>
    </div>)}
   </div>
   {HERMES_SKILLS.length>visible.length&&<small>目前顯示前 {visible.length} 筆，可搜尋全部項目。</small>}

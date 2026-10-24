@@ -98,3 +98,53 @@ The output JSONL matches `training/atuber/dataset.py` (seven keys: id/user/assis
 python3 -m unittest discover -s tests -p 'test_octuber_knowledge_ingest.py'
 node --experimental-strip-types --test tests/hermes-firecrawl.test.mjs
 ```
+
+
+## 2026-10-25 improvement: actionable skill and evidence intake
+
+**Hermes progressive disclosure:** Vanilla now allows the owner to explicitly
+select **up to 3 of the 210 pinned upstream core/optional skills** in the
+settings panel. Each selected `SKILL.md` is read on demand only for
+general-mode chat; it is bounded to 3,500 characters per skill to prevent
+overwhelming the model context. The full 210 items remain discoverable through
+the search box without downloading or executing them. This is *reference
+retrieval*, not proof that OCTUBER neural weights have learned the skills.
+Hermes' own layered design similarly lists skill summaries and loads specific
+`SKILL.md` documents only as needed.
+
+**Firecrawl scoped search:** Vanilla's Firecrawl panel adds an optional
+`POST /v2/search` call restricted to one approved host with
+`includeDomains`, `sources: ["web"]` and 3 results max. Full markdown pages
+and search-result descriptions are labeled separately; domain-mismatched
+results are silently discarded. Search results **do not** automatically
+become conversation context. The owner must explicitly click “作為聊天參考”
+to select one.
+
+**Model-training evidence export:** In the same panel, after acquiring up to
+5 research items, the owner may click “匯出未審核 JSONL 證據”. The browser
+computes SHA-256 per item and outputs
+`octuber-firecrawl-unreviewed-evidence.jsonl` with `reviewed:false` and
+`training_approved:false`. The resulting evidence file is interoperable with
+the existing human-approval conversion command:
+
+```bash
+python3 training/octuber-knowledge/review.py \
+  --evidence private/octuber-evidence/octuber-firecrawl-unreviewed-evidence.jsonl \
+  --approvals private/octuber-evidence/approvals.jsonl \
+  --output private/octuber-evidence/reviewed-sft.jsonl
+
+python3 training/octuber-sumptuous/train.py \
+  --dataset private/octuber-evidence/reviewed-sft.jsonl --validate-only
+```
+
+Each approval must have a matching real evidence ID and content hash,
+rights basis, reviewer and original Q/A. The exported JSONL alone is **not**
+approved for training, and a model checkpoint does not exist until an approved
+GPU run produces and validates actual weights.
+
+**Execution boundary:** The GitHub Pages integration calls Firecrawl from
+the owner's browser using a temporary user-supplied API key, which may be
+blocked by browser CORS and may incur API charges; the owner-operated Python
+CLI is the supported fallback. No Firebase, Firecrawl server source code,
+Hermes shell commands or third-party MCP executable is installed in Vanilla.
+There is no unattended five-hour learning job or bulk website crawling.

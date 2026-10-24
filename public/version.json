@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.02-hermes-firecrawl-research",
-  "description": "Pinned 210 Hermes core/optional skill catalog, explicit OCTUBER skill reference, user-authorized Firecrawl v2 scrape and human-reviewed knowledge intake; neural weights untrained"
+  "build": "2026.10.25.03-hermes-firecrawl-evidence",
+  "description": "Hermes 210 skill index: select up to three opt-in references; Firecrawl v2 domain-scoped search and SHA256 unreviewed evidence export. Neural weights are NOT trained."
 }

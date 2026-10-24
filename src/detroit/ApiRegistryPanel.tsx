@@ -24,12 +24,12 @@ export default function ApiRegistryPanel(){
   finally{setBusy(false);}
  }
  return <section className="detroit-studio-form detroit-api-registry">
-  <h2><Database size={23}/> Detroit API Registry</h2>
-  <p>Zeus 搜尋候選能力，Athena 提供審核清單。這是唯讀目錄：不安裝、不執行、不啟用計費，也不向第三方服務傳送聊天資料。</p>
+  <h2><Database size={23}/> Detroit · 開源能力索引</h2>
+  <p>Zeus 比對公開 API 與 Python 專案，Diana 建議適用模組，Athena／Quirinus 提供安全檢查。索引唯讀，不安裝、不執行，也不傳送聊天資料。</p>
   <div className="detroit-api-sources">{API_DIRECTORY_REFERENCES.map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.label} <ExternalLink size={14}/></a>)}</div>
   <div className="detroit-api-filters">
    <label>分類<select value={category} onChange={e=>{setCategory(e.target.value as ApiDirectoryCategory);setItems([]);setSelected("");setMessage("分類已變更；請手動重新載入。");}}>{API_DIRECTORY_CATEGORIES.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
-   <label>搜尋 API <span className="detroit-api-input"><Search size={16}/><input value={query} maxLength={100} onChange={e=>setQuery(e.target.value)} placeholder="transcript、research、price"/></span></label>
+   <label>搜尋工具／API <span className="detroit-api-input"><Search size={16}/><input value={query} maxLength={100} onChange={e=>setQuery(e.target.value)} placeholder="agent、Python、Data Analysis、FastAPI"/></span></label>
   </div>
   <button type="button" className="detroit-primary" onClick={()=>void load()} disabled={busy||privateMode}>{busy?"讀取中…":"載入公開目錄"}</button>
   {privateMode&&<p>私人模式禁止外部目錄請求，請切換一般模式後再手動載入。</p>}
@@ -38,6 +38,7 @@ export default function ApiRegistryPanel(){
    <div className="detroit-api-results">{results.map(item=><article key={item.id}>
     <div className="detroit-api-result-head"><strong>{item.name}</strong><span>未驗證</span></div>
     <p>{item.description||"來源尚無說明。"}</p>
+    {item.subCategory&&<p className="detroit-api-source-category">Python / {item.subCategory}</p>}
     <div className="detroit-api-actions">
      <button type="button" onClick={()=>setSelected(item.id)} aria-pressed={selected===item.id}>Athena 審核</button>
      <a href={item.listingUrl} target="_blank" rel="noopener noreferrer">原始頁面 <ExternalLink size={13}/></a>
@@ -46,9 +47,9 @@ export default function ApiRegistryPanel(){
   </>}
   {inspected&&<div className="detroit-api-review">
    <h3><ShieldAlert size={18}/> Athena · {inspected.name}</h3>
-   <p>Zeus 建議後續交接：{reviewApiCandidate(inspected).recommendedEngine.toUpperCase()}；目前無執行權限。</p>
+   <p>Diana／Zeus 建議評估模組：{reviewApiCandidate(inspected).recommendedEngine.toUpperCase()}；目前無執行權限。</p>
    <ul>{reviewApiCandidate(inspected).checks.map(x=><li key={x}>{x}</li>)}</ul>
   </div>}
-  <p className="detroit-api-footnote">第三方清單可能過時、付費或含未經驗證內容。目錄介紹不等於 API 可用性證明；只有經獨立測試、後端隔離及逐項授權的 adapter 才能在未來供 Detroit 執行。</p>
+  <p className="detroit-api-footnote">來源為第三方專案清單，不代表套件獲安全或授權認證。Python 工具不能直接在瀏覽器內安裝；未完成逐項審核、後端隔離及明確授權前，Diana 僅能提出建議，不會執行。</p>
  </section>;
 }

@@ -270,7 +270,7 @@ function notion_(req) {
     else if(Object.prototype.hasOwnProperty.call(patch,"When") &&
       patch.When&&patch.When.date&&
       typeof patch.When.date.start==="string"&&patch.When.date.start.length<=50&&
-      /^\\d{4}-\\d{2}-\\d{2}T/.test(patch.When.date.start))
+      /^\d{4}-\d{2}-\d{2}T/.test(patch.When.date.start))
       properties={When:{date:{start:patch.When.date.start}}};
     else throw Error("INVALID_INPUT");
     return {ok:true,provider:"notion",operation:operation,data:compactPage(
@@ -278,7 +278,7 @@ function notion_(req) {
   }
   if(operation==="create_task"){
     const title=text_(p.title,180),date=text_(p.when,50);
-    if(!/^\\d{4}-\\d{2}-\\d{2}T/.test(date) ||
+    if(!/^\d{4}-\d{2}-\d{2}T/.test(date) ||
        typeof p.owner_tag!=="string"||!ownerTag.test(p.owner_tag))throw Error("INVALID_INPUT");
     const details=p.details||"";
     if(typeof details!=="string"||details.length>1800)throw Error("INVALID_INPUT");

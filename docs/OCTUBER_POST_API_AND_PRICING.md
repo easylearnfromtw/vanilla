@@ -45,6 +45,16 @@ ollama list
 
 此入口不負責**核發** Key／付款／代為配置雲端服務。既有 Owner 推論 API 預設仍關閉；只有確實啟動自有推論服務並通過 Owner 安全閘道驗證後才能對外提供。
 
+## 真正可用的託管 14B／30B／32B 路徑（新增）
+
+- 使用者可在「設定 → AI 模型 → OCTUBER 14B／30B／32B · 直接啟用雲端推論」選擇 OpenRouter 的真實 Qwen3 14B、Qwen3-30B-A3B-Instruct-2507、Qwen3 32B 模型。
+- 使用者自行取得 OpenRouter Key 並填寫；只在瀏覽器執行時記憶體存放（重新整理即消失），不寫入 GitHub、localStorage、sessionStorage、Drive 或聊天內容。
+- 只有 POST /chat/completions 真的取得非空回答後才將該模型登記為可用候選，聊天再以 SSE 真正生成；列出名稱不代表就緒。
+- 必須允許「計費雲端 API」，並在第一次傳送對話／附件／記憶到 OpenRouter 時明確確認；私密模式與明示「只用本地」一律排除此候選。
+- 託管模型運算不在 iPhone，也不是 OCTUBER 專屬訓練權重；模型服務、金鑰、配額、CORS、計費由提供商決定。沒有用戶金鑰時不能代替付費或宣稱正在執行 30B。
+- OpenRouter 官方模型資訊：https://openrouter.ai/qwen/qwen3-30b-a3b-instruct-2507 ，14B：https://openrouter.ai/qwen/qwen3-14b 。
+- 如需長期多使用者服務，應架設帶驗證、額度與稽核的後端代理，不應把共用 API Key 放在公開前端。
+
 ## 比價資料匯入
 三個站點僅是**人工開啟的比價入口**：
 - BigGo <https://biggo.com.tw/>

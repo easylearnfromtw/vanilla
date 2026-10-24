@@ -93,12 +93,12 @@ export async function generateHostedOctuber(history:ChatTurn[],model:string,opti
  if(!response.ok)throw new Error(friendlyFailure(response.status));
  let raw="",done=false,truncated=false,providerError="";
  await readSSE(response,data=>{
-  if(data==="[DONE]"){done=true;return;}
+  // readSSE strips the [DONE] sentinel; finish_reason is the completion proof.
   try{
    const payload=JSON.parse(data) as {error?:{message?:string};choices?:Array<{delta?:{content?:string|null};finish_reason?:string|null}>};
    if(payload.error){providerError="供應商推論失敗："+(payload.error.message||"未知錯誤");return;}
    const item=payload.choices?.[0];
-   if(item?.finish_reason==="length")truncated=true;
+   if(item?.finish_reason){done=true;if(item.finish_reason==="length")truncated=true;}
    const piece=item?.delta?.content;
    if(piece){raw+=piece;options.onText?.(toTaiwanese(stripThinking(raw).text));}
   }catch{/* ignore non-json keepalive only */}

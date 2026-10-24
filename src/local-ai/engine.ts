@@ -18,6 +18,7 @@ import {isPinnedWebLLMModelSupported,isDisposedWebLLMFailure} from "./webllm-com
 import {isIOSWebLLMDevice,mayFallbackToMainThread} from "./mobile-safety";
 import {firstDownloadProgress,noteDownloadProgress,downloadHasStalled,downloadNeedsNotice,isDownloadStallError,stalledDownloadError} from "./model-download-watchdog";
 import {inspectBrowserModelDownload,type DownloadDiagnostic} from "./model-download-diagnostics";
+import {prefetchFastLocalModel,FAST_MODEL_ID} from "./model-fast-download";
 import {vanillaSystemPrompt,STRUCTURED_SYSTEM_PROMPT,isAtuberModel} from "../ai/prompts";
 import {classifyTask,type TaskKind} from "../ai/task-kind";
 import {fitHistory,estimateTokens} from "../ai/context-budget";
@@ -185,11 +186,16 @@ async function createEngine(model:LocalModelId,onProgress:(message:string,progre
 /** Model reload shares the same GPU queue as inference.
  * Avoid unloading an engine while a streaming reply still holds it.
  */
+/** Model reload shares the same GPU queue as inference.
+ * Avoid unloading an engine while a streaming reply still holds it.
+ * The official 0.6B model is pre-streamed (bounded concurrency) into WebLLM's
+ * existing cache: the worker then reuses those files, not a second download.
+ */
 export async function loadLocalModel(onProgress:(message:string,progress:number)=>void,model:LocalModelId=LOCAL_MODEL):Promise<void>{
  if(engine&&loadedModel===model)return;
  if(!("gpu" in navigator))throw new Error("目前瀏覽器不支援 WebGPU，無法使用裝置端模型。iPhone 需 iOS 26 以上的 Safari。");
  if(!isPinnedWebLLMModelSupported(model))throw new Error("這個模型需要較新的 WebLLM，但該版本有已知的 GPU 釋放問題。請先選擇 Qwen2.5 或 Qwen3 模型。");
- await webllm();
+ const mod=await webllm();
  if(!isLocalModelSupported(model))throw new Error("目前 WebLLM 版本沒有內建這個模型，請選擇其他本地模型。");
  if(loading){
   await loading;
@@ -200,12 +206,33 @@ export async function loadLocalModel(onProgress:(message:string,progress:number)
   if(engine&&loadedModel===model)return;
   if(engine){
    const old=engine;
-   engine=null;
-   loadedModel=null;
-   usingWorker=false;
+   engine=null;loadedModel=null;usingWorker=false;
    await releaseEngine(old);
   }
-  const next=await createEngine(model,onProgress);
+  let fastComplete=false;
+  if(model===FAST_MODEL_ID){
+   const record=mod.prebuiltAppConfig.model_list.find(x=>x.model_id===model);
+   if(record){
+    try{
+     const fast=await prefetchFastLocalModel(model,record.model,({downloadedBytes,totalBytes,completed,totalFiles,cached})=>{
+      const mib=1024*1024;
+      const seen=Math.min(84,Math.round(downloadedBytes/totalBytes*84));
+      onProgress("OCTUBER 加速下載 · "+Math.round(downloadedBytes/mib)+"/約 "+Math.round(totalBytes/mib)+" MB · 已處理 "+completed+"/"+totalFiles+" 檔（已快取 "+cached+" 檔）",seen/100);
+     });
+     fastComplete=fast.complete;
+     if(fastComplete)onProgress("OCTUBER 權重已下載並快取，正在初始化 WebGPU…",0.85);
+     else if(fast.failed>0)onProgress("加速來源部分失敗，已保留完整檔案，改由原生載入器續載…",0);
+    }catch(error){
+     console.warn("OCTUBER fast cache prefetch unavailable; using WebLLM loader",error);
+    }
+   }
+  }
+  const next=await createEngine(model,(message,progress)=>{
+   // Download and GPU initialization are different stages. A completed
+   // prefetch must not make the user see a misleading 0%-100% second download.
+   if(fastComplete)onProgress("WebGPU 初始化 · "+message,0.85+Math.min(1,Math.max(0,progress))*0.15);
+   else onProgress(message,progress);
+  });
   engine=next;
   loadedModel=model;
   try{localStorage.setItem(SELECTED_KEY,model);}catch{}

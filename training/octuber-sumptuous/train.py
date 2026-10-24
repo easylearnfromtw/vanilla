@@ -17,7 +17,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "atuber"))
+sys.path.insert(1, str(Path(__file__).resolve().parents[1] / "atuber"))
 from dataset import validate_jsonl, to_conversations  # noqa: E402
 
 BASE = "Qwen/Qwen3-30B-A3B-Instruct-2507"

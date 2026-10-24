@@ -104,7 +104,7 @@ export default function LocalModelPanel(props:Props){
     <p className="local-model-note">連線測試僅檢查設定檔和權重檔的起始回應，不會下載完整模型，也不代表推論已通過實機驗證。</p>
    </div>}
    {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有 WebGPU（iPhone 需 iOS 26 以上 Safari），本地推論不可用；一般模式可使用已接上的自架阿土伯 Ollama；其他模型不會自動接管。</p>}
-   {iosDevice&&<p className="local-model-note">首次進入會嘗試啟動 OCTUBER FLATTERING 0.6B 下載／快取；若記憶體、GPU 或網路不足，將停止並提示改用已授權的較大型自架模型。自動載入採背景執行緒，不會悄悄切到可能卡住畫面的相容模式。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"手動重試仍需確認記憶體風險。":""}</p>}
+   {iosDevice&&<p className="local-model-note">首次進入會嘗試取得約 350 MB 的 OCTUBER FLATTERING 0.6B 模型。模型檔案最多兩路並行串流、已完整快取的檔案可在下一次載入時重用；若記憶體、GPU 或網路不足，將停止並提示改用已授權的較大型自架模型。自動載入採背景執行緒，不會悄悄切到可能卡住畫面的相容模式。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"手動重試仍需確認記憶體風險。":""}</p>}
    <label className="vh-switch compact"><input type="checkbox" checked={worker==="auto"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>
     <span><strong>背景執行緒推論</strong><small>{worker==="broken"?"上次背景執行緒失敗，已停止自動備援；勾選即可重試":isLocalWorkerActive()?"使用中：生成時捲動與輸入更順":"下次載入模型時生效"}</small></span></label>
    <p className="local-model-note">本地推論不會傳送對話到任何雲端。模型首次需下載，之後由瀏覽器快取；iOS 長期未使用可能清除快取。所有裝置在背景執行緒失敗時都不會自動回退主執行緒；只有手動關閉背景執行緒才會使用相容模式。此模式可能使介面卡頓，iPhone 也可能整頁重新載入。</p>

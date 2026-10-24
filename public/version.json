@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.24.07-conversational-grounding",
-  "description": "Go research backed by live GitHub evidence and model-composed tool answers, no canned popups"
+  "build": "2026.10.24.08-octuber-fast-model-download",
+  "description": "OCTUBER 0.6B resumable bounded-parallel browser CacheStorage download"
 }

@@ -128,7 +128,7 @@ function prettyModel(model:string):string{
 function sourceLabel(turn:ChatTurn):string{
  if(turn.source==="local")return "本機";
  if(turn.source==="ollama")return turn.model&&isTaideModel(turn.model)?"TAIDE":"Ollama";
- return ({gemini:"Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter"} as Record<string,string>)[turn.source]||"Cloud";
+ return ({gemini:"Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter"} as Record<string,string>)[turn.source||""]||"Cloud";
 }
 
 export default function LocalChat({onNavigate}:{onNavigate?:(section:"library"|"settings"|"cream")=>void}){

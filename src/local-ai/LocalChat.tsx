@@ -240,6 +240,8 @@ const [status,setStatus]=useState(isLocalModelReady()?"本地模型已載入":"�
 const [ready,setReady]=useState(()=>isLocalModelReady());
 const [modelCached,setModelCached]=useState<boolean|null>(null);
 const [modelError,setModelError]=useState(false);
+const [upgradeDialog,setUpgradeDialog]=useState(false);
+const startupModelAttempt=useRef(false);
 const [repairingCache,setRepairingCache]=useState(false);
 const [storageError,setStorageError]=useState(false);
 const [providers,setProviders]=useState(availableProviders);
@@ -273,27 +275,36 @@ useEffect(()=>{
  window.addEventListener("online",onNetwork);window.addEventListener("offline",onNetwork);
  return()=>{window.removeEventListener("online",onNetwork);window.removeEventListener("offline",onNetwork);};
 },[]);
-// Only auto-load a local model that is already cached on this device. A first download
-// (about 1 GB) now always waits for an explicit tap — no surprise cellular downloads on iPhone.
+// User-requested OCTUBER first-visit boot: attempt the 0.6B WebLLM model once.
+// Honor Data Saver, never retry endlessly, never fall back to blocking main-thread GPU.
 useEffect(()=>{
- if(!capabilities.webgpu||isLocalModelReady(selectedLocalModel))return;
+ if(isLocalModelReady(selectedLocalModel))return;
+ if(!capabilities.webgpu){setStatus("此裝置沒有可用 WebGPU，無法載入本地模型。");setUpgradeDialog(true);return;}
+ if(startupModelAttempt.current)return;
+ startupModelAttempt.current=true;
  let active=true;
  const timer=window.setTimeout(()=>{
   void isLocalModelCached(selectedLocalModel).then(cached=>{
    if(!active)return;
    setModelCached(cached);
-   if(!cached){setStatus("本地模型尚未下載");return;}
-   if(!shouldAutoLoadCachedModel(iosDevice)){setStatus("模型已有快取。為避免 iPhone 記憶體不足，請手動按「載入」。");return;}
-   setLoadingModel(true);setModelError(false);setStatus("正在載入已快取的本地模型…");
+   const saveData=(navigator as Navigator&{connection?:{saveData?:boolean}}).connection?.saveData===true;
+   if(!cached&&(saveData||!navigator.onLine)){
+    setStatus(saveData?"已啟用節省數據模式，請手動允許下載。":"離線且模型未快取，請連線後下載。");
+    return;
+   }
+   setLoadingModel(true);setModelError(false);setModelProgress(0);
+   setStatus(cached?"正在載入已快取的 OCTUBER FLATTERING…":"正在下載 OCTUBER FLATTERING · 0.6B…");
    void loadLocalModel((message,progress)=>{if(active){setStatus(message);setModelProgress(Math.round(progress*100));}},selectedLocalModel).then(()=>{
-    if(active){setReady(true);setStatus("本地模型已就緒");setLoadingModel(false);}
+    if(active){setReady(true);setModelCached(true);setStatus("OCTUBER FLATTERING 已就緒");setLoadingModel(false);}
    }).catch(error=>{
-    if(active){recordClientFault("model","download",error);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);setLoadingModel(false);}
+    if(active){recordClientFault("model","download",error);setStatus(error instanceof Error?error.message:"模型載入失敗");setReady(false);setModelError(true);setLoadingModel(false);setUpgradeDialog(true);}
    });
+  }).catch(error=>{
+   if(active){setStatus("無法檢查本機快取："+String(error));setModelError(true);setLoadingModel(false);setUpgradeDialog(true);}
   });
- },900);
+ },500);
  return()=>{active=false;window.clearTimeout(timer);};
-},[capabilities.webgpu,selectedLocalModel,iosDevice]);
+},[capabilities.webgpu,selectedLocalModel]);
 function selectLocalModel(model:LocalModelId){
  if(busy||loadingModel||repairingCache)return;
  if(ATUBER_SINGLE_DRIVER&&model!==ATUBER_LOCAL_MODEL){setLastRoute("阿土伯單一主控模式：其他模型屬於專家能力，不能直接替換對話主模型。");return;}
@@ -356,7 +367,7 @@ async function initialize(){
  try{
   await loadLocalModel((message,progress)=>{setStatus(message);setModelProgress(Math.round(progress*100));},selectedLocalModel);
   setReady(true);setModelCached(true);setStatus("本地模型已就緒");
- }catch(error){recordClientFault("model","download",error);setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);}
+ }catch(error){recordClientFault("model","download",error);setReady(false);setStatus(error instanceof Error?error.message:"模型載入失敗");setModelError(true);setUpgradeDialog(true);}
  finally{setLoadingModel(false);}
 }
 async function repairSelectedModelCache(){
@@ -1576,7 +1587,7 @@ function prefill(text:string){setDraft(text);window.setTimeout(()=>{inputRef.cur
 const slash=matchSlashCommands(draft);
 const empty=history.length===0;
 const modelState=loadingModel?"loading":busy?"busy":canReply?"ready":"idle";
-const shortLabel=ATUBER_SINGLE_DRIVER?(loadingModel?"阿土伯載入 "+modelProgress+"%":generating?"阿土伯回答中":canReply?"阿土伯 · 主控":"阿土伯 · 未就緒"):
+const shortLabel=ATUBER_SINGLE_DRIVER?(loadingModel?"OCTUBER 下載 "+modelProgress+"%":generating?"OCTUBER 回答中":canReply?"OCTUBER · 已就緒":"OCTUBER · 未就緒"):
  loadingModel?"下載 "+modelProgress+"%":generating?"回答中":privateMode?"私密":(providers.length||ollamaConnected)?"自動":ready?"本機":"未設定模型";
 const localEntry=LOCAL_MODELS.find(x=>x.id===selectedLocalModel)||LOCAL_MODELS[0];
 let latestAssistant=-1;for(let i=history.length-1;i>=0;i--){if(history[i].role==="assistant"){latestAssistant=i;break;}}
@@ -1606,6 +1617,19 @@ const composer=<div className="composer-wrap">
 {storageError&&<div className="model-notice" role="alert">裝置儲存空間不足，最新對話可能未儲存。請先備份重要內容，再刪除不需要的紀錄。</div>}
 </div>;
 return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-private":"")}>
+{upgradeDialog&&<div className="octuber-upgrade-overlay" role="presentation">
+ <div className="octuber-upgrade-dialog" role="alertdialog" aria-modal="true" aria-labelledby="octuber-upgrade-title" aria-describedby="octuber-upgrade-description">
+  <div className="octuber-upgrade-kicker">OCTUBER · MODEL ASSIST</div>
+  <h2 id="octuber-upgrade-title">建議您使用較大模型</h2>
+  <p id="octuber-upgrade-description">FLATTERING 0.6B 在目前環境無法完成載入。若是 GPU、記憶體或瀏覽器不相容，改用更大的<strong>本機</strong>模型並不會解決問題；建議改用已連線的 OCTUBER MODEST／SUMPTUOUS 自架主機。</p>
+  <p className="octuber-upgrade-detail">{status}</p>
+  <div className="octuber-upgrade-actions">
+   <button type="button" onClick={()=>setUpgradeDialog(false)}>稍後處理</button>
+   <button type="button" className="primary" onClick={()=>{setUpgradeDialog(false);setSheetOpen(true);}}>查看模型規格</button>
+   <button type="button" onClick={()=>{setUpgradeDialog(false);onNavigate?.("settings");}}>設定運算主機</button>
+  </div>
+ </div>
+</div>}
 <div className="chat-controls">
  <button type="button" className={"model-pill state-"+modelState} aria-expanded={sheetOpen} aria-haspopup="dialog" aria-label={"模型與工具："+shortLabel} onClick={()=>setSheetOpen(v=>!v)}>
   {privateMode?<LockKeyhole size={12}/>:<span className="model-pill-dot" aria-hidden="true"/>}<span className="model-pill-label">{shortLabel}</span><ChevronDown size={13}/>

@@ -3,9 +3,10 @@
  */
 import {DETROIT_CAPABILITIES,detroitAvailability,type DetroitCapability} from "../detroit/capability-bus";
 import {BUILTIN_TOOLS} from "../weiguo/registry";
+import {isAwesomeGoQuestion,formatAwesomeGoPlan} from "../detroit/awesome-go";
 import {technicalKnowledgeGuidance} from "./technical-knowledge";
 
-export type ToolKnowledgeIntent={scope:"overview"|"named";ids:string[]};
+export type ToolKnowledgeIntent={scope:"overview"|"named"|"go-catalog";ids:string[]};
 const ALIASES:Record<string,readonly string[]>={
  "diana":["黛安娜"],"victoria":["維多利亞"],"merlin":["梅林"],
  "scouts":["Scout"],"er-ya":["Erya","爾雅"],
@@ -38,6 +39,7 @@ const weiguoMention=(q:string)=>["衛國","衞國","WeiGuo"].some(n=>matchesName
 export function toolKnowledgeIntent(question:string):ToolKnowledgeIntent|null{
  const q=question.trim().replace(/[？！!?。．\s]+$/g,"");
  if(!q||q.length>200||QUOTED.test(q)||ACTION.test(q))return null;
+ if(isAwesomeGoQuestion(q))return {scope:"go-catalog",ids:[]};
  if(/^(?:(?:請問|介紹|說明|解釋|我想知道)\s*)?(?:Detroit|底特律|Orchestra)(?:是什麼|有什麼功能|能做什麼|怎麼運作|有哪些工具|的工具有哪些|的架構)$/i.test(q)||
   /^(?:我有哪些(?:其他)?工具|我的其他工具有哪些|Vanilla有哪些工具|你有哪些工具)$/i.test(q))
   return {scope:"overview",ids:[]};
@@ -73,6 +75,7 @@ function weiGuoDescription():string{
 export function toolKnowledgeAnswer(question:string):string{
  const intent=toolKnowledgeIntent(question);
  if(!intent)return "";
+ if(intent.scope==="go-catalog")return formatAwesomeGoPlan(question);
  if(intent.scope==="overview")return "Vanilla／Detroit 工具一覽\nDetroit 是 AI 內部理解、規劃、調度和使用能力的架構；Merlin 理解需求、Diana 選工具、Zeus 協調執行、Athena 管控安全。這些名稱不是一個個獨立 AI 模型。\n\n"+
   DETROIT_CAPABILITIES.map(c=>"• "+c.label+"（"+c.id+"）— "+c.description+"【"+(c.state==="planned"?"規劃中":c.state==="adapter"?"適配器／需驗證":"內建")+"】").join("\n")+
   "\n\n其他 Vanilla 工具：\n"+OTHER_TOOLS.map(x=>"• "+otherDescription(x.id)).join("\n")+"\n\n衞國另有受控工具登錄。"+NOTE+"\n也可以直接問任何工具的用途、差別、限制或狀態。";
@@ -83,6 +86,7 @@ export function toolKnowledgeAnswer(question:string):string{
 export function toolKnowledgeGuidance(question:string):string{
  const q=question.trim();
  if(!q||q.length>2200||QUOTED.test(q))return "";
+ const goGrounding=isAwesomeGoQuestion(q)?formatAwesomeGoPlan(q):"";
  const overview=toolKnowledgeIntent(q)?.scope==="overview"||
   /(?:Detroit|底特律|Vanilla|我的|我有|我還有|我們的|其他).{0,20}(?:工具|模組|引擎|架構|能力)/i.test(q)||
   /(?:所有|全部|各個|整個).{0,12}(?:工具|模組|引擎)/.test(q);
@@ -90,12 +94,12 @@ export function toolKnowledgeGuidance(question:string):string{
  if(!named.length&&/(?:Detroit|底特律)/i.test(q))named.push(...DETROIT_CAPABILITIES.filter(c=>["merlin","diana","zeus","athena"].includes(c.id)));
  const others=overview?[...OTHER_TOOLS]:OTHER_TOOLS.filter(x=>[x.label,...x.aliases].some(n=>matchesName(q,n))).slice(0,4);
  const technical=technicalKnowledgeGuidance(q);
- if(!named.length&&!others.length&&!weiguoMention(q))return technical;
+ if(!named.length&&!others.length&&!weiguoMention(q))return goGrounding?goGrounding+"\n"+technical:technical;
  return "\n[Vanilla 應用程式可信任的內部工具登錄資料｜非外部搜尋結果]\n"+
   "Detroit 是單一 AI 使用的能力與執行架構，內部角色不是獨立雲端模型。\n"+
   named.map(oneTool).join("\n")+
   (others.length?"\n"+others.map(x=>otherDescription(x.id)).join("\n"):"")+
   (overview||weiguoMention(q)?"\n"+weiGuoDescription():"")+
   "\n"+NOTE+
-  "\n只就這份登錄資料說明已知功能。狀態是目前此裝置的登錄／執行器狀態，不是遠端後端的健康檢查；缺乏實際執行回執，不得聲稱已部署、已連線、已執行或已完成操作。可解釋工具如何協作，但不得捏造不存在的能力、權限、資料或結果。\n"+technical;
+  "\n只就這份登錄資料說明已知功能。狀態是目前此裝置的登錄／執行器狀態，不是遠端後端的健康檢查；缺乏實際執行回執，不得聲稱已部署、已連線、已執行或已完成操作。可解釋工具如何協作，但不得捏造不存在的能力、權限、資料或結果。\n"+technical+(goGrounding?"\n"+goGrounding:"");
 }

@@ -49,6 +49,7 @@ jobs:
       - run: npm run test:detroit-bus
       - run: npm run test:diana
       - run: npm run test:awesome
+      - run: npm run test:awesome-go
       - run: npm run test:orchestra
       - run: npm run test:victoria
       - run: npm run test:cream-weiguo

@@ -7,6 +7,7 @@ import {DETROIT_FACTORY_TOOLS} from "./factory";
 import {DETROIT_CAPABILITIES,detroitAvailability} from "./capability-bus";
 import {makeHumanizeRequest} from "../erya/humanize";
 import {creamInstruction} from "../cream/core";
+import {isAwesomeGoQuestion,formatAwesomeGoPlan} from "./awesome-go";
 export type DianaTarget="diana"|"merlin"|"cream"|"scouts"|"atriensis"|"janus"|"retina"|"orchestra"|"bard"|"luna"|"canva"|"jensen-huang"|"zeus"|"athena"|"medusa"|"ceres"|"gridcraft"|"moli"|"persistent-jobs"|"luca"|"quirinus"|"notion"|"er-ya"|"weiguo"|"venus"|"veritas"|"mnemosyne"|"hermes"|"chronos"|"dionysus"|"holy-roman-empire"|"awesome";
 export type DianaDecision={kind:"delegate"|"open"|"report";tool:DianaTarget;label:string;reason:string;alternatives:string[];command?:string;event?:string;tab?:string;message?:string;nextSteps?:DianaTarget[]};
 const NAMES:Record<string,DianaTarget>={
@@ -82,6 +83,7 @@ function candidates(q:string,ctx:DianaContext):Candidate[]{
 export function chooseDianaTool(request:string,ctx:DianaContext,forcedTool:DianaTarget|null=null):DianaDecision{
  const raw=request.trim().slice(0,16000);
  if(!forcedTool&&(!raw||/^(?:help|list|catalog|有哪些工具|所有工具|工具清單|可用工具|工具目錄|列出工具)$/i.test(raw)))return report("diana",dianaCatalog(),"工具目錄");
+ if(!forcedTool&&isAwesomeGoQuestion(raw))return report("diana",formatAwesomeGoPlan(raw),"Go 技術選型參考，尚未安裝或部署");
  const hint=!forcedTool?/^(?:請|幫我)?\s*(?:用|使用|交給|叫出|啟動|開啟)\s*(?:Detroit|底特律)?\s*(?:工具)?\s*([a-z][a-z0-9-]*)(?:\s+HUANG)?(?=$|[\s：:,，])[\s：:,，]*([\s\S]*)$/i.exec(raw):null;
  const hinted=hint?NAMES[hint[1].toLowerCase()]:null;
  const task=(hint&&hinted?hint[2]:raw).trim();

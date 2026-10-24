@@ -6,6 +6,7 @@ import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
 import ModelConnections from "../ai/ModelConnections";
 import OctuberConsumerApi from "../ai/OctuberConsumerApi";
+import HostedOctuberPanel from "../ai/HostedOctuberPanel";
 import PriceIntelligencePanel from "../pricing/PriceIntelligencePanel";
 import ApiVaultPanel from "../weiguo/ApiVaultPanel";
 import DriveConnection from "../vault/DriveConnection";

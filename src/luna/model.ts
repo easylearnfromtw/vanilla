@@ -28,7 +28,7 @@ function shape(label:string,x:number,y:number,w:number,h:number,fill:string):Lun
 export function createLuna(template:LunaTemplate="editorial",headline="DESIGN WITHOUT LIMITS"):LunaDoc{
  const base={version:1 as const,id:uid(),width:1080,height:1350,updatedAt:Date.now()};
  if(template==="minimal")return {...base,name:"極簡品牌視覺",background:"#F4F2EC",layers:[
-  txt("眉標","LUNA   /   VANILLA AI",.08,.075,.84,.05,27,"#545450"),
+  txt("眉標","STUDIO EDITION 01",.08,.075,.84,.05,27,"#545450"),
   txt("主標題",headline,.08,.27,.82,.30,107,"#1C1C1F"),
   shape("分隔線",.08,.68,.25,.009,"#1C1C1F"),
   txt("品牌標語","AN ORIGINAL VISUAL SYSTEM",.08,.76,.84,.10,36,"#303033")
@@ -41,7 +41,7 @@ export function createLuna(template:LunaTemplate="editorial",headline="DESIGN WI
   txt("活動日期","DATE / TIME / VENUE",.07,.75,.85,.08,45,"#F5D344")
  ]};
  return {...base,name:"實驗編輯海報",background:"#F1EFE9",layers:[
-  txt("刊頭","LUNA  /  VISUAL ISSUE 001",.07,.065,.86,.05,28,"#1C1C1F"),
+  txt("刊頭","VISUAL ISSUE 001",.07,.065,.86,.05,28,"#1C1C1F"),
   shape("幾何色塊",.07,.22,.10,.20,"#E33D35"),
   txt("編輯標題",headline,.20,.22,.73,.31,116,"#1C1C1F"),
   txt("副標","視覺，從這裡開始。\nORIGINAL BY DESIGN",.07,.69,.85,.17,56,"#1C1C1F"),

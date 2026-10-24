@@ -58,7 +58,7 @@ export function transition(c,old,action){
   if(s.stage!==c.steps.length||s.pending){s.blocked++;return emit(s,action,"blocked","MISSING_REQUIRED_EVIDENCE");}
   s.completed=true;return emit(s,action,"ok","VIRTUAL_TASK_COMPLETE");
  }
- if(Object.values(RESOLUTION).includes(action)){
+ if(Object.values(RESOLUTION).includes(action)&&(s.pending!==null||action!==c.steps[s.stage])){
   const needed=s.pending&&RESOLUTION[s.pending];
   if(action!==needed){s.blocked++;return emit(s,action,"blocked","RECOVERY_NOT_APPLICABLE");}
   s.pending=null;s.handled=true;

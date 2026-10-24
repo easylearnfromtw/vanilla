@@ -439,7 +439,7 @@ export async function generateWeiGuoGemini(turns:Array<{role:"user"|"assistant";
 /** GAS API Vault is reachable ONLY through the signed, Google-authenticated WeiGuo backend.
  * A browser must never receive the relay secret or provider API keys.
  */
-export type VanillaVaultProvider="gemini"|"openai"|"deepseek"|"anthropic"|"openrouter"|"telegram"|"canva"|"notion"|"brave"|"github";
+export type VanillaVaultProvider="gemini"|"openai"|"deepseek"|"anthropic"|"openrouter"|"telegram"|"canva"|"notion"|"brave"|"tavily"|"github";
 export type VanillaVaultStatus={
  ok:boolean;version:string;
  providers:Record<string,{configured:boolean;operations:string[];models:string[]}>;

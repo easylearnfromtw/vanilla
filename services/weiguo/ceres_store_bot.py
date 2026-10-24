@@ -30,8 +30,14 @@ def _config():
     if not TOKEN_RE.fullmatch(token) or not SECRET_RE.fullmatch(secret):
         return None
     parsed = urlsplit(url)
+    allowed_hosts = {
+        host.strip().lower()
+        for host in os.getenv(
+            "CERES_STORE_ALLOWED_HOSTS", "weiguo-browser-production.up.railway.app"
+        ).split(",") if host.strip()
+    }
     if (parsed.scheme != "https" or not parsed.hostname
-            or parsed.hostname not in os.getenv("CERES_STORE_ALLOWED_HOSTS", "weiguo-browser-production.up.railway.app").split(",")
+            or parsed.hostname not in allowed_hosts
             or parsed.port is not None or parsed.username or parsed.password
             or parsed.path != PATH or parsed.query or parsed.fragment):
         return None
@@ -39,7 +45,10 @@ def _config():
 
 
 async def register_store_webhook() -> bool:
-    if os.getenv("CERES_STORE_REGISTER_WEBHOOK", "").lower() != "true":
+    if os.getenv("CERES_STORE_REGISTER_WEBHOOK", "").strip().lower() != "true":
+        # The public Store bot is separate from the owner-only Ceres bot.
+        # A healthy PWA does not imply that this bot has a registered webhook.
+        print("Ceres Store: registration disabled (CERES_STORE_REGISTER_WEBHOOK is not true)", flush=True)
         return False
     cfg = _config()
     if not cfg:
@@ -67,7 +76,7 @@ async def register_store_webhook() -> bool:
             verify = (await client.get(api + "getWebhookInfo")).json()
             if verify.get("ok") is not True or verify.get("result", {}).get("url") != url:
                 raise ValueError("verification failed")
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         print("Ceres Store: webhook registration failed", flush=True)
         return False
     print("Ceres Store: webhook registration verified", flush=True)
@@ -145,6 +154,15 @@ async def _send(chat_id, text, keyboard=None):
             data["reply_markup"] = keyboard if keyboard is not None else _buttons([[("📚 開始學習 AI", "learn:start")]])
         await _tg("sendMessage", data)
 
+def _hub_display(text: str) -> str:
+    """Turn accidentally escaped breaks into visible Telegram line breaks.
+
+    Only use for first-party hub/UI templates: lessons may legitimately teach
+    code strings such as r"\\n" and must not be silently modified.
+    """
+    return text.replace(r"\\r\\n", "\n").replace(r"\\n", "\n")
+
+
 def _hub_keyboard():
     return _buttons([
         [("◈ Academy · 學習中心","hub:academy"),("◇ Models · 模型","hub:models")],
@@ -166,9 +184,9 @@ async def _hub(chat_id,section="home"):
         await _send(chat_id,"API STORE  /  邀請制測試\n━━━━━━━━━━━━\n\n目前僅接受白名單測試，模型推論尚未開放。\n請勿在聊天室傳送 API Key。",_buttons([[("✦ 測試資格說明","api:apply")],[("〈 返回主選單","hub:home")]]))
         return
     if section=="home":
-        await _send(chat_id,f"{heading}\n━━━━━━━━━━━━\n\n{body}",_hub_keyboard())
+        await _send(chat_id,_hub_display(f"{heading}\n━━━━━━━━━━━━\n\n{body}"),_hub_keyboard())
     else:
-        await _send(chat_id,f"{heading}\n━━━━━━━━━━━━\n\n{body}",_buttons([[("〈 返回主選單","hub:home")]]))
+        await _send(chat_id,_hub_display(f"{heading}\n━━━━━━━━━━━━\n\n{body}"),_buttons([[("〈 返回主選單","hub:home")]]))
 
 def _safe_mastered(raw: str) -> set[int]:
     try:

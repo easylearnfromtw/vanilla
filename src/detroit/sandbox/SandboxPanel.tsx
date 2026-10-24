@@ -20,6 +20,8 @@ export default function SandboxPanel(){
  const [externalState,setExternalState]=useState<State|null>(null);
  const [externalAction,setExternalAction]=useState("");
  const [externalStatus,setExternalStatus]=useState("");
+ const [coached,setCoached]=useState(false);
+ const [baseline,setBaseline]=useState<Grade|null>(null);
  const stop=useRef<AbortController|null>(null);
  useEffect(()=>()=>stop.current?.abort(),[]);
  const chosen=cases.find(x=>x.id===caseId)||cases[0];
@@ -28,7 +30,7 @@ export default function SandboxPanel(){
   image:false,online:typeof navigator!=="undefined"?navigator.onLine:false,privateMode});
  const active=selectedModel?models.find(x=>x.id===selectedModel):models[0];
  const extState=externalState?.id===chosen.id?externalState:start(chosen);
- const comparison=kind==="model"&&modelState?.id===chosen.id&&externalState?.id===chosen.id?judgeHeadToHead(chosen,modelState,externalState):null;
+ const comparison=kind==="model"&&!coached&&modelState?.id===chosen.id&&externalState?.id===chosen.id?judgeHeadToHead(chosen,modelState,externalState):null;
  function saveReport(){
   if(!report&&!batch)return;
   const safe={kind,model:kind==="model"?active?.id:null,generatedAt:new Date().toISOString(),report,batch};
@@ -42,18 +44,19 @@ export default function SandboxPanel(){
   setKind("oracle");setModelState(null);setBatch(grades);setReport(grades.find(x=>x.id===chosen.id)||null);
   setStatus("已執行 100 筆參考腳本。這只驗證模擬器，並非 AI 模型的成績。");
  }
- async function testModel(){
+ async function testModel(feedback=""){
+  const previous=report?.id===chosen.id&&kind==="model"?report:null;
   if(busy||!active)return;
   if(privateMode&&active.source!=="local"){setStatus("私人模式僅允許本機模型");return;}
   if(active.source!=="local"&&!cloudConsent){setStatus("遠端模型需要明確同意呼叫");return;}
   const c:Scenario=chosen;const candidate:ModelCandidate=active;
   const abort=new AbortController();stop.current=abort;
-  setBusy(true);setKind("model");setModelState(null);setBatch(null);setReport(null);setStatus("模型演練中：最多 9 次模型決策，每次只操作虛擬工具。");
+  setBusy(true);setCoached(Boolean(feedback));setBaseline(feedback?previous:null);setKind("model");setModelState(null);setBatch(null);setReport(null);setStatus("模型演練中：最多 9 次模型決策，每次只操作虛擬工具。");
   let state=start(c);
   try{
    for(let turn=0;turn<9&&!state.completed;turn++){
     if(abort.signal.aborted)throw Error("已取消演練");
-    const prompt=challengePrompt(c,state);
+    const prompt=challengePrompt(c,state)+(feedback?"\n額外練習提示（僅此輪、不可取代工具回報）："+feedback:"");
     const answer=await generateCandidate(candidate,[{role:"user",content:prompt}],undefined,undefined,
      {task:c.category==="engineering"?"code":"general",privateMode,signal:abort.signal});
     let tool:string;
@@ -79,7 +82,7 @@ export default function SandboxPanel(){
   <p>100 筆參數化虛擬情境，涵蓋工程、協作、資安、故障恢復與決策。工具、檔案與授權均為模擬，不會存取真實 Google Drive、GitHub 或金鑰。</p>
   <p><strong>演練並非微調：</strong>模型做出工具選擇，模擬器驗證結果。此處不會修改模型權重或自動新增 NOODLES 訓練樣本。</p>
   <label>測試情境
-   <select value={caseId} disabled={busy} onChange={e=>{setCaseId(e.target.value);setReport(null);setModelState(null);setExternalState(null);setExternalAction("");setExternalStatus("");setBatch(null);setStatus("");}}>
+   <select value={caseId} disabled={busy} onChange={e=>{setCaseId(e.target.value);setReport(null);setModelState(null);setCoached(false);setBaseline(null);setExternalState(null);setExternalAction("");setExternalStatus("");setBatch(null);setStatus("");}}>
     {cases.map(c=><option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
    </select>
   </label>
@@ -96,6 +99,7 @@ export default function SandboxPanel(){
   <p>AI 演練每次只跑 1 筆情境，最多 9 回合。需先安裝並載入本機模型，或自行設定有權使用的遠端模型。演練不是未經授權的背景訓練。</p>
   <button type="button" className="detroit-primary" disabled={busy||!active||(active.source!=="local"&&!cloudConsent)}
    onClick={()=>void testModel()}>讓 {active?.label||"AI"} 實際演練此情境</button>
+  {kind==="model"&&report&&!report.pass&&<button type="button" disabled={busy||!active||(active.source!=="local"&&!cloudConsent)} onClick={()=>void testModel(trainingFeedback(chosen,report))}>依失敗回饋重試一次（本回合提示訓練）</button>}
   {busy&&<button type="button" onClick={()=>stop.current?.abort()}>停止模型演練</button>}
   <p role="status">{status}</p>
   {batch&&<p>模擬器參考腳本：{batch.filter(x=>x.pass).length}/{batch.length} 通過。<strong>不是 AI 模型成績。</strong></p>}
@@ -104,6 +108,7 @@ export default function SandboxPanel(){
    <p><strong>{report.score}/100</strong> · {report.pass?"通過":"未通過"} · 步數 {report.steps} · 虛擬故障 {report.faults} · 阻擋 {report.blocked}</p>
    <ol>{report.trace.map((e,i)=><li key={i}><strong>{e.tool}</strong> · {e.status} · {e.message}</li>)}</ol>
   </section>}
+  {coached&&baseline&&report&&<p><strong>同題提示重試：</strong>原分數 {baseline.score}、目前 {report.score}；這是看過回饋後的同題訓練，不算獨立泛化能力，也不列入未提示的 Claude 對照成績。</p>}
   {kind==="model"&&report&&<p><strong>本輪改善診斷：</strong>{trainingFeedback(chosen,report)}。這是工作流程回饋，不會改變模型權重。</p>}
   <section aria-label="Claude 外部對戰" className="detroit-wordcraft">
    <h3>Claude 對戰 · 相同沙盤與逐回合回饋</h3>
@@ -111,7 +116,7 @@ export default function SandboxPanel(){
    <label>目前給 Claude 的下一回合題目
     <textarea readOnly rows={8} value={extState.completed?"情境已完成，請重置外部對戰。":challengePrompt(chosen,extState)}/>
    </label>
-   <button type="button" disabled={busy||extState.completed||extState.trace.length>=12} onClick={()=>void navigator.clipboard.writeText(challengePrompt(chosen,extState)).then(()=>setExternalStatus("已複製同一份沙盤題目。")).catch(()=>setExternalStatus("複製失敗，請手動選取文字。"))}>複製題目給 Claude</button>
+   <button type="button" disabled={busy||extState.completed||extState.trace.length>=12} onClick={()=>{if(!navigator.clipboard?.writeText){setExternalStatus("此瀏覽器不支援自動複製，請手動選取上方文字。");return;}void navigator.clipboard.writeText(challengePrompt(chosen,extState)).then(()=>setExternalStatus("已複製同一份沙盤題目。")).catch(()=>setExternalStatus("複製失敗，請手動選取文字。"));}}>複製題目給 Claude</button>
    <label>貼上 Claude 本回合的 JSON 工具動作
     <textarea rows={2} maxLength={20000} disabled={busy||extState.completed||extState.trace.length>=12} value={externalAction} onChange={e=>setExternalAction(e.target.value)} placeholder={'{"tool":"inspect"}'}/>
    </label>

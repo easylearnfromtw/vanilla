@@ -106,6 +106,10 @@ jobs:
           python3 training/noodles_train.py --mode dpo --train tests/fixtures/noodles-dpo-train.jsonl --eval tests/fixtures/noodles-dpo-eval.jsonl --check-only
           python3 -m py_compile training/noodles_distill.py training/noodles_benchmark.py training/noodles_infer.py
           python3 -m unittest discover -s tests -p 'test_noodles_*.py'
+      - name: Real-price evidence and model safety tests (no external calls or neural training)
+        run: |
+          python3 -m py_compile training/atuber/real_price_train.py
+          python3 -m unittest discover -s tests -p 'test_atuber_real_price.py'
       - name: Typecheck and build
         run: npm run build
         env:

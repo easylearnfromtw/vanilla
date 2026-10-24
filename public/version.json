@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.24.02-secret-knowledge-curated",
-  "description": "Secret Knowledge curated diagnostic references with provenance and safety labeling"
+  "build": "2026.10.24.03-five-item-sidebar",
+  "description": "Five primary destinations only in sidebar and mobile navigation; specialist tools remain available through chat"
 }

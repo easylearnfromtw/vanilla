@@ -128,6 +128,7 @@ function prettyModel(model:string):string{
 function sourceLabel(turn:ChatTurn):string{
  if(turn.source==="local")return "本機";
  if(turn.source==="ollama")return turn.model&&isTaideModel(turn.model)?"TAIDE":"Ollama";
+ if(turn.source==="octuber-hosted")return "OCTUBER · 託管 Qwen";
  return ({gemini:"Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter"} as Record<string,string>)[turn.source||""]||"Cloud";
 }
 
@@ -267,6 +268,7 @@ useEffect(()=>{
 
 useEffect(()=>{const update=()=>setProviders(availableProviders());window.addEventListener("vanilla-providers-changed",update);return()=>window.removeEventListener("vanilla-providers-changed",update);},[]);
 useEffect(()=>{const update=()=>setOllamaConnected(isOllamaConfigured());window.addEventListener("vanilla-ollama-changed",update);return()=>window.removeEventListener("vanilla-ollama-changed",update);},[]);
+useEffect(()=>{const sync=()=>{try{setAllowMetered(localStorage.getItem("vanilla.models.allow-metered.v1")==="true");}catch{}};window.addEventListener("vanilla-metered-changed",sync);return()=>window.removeEventListener("vanilla-metered-changed",sync);},[]);
 const [copied,setCopied]=useState<number|null>(null);
 const bottomRef=useRef<HTMLDivElement>(null);
 const capabilities=detectLocalAICapabilities();
@@ -1303,8 +1305,8 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    const detail=atuberDecision.reason==="vision-needs-approved-adapter"?
     "阿土伯目前是文字模型，圖片需要經核准的 Retina／多模態專家提供證據；尚未接通阿土伯專屬的視覺委派，不會把圖片悄悄交給其他模型。":
     atuberDecision.reason==="fact-needs-stronger-runtime"?
-    "這題需要可靠事實判斷，手機阿土伯 0.6B 不符合品質門檻。請先接好自架 October Ollama 主控，或使用已經核實的工具資料。":
-    "尚未載入阿土伯 Qwen3 0.6B，也沒有連接 October／阿土伯 Ollama 主控。請在模型面板載入阿土伯或設定自架 October；其他模型不會自動接管。";
+    "這題需要可靠事實判斷，手機阿土伯 0.6B 不符合品質門檻。請在設定連接自架 Ollama，或啟用已實際驗證的 OCTUBER 14B／30B 託管模型。":
+    "尚未載入阿土伯 0.6B，也沒有已驗證的 OCTUBER 主控。可在設定中啟用 14B／30B／32B 託管推論，或連線自架 Ollama；尚未連線的模型不會假裝已上線。";
    setLastRoute(detail);if(image)setFileStatus(detail);
    setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);
    return;
@@ -1322,7 +1324,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   return;
  }
  const chosen:ModelCandidate[]=!ATUBER_SINGLE_DRIVER&&!nativeArtifact&&!nativeOrchestra&&compareMode&&!localOnly&&ranked.length>1?topComparisonCandidates(ranked,task,preference,!privateMode,question):[primary];
- const cloud=chosen.filter(x=>["gemini","deepseek","openai","anthropic","openrouter"].includes(x.source));
+ const cloud=chosen.filter(x=>["gemini","deepseek","openai","anthropic","openrouter","octuber-hosted"].includes(x.source));
  const external=chosen.filter(x=>x.source==="ollama");
  if(cloud.length){
   const providersUsed=[...new Set(cloud.map(x=>x.source))];
@@ -1331,7 +1333,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
    let allowed=false;try{allowed=localStorage.getItem(key)==="yes";}catch{}
    if(allowed)continue;
    const models=cloud.filter(x=>x.source===provider).map(x=>x.label).join("、");
-   const service=({gemini:"Google Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter"} as Record<string,string>)[provider]||provider;
+   const service=({gemini:"Google Gemini",deepseek:"DeepSeek",openai:"OpenAI",anthropic:"Anthropic",openrouter:"OpenRouter","octuber-hosted":"OpenRouter 託管 OCTUBER 模型"} as Record<string,string>)[provider]||provider;
    if(!window.confirm("準備使用 "+service+"（"+models+"）。\n\n會傳送：本次問題、最近最多 20 則對話；與問題相關時也會自動附上：附件內容、網頁擷取、Google Drive 記憶節錄、PROJECT HUB 程式碼、CREAM 歷史數據、你明確啟用的 Victoria 舊對話節錄，以及你附加的圖片。\n\n記憶／CREAM／專案的自動附加可以在「模型與工具」面板逐項關閉。比較模式可能增加用量與費用。\n\n同意傳送至這個供應商嗎？")){setDetroitPlan(prev=>prev?settleDetroitStages(prev):prev);return;}
    try{localStorage.setItem(key,"yes");}catch{}
   }
@@ -1649,7 +1651,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  <div className="control-toggles">
   <label className="vh-switch"><input type="checkbox" checked={deepAnalysis} disabled={busy} onChange={e=>{setDeepAnalysis(e.target.checked);try{localStorage.setItem("vanilla.detroit.deep.v1",String(e.target.checked));}catch{}}}/><span><strong>Detroit 深度分析</strong><small>複雜題增加思考預算，顯示處理階段；不公開模型內部推理</small></span></label>
   <label className="vh-switch"><input type="checkbox" checked={compareMode} disabled={ATUBER_SINGLE_DRIVER||busy||privateMode||Boolean(comparison)} onChange={e=>changeCompareMode(e.target.checked)}/><span><strong>比較兩個答案</strong><small>兩個模型各答一次，選你喜歡的</small></span></label>
-  <label className="vh-switch"><input type="checkbox" checked={allowMetered} disabled={privateMode} onChange={e=>changeMetered(e.target.checked)}/><span><strong>允許計費雲端 API</strong><small>關閉時只用本機與自架 Ollama</small></span></label>
+  <label className="vh-switch"><input type="checkbox" checked={allowMetered} disabled={privateMode} onChange={e=>changeMetered(e.target.checked)}/><span><strong>允許計費雲端 API</strong><small>開啟後才使用已驗證的 OCTUBER 14B／30B／32B 託管模型；依服務商計費</small></span></label>
  </div>
  {!privateMode&&<div className="control-toggles">
   <span className="vh-section-label">自動附加資料</span>

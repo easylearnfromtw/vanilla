@@ -52,6 +52,7 @@ type Dependencies={
 export async function prefetchFastLocalModel(modelId:string,modelUrl:string,onProgress:(p:FastDownloadProgress)=>void,options:Dependencies={}):Promise<FastDownloadResult>{
  const base=officialFastModelBase(modelId,modelUrl);
  if(!base||typeof caches==="undefined"&&!options.cacheStorage)return {complete:false,fromCache:0,downloaded:0,failed:0};
+ const sourceBase:string=base;
  let cache:Cache;
  try{cache=await (options.cacheStorage??caches).open(FAST_MODEL_CACHE);}
  catch{return {complete:false,fromCache:0,downloaded:0,failed:0};}
@@ -65,7 +66,7 @@ export async function prefetchFastLocalModel(modelId:string,modelUrl:string,onPr
  // Locate existing fully persisted responses before starting any network fetch.
  const missing:number[]=[];
  for(let i=0;i<FAST_MODEL_FILES.length;i++){
-  const url=new URL(FAST_MODEL_FILES[i].file,base).href;
+  const url=new URL(FAST_MODEL_FILES[i].file,sourceBase).href;
   try{
    const hit=await cache.match(url);
    if(hit?.ok){loaded[i]=FAST_MODEL_FILES[i].bytes;cached++;completed++;continue;}
@@ -84,7 +85,7 @@ export async function prefetchFastLocalModel(modelId:string,modelUrl:string,onPr
  };
  async function fetchOne(i:number){
   const item=FAST_MODEL_FILES[i];
-  const url=new URL(item.file,base).href;
+  const url=new URL(item.file,sourceBase).href;
   try{
    const response=await fetchFn(url,{mode:"cors",credentials:"omit",redirect:"follow",cache:"no-store"});
    if(!response.ok||!response.body||response.type==="opaque")throw Error("Invalid model response");

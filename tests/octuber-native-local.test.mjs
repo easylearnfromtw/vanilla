@@ -22,17 +22,16 @@ test("native Qwen3 Ollama models are recognized by exact capacity, not label spo
  assert.equal(localOctuberBaseTier("deepseek:30b"),null);
  assert.equal(localOctuberBaseTier("attacker/qwen3:30b"),null);
  assert.equal(localOctuberBaseTier("qwen3:300b"),null);
- assert.equal(atuberTier(driver),"large");
+ assert.equal(atuberTier(driver),null,"listing a native model cannot bypass real inference proof");
  assert.equal(atuberTier({...driver,location:"Ollama Cloud"}),null);
  assert.ok(recognizedLocalModelName(thirty));
  assert.deepEqual(localOctuberBaseNames("ultra"),["qwen3:32b"]);
  assert.equal(installedTierModel(["qwen3:30b","qwen3:14b"],"large",["octuber:sumptuous"]),"qwen3:30b");
  assert.equal(installedTierModel([],"large",["octuber:sumptuous"]),null);
 });
-test("verified native 30B can control code and research; iPhone privacy never routes to remote PC",()=>{
+test("unverified local 30B is not a driver; private mode stays on phone",()=>{
  const pick=(task,privateMode=false)=>selectAtuberDriver([phone,driver],{task,privateMode,localOnly:privateMode,image:false});
- assert.equal(pick("code").controller?.model,thirty);
- assert.equal(pick("analysis").controller?.model,thirty);
+ assert.equal(pick("code").controller?.source,"local");
  assert.equal(pick("code",true).controller?.source,"local");
  assert.equal(pick("casual").controller?.source,"local");
 });
@@ -56,6 +55,11 @@ test("probe requires installed model and completed nonempty /api/chat; never con
   assert.equal(report.responseTokens,3);
   assert.ok(report.elapsedMs>=0);
   assert.equal(isOllamaModelVerified(thirty),true);
+  assert.equal(atuberTier(driver),"large");
+  const select=task=>selectAtuberDriver([phone,driver],{task,privateMode:false,localOnly:false,image:false}).controller;
+  assert.equal(select("code")?.model,thirty);
+  assert.equal(select("analysis")?.model,thirty);
+  assert.equal(selectAtuberDriver([phone,driver],{task:"code",privateMode:true,localOnly:true,image:false}).controller?.source,"local");
   assert.equal(calls,2);
   clearOllamaConfig();
   assert.equal(isOllamaModelVerified(thirty),false);

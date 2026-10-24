@@ -95,7 +95,8 @@ export function comparePrices(records:PriceRecord[],selectedKey:string,opts:{
  currentPrice:number;cost:number;minimumMargin:number;maxChangeRate?:number;now?:number
 }):PriceSummary{
  const notes:string[]=[];
- const floorPrice=Math.ceil(opts.cost/(1-opts.minimumMargin));
+ const marginValid=Number.isFinite(opts.minimumMargin)&&opts.minimumMargin>=0&&opts.minimumMargin<1;
+ const floorPrice=marginValid&&Number.isFinite(opts.cost)&&opts.cost>=0?Math.ceil(opts.cost/(1-opts.minimumMargin)):0;
  const valid=records.filter(x=>priceProductKey(x)===selectedKey&&x.price>0);
  // Suppress duplicated listings from the same merchant; keep the lowest quoted offer.
  const byMerchant=new Map<string,PriceRecord>();

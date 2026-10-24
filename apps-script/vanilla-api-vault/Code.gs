@@ -90,7 +90,7 @@ function configured_(provider) {
 }
 function status_() {
   const info={};
-  PROVIDERS.forEach(p=>info[p]={configured:configured_(p),operations:ACTIONS[p]});
+  PROVIDERS.forEach(p=>info[p]={configured:configured_(p),operations:ACTIONS[p],models:CHAT_PROVIDERS.includes(p)?key_("VAULT_MODELS_"+p.toUpperCase()).split(",").map(x=>x.trim()).filter(Boolean):[]});
   return {ok:true,version:VAULT_VERSION,providers:info,credentialValuesReturned:false};
 }
 function text_(s,max) {
@@ -215,7 +215,8 @@ function canva_(req) {
     default:throw Error("ACTION_NOT_ALLOWED");
   }
   const data=request_(root+path,{Authorization:"Bearer "+token},method,body);
-  return {ok:true,provider:"canva",operation:req.operation,data:JSON.parse(JSON.stringify(data).slice(0,20000))};
+  if(JSON.stringify(data).length>20000) throw Error("UPSTREAM_TOO_LARGE");
+  return {ok:true,provider:"canva",operation:req.operation,data:data};
 }
 function notion_(req) {
   const token=key_("VAULT_KEY_NOTION");

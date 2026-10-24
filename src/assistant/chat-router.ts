@@ -6,6 +6,7 @@
  */
 import {capabilityIntent} from "./capability-report";
 import {toolKnowledgeIntent} from "./tool-knowledge";
+import {pythonToolDiscoveryIntent} from "../detroit/python-tool-discovery";
 import {parseDianaInvocation,type DianaTarget} from "../detroit/diana";
 import {proposeProactiveDiana} from "../detroit/diana-auto";
 import {makeHumanizeRequest,isHumanizeRequest} from "../erya/humanize";
@@ -41,6 +42,7 @@ export type ChatRoute=
  |{kind:"diana";request:string;forcedTool:DianaTarget|null}
  |{kind:"capability"}
  |{kind:"tool-knowledge"}
+ |{kind:"python-discovery";query:string}
  |{kind:"cream-text"}
  |{kind:"cream-csv"}
  |{kind:"open";section:OpenSection}
@@ -89,6 +91,8 @@ export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  // Diana proactively selects real editors or local deterministic tools for clear action requests.
  // Existing file, memory, search and CREAM routes above retain precedence and consent.
  if(proposeProactiveDiana(q,{privateMode:ctx.privateMode,hasCreamResult:ctx.hasCreamResult}))return {kind:"diana",request:q,forcedTool:null};
+ // Diana selects the read-only public catalog only for an explicit Python library request.
+ if(pythonToolDiscoveryIntent(q))return ctx.privateMode?{kind:"private-blocked",what:"公開 Python 套件索引"}:{kind:"python-discovery",query:q};
  const implicit=!ctx.privateMode?implicitResearchQuery(q):null;
  if(implicit)return {kind:"web-search",query:implicit,explicit:false};
  return {kind:"continue"};

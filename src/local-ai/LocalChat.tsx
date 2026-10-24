@@ -40,6 +40,7 @@ import {classifyFactRequest,evaluateFactEvidence,qualifiedFactModels} from "../d
 import {inspectOwnRepository,selfInspectIntent} from "../builder/repo-inspector";
 import {capabilityIntent,capabilityAnswer} from "../assistant/capability-report";
 import {toolKnowledgeAnswer,toolKnowledgeGuidance} from "../assistant/tool-knowledge";
+import {discoverPythonTools} from "../detroit/python-tool-discovery";
 import PWAUpdateNotice from "../pwa/PWAUpdateNotice";
 import {wrapExternalText,assertPublicWorkspaceName} from "../security/trust-boundary";
 import {planAppIntent,PROJECTS} from "../assistant/intent-router";
@@ -899,6 +900,17 @@ async function send(value=draft):Promise<void>{
     return;
    }
    toolReply(question,pick.message||"Diana 無法執行這個工具。","diana");return;
+  }
+  case "python-discovery":{
+   setBusy(true);
+   setLastRoute("Diana → Zeus：讀取 Awesome Python 公開索引…");
+   try{
+    const answer=await discoverPythonTools(route.query,{privateMode,online});
+    toolReply(question,answer,"diana");
+   }catch(error){
+    toolReply(question,"Diana 無法完成 Python 索引查詢："+String(error instanceof Error?error.message:error)+"。未下載或執行任何候選套件。","diana");
+   }finally{setBusy(false);}
+   return;
   }
   case "tool-knowledge":{
    toolReply(question,toolKnowledgeAnswer(question),"capability");

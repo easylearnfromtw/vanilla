@@ -50,6 +50,6 @@ class MultiTier(unittest.TestCase):
    p=subprocess.run([sys.executable,str(ROOT/"training"/"atuber"/"multitier_train.py"),
      "--tier","4b","--steps","20","--train","--output",str(path)],text=True,capture_output=True)
    self.assertNotEqual(p.returncode,0)
-   self.assertIn("approve-gpu-and-download",p.stderr)
+   self.assertIn("approve-gpu-compute",p.stderr)
    self.assertFalse(path.exists())
 if __name__=="__main__":unittest.main()

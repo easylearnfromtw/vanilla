@@ -1,0 +1,1690 @@
+{
+  "schema": 1,
+  "upstream": "NousResearch/hermes-agent",
+  "revision": "4dcef215cfe41bd2d02c2d1dad6e257a18101216",
+  "license": "MIT — Copyright (c) 2025 Nous Research",
+  "fetched_at_utc": "2026-10-24",
+  "execution": "catalog-only; not installed; no shell/MCP/tool permissions",
+  "skills": [
+    {
+      "id": "optional-skills/autonomous-ai-agents/agent-merge-conflict-arbiter",
+      "name": "agent-merge-conflict-arbiter",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/agent-merge-conflict-arbiter/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/agent-merge-conflict-arbiter/SKILL.md"
+    },
+    {
+      "id": "optional-skills/autonomous-ai-agents/antigravity-cli",
+      "name": "antigravity-cli",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/antigravity-cli/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/antigravity-cli/SKILL.md"
+    },
+    {
+      "id": "optional-skills/autonomous-ai-agents/blackbox",
+      "name": "blackbox",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/blackbox/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/blackbox/SKILL.md"
+    },
+    {
+      "id": "optional-skills/autonomous-ai-agents/dynamic-workflow",
+      "name": "dynamic-workflow",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/dynamic-workflow/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/dynamic-workflow/SKILL.md"
+    },
+    {
+      "id": "optional-skills/autonomous-ai-agents/grok",
+      "name": "grok",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/grok/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/grok/SKILL.md"
+    },
+    {
+      "id": "optional-skills/autonomous-ai-agents/honcho",
+      "name": "honcho",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/honcho/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/honcho/SKILL.md"
+    },
+    {
+      "id": "optional-skills/autonomous-ai-agents/openhands",
+      "name": "openhands",
+      "category": "autonomous-ai-agents",
+      "optional": true,
+      "path": "optional-skills/autonomous-ai-agents/openhands/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/autonomous-ai-agents/openhands/SKILL.md"
+    },
+    {
+      "id": "optional-skills/blockchain/evm",
+      "name": "evm",
+      "category": "blockchain",
+      "optional": true,
+      "path": "optional-skills/blockchain/evm/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/blockchain/evm/SKILL.md"
+    },
+    {
+      "id": "optional-skills/blockchain/hyperliquid",
+      "name": "hyperliquid",
+      "category": "blockchain",
+      "optional": true,
+      "path": "optional-skills/blockchain/hyperliquid/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/blockchain/hyperliquid/SKILL.md"
+    },
+    {
+      "id": "optional-skills/blockchain/solana",
+      "name": "solana",
+      "category": "blockchain",
+      "optional": true,
+      "path": "optional-skills/blockchain/solana/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/blockchain/solana/SKILL.md"
+    },
+    {
+      "id": "optional-skills/communication/one-three-one-rule",
+      "name": "one-three-one-rule",
+      "category": "communication",
+      "optional": true,
+      "path": "optional-skills/communication/one-three-one-rule/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/communication/one-three-one-rule/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/ai-presenter-video",
+      "name": "ai-presenter-video",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/ai-presenter-video/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/ai-presenter-video/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/anatomy",
+      "name": "anatomy",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/anatomy/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/anatomy/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/archify",
+      "name": "archify",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/archify/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/archify/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/ascii-art",
+      "name": "ascii-art",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/ascii-art/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/ascii-art/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/audiocraft-audio-generation",
+      "name": "audiocraft-audio-generation",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/audiocraft-audio-generation/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/audiocraft-audio-generation/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/auteur",
+      "name": "auteur",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/auteur/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/auteur/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/baoyu-article-illustrator",
+      "name": "baoyu-article-illustrator",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/baoyu-article-illustrator/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/baoyu-article-illustrator/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/baoyu-comic",
+      "name": "baoyu-comic",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/baoyu-comic/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/baoyu-comic/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/brag",
+      "name": "brag",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/brag/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/brag/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/brag-slim",
+      "name": "brag-slim",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/brag-slim/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/brag-slim/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/comfyui",
+      "name": "comfyui",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/comfyui/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/comfyui/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/concept-diagrams",
+      "name": "concept-diagrams",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/concept-diagrams/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/concept-diagrams/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/creative-ideation",
+      "name": "creative-ideation",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/creative-ideation/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/creative-ideation/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/draw-your-font",
+      "name": "draw-your-font",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/draw-your-font/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/draw-your-font/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/dream-loop",
+      "name": "dream-loop",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/dream-loop/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/dream-loop/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/excalidraw",
+      "name": "excalidraw",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/excalidraw/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/excalidraw/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/heartmula",
+      "name": "heartmula",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/heartmula/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/heartmula/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/hyperframes",
+      "name": "hyperframes",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/hyperframes/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/hyperframes/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/impeccable",
+      "name": "impeccable",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/impeccable/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/impeccable/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/ip-as-logo",
+      "name": "ip-as-logo",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/ip-as-logo/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/ip-as-logo/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/kanban-video-orchestrator",
+      "name": "kanban-video-orchestrator",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/kanban-video-orchestrator/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/kanban-video-orchestrator/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/meme-generation",
+      "name": "meme-generation",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/meme-generation/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/meme-generation/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/mono-color",
+      "name": "mono-color",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/mono-color/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/mono-color/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/pixel-art",
+      "name": "pixel-art",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/pixel-art/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/pixel-art/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/pretext",
+      "name": "pretext",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/pretext/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/pretext/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/simple-english",
+      "name": "simple-english",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/simple-english/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/simple-english/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/sketch",
+      "name": "sketch",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/sketch/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/sketch/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/social-media-content-calendar",
+      "name": "social-media-content-calendar",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/social-media-content-calendar/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/social-media-content-calendar/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/system-atlas",
+      "name": "system-atlas",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/system-atlas/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/system-atlas/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/tldraw-offline",
+      "name": "tldraw-offline",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/tldraw-offline/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/tldraw-offline/SKILL.md"
+    },
+    {
+      "id": "optional-skills/creative/unreal-mcp",
+      "name": "unreal-mcp",
+      "category": "creative",
+      "optional": true,
+      "path": "optional-skills/creative/unreal-mcp/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/creative/unreal-mcp/SKILL.md"
+    },
+    {
+      "id": "optional-skills/data-science/jupyter-notebook",
+      "name": "jupyter-notebook",
+      "category": "data-science",
+      "optional": true,
+      "path": "optional-skills/data-science/jupyter-notebook/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/data-science/jupyter-notebook/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/actual-setup",
+      "name": "actual-setup",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/actual-setup/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/actual-setup/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/docker-management",
+      "name": "docker-management",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/docker-management/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/docker-management/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/hermes-s6-container-supervision",
+      "name": "hermes-s6-container-supervision",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/hermes-s6-container-supervision/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/hermes-s6-container-supervision/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/inference-sh-cli",
+      "name": "inference-sh-cli",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/inference-sh-cli/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/inference-sh-cli/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/pinggy-tunnel",
+      "name": "pinggy-tunnel",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/pinggy-tunnel/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/pinggy-tunnel/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/setup-wizard-generator",
+      "name": "setup-wizard-generator",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/setup-wizard-generator/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/setup-wizard-generator/SKILL.md"
+    },
+    {
+      "id": "optional-skills/devops/watchers",
+      "name": "watchers",
+      "category": "devops",
+      "optional": true,
+      "path": "optional-skills/devops/watchers/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/devops/watchers/SKILL.md"
+    },
+    {
+      "id": "optional-skills/dogfood/adversarial-ux-test",
+      "name": "adversarial-ux-test",
+      "category": "dogfood",
+      "optional": true,
+      "path": "optional-skills/dogfood/adversarial-ux-test/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/dogfood/adversarial-ux-test/SKILL.md"
+    },
+    {
+      "id": "optional-skills/email/agentmail",
+      "name": "agentmail",
+      "category": "email",
+      "optional": true,
+      "path": "optional-skills/email/agentmail/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/email/agentmail/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/3-statement-model",
+      "name": "3-statement-model",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/3-statement-model/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/3-statement-model/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/comps-analysis",
+      "name": "comps-analysis",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/comps-analysis/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/comps-analysis/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/dcf-model",
+      "name": "dcf-model",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/dcf-model/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/dcf-model/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/excel-author",
+      "name": "excel-author",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/excel-author/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/excel-author/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/lbo-model",
+      "name": "lbo-model",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/lbo-model/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/lbo-model/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/merger-model",
+      "name": "merger-model",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/merger-model/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/merger-model/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/polymarket",
+      "name": "polymarket",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/polymarket/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/polymarket/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/pptx-author",
+      "name": "pptx-author",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/pptx-author/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/pptx-author/SKILL.md"
+    },
+    {
+      "id": "optional-skills/finance/stocks",
+      "name": "stocks",
+      "category": "finance",
+      "optional": true,
+      "path": "optional-skills/finance/stocks/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/finance/stocks/SKILL.md"
+    },
+    {
+      "id": "optional-skills/gaming/minecraft-modpack-server",
+      "name": "minecraft-modpack-server",
+      "category": "gaming",
+      "optional": true,
+      "path": "optional-skills/gaming/minecraft-modpack-server/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/gaming/minecraft-modpack-server/SKILL.md"
+    },
+    {
+      "id": "optional-skills/gaming/pokemon-player",
+      "name": "pokemon-player",
+      "category": "gaming",
+      "optional": true,
+      "path": "optional-skills/gaming/pokemon-player/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/gaming/pokemon-player/SKILL.md"
+    },
+    {
+      "id": "optional-skills/health/fitness-nutrition",
+      "name": "fitness-nutrition",
+      "category": "health",
+      "optional": true,
+      "path": "optional-skills/health/fitness-nutrition/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/health/fitness-nutrition/SKILL.md"
+    },
+    {
+      "id": "optional-skills/health/neuroskill-bci",
+      "name": "neuroskill-bci",
+      "category": "health",
+      "optional": true,
+      "path": "optional-skills/health/neuroskill-bci/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/health/neuroskill-bci/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mcp/fastmcp",
+      "name": "fastmcp",
+      "category": "mcp",
+      "optional": true,
+      "path": "optional-skills/mcp/fastmcp/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mcp/fastmcp/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mcp/mcp-oauth-remote-gateway",
+      "name": "mcp-oauth-remote-gateway",
+      "category": "mcp",
+      "optional": true,
+      "path": "optional-skills/mcp/mcp-oauth-remote-gateway/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mcp/mcp-oauth-remote-gateway/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mcp/mcporter",
+      "name": "mcporter",
+      "category": "mcp",
+      "optional": true,
+      "path": "optional-skills/mcp/mcporter/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mcp/mcporter/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/accelerate",
+      "name": "accelerate",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/accelerate/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/accelerate/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/chroma",
+      "name": "chroma",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/chroma/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/chroma/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/clip",
+      "name": "clip",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/clip/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/clip/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/evaluation/evaluating-llms-harness",
+      "name": "evaluating-llms-harness",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/evaluation/evaluating-llms-harness/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/evaluation/evaluating-llms-harness/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/evaluation/weights-and-biases",
+      "name": "weights-and-biases",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/evaluation/weights-and-biases/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/evaluation/weights-and-biases/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/faiss",
+      "name": "faiss",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/faiss/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/faiss/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/flash-attention",
+      "name": "flash-attention",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/flash-attention/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/flash-attention/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/guidance",
+      "name": "guidance",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/guidance/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/guidance/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/huggingface-tokenizers",
+      "name": "huggingface-tokenizers",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/huggingface-tokenizers/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/huggingface-tokenizers/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/inference/llama-cpp",
+      "name": "llama-cpp",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/inference/llama-cpp/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/inference/llama-cpp/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/inference/outlines",
+      "name": "outlines",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/inference/outlines/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/inference/outlines/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/inference/serving-llms-vllm",
+      "name": "serving-llms-vllm",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/inference/serving-llms-vllm/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/inference/serving-llms-vllm/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/instructor",
+      "name": "instructor",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/instructor/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/instructor/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/lambda-labs",
+      "name": "lambda-labs",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/lambda-labs/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/lambda-labs/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/llava",
+      "name": "llava",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/llava/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/llava/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/modal",
+      "name": "modal",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/modal/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/modal/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/models/huggingface-hub",
+      "name": "huggingface-hub",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/models/huggingface-hub/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/models/huggingface-hub/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/models/segment-anything-model",
+      "name": "segment-anything-model",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/models/segment-anything-model/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/models/segment-anything-model/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/nemo-curator",
+      "name": "nemo-curator",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/nemo-curator/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/nemo-curator/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/obliteratus",
+      "name": "obliteratus",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/obliteratus/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/obliteratus/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/peft",
+      "name": "peft",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/peft/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/peft/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/pinecone",
+      "name": "pinecone",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/pinecone/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/pinecone/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/pytorch-fsdp",
+      "name": "pytorch-fsdp",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/pytorch-fsdp/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/pytorch-fsdp/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/pytorch-lightning",
+      "name": "pytorch-lightning",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/pytorch-lightning/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/pytorch-lightning/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/qdrant",
+      "name": "qdrant",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/qdrant/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/qdrant/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/research/dspy",
+      "name": "dspy",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/research/dspy/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/research/dspy/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/saelens",
+      "name": "saelens",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/saelens/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/saelens/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/simpo",
+      "name": "simpo",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/simpo/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/simpo/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/slime",
+      "name": "slime",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/slime/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/slime/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/stable-diffusion",
+      "name": "stable-diffusion",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/stable-diffusion/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/stable-diffusion/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/tensorrt-llm",
+      "name": "tensorrt-llm",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/tensorrt-llm/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/tensorrt-llm/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/torchtitan",
+      "name": "torchtitan",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/torchtitan/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/torchtitan/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/training/axolotl",
+      "name": "axolotl",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/training/axolotl/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/training/axolotl/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/training/trl-fine-tuning",
+      "name": "trl-fine-tuning",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/training/trl-fine-tuning/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/training/trl-fine-tuning/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/training/unsloth",
+      "name": "unsloth",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/training/unsloth/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/training/unsloth/SKILL.md"
+    },
+    {
+      "id": "optional-skills/mlops/whisper",
+      "name": "whisper",
+      "category": "mlops",
+      "optional": true,
+      "path": "optional-skills/mlops/whisper/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/mlops/whisper/SKILL.md"
+    },
+    {
+      "id": "optional-skills/payments/mpp-agent",
+      "name": "mpp-agent",
+      "category": "payments",
+      "optional": true,
+      "path": "optional-skills/payments/mpp-agent/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/payments/mpp-agent/SKILL.md"
+    },
+    {
+      "id": "optional-skills/payments/stripe-link-cli",
+      "name": "stripe-link-cli",
+      "category": "payments",
+      "optional": true,
+      "path": "optional-skills/payments/stripe-link-cli/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/payments/stripe-link-cli/SKILL.md"
+    },
+    {
+      "id": "optional-skills/payments/stripe-projects",
+      "name": "stripe-projects",
+      "category": "payments",
+      "optional": true,
+      "path": "optional-skills/payments/stripe-projects/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/payments/stripe-projects/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/canvas",
+      "name": "canvas",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/canvas/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/canvas/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/decision-questionnaire",
+      "name": "decision-questionnaire",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/decision-questionnaire/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/decision-questionnaire/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/here-now",
+      "name": "here-now",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/here-now/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/here-now/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/live-dashboard",
+      "name": "live-dashboard",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/live-dashboard/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/live-dashboard/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/memento-flashcards",
+      "name": "memento-flashcards",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/memento-flashcards/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/memento-flashcards/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/property-listings",
+      "name": "property-listings",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/property-listings/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/property-listings/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/shop",
+      "name": "shop",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/shop/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/shop/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/shopify",
+      "name": "shopify",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/shopify/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/shopify/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/siyuan",
+      "name": "siyuan",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/siyuan/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/siyuan/SKILL.md"
+    },
+    {
+      "id": "optional-skills/productivity/telephony",
+      "name": "telephony",
+      "category": "productivity",
+      "optional": true,
+      "path": "optional-skills/productivity/telephony/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/productivity/telephony/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/bioinformatics",
+      "name": "bioinformatics",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/bioinformatics/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/bioinformatics/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/blogwatcher",
+      "name": "blogwatcher",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/blogwatcher/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/blogwatcher/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/darwinian-evolver",
+      "name": "darwinian-evolver",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/darwinian-evolver/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/darwinian-evolver/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/domain-intel",
+      "name": "domain-intel",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/domain-intel/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/domain-intel/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/drug-discovery",
+      "name": "drug-discovery",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/drug-discovery/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/drug-discovery/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/duckduckgo-search",
+      "name": "duckduckgo-search",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/duckduckgo-search/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/duckduckgo-search/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/gitnexus-explorer",
+      "name": "gitnexus-explorer",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/gitnexus-explorer/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/gitnexus-explorer/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/osint-investigation",
+      "name": "osint-investigation",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/osint-investigation/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/osint-investigation/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/parallel-cli",
+      "name": "parallel-cli",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/parallel-cli/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/parallel-cli/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/pinecone-research",
+      "name": "pinecone-research",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/pinecone-research/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/pinecone-research/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/qmd",
+      "name": "qmd",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/qmd/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/qmd/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/research-paper-writing",
+      "name": "research-paper-writing",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/research-paper-writing/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/research-paper-writing/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/rss-feeds",
+      "name": "rss-feeds",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/rss-feeds/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/rss-feeds/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/scrapling",
+      "name": "scrapling",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/scrapling/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/scrapling/SKILL.md"
+    },
+    {
+      "id": "optional-skills/research/searxng-search",
+      "name": "searxng-search",
+      "category": "research",
+      "optional": true,
+      "path": "optional-skills/research/searxng-search/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/research/searxng-search/SKILL.md"
+    },
+    {
+      "id": "optional-skills/security/1password",
+      "name": "1password",
+      "category": "security",
+      "optional": true,
+      "path": "optional-skills/security/1password/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/security/1password/SKILL.md"
+    },
+    {
+      "id": "optional-skills/security/godmode",
+      "name": "godmode",
+      "category": "security",
+      "optional": true,
+      "path": "optional-skills/security/godmode/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/security/godmode/SKILL.md"
+    },
+    {
+      "id": "optional-skills/security/oss-forensics",
+      "name": "oss-forensics",
+      "category": "security",
+      "optional": true,
+      "path": "optional-skills/security/oss-forensics/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/security/oss-forensics/SKILL.md"
+    },
+    {
+      "id": "optional-skills/security/sherlock",
+      "name": "sherlock",
+      "category": "security",
+      "optional": true,
+      "path": "optional-skills/security/sherlock/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/security/sherlock/SKILL.md"
+    },
+    {
+      "id": "optional-skills/security/unbroker",
+      "name": "unbroker",
+      "category": "security",
+      "optional": true,
+      "path": "optional-skills/security/unbroker/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/security/unbroker/SKILL.md"
+    },
+    {
+      "id": "optional-skills/security/web-pentest",
+      "name": "web-pentest",
+      "category": "security",
+      "optional": true,
+      "path": "optional-skills/security/web-pentest/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/security/web-pentest/SKILL.md"
+    },
+    {
+      "id": "optional-skills/smart-home/openhue",
+      "name": "openhue",
+      "category": "smart-home",
+      "optional": true,
+      "path": "optional-skills/smart-home/openhue/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/smart-home/openhue/SKILL.md"
+    },
+    {
+      "id": "optional-skills/social-media/reddit-reading",
+      "name": "reddit-reading",
+      "category": "social-media",
+      "optional": true,
+      "path": "optional-skills/social-media/reddit-reading/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/social-media/reddit-reading/SKILL.md"
+    },
+    {
+      "id": "optional-skills/software-development/ast-grep",
+      "name": "ast-grep",
+      "category": "software-development",
+      "optional": true,
+      "path": "optional-skills/software-development/ast-grep/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/software-development/ast-grep/SKILL.md"
+    },
+    {
+      "id": "optional-skills/software-development/code-wiki",
+      "name": "code-wiki",
+      "category": "software-development",
+      "optional": true,
+      "path": "optional-skills/software-development/code-wiki/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/software-development/code-wiki/SKILL.md"
+    },
+    {
+      "id": "optional-skills/software-development/grill-me",
+      "name": "grill-me",
+      "category": "software-development",
+      "optional": true,
+      "path": "optional-skills/software-development/grill-me/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/software-development/grill-me/SKILL.md"
+    },
+    {
+      "id": "optional-skills/software-development/pr-lens",
+      "name": "pr-lens",
+      "category": "software-development",
+      "optional": true,
+      "path": "optional-skills/software-development/pr-lens/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/software-development/pr-lens/SKILL.md"
+    },
+    {
+      "id": "optional-skills/software-development/rest-graphql-debug",
+      "name": "rest-graphql-debug",
+      "category": "software-development",
+      "optional": true,
+      "path": "optional-skills/software-development/rest-graphql-debug/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/software-development/rest-graphql-debug/SKILL.md"
+    },
+    {
+      "id": "optional-skills/software-development/subagent-driven-development",
+      "name": "subagent-driven-development",
+      "category": "software-development",
+      "optional": true,
+      "path": "optional-skills/software-development/subagent-driven-development/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/software-development/subagent-driven-development/SKILL.md"
+    },
+    {
+      "id": "optional-skills/web-development/cloudflare-temporary-deploy",
+      "name": "cloudflare-temporary-deploy",
+      "category": "web-development",
+      "optional": true,
+      "path": "optional-skills/web-development/cloudflare-temporary-deploy/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/web-development/cloudflare-temporary-deploy/SKILL.md"
+    },
+    {
+      "id": "optional-skills/web-development/har-derived-api-client",
+      "name": "har-derived-api-client",
+      "category": "web-development",
+      "optional": true,
+      "path": "optional-skills/web-development/har-derived-api-client/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/web-development/har-derived-api-client/SKILL.md"
+    },
+    {
+      "id": "optional-skills/web-development/page-agent",
+      "name": "page-agent",
+      "category": "web-development",
+      "optional": true,
+      "path": "optional-skills/web-development/page-agent/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/web-development/page-agent/SKILL.md"
+    },
+    {
+      "id": "optional-skills/web-development/publish-site",
+      "name": "publish-site",
+      "category": "web-development",
+      "optional": true,
+      "path": "optional-skills/web-development/publish-site/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/web-development/publish-site/SKILL.md"
+    },
+    {
+      "id": "optional-skills/web-development/scrollcraft",
+      "name": "scrollcraft",
+      "category": "web-development",
+      "optional": true,
+      "path": "optional-skills/web-development/scrollcraft/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/web-development/scrollcraft/SKILL.md"
+    },
+    {
+      "id": "optional-skills/yuanbao",
+      "name": "yuanbao",
+      "category": "yuanbao",
+      "optional": true,
+      "path": "optional-skills/yuanbao/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/optional-skills/yuanbao/SKILL.md"
+    },
+    {
+      "id": "skills/apple/apple-notes",
+      "name": "apple-notes",
+      "category": "apple",
+      "optional": false,
+      "path": "skills/apple/apple-notes/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/apple/apple-notes/SKILL.md"
+    },
+    {
+      "id": "skills/apple/apple-reminders",
+      "name": "apple-reminders",
+      "category": "apple",
+      "optional": false,
+      "path": "skills/apple/apple-reminders/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/apple/apple-reminders/SKILL.md"
+    },
+    {
+      "id": "skills/apple/findmy",
+      "name": "findmy",
+      "category": "apple",
+      "optional": false,
+      "path": "skills/apple/findmy/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/apple/findmy/SKILL.md"
+    },
+    {
+      "id": "skills/apple/imessage",
+      "name": "imessage",
+      "category": "apple",
+      "optional": false,
+      "path": "skills/apple/imessage/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/apple/imessage/SKILL.md"
+    },
+    {
+      "id": "skills/autonomous-ai-agents/claude-code",
+      "name": "claude-code",
+      "category": "autonomous-ai-agents",
+      "optional": false,
+      "path": "skills/autonomous-ai-agents/claude-code/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/autonomous-ai-agents/claude-code/SKILL.md"
+    },
+    {
+      "id": "skills/autonomous-ai-agents/codex",
+      "name": "codex",
+      "category": "autonomous-ai-agents",
+      "optional": false,
+      "path": "skills/autonomous-ai-agents/codex/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/autonomous-ai-agents/codex/SKILL.md"
+    },
+    {
+      "id": "skills/autonomous-ai-agents/computer-use",
+      "name": "computer-use",
+      "category": "autonomous-ai-agents",
+      "optional": false,
+      "path": "skills/autonomous-ai-agents/computer-use/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/autonomous-ai-agents/computer-use/SKILL.md"
+    },
+    {
+      "id": "skills/autonomous-ai-agents/hermes-agent",
+      "name": "hermes-agent",
+      "category": "autonomous-ai-agents",
+      "optional": false,
+      "path": "skills/autonomous-ai-agents/hermes-agent/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/autonomous-ai-agents/hermes-agent/SKILL.md"
+    },
+    {
+      "id": "skills/autonomous-ai-agents/opencode",
+      "name": "opencode",
+      "category": "autonomous-ai-agents",
+      "optional": false,
+      "path": "skills/autonomous-ai-agents/opencode/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/autonomous-ai-agents/opencode/SKILL.md"
+    },
+    {
+      "id": "skills/creative/architecture-diagram",
+      "name": "architecture-diagram",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/architecture-diagram/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/architecture-diagram/SKILL.md"
+    },
+    {
+      "id": "skills/creative/ascii-video",
+      "name": "ascii-video",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/ascii-video/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/ascii-video/SKILL.md"
+    },
+    {
+      "id": "skills/creative/baoyu-infographic",
+      "name": "baoyu-infographic",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/baoyu-infographic/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/baoyu-infographic/SKILL.md"
+    },
+    {
+      "id": "skills/creative/claude-design",
+      "name": "claude-design",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/claude-design/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/claude-design/SKILL.md"
+    },
+    {
+      "id": "skills/creative/design-md",
+      "name": "design-md",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/design-md/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/design-md/SKILL.md"
+    },
+    {
+      "id": "skills/creative/humanizer",
+      "name": "humanizer",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/humanizer/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/humanizer/SKILL.md"
+    },
+    {
+      "id": "skills/creative/manim-video",
+      "name": "manim-video",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/manim-video/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/manim-video/SKILL.md"
+    },
+    {
+      "id": "skills/creative/p5js",
+      "name": "p5js",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/p5js/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/p5js/SKILL.md"
+    },
+    {
+      "id": "skills/creative/popular-web-designs",
+      "name": "popular-web-designs",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/popular-web-designs/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/popular-web-designs/SKILL.md"
+    },
+    {
+      "id": "skills/creative/songwriting-and-ai-music",
+      "name": "songwriting-and-ai-music",
+      "category": "creative",
+      "optional": false,
+      "path": "skills/creative/songwriting-and-ai-music/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/creative/songwriting-and-ai-music/SKILL.md"
+    },
+    {
+      "id": "skills/devops/sdlc-review",
+      "name": "sdlc-review",
+      "category": "devops",
+      "optional": false,
+      "path": "skills/devops/sdlc-review/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/devops/sdlc-review/SKILL.md"
+    },
+    {
+      "id": "skills/email/email-inbox-triage",
+      "name": "email-inbox-triage",
+      "category": "email",
+      "optional": false,
+      "path": "skills/email/email-inbox-triage/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/email/email-inbox-triage/SKILL.md"
+    },
+    {
+      "id": "skills/email/himalaya",
+      "name": "himalaya",
+      "category": "email",
+      "optional": false,
+      "path": "skills/email/himalaya/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/email/himalaya/SKILL.md"
+    },
+    {
+      "id": "skills/media/gif-search",
+      "name": "gif-search",
+      "category": "media",
+      "optional": false,
+      "path": "skills/media/gif-search/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/media/gif-search/SKILL.md"
+    },
+    {
+      "id": "skills/media/songsee",
+      "name": "songsee",
+      "category": "media",
+      "optional": false,
+      "path": "skills/media/songsee/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/media/songsee/SKILL.md"
+    },
+    {
+      "id": "skills/media/youtube-content",
+      "name": "youtube-content",
+      "category": "media",
+      "optional": false,
+      "path": "skills/media/youtube-content/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/media/youtube-content/SKILL.md"
+    },
+    {
+      "id": "skills/note-taking/obsidian",
+      "name": "obsidian",
+      "category": "note-taking",
+      "optional": false,
+      "path": "skills/note-taking/obsidian/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/note-taking/obsidian/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/airtable",
+      "name": "airtable",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/airtable/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/airtable/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/box",
+      "name": "box",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/box/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/box/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/document-to-action-items",
+      "name": "document-to-action-items",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/document-to-action-items/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/document-to-action-items/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/docx",
+      "name": "docx",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/docx/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/docx/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/google-workspace",
+      "name": "google-workspace",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/google-workspace/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/google-workspace/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/maps",
+      "name": "maps",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/maps/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/maps/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/meeting-action-items",
+      "name": "meeting-action-items",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/meeting-action-items/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/meeting-action-items/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/notion",
+      "name": "notion",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/notion/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/notion/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/pdf",
+      "name": "pdf",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/pdf/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/pdf/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/powerpoint",
+      "name": "powerpoint",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/powerpoint/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/powerpoint/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/product-price-monitor",
+      "name": "product-price-monitor",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/product-price-monitor/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/product-price-monitor/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/teams-meeting-pipeline",
+      "name": "teams-meeting-pipeline",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/teams-meeting-pipeline/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/teams-meeting-pipeline/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/weekly-review-planning",
+      "name": "weekly-review-planning",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/weekly-review-planning/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/weekly-review-planning/SKILL.md"
+    },
+    {
+      "id": "skills/productivity/xlsx",
+      "name": "xlsx",
+      "category": "productivity",
+      "optional": false,
+      "path": "skills/productivity/xlsx/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/productivity/xlsx/SKILL.md"
+    },
+    {
+      "id": "skills/research/arxiv",
+      "name": "arxiv",
+      "category": "research",
+      "optional": false,
+      "path": "skills/research/arxiv/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/research/arxiv/SKILL.md"
+    },
+    {
+      "id": "skills/research/competitor-news-monitor",
+      "name": "competitor-news-monitor",
+      "category": "research",
+      "optional": false,
+      "path": "skills/research/competitor-news-monitor/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/research/competitor-news-monitor/SKILL.md"
+    },
+    {
+      "id": "skills/research/grounded-citations",
+      "name": "grounded-citations",
+      "category": "research",
+      "optional": false,
+      "path": "skills/research/grounded-citations/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/research/grounded-citations/SKILL.md"
+    },
+    {
+      "id": "skills/research/llm-wiki",
+      "name": "llm-wiki",
+      "category": "research",
+      "optional": false,
+      "path": "skills/research/llm-wiki/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/research/llm-wiki/SKILL.md"
+    },
+    {
+      "id": "skills/social-media/xurl",
+      "name": "xurl",
+      "category": "social-media",
+      "optional": false,
+      "path": "skills/social-media/xurl/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/social-media/xurl/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/codebase-inspection",
+      "name": "codebase-inspection",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/codebase-inspection/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/codebase-inspection/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/dogfood",
+      "name": "dogfood",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/dogfood/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/dogfood/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/github",
+      "name": "github",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/github/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/github/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/hermes-agent-skill-authoring",
+      "name": "hermes-agent-skill-authoring",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/hermes-agent-skill-authoring/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/hermes-agent-skill-authoring/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/inspecting-hermes-desktop-dom",
+      "name": "inspecting-hermes-desktop-dom",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/inspecting-hermes-desktop-dom/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/inspecting-hermes-desktop-dom/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/node-inspect-debugger",
+      "name": "node-inspect-debugger",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/node-inspect-debugger/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/node-inspect-debugger/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/python-debugpy",
+      "name": "python-debugpy",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/python-debugpy/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/python-debugpy/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/requesting-code-review",
+      "name": "requesting-code-review",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/requesting-code-review/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/requesting-code-review/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/simplify-code",
+      "name": "simplify-code",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/simplify-code/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/simplify-code/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/spike",
+      "name": "spike",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/spike/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/spike/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/systematic-debugging",
+      "name": "systematic-debugging",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/systematic-debugging/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/systematic-debugging/SKILL.md"
+    },
+    {
+      "id": "skills/software-development/test-driven-development",
+      "name": "test-driven-development",
+      "category": "software-development",
+      "optional": false,
+      "path": "skills/software-development/test-driven-development/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/software-development/test-driven-development/SKILL.md"
+    },
+    {
+      "id": "skills/web/blocked-page-recovery",
+      "name": "blocked-page-recovery",
+      "category": "web",
+      "optional": false,
+      "path": "skills/web/blocked-page-recovery/SKILL.md",
+      "github": "https://github.com/NousResearch/hermes-agent/blob/4dcef215cfe41bd2d02c2d1dad6e257a18101216/skills/web/blocked-page-recovery/SKILL.md"
+    }
+  ]
+}

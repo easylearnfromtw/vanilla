@@ -31,6 +31,7 @@ jobs:
           npm run test:detroit
           npm run test:detroit-bus
           npm run test:diana
+          npm run test:awesome-go
           npm run test:awesome
           node --experimental-strip-types --test tests/windows-nodes.test.mjs
           npm run test:ceres

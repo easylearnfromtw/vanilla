@@ -39,12 +39,13 @@ export function apply(c:Scenario,prev:State,tool:string):State{
  if(prev.id!==c.id)throw Error("沙盤與情境不一致");
  const s:State={...prev,flags:[...prev.flags],attempts:{...prev.attempts},trace:[...prev.trace]};
  const log=(status:Event["status"],message:string)=>{s.trace.push({tool,status,message});return s;};
- if(s.completed)return log("blocked","已完成的任務不可繼續執行");
- if(s.trace.length>=12)return log("blocked","超過沙盤步數上限");
- s.attempts[tool]=(s.attempts[tool]||0)+1;
+ // Fail closed without appending endless audit events after the hard limit.
+ if(s.completed||s.trace.length>=12)return s;
  if(!allowed[c.category].includes(tool as Tool)){
   s.violations++;return log("blocked","拒絕白名單外動作；無任何外部操作");
  }
+ // Count only validated tool names: prevents prototype-key pollution.
+ s.attempts[tool]=(s.attempts[tool]||0)+1;
  if(tool==="finalize"){
   const ready=c.category==="engineering"?has(s,"tested"):
    c.category==="collaboration"?has(s,"uploaded"):

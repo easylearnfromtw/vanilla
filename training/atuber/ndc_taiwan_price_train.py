@@ -35,7 +35,7 @@ def price(v):
  return float(norm(v).replace(",","").replace("NT$","").replace("元","").replace("$","").strip())
 def read_prices(path):
  p=Path(path)
- if not p.is_file() or not 30<=p.stat().st_size<=20_000_000:raise ValueError("CSV_UNAVAILABLE")
+ if not p.is_file() or not 30<=p.stat().st_size<=100_000_000:raise ValueError("CSV_UNAVAILABLE")
  raw=p.read_bytes()
  for codec in ("utf-8-sig","cp950","big5"):
   try:

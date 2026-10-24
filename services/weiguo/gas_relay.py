@@ -34,6 +34,7 @@ _ALLOWED: dict[str, frozenset[str]] = {
     "canva": frozenset({"profile", "designs", "image_generate", "design_generate", "job_status"}),
     "notion": frozenset({"search"}),
     "brave": frozenset({"search"}),
+    "tavily": frozenset({"search"}),
     "github": frozenset({"repo"}),
 }
 _OWNER_ONLY = frozenset({"telegram", "canva", "notion"})

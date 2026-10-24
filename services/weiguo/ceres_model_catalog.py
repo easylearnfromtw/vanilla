@@ -15,6 +15,7 @@ from fastapi import HTTPException
 
 from ceres_gateway import _session
 from ceres_admin_policy import provider_key
+from gas_relay import gas_provider_enabled, _relay as gas_relay
 
 _SUPPORTED = {"gemini", "openai", "deepseek"}
 _MODES = {"speed", "balanced", "quality", "manual"}
@@ -143,33 +144,45 @@ def select_mode(provider: str, mode: str, model_id: str, actor: int) -> dict:
 async def discover(provider: str) -> dict:
     if provider not in _SUPPORTED:
         raise HTTPException(422,"此服務沒有可查詢的 AI 模型清單")
-    key=provider_key(provider)
-    if not key:
-        raise HTTPException(409,"請先設定並啟用此供應商 API")
-    if provider=="gemini":
-        endpoint="https://generativelanguage.googleapis.com/v1beta/models"
-        headers={"x-goog-api-key":key}
-    elif provider=="openai":
-        endpoint="https://api.openai.com/v1/models"
-        headers={"Authorization":"Bearer "+key}
+    if gas_provider_enabled(provider):
+        snapshot=await gas_relay({"action": "status"})
+        provider_info=snapshot.get("providers", {}).get(provider, {})
+        if not provider_info.get("configured"):
+            raise HTTPException(409, "GAS Vault 尚未配置此服務 API Key")
+        model_ids=provider_info.get("models", [])
+        if not isinstance(model_ids, list):
+            raise HTTPException(502, "GAS Vault 模型清單格式錯誤")
+        models=[{"id":item,"name":item,"context":None}
+                for value in model_ids[:100]
+                if (item:=_clean_id(value, provider)) is not None]
     else:
-        endpoint="https://api.deepseek.com/models"
-        headers={"Authorization":"Bearer "+key}
-    # No attacker-supplied URL, redirects, proxy, or arbitrary headers.
-    try:
-        async with httpx.AsyncClient(timeout=10,follow_redirects=False,trust_env=False) as client:
-            reply=await client.get(endpoint,headers=headers)
-        if reply.status_code in (401,403):
-            raise HTTPException(422,"API 驗證失敗或沒有讀取模型的權限")
-        if reply.status_code==429:
-            raise HTTPException(429,"供應商暫時限制模型查詢，稍後重試")
-        if reply.status_code!=200:
-            raise HTTPException(502,"無法向供應商取得模型清單")
-        if len(reply.content)>600000:
-            raise HTTPException(502,"供應商模型清單過大")
-        models=_parse(provider,reply.json())
-    except (httpx.HTTPError,ValueError,TypeError) as exc:
-        raise HTTPException(502,"模型查詢失敗，保留已儲存的憑證") from None
+        key=provider_key(provider)
+        if not key:
+            raise HTTPException(409,"請先設定並啟用此供應商 API")
+        if provider=="gemini":
+            endpoint="https://generativelanguage.googleapis.com/v1beta/models"
+            headers={"x-goog-api-key":key}
+        elif provider=="openai":
+            endpoint="https://api.openai.com/v1/models"
+            headers={"Authorization":"Bearer "+key}
+        else:
+            endpoint="https://api.deepseek.com/models"
+            headers={"Authorization":"Bearer "+key}
+        # No attacker-supplied URL, redirects, proxy, or arbitrary headers.
+        try:
+            async with httpx.AsyncClient(timeout=10,follow_redirects=False,trust_env=False) as client:
+                reply=await client.get(endpoint,headers=headers)
+            if reply.status_code in (401,403):
+                raise HTTPException(422,"API 驗證失敗或沒有讀取模型的權限")
+            if reply.status_code==429:
+                raise HTTPException(429,"供應商暫時限制模型查詢，稍後重試")
+            if reply.status_code!=200:
+                raise HTTPException(502,"無法向供應商取得模型清單")
+            if len(reply.content)>600000:
+                raise HTTPException(502,"供應商模型清單過大")
+            models=_parse(provider,reply.json())
+        except (httpx.HTTPError,ValueError,TypeError) as exc:
+            raise HTTPException(502,"模型查詢失敗，保留已儲存的憑證") from None
     if not models:
         raise HTTPException(422,"API 沒有列出可支援的文字生成模型")
     with _session() as db:

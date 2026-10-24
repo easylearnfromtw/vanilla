@@ -6,7 +6,8 @@
  */
 import {capabilityIntent} from "./capability-report";
 import {toolKnowledgeIntent} from "./tool-knowledge";
-import {isAwesomeGoQuestion} from "../detroit/awesome-go";
+import {goResearchIntent} from "../detroit/awesome-go-conversation";
+import type {GoRole} from "../detroit/awesome-go";
 import {pythonToolDiscoveryIntent} from "../detroit/python-tool-discovery";
 import {parseDianaInvocation,type DianaTarget} from "../detroit/diana";
 import {proposeProactiveDiana} from "../detroit/diana-auto";
@@ -41,6 +42,7 @@ export type OpenSection="orchestra"|"email"|"weiguo"|"cream"|"projects"|"sheets"
 
 export type ChatRoute=
  |{kind:"diana";request:string;forcedTool:DianaTarget|null}
+ |{kind:"go-research";role:GoRole}
  |{kind:"capability"}
  |{kind:"tool-knowledge"}
  |{kind:"python-discovery";query:string}
@@ -59,16 +61,22 @@ export type ChatRoute=
  |{kind:"code-builder";idea:string}
  |{kind:"feature-builder";idea:string}
  |{kind:"continue"};
-export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
+export type RouteContext={privateMode:boolean;hasCreamResult:boolean;hasModel?:boolean};
 
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
- // Requests for a live Go evaluation must open an interactive tool, not print a canned answer.
- if(isAwesomeGoQuestion(q)&&/(?:推薦|選型|評估|比較|挑選|查核|驗證|研究)/i.test(q)&&!(/^(?:原文如下|以下是原文|引用：|引述：|>)/.test(q)))
-  return {kind:"diana",request:q,forcedTool:null};
- // Questions about tools are answered from the registry, not treated as invocations.
- if(toolKnowledgeIntent(q))return {kind:"tool-knowledge"};
+ // Go comparisons consult real repository metadata, then a model can synthesize the answer.
+ // Explicit open commands and @Awesome still open the UI; ordinary questions stay in chat.
+ const goRole=goResearchIntent(q);
+ if(goRole)return {kind:"go-research",role:goRole};
+ // Short factual tool FAQs use grounded model synthesis when a real model exists.
+ // Offline/no-model mode retains deterministic explanations and listing commands.
+ const knowledge=toolKnowledgeIntent(q);
+ if(knowledge){
+  if(ctx.hasModel&&q.length<=150&&!/(?:列出|清單|列表|一覽|有哪些|全部|所有)/.test(q))return {kind:"continue"};
+  return {kind:"tool-knowledge"};
+ }
  const diana=parseDianaInvocation(q);
  if(diana)return {kind:"diana",...diana};
  // Explicit editing must not auto-search, run CREAM or execute commands quoted in the source.

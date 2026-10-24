@@ -1,4 +1,5 @@
 import {useState} from "react";
+import FirecrawlPanel from "../firecrawl/FirecrawlPanel";
 import {Search,Plus,Trash2,ExternalLink,BookOpen} from "lucide-react";
 import {getSources,setSources,addSource,searchLinks,type PreferredSource} from "./source-preferences";
 import {getSearchBridge,setSearchBridge,getWebReaderToken,setWebReaderToken,fetchSearchBridge} from "./search-bridge";
@@ -59,6 +60,7 @@ export default function SourceSettings(){
     <button type="button" onClick={()=>{setBridge("");setSearchBridge("");setWebReaderToken("");setReaderToken("");setStatus("已移除自訂搜尋後端與權杖");}}>停用</button>
    </div>
   </div>
+  <FirecrawlPanel/>
   <p role="status" className="source-status">{status}</p>
   <small>Google Search Grounding 需已授權的 Gemini API 與可用額度，且回傳引用不等於完整讀取網站。若 Google 無引用，系統才退回現有搜尋來源；未取得的來源不會補造。地區設定僅在本裝置儲存。</small>
  </section>;

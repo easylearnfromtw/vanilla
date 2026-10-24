@@ -16,6 +16,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from auth import FamilyIdentity, family_reader
+from gas_relay import gas_provider_enabled, gas_service_call
 
 router=APIRouter()
 LIMIT:dict[str,list[float]]={}
@@ -30,8 +31,8 @@ class ScoutsQuery(BaseModel):
 
 def providers()->list[str]:
     enabled=[]
-    if os.environ.get("WEIGUO_SCOUTS_BRAVE_API_KEY","").strip():enabled.append("Brave")
-    if os.environ.get("WEIGUO_SCOUTS_TAVILY_API_KEY","").strip():enabled.append("Tavily")
+    if gas_provider_enabled("brave") or os.environ.get("WEIGUO_SCOUTS_BRAVE_API_KEY","").strip():enabled.append("Brave")
+    if gas_provider_enabled("tavily") or os.environ.get("WEIGUO_SCOUTS_TAVILY_API_KEY","").strip():enabled.append("Tavily")
     return enabled
 
 def clean(text:object,maxlen:int=600)->str:
@@ -85,6 +86,18 @@ def choose_sources(hits:list[dict],region:str)->list[dict]:
     return primary
 
 async def provider_search(provider:str,query:str,region:str)->list[dict]:
+    # Opt-in GAS transport preserves caller quotas, safe URLs and regional ranking.
+    if provider in ("Brave", "Tavily") and gas_provider_enabled(provider.lower()):
+        try:
+            response = await gas_service_call(provider.lower(), "search", {"query": query, "region": region})
+            hits = response.get("results", [])
+            if not isinstance(hits, list):
+                raise RuntimeError("GAS 搜尋回傳資料格式錯誤")
+            return [{"title": h.get("title"), "url": h.get("url"),
+                     "snippet": h.get("description"), "provider": provider}
+                    for h in hits[:8] if isinstance(h, dict)]
+        except HTTPException as exc:
+            raise RuntimeError("GAS 搜尋服務未就緒：" + str(exc.status_code)) from exc
     # The only outbound destinations are two immutable, audited API URLs.
     settings={"timeout":httpx.Timeout(9.0),"follow_redirects":False}
     async with httpx.AsyncClient(**settings) as client:

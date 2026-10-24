@@ -79,6 +79,7 @@ automatically make its code writable from this chat.
 | `VAULT_KEY_NOTION` | Notion integration token |
 | `VAULT_NOTION_DATA_SOURCE_ID` | Dedicated Notion data source UUID; must match WeiGuo `WEIGUO_NOTION_DATA_SOURCE_ID` |
 | `VAULT_KEY_BRAVE` | Brave Search API token |
+| `VAULT_KEY_TAVILY` | Tavily Search API token |
 | `VAULT_KEY_GITHUB` | least-privilege GitHub token |
 | `VAULT_RPM_LIMIT` | optional: per-provider requests/minute, default `8` |
 | `VAULT_DAILY_LIMIT` | optional: per-provider requests/day, default `80` |

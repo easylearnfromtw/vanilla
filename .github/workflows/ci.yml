@@ -22,6 +22,7 @@ jobs:
           npm run test:model-download
           npm run test:webllm-guard
           npm run test:assistant
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/technical-knowledge.test.mjs
           npm run test:resource-integration
           npm run test:cream
           npm run test:cream-extra

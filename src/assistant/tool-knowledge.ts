@@ -3,6 +3,7 @@
  */
 import {DETROIT_CAPABILITIES,detroitAvailability,type DetroitCapability} from "../detroit/capability-bus";
 import {BUILTIN_TOOLS} from "../weiguo/registry";
+import {technicalKnowledgeGuidance} from "./technical-knowledge";
 
 export type ToolKnowledgeIntent={scope:"overview"|"named";ids:string[]};
 const ALIASES:Record<string,readonly string[]>={
@@ -16,7 +17,8 @@ const OTHER_TOOLS=[
  {id:"noodles",label:"NOODLES",aliases:["NOODLES"],description:"本機模型回饋與路由偏好系統；記錄有界的評價、錯誤分類及模型表現，不會自動重新訓練模型權重。"},
  {id:"vanilla-sheets",label:"Vanilla Sheets",aliases:["Vanilla表格"],description:"本機表格建立、部分公式計算與 CSV/JSON 匯入匯出；不是完整 Excel 或 Google Sheets。"},
  {id:"self-build",label:"Self-Build",aliases:["自建功能"],description:"管理宣告式本機小工具與受審核的程式改善工作；遠端 GitHub 寫入須具備另外部署的受保護 Worker 與權限。"},
- {id:"project-hub",label:"Project Hub",aliases:["專案庫"],description:"管理本機專案內容與參考資料；不代表自動擁有外部私有專案的存取權。"}
+ {id:"project-hub",label:"Project Hub",aliases:["專案庫"],description:"管理本機專案內容與參考資料；不代表自動擁有外部私有專案的存取權。"},
+ {id:"secret-knowledge",label:"Secret Knowledge",aliases:["The Book of Secret Knowledge","技術知識庫"],description:"源自 trimstray 開源分類的本機精選技術參考索引；協助 Linux、DNS、Docker、SSH、CI 與資安診斷，附官方文件及風險標記；不執行 Shell 指令，也不代表已即時讀取來源。"}
 ] as const;
 const NOTE="資料來自目前版本的程式登錄；工具存在不代表遠端後端已部署、權限已核准或操作已成功。";
 const QUESTION=/(?:是什麼|什麼是|有什麼|有哪些|清單|列表|功能|用途|介紹|負責|作用|用來|做什麼|在做什麼|怎麼用|如何使用|怎麼使用|可以做|能做|現況|狀態|進度|上線|可用|完成了嗎|支援|差別|比較|區別|架構|怎麼運作|有何不同)/i;
@@ -87,12 +89,13 @@ export function toolKnowledgeGuidance(question:string):string{
  const named=overview?[...DETROIT_CAPABILITIES]:referencedTools(q).slice(0,5);
  if(!named.length&&/(?:Detroit|底特律)/i.test(q))named.push(...DETROIT_CAPABILITIES.filter(c=>["merlin","diana","zeus","athena"].includes(c.id)));
  const others=overview?[...OTHER_TOOLS]:OTHER_TOOLS.filter(x=>[x.label,...x.aliases].some(n=>matchesName(q,n))).slice(0,4);
- if(!named.length&&!others.length&&!weiguoMention(q))return "";
+ const technical=technicalKnowledgeGuidance(q);
+ if(!named.length&&!others.length&&!weiguoMention(q))return technical;
  return "\n[Vanilla 應用程式可信任的內部工具登錄資料｜非外部搜尋結果]\n"+
   "Detroit 是單一 AI 使用的能力與執行架構，內部角色不是獨立雲端模型。\n"+
   named.map(oneTool).join("\n")+
   (others.length?"\n"+others.map(x=>otherDescription(x.id)).join("\n"):"")+
   (overview||weiguoMention(q)?"\n"+weiGuoDescription():"")+
   "\n"+NOTE+
-  "\n只就這份登錄資料說明已知功能。狀態是目前此裝置的登錄／執行器狀態，不是遠端後端的健康檢查；缺乏實際執行回執，不得聲稱已部署、已連線、已執行或已完成操作。可解釋工具如何協作，但不得捏造不存在的能力、權限、資料或結果。\n";
+  "\n只就這份登錄資料說明已知功能。狀態是目前此裝置的登錄／執行器狀態，不是遠端後端的健康檢查；缺乏實際執行回執，不得聲稱已部署、已連線、已執行或已完成操作。可解釋工具如何協作，但不得捏造不存在的能力、權限、資料或結果。\n"+technical;
 }

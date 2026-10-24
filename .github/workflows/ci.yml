@@ -106,6 +106,10 @@ jobs:
           python3 training/noodles_train.py --mode dpo --train tests/fixtures/noodles-dpo-train.jsonl --eval tests/fixtures/noodles-dpo-eval.jsonl --check-only
           python3 -m py_compile training/noodles_distill.py training/noodles_benchmark.py training/noodles_infer.py
           python3 -m unittest discover -s tests -p 'test_noodles_*.py'
+      - name: October multi-tier QLoRA training safety gate (no GPU or downloads)
+        run: |
+          python3 -m py_compile training/atuber/multitier_plan.py training/atuber/multitier_train.py
+          python3 -m unittest discover -s tests -p 'test_atuber_multitier_qlora.py'
       - name: Typecheck and build
         run: npm run build
         env:

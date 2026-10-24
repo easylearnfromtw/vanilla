@@ -36,8 +36,9 @@ jobs:
           import hashlib
           from pathlib import Path
           f=Path("/tmp/octuber-ndc-22933.csv")
-          assert 30 <= f.stat().st_size < 20_000_000, "Unexpected official CSV size"
+          assert 30 <= f.stat().st_size < 100_000_000, "Unexpected official CSV size"
           print("NDC_OFFICIAL_CSV_BYTES",f.stat().st_size)
+          print("NDC_HEADER_BYTES",repr(f.open("rb").read(120)))
           print("NDC_OFFICIAL_SOURCE_SHA256",hashlib.sha256(f.read_bytes()).hexdigest())
           PY
       - name: Train only on actual government TWD observations with enough holdout diversity

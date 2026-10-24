@@ -4,7 +4,7 @@
  * Third-party output reuse is opt-in and subject to the provider's terms/rights.
  */
 export type TeacherTask="casual"|"code"|"analysis"|"writing"|"vision"|"general";
-export type TeacherOrigin="local"|"ollama"|"gemini"|"deepseek";
+export type TeacherOrigin="local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
 export type TeacherExample={
  id:string;at:number;task:TeacherTask;prompt:string;chosen:string;rejected?:string;
  teacher:{provider:TeacherOrigin;model:string};
@@ -19,7 +19,7 @@ export const TEACHER_DEFAULT:TeacherState={version:1,settings:{enabled:true,allo
 const MAX_EXAMPLES=60;
 const MAX_AGE=90*86400000;
 const TASKS:TeacherTask[]=["casual","code","analysis","writing","vision","general"];
-const PROVIDERS:TeacherOrigin[]=["local","ollama","gemini","deepseek"];
+const PROVIDERS:TeacherOrigin[]=["local","ollama","gemini","deepseek","openai","anthropic","openrouter"];
 const MODEL_SAFE=/^[\w.\/:-]{1,100}$/;
 const BLOCKLIST=[
  /\b(?:sk-[A-Za-z0-9_-]{12,}|GOCSPX-[A-Za-z0-9_-]{6,}|github_pat_[A-Za-z0-9_]{12,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/i,
@@ -94,7 +94,10 @@ export function summarizeTeachers(state:TeacherState):TeacherSummary{
   byProvider:{local:examples.filter(x=>x.teacher.provider==="local").length,
    ollama:examples.filter(x=>x.teacher.provider==="ollama").length,
    gemini:examples.filter(x=>x.teacher.provider==="gemini").length,
-   deepseek:examples.filter(x=>x.teacher.provider==="deepseek").length}};
+   deepseek:examples.filter(x=>x.teacher.provider==="deepseek").length,
+   openai:examples.filter(x=>x.teacher.provider==="openai").length,
+   anthropic:examples.filter(x=>x.teacher.provider==="anthropic").length,
+   openrouter:examples.filter(x=>x.teacher.provider==="openrouter").length}};
 }
 /** Train and test are deterministically partitioned by prompt alone; same
  * question never leaks from SFT/DPO training to the held-out evaluation set.

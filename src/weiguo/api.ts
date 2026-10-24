@@ -39,7 +39,7 @@ async function request<T>(path:string,body?:unknown,withAuth=false):Promise<T>{
    cache:"no-store",credentials:"omit",mode:"cors",referrerPolicy:"no-referrer"});
  }catch{throw Error("無法連線到衞國後端，請檢查 HTTPS、CORS 和服務狀態");}
  if(response.status===401){clearWeiGuoSession();throw Error("衞國登入已過期，請重新授權");}
- if(response.status===403){clearWeiGuoSession();throw Error("這個 Google 帳號沒有對應的家庭任務權限");}
+ if(response.status===403){const data=await response.json().catch(()=>({})) as {detail?:string};throw Error(typeof data.detail==="string"?data.detail:"此項操作沒有授權");}
  if(!response.ok){const data=await response.json().catch(()=>({})) as {detail?:string};throw Error(typeof data.detail==="string"?data.detail:"衞國後端錯誤："+response.status);}
  return await response.json() as T;
 }
@@ -433,4 +433,29 @@ export async function generateWeiGuoGemini(turns:Array<{role:"user"|"assistant";
  },true);
  if(!response.text.trim())throw Error("Gemini 後端沒有回傳文字");
  return response.text;
+}
+
+
+/** GAS API Vault is reachable ONLY through the signed, Google-authenticated WeiGuo backend.
+ * A browser must never receive the relay secret or provider API keys.
+ */
+export type VanillaVaultProvider="gemini"|"openai"|"deepseek"|"anthropic"|"openrouter"|"telegram"|"canva"|"notion"|"brave"|"github";
+export type VanillaVaultStatus={
+ ok:boolean;version:string;
+ providers:Record<string,{configured:boolean;operations:string[];models:string[]}>;
+ credentialValuesReturned:false
+};
+export async function getVanillaVaultStatus():Promise<VanillaVaultStatus>{
+ if(currentChatMode()==="private")throw Error("私密模式不連線 API Vault");
+ const identity=weiGuoIdentity();
+ if(!identity||identity.role!=="owner")throw Error("請先以擁有者 Google 帳號登入衞國");
+ return request<VanillaVaultStatus>("/v1/family/api-vault/status",undefined,true);
+}
+export async function relayVanillaVault(provider:VanillaVaultProvider,operation:string,
+ payload:Record<string,unknown>,model?:string):Promise<{ok:true;text?:string;model?:string;usage?:{input_tokens:number;output_tokens:number};data?:unknown}>{
+ if(currentChatMode()==="private")throw Error("私密模式嚴禁對外傳送");
+ const identity=weiGuoIdentity();
+ if(!identity||identity.role==="viewer")throw Error("請先登入已授權的家庭帳號");
+ return request("/v1/family/api-vault/relay",
+  {provider,operation,payload,model,approved_cloud_send:true},true);
 }

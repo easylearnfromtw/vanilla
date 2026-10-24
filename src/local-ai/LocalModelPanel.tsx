@@ -3,7 +3,7 @@ import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-
 import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,diagnoseLocalModelDownload,type LocalModelId} from "./engine";
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
-import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS} from "../ai/atuber-control-plane";
+import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,octuberTierPreference,setOctuberTierPreference,type OctuberTierPreference} from "../ai/atuber-control-plane";
 import {getOllamaConfig,probeAtuberModel} from "../ai/ollama";
 import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
 
@@ -25,12 +25,13 @@ type Props={
 /** On-device model picker: honest size, cache state, and where inference runs. */
 export default function LocalModelPanel(props:Props){
  const [worker,setWorker]=useState(localWorkerMode());
+ const [tierChoice,setTierChoice]=useState<OctuberTierPreference>(octuberTierPreference);
  const [diagnosing,setDiagnosing]=useState(false);
  const [diagnosis,setDiagnosis]=useState<DownloadDiagnostic[]>([]);
  const [diagnosedModel,setDiagnosedModel]=useState<string|null>(null);
  const [tierProbe,setTierProbe]=useState<Record<string,{ok:boolean;note:string}>>({});
  const [probingTier,setProbingTier]=useState<string|null>(null);
- async function runTierProbe(model:"october:sm"|"october:ml"|"october:lg"){
+ async function runTierProbe(model:"october:sm"|"october:ml"|"october:lg"|"octuber:flattering"|"octuber:modest"|"octuber:sumptuous"){
   if(probingTier)return;
   setProbingTier(model);
   setTierProbe(prev=>({...prev,[model]:{ok:false,note:"正在驗證模型推論…"}}));
@@ -73,16 +74,23 @@ export default function LocalModelPanel(props:Props){
    </div>
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
    {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
-   {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="阿土伯模型級距">
-    <p className="local-model-note"><strong>阿土伯三層模型</strong> · 下列為自架 Ollama 可選型號；只顯示設定，不代表權重已下載或主機在線。</p>
+   {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="OCTUBER 模型級距">
+    <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（本機 0.6B／自架 4B）、MODEST（14B）、SUMPTUOUS（30B）。選擇偏好僅在對應自架模型已配置時生效，不會自動下載主機權重。</p>
+    <label className="local-model-note" htmlFor="octuber-tier-choice">運算規格偏好</label>
+    <select id="octuber-tier-choice" value={tierChoice} onChange={event=>{const next=event.target.value as OctuberTierPreference;setTierChoice(next);setOctuberTierPreference(next);}}>
+     <option value="auto">自動依任務選擇（預設）</option>
+     {ATUBER_TIERS.map(t=><option key={t.tier} value={t.tier}>{t.label}</option>)}
+    </select>
+    <p className="local-model-note">私密模式一律留在本機；複雜任務仍遵循最低能力級距，未連線或測試失敗的主機不應視為可用。</p>
     {ATUBER_TIERS.map(t=><div key={t.tier} className="local-model-note">
-     <strong>{t.label}</strong> · {t.model} · 約 {t.approxDownloadGB} GB 權重檔 · {hostModels.has(t.model)?"已登記（尚待推論驗證）":"尚未登記"}
-     {Boolean(getOllamaConfig().endpoint)&&hostModels.has(t.model)&&<button
+     <strong>{t.brand}</strong> · {t.base} · 約 {t.approxDownloadGB} GB 權重檔 · {[t.model,t.publicAlias].some(name=>hostModels.has(name))?"已登記（待驗證）":"尚未登記"}
+     <p>部署別名：<code>{t.publicAlias}</code>（相容 <code>{t.model}</code>）</p>
+     {Boolean(getOllamaConfig().endpoint)&&[t.model,t.publicAlias].some(name=>hostModels.has(name))&&<button
       type="button" disabled={probingTier!==null||!props.online}
-      onClick={()=>void runTierProbe(t.model)}>
-      {probingTier===t.model?"正在測試…":"實際推論測試"}
+      onClick={()=>void runTierProbe(hostModels.has(t.publicAlias)?t.publicAlias:t.model)}>
+      {probingTier===(hostModels.has(t.publicAlias)?t.publicAlias:t.model)?"正在測試…":"實際推論測試"}
      </button>}
-     {tierProbe[t.model]&&<p role="status" aria-live="polite" className={tierProbe[t.model].ok?"local-model-status":"local-model-note"}>{tierProbe[t.model].note}</p>}
+     {(tierProbe[t.model]||tierProbe[t.publicAlias])&&<p role="status" aria-live="polite" className={(tierProbe[t.model]||tierProbe[t.publicAlias]).ok?"local-model-status":"local-model-note"}>{(tierProbe[t.model]||tierProbe[t.publicAlias]).note}</p>}
     </div>)}
     <p className="local-model-note">私密模式使用裝置端 0.6B；其他型號需由已授權主機承載，不會自行購買算力或轉用第三方模型。</p>
    </section>}
@@ -96,7 +104,7 @@ export default function LocalModelPanel(props:Props){
     <p className="local-model-note">連線測試僅檢查設定檔和權重檔的起始回應，不會下載完整模型，也不代表推論已通過實機驗證。</p>
    </div>}
    {!props.webgpu&&<p className="local-model-error">此瀏覽器沒有 WebGPU（iPhone 需 iOS 26 以上 Safari），本地推論不可用；一般模式可使用已接上的自架阿土伯 Ollama；其他模型不會自動接管。</p>}
-   {iosDevice&&<p className="local-model-note">iPhone 安全模式：不在開啟網頁時自動啟動快取模型；請手動載入。本模式固定 Qwen3 0.6B。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"目前選擇的模型記憶體需求較高，載入前會再次確認。":""}背景執行緒失敗時不會自動改在主畫面運算，以避免整頁崩潰。</p>}
+   {iosDevice&&<p className="local-model-note">首次進入會嘗試啟動 OCTUBER FLATTERING 0.6B 下載／快取；若記憶體、GPU 或網路不足，將停止並提示改用已授權的較大型自架模型。自動載入採背景執行緒，不會悄悄切到可能卡住畫面的相容模式。{needsMobileMemoryConfirmation(iosDevice,entry?.vramMB||0)?"手動重試仍需確認記憶體風險。":""}</p>}
    <label className="vh-switch compact"><input type="checkbox" checked={worker==="auto"} onChange={e=>{const mode=e.target.checked?"auto":"off";setLocalWorkerMode(mode);setWorker(mode);}}/>
     <span><strong>背景執行緒推論</strong><small>{worker==="broken"?"上次背景執行緒失敗，已停止自動備援；勾選即可重試":isLocalWorkerActive()?"使用中：生成時捲動與輸入更順":"下次載入模型時生效"}</small></span></label>
    <p className="local-model-note">本地推論不會傳送對話到任何雲端。模型首次需下載，之後由瀏覽器快取；iOS 長期未使用可能清除快取。所有裝置在背景執行緒失敗時都不會自動回退主執行緒；只有手動關閉背景執行緒才會使用相容模式。此模式可能使介面卡頓，iPhone 也可能整頁重新載入。</p>

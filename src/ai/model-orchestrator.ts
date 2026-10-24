@@ -1,5 +1,6 @@
 import {getConfigs} from "../vault/providers";
-import {getOllamaConfig,isOllamaConfigured,generateOllamaReply} from "./ollama";
+import {getOllamaConfig,isOllamaConfigured,generateOllamaReply,isOllamaModelVerified} from "./ollama";
+import {recognizedLocalModelName,localOctuberBaseTier} from "./octuber-local-runtimes";
 import {generateCloudReply,type ImageInput} from "../vault/providers";
 import {generateLocalReply,loadLocalModel,type ChatTurn} from "../local-ai/engine";
 import {retryDisposedLocalInference} from "../local-ai/webllm-compat";
@@ -62,8 +63,12 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
   if(options.online||!officialCloud){
   const approved=[...new Set([ollama.model,...ollama.models])].filter(Boolean).slice(0,4);
   for(const model of approved){
+   // An arbitrary name in settings is not proof that 30B is installed and usable.
+   if(recognizedLocalModelName(model)&&!isOllamaModelVerified(model))continue;
    const octoberBrand=[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].find(t=>t.model===model||t.publicAlias===model)?.brand;
-   result.push({id:"ollama:"+model,source:"ollama",model,label:octoberBrand?octoberBrand+" · 自架":(isTaideModel(model)?"TAIDE · ":"Ollama · ")+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
+   const nativeTier=localOctuberBaseTier(model);
+   const nativeName=nativeTier==="large"?"OCTUBER SUMPTUOUS · 本地 30B":nativeTier==="ultra"?"OCTUBER SUMPTUOUS · 本地 32B":nativeTier==="mid-large"?"OCTUBER MODEST · 本地 14B":nativeTier==="mid-small"?"OCTUBER FLATTERING · 本地 4B":"";
+   result.push({id:"ollama:"+model,source:"ollama",model,label:nativeName|| (octoberBrand?octoberBrand+" · 自架":(isTaideModel(model)?"TAIDE · ":"Ollama · ")+model),location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
   }
   }
  }

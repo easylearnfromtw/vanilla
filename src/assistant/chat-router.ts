@@ -151,6 +151,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
  switch(cmd){
   case "Notion":case "notion":case "排程":return {text:"@Notion"+(arg?" "+arg:"")};
   case "Quirinus":case "quirinus":return {text:"@Quirinus"+(arg?" "+arg:"")};
+  case "Awesome":case "awesome":return {text:"@Awesome"+(arg?" "+arg:"")};
   case "Diana":case "diana":return {text:"@Diana"+(arg?" "+arg:"")};
   case "Orchestra":case "orchestra":case "製作":return {text:arg?"@Orchestra "+arg:"開啟 Orchestra Studio"};
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};

@@ -78,6 +78,7 @@ jobs:
       - run: npm run test:octuber-hosted
       - run: npm run test:atuber-preflight
       - run: npm run test:atuber-model
+      - run: npm run test:octuber-weights
       - run: npm run eval:atuber-finance
       - run: npm run test:small-model
       - run: npm run test:reliability

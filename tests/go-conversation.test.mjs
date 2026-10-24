@@ -27,7 +27,7 @@ test("evidence contains observed GitHub facts, not fake implementation receipts"
  assert.match(context,/2026-10-21/);
  assert.match(context,/Apache-2.0/);
  assert.match(context,/非套件執行/);
- assert.match(context,/不能當成通過/);
+ assert.match(context,/不得當成通過/);
  assert.doesNotMatch(context,/已安裝成功|已部署完成/);
  const fallback=goResearchFallback("ceres",[audit]);
  assert.match(fallback,/沒有可用的生成模型/);

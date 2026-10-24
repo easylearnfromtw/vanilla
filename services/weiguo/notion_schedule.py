@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import FamilyIdentity, family_reader
+from gas_relay import gas_provider_enabled, gas_service_call, _relay as gas_relay
 
 router = APIRouter(prefix="/v1/family/notion", tags=["notion"])
 VERSION = "2026-03-11"
@@ -45,7 +46,7 @@ def configured() -> bool:
     source = os.getenv("WEIGUO_NOTION_DATA_SOURCE_ID", "")
     return (
         os.getenv("WEIGUO_NOTION_ENABLED", "false").lower() == "true"
-        and len(token) >= 20
+        and (gas_provider_enabled("notion") or len(token) >= 20)
         and _uuid(source) is not None
         and len(os.getenv("WEIGUO_SESSION_SECRET", "")) >= 32
     )
@@ -61,7 +62,7 @@ def _uuid(value: str) -> str | None:
 def _settings() -> tuple[str, str]:
     if not configured():
         raise HTTPException(503, "Notion 排程尚未由伺服器管理員啟用")
-    return os.environ["WEIGUO_NOTION_TOKEN"], str(UUID(os.environ["WEIGUO_NOTION_DATA_SOURCE_ID"]))
+    return ("" if gas_provider_enabled("notion") else os.environ["WEIGUO_NOTION_TOKEN"]), str(UUID(os.environ["WEIGUO_NOTION_DATA_SOURCE_ID"]))
 
 
 def _owner(sub: str) -> str:
@@ -82,7 +83,38 @@ def _date(value: str) -> str:
 
 
 async def _call(method: str, path: str, payload: dict | None = None) -> dict:
-    token, _ = _settings()
+    token, source = _settings()
+    if gas_provider_enabled("notion"):
+        if method == "POST" and path == "/v1/data_sources/" + source + "/query":
+            try:
+                tag = payload["filter"]["rich_text"]["equals"]
+            except (TypeError, KeyError):
+                raise HTTPException(400, "Notion 查詢擁有者條件無效") from None
+            operation, data = "query_tasks", {"owner_tag": tag}
+        elif method == "GET" and path.startswith("/v1/pages/") and _uuid(path.removeprefix("/v1/pages/")):
+            operation, data = "read_task", {"page_id": path.removeprefix("/v1/pages/")}
+        elif method == "POST" and path == "/v1/pages" and isinstance(payload, dict):
+            try:
+                props = payload["properties"]
+                operation, data = "create_task", {
+                    "title": props[TITLE]["title"][0]["text"]["content"],
+                    "when": props[WHEN]["date"]["start"],
+                    "owner_tag": props[OWNER]["rich_text"][0]["text"]["content"],
+                    "details": ((payload.get("children") or [{}])[0].get("paragraph", {})
+                              .get("rich_text", [{}])[0].get("text", {}).get("content", "")),
+                }
+            except (TypeError, KeyError, IndexError):
+                raise HTTPException(400, "Notion 建立資料格式無效") from None
+        elif method == "PATCH" and path.startswith("/v1/pages/") and _uuid(path.removeprefix("/v1/pages/")):
+            operation, data = "update_task", {"page_id": path.removeprefix("/v1/pages/"),
+                                               "properties": (payload or {}).get("properties", {})}
+        else:
+            raise HTTPException(400, "不支援的 Notion GAS 操作")
+        result = await gas_service_call("notion", operation, data)
+        reply = result.get("data")
+        if not isinstance(reply, dict):
+            raise HTTPException(502, "Notion GAS 回應格式無效")
+        return reply
     # No caller-supplied URLs, redirects or credentials. Timeouts prevent
     # hung phone requests; do not retry non-idempotent writes automatically.
     headers = {
@@ -156,7 +188,14 @@ async def _owned_page(page_id: str, sub: str) -> dict:
 
 @router.get("/status")
 async def status(user: FamilyIdentity = Depends(family_reader)):
-    return {"configured": configured(), "schedulerActive": False,
+    active=configured()
+    if active and gas_provider_enabled("notion"):
+        try:
+            summary=await gas_relay({"action": "status"})
+            active=bool(summary.get("providers", {}).get("notion", {}).get("configured"))
+        except HTTPException:
+            active=False
+    return {"configured": active, "schedulerActive": False,
             "capabilities": ["list", "create", "complete", "reschedule"],
             "note": "Notion 只同步行程；到點自動通知及執行需另外部署 Chronos"}
 

@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import time
+from urllib.parse import urlsplit
 from typing import Any, Literal
 
 import httpx
@@ -24,15 +25,39 @@ from auth import FamilyIdentity, family_reader
 
 
 router = APIRouter(prefix="/v1/family/api-vault", tags=["vanilla-gas-vault"])
+
+
+def gas_provider_enabled(provider: str) -> bool:
+    """Explicit cutover switch; configuration alone never changes existing flows."""
+    value = os.environ.get("VANILLA_GAS_PROXY_PROVIDERS", "")
+    enabled = {p.strip().lower() for p in value.split(",") if p.strip()}
+    return provider in _ALLOWED and provider in enabled
+
+
+async def gas_service_call(provider: str, operation: str,
+                           payload: dict[str, Any] | None = None,
+                           model: str | None = None) -> dict[str, Any]:
+    """Internal trusted service call. Caller must perform existing permission checks."""
+    if provider not in _ALLOWED or operation not in _ALLOWED[provider]:
+        raise HTTPException(400, "不支援的 GAS 供應商操作")
+    if not gas_provider_enabled(provider):
+        raise HTTPException(503, "該 API 尚未切換至 GAS Vault")
+    data: dict[str, Any] = {"action": "relay", "provider": provider,
+                            "operation": operation, "payload": payload or {},
+                            "approved_cloud_send": True}
+    if model is not None:
+        data["model"] = model
+    return await _relay(data)
+
 _ALLOWED: dict[str, frozenset[str]] = {
     "gemini": frozenset({"chat"}),
     "openai": frozenset({"chat"}),
     "deepseek": frozenset({"chat"}),
     "anthropic": frozenset({"chat"}),
     "openrouter": frozenset({"chat"}),
-    "telegram": frozenset({"send_message"}),
+    "telegram": frozenset({"send_message", "edit_message", "answer_callback"}),
     "canva": frozenset({"profile", "designs", "image_generate", "design_generate", "job_status"}),
-    "notion": frozenset({"search"}),
+    "notion": frozenset({"search", "query_tasks", "read_task", "create_task", "update_task"}),
     "brave": frozenset({"search"}),
     "tavily": frozenset({"search"}),
     "github": frozenset({"repo"}),
@@ -90,9 +115,18 @@ async def _relay(data: dict[str, Any]) -> dict[str, Any]:
     url, secret = _settings()
     envelope = _envelope(data, secret)
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(45.0), follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(45.0), follow_redirects=False,
+                                     trust_env=False) as client:
             response = await client.post(url, json=envelope,
                                          headers={"Content-Type": "application/json"})
+            # Apps Script ContentService may redirect JSON output to a distinct
+            # Google-controlled host. Never follow an arbitrary Location:
+            if response.status_code in (301, 302, 303, 307, 308):
+                target = response.headers.get("location", "")
+                parsed = urlsplit(target)
+                if parsed.scheme != "https" or parsed.hostname != "script.googleusercontent.com" or parsed.username or parsed.password:
+                    raise HTTPException(502, "GAS API Vault 重新導向不可信")
+                response = await client.get(target)
     except (httpx.TimeoutException, httpx.TransportError) as exc:
         raise HTTPException(502, "GAS API Vault 連線失敗") from exc
     final_url = response.url

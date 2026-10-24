@@ -17,7 +17,8 @@ import httpx
 from fastapi import HTTPException
 
 from ceres_gateway import _session
-from ceres_admin_policy import provider_key
+from ceres_admin_policy import provider_key, provider_enabled
+from gas_relay import gas_provider_enabled, gas_service_call
 from ceres_model_catalog import catalog, _rank, select_mode
 
 _PROVIDERS = ("gemini", "openai", "deepseek")
@@ -147,10 +148,44 @@ def _probe_snapshot(provider=None):
     return [dict(x) for x in rows]
 
 
+async def _gas_probe(provider: str, model: str, objective: bool=False) -> dict:
+    """Small explicit billable probe; no direct key ever leaves GAS."""
+    challenge=("What is 17 multiplied by 19? Reply with the integer only."
+               if objective else "Reply with OK.")
+    started=time.monotonic()
+    result=None
+    code="provider_error"
+    try:
+        result=await gas_service_call(provider,"chat",
+            {"messages":[{"role":"user","content":challenge}],"max_tokens":64},model=model)
+        ok=bool(isinstance(result.get("text"),str) and result["text"].strip())
+        code="ok" if ok else "no_text_output"
+    except HTTPException as exc:
+        ok=False
+        code="vault_status_"+str(exc.status_code)
+    elapsed=round((time.monotonic()-started)*1000)
+    usage=result.get("usage",{}) if isinstance(result,dict) else {}
+    a=usage.get("input_tokens") if isinstance(usage,dict) else None
+    b=usage.get("output_tokens") if isinstance(usage,dict) else None
+    a=a if type(a) is int and 0<=a<=10**8 else None
+    b=b if type(b) is int and 0<=b<=10**8 else None
+    _record_probe(provider,model,ok,elapsed,code)
+    record_usage(provider,model,"explicit_probe",a,b,"success" if ok else "failed")
+    correct=bool(ok and result["text"].strip().strip(".。 ")=="323") if objective else None
+    return {"provider":provider,"model":model,"ok":ok,"latencyMs":elapsed,
+      "code":code,"checkedAt":int(time.time()),"inputTokens":a,"outputTokens":b,
+      "estimatedUsd":None,"testWasBillable":True,"objectiveMathCorrect":correct,
+      "note":"由 GAS Vault 代理的單次固定文字測試；實際價格與配額須依供應商後台核對。"}
+
+
 async def probe(provider: str, model: str, actor: int, objective: bool=False) -> dict:
     """A single bounded, billable provider-native generation probe."""
     _validated(provider,model)
     _limit(actor, "probe", 6, 600)
+    if gas_provider_enabled(provider):
+        if provider_enabled(provider) is False:
+            raise HTTPException(409, "此供應商目前已停用")
+        return await _gas_probe(provider,model,objective)
     key=provider_key(provider)
     if not key:
         raise HTTPException(409,"此供應商沒有啟用的加密 API 金鑰")

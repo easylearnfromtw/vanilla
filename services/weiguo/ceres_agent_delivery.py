@@ -6,6 +6,7 @@ from auth import FamilyIdentity, family_reader
 from ceres_gateway import _session
 from ceres_agent_bridge import Result, authorized, owns, setup, MAX_AGE
 from ceres_dialogue import _bot_token, _outbox_table
+from gas_relay import gas_provider_enabled, gas_service_call
 
 router=APIRouter(prefix="/v1/family/ceres/bridge", tags=["ceres-bridge-delivery"])
 
@@ -46,6 +47,13 @@ async def complete(event_id:int, body:Result, user:FamilyIdentity=Depends(family
     return {"sent":True,"automatic":True,"eventId":event_id,"tool":body.tool}
 
 async def deliver(chat:int,text:str,token:str)->bool:
+    if gas_provider_enabled("telegram"):
+        try:
+            reply=await gas_service_call("telegram", "send_message",
+                  {"chat_id": chat, "text": text})
+            return reply.get("ok") is True and reply.get("accepted") is True
+        except HTTPException:
+            return False
     try:
         async with httpx.AsyncClient(timeout=12.0,follow_redirects=False,trust_env=False) as client:
             r=await client.post("https://api.telegram.org/bot"+token+"/sendMessage",

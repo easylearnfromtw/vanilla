@@ -11,8 +11,8 @@ const PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter","telegr
 const CHAT_PROVIDERS = ["gemini","openai","deepseek","anthropic","openrouter"];
 const ACTIONS = {
   gemini:["chat"], openai:["chat"], deepseek:["chat"], anthropic:["chat"], openrouter:["chat"],
-  telegram:["send_message"], canva:["profile","designs","image_generate","design_generate","job_status"],
-  notion:["search"], brave:["search"], tavily:["search"], github:["repo"]
+  telegram:["send_message","edit_message","answer_callback"], canva:["profile","designs","image_generate","design_generate","job_status"],
+  notion:["search","query_tasks","read_task","create_task","update_task"], brave:["search"], tavily:["search"], github:["repo"]
 };
 const MAX_INBOUND = 72000;
 const MAX_TEXT = 30000;
@@ -150,6 +150,7 @@ function chat_(provider,req) {
     const candidate=(data.candidates||[])[0]||{};
     if(candidate.finishReason==="MAX_TOKENS") throw Error("OUTPUT_TRUNCATED");
     const raw=((candidate.content||{}).parts||[]).filter(x=>!x.thought).map(x=>x.text||"").join("");
+    if(raw.length>RESPONSE_LIMIT) throw Error("OUTPUT_TRUNCATED");
     usage={input_tokens:(data.usageMetadata||{}).promptTokenCount||0,
       output_tokens:(data.usageMetadata||{}).candidatesTokenCount||0};
     return {ok:true,provider:provider,model:model,text:String(raw).slice(0,RESPONSE_LIMIT),usage:usage};
@@ -164,6 +165,7 @@ function chat_(provider,req) {
       {"x-api-key":secret,"anthropic-version":"2023-06-01"},"post",body);
     if(data.stop_reason==="max_tokens") throw Error("OUTPUT_TRUNCATED");
     const raw=(data.content||[]).filter(x=>x.type==="text").map(x=>x.text||"").join("");
+    if(raw.length>RESPONSE_LIMIT) throw Error("OUTPUT_TRUNCATED");
     return {ok:true,provider:provider,model:model,text:String(raw).slice(0,RESPONSE_LIMIT),
       usage:{input_tokens:(data.usage||{}).input_tokens||0,output_tokens:(data.usage||{}).output_tokens||0}};
   }
@@ -176,21 +178,41 @@ function chat_(provider,req) {
   body[provider==="openai"?"max_completion_tokens":"max_tokens"]=requested;
   data=request_(endpoints[provider],{Authorization:"Bearer "+secret},"post",body);
   const choice=(data.choices||[])[0]||{};
-  if(choice.finish_reason==="length") throw Error("OUTPUT_TRUNCATED");
+  if(choice.finish_reason==="length" || String((choice.message||{}).content||"").length>RESPONSE_LIMIT) throw Error("OUTPUT_TRUNCATED");
   return {ok:true,provider:provider,model:model,text:String((choice.message||{}).content||"").slice(0,RESPONSE_LIMIT),
     usage:{input_tokens:(data.usage||{}).prompt_tokens||0,output_tokens:(data.usage||{}).completion_tokens||0}};
 }
 function telegram_(req) {
-  const p=req.payload||{}, chat=String(p.chat_id||"");
-  if(!/^-?[0-9]{5,20}$/.test(chat)) throw Error("BAD_CHAT_ID");
+  const p=req.payload||{};
+  const token=key_("VAULT_KEY_TELEGRAM");
+  if(!/^[0-9]{5,15}:[A-Za-z0-9_-]{30,100}$/.test(token))throw Error("KEY_NOT_CONFIGURED");
+  const api="https://api.telegram.org/bot"+token+"/";
+  const operation=req.operation;
+  if(operation==="answer_callback"){
+    const callback=text_(p.callback_query_id,200);
+    if(!/^[A-Za-z0-9_-]{4,200}$/.test(callback))throw Error("INVALID_INPUT");
+    const data=request_(api+"answerCallbackQuery",{},"post",{callback_query_id:callback});
+    if(!data.ok)throw Error("UPSTREAM_REJECTED");
+    return {ok:true,provider:"telegram",operation:operation,accepted:true};
+  }
+  const chat=String(p.chat_id||"");
+  if(!/^-?[0-9]{5,20}$/.test(chat))throw Error("BAD_CHAT_ID");
   const allowed=key_("VAULT_TELEGRAM_CHAT_IDS").split(",").map(x=>x.trim()).filter(Boolean);
-  if(!allowed.includes(chat)) throw Error("CHAT_NOT_ALLOWED");
-  const msg=text_(p.text,4096), token=key_("VAULT_KEY_TELEGRAM");
-  if(!/^[0-9]{5,15}:[A-Za-z0-9_-]{30,100}$/.test(token)) throw Error("KEY_NOT_CONFIGURED");
-  const data=request_("https://api.telegram.org/bot"+token+"/sendMessage",{},"post",
-    {chat_id:chat,text:msg,disable_web_page_preview:true});
-  if(!data.ok) throw Error("UPSTREAM_REJECTED");
-  return {ok:true,provider:"telegram",operation:"send_message",message_id:(data.result||{}).message_id||null};
+  if(!allowed.includes(chat))throw Error("CHAT_NOT_ALLOWED");
+  const msg=text_(p.text,4096);
+  let method,body;
+  if(operation==="send_message"){
+    method="sendMessage";body={chat_id:chat,text:msg,disable_web_page_preview:true};
+  }else if(operation==="edit_message"){
+    if(!digits_(p.message_id)||p.message_id<1)throw Error("INVALID_INPUT");
+    method="editMessageText";body={chat_id:chat,message_id:p.message_id,text:msg,
+      disable_web_page_preview:true};
+  }else throw Error("ACTION_NOT_ALLOWED");
+  const data=request_(api+method,{},"post",body);
+  const result=data.result||{};
+  if(!data.ok||!result.chat||String(result.chat.id)!==chat)throw Error("UPSTREAM_REJECTED");
+  return {ok:true,provider:"telegram",operation:operation,
+    message_id:result.message_id||null,accepted:true};
 }
 function canva_(req) {
   const token=key_("VAULT_KEY_CANVA");
@@ -202,14 +224,19 @@ function canva_(req) {
     case "designs": path="/designs?limit=10";break;
     case "image_generate":
       method="post";path="/image-generations";
-      body={prompt:text_(p.prompt,1500)};
-      if(p.aspect_ratio!==undefined) body.aspect_ratio=text_(p.aspect_ratio,24);
+      body={prompt:text_(p.prompt,1500),idempotency_key:Utilities.getUuid(),
+        asset_upload:{type:"none"},aspect_ratio:"square"};
+      if(p.aspect_ratio!==undefined){
+        if(!["square","landscape","portrait"].includes(p.aspect_ratio))throw Error("INVALID_INPUT");
+        body.aspect_ratio=p.aspect_ratio;
+      }
       break;
     case "design_generate":
-      method="post";path="/generations";body={brief:text_(p.brief,1500)};
+      method="post";path="/generations";
+      body={brief:text_(p.brief,1500),design_type:{type:"preset",name:"presentation"}};
       break;
     case "job_status":
-      if(!["image","design"].includes(p.kind)||typeof p.job_id!=="string"||
+      if(!["image","presentation"].includes(p.kind)||typeof p.job_id!=="string"||
           !/^[A-Za-z0-9_-]{1,100}$/.test(p.job_id)) throw Error("BAD_JOB_ID");
       path=(p.kind==="image"?"/image-generations/":"/generations/")+p.job_id;break;
     default:throw Error("ACTION_NOT_ALLOWED");
@@ -221,12 +248,73 @@ function canva_(req) {
 function notion_(req) {
   const token=key_("VAULT_KEY_NOTION");
   if(!token) throw Error("KEY_NOT_CONFIGURED");
-  const query=req.payload&&req.payload.query===undefined?"":(req.payload||{}).query;
-  if(typeof query!=="string"||query.length>120) throw Error("INVALID_INPUT");
-  const data=request_("https://api.notion.com/v1/search",
-    {Authorization:"Bearer "+token,"Notion-Version":"2022-06-28"},"post",{query:query,page_size:10});
-  const items=(data.results||[]).slice(0,10).map(x=>({id:x.id,object:x.object,url:x.url||""}));
-  return {ok:true,provider:"notion",operation:"search",results:items};
+  const operation=req.operation,p=req.payload||{};
+  const source=key_("VAULT_NOTION_DATA_SOURCE_ID");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const ownerTag=/^[a-f0-9]{64}$/;
+  const root="https://api.notion.com/v1";
+  const headers={Authorization:"Bearer "+token,"Notion-Version":"2026-03-11"};
+  if(operation==="search"){
+    const query=p.query===undefined?"":p.query;
+    if(typeof query!=="string"||query.length>120) throw Error("INVALID_INPUT");
+    const data=request_(root+"/search",headers,"post",{query:query,page_size:10});
+    const items=(data.results||[]).slice(0,10).map(x=>({id:x.id,object:x.object,url:x.url||""}));
+    return {ok:true,provider:"notion",operation:"search",results:items};
+  }
+  if(!uuid.test(source)) throw Error("DATA_SOURCE_NOT_CONFIGURED");
+  const compactPage=data=>({id:data.id,url:data.url||"",parent:data.parent||{},
+    properties:data.properties||{}});
+  const dataSourceUrl=root+"/data_sources/"+encodeURIComponent(source)+"/query";
+  const pageUrl=id=>root+"/pages/"+encodeURIComponent(id);
+  if(operation==="query_tasks"){
+    if(typeof p.owner_tag!=="string"||!ownerTag.test(p.owner_tag))throw Error("INVALID_INPUT");
+    const filter={property:"Vanilla Owner",rich_text:{equals:p.owner_tag}};
+    const data=request_(dataSourceUrl,headers,"post",{page_size:15,filter:filter});
+    return {ok:true,provider:"notion",operation:operation,data:{
+      results:(data.results||[]).slice(0,15).map(compactPage),has_more:Boolean(data.has_more)}};
+  }
+  if(operation==="read_task"||operation==="update_task"){
+    if(typeof p.page_id!=="string"||!uuid.test(p.page_id))throw Error("BAD_JOB_ID");
+    const before=request_(pageUrl(p.page_id),headers,"get");
+    if(!before.parent||before.parent.type!=="data_source_id"||
+        String(before.parent.data_source_id).toLowerCase()!==source.toLowerCase())
+      throw Error("NOTION_SCOPE_DENIED");
+    if(operation==="read_task")
+      return {ok:true,provider:"notion",operation:operation,data:compactPage(before)};
+    const patch=p.properties||{};
+    if(Object.keys(patch).length!==1)throw Error("INVALID_INPUT");
+    let properties;
+    if(Object.prototype.hasOwnProperty.call(patch,"Done") &&
+       patch.Done&&patch.Done.checkbox===true)
+      properties={Done:{checkbox:true}};
+    else if(Object.prototype.hasOwnProperty.call(patch,"When") &&
+      patch.When&&patch.When.date&&
+      typeof patch.When.date.start==="string"&&patch.When.date.start.length<=50&&
+      /^\d{4}-\d{2}-\d{2}T/.test(patch.When.date.start))
+      properties={When:{date:{start:patch.When.date.start}}};
+    else throw Error("INVALID_INPUT");
+    return {ok:true,provider:"notion",operation:operation,data:compactPage(
+      request_(pageUrl(p.page_id),headers,"patch",{properties:properties}))};
+  }
+  if(operation==="create_task"){
+    const title=text_(p.title,180),date=text_(p.when,50);
+    if(!/^\d{4}-\d{2}-\d{2}T/.test(date) ||
+       typeof p.owner_tag!=="string"||!ownerTag.test(p.owner_tag))throw Error("INVALID_INPUT");
+    const details=p.details||"";
+    if(typeof details!=="string"||details.length>1800)throw Error("INVALID_INPUT");
+    const properties={
+      Name:{title:[{text:{content:title}}]},
+      When:{date:{start:date}},
+      "Vanilla Owner":{rich_text:[{text:{content:p.owner_tag}}]},
+      Done:{checkbox:false}
+    };
+    const body={parent:{type:"data_source_id",data_source_id:source},properties:properties};
+    if(details.trim()) body.children=[{object:"block",type:"paragraph",
+      paragraph:{rich_text:[{type:"text",text:{content:details}}]}}];
+    return {ok:true,provider:"notion",operation:operation,data:compactPage(
+      request_(root+"/pages",headers,"post",body))};
+  }
+  throw Error("ACTION_NOT_ALLOWED");
 }
 function brave_(req) {
   const token=key_("VAULT_KEY_BRAVE");
@@ -296,7 +384,7 @@ function doPost(e) {
       "BAD_MODEL","BAD_MESSAGES","BAD_ROLE","INPUT_TOO_LARGE","BAD_MAX_TOKENS",
       "INVALID_OUTPUT_LIMIT","INVALID_INPUT","OUTPUT_TRUNCATED","UPSTREAM_TOO_LARGE",
       "UPSTREAM_BAD_JSON","UPSTREAM_REJECTED","BAD_CHAT_ID","CHAT_NOT_ALLOWED",
-      "BAD_JOB_ID","BAD_REPOSITORY"
+      "BAD_JOB_ID","BAD_REPOSITORY","NOTION_SCOPE_DENIED","DATA_SOURCE_NOT_CONFIGURED"
     ];
     const code=String(ex&&ex.message||"INTERNAL");
     // Do not forward upstream error bodies, credentials, URLs, prompts or stack traces.

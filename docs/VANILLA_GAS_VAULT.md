@@ -25,19 +25,19 @@ Vanilla browser (Google OIDC) → **WeiGuo FastAPI** (existing verified family s
 
 | Vanilla area | GAS vault | What remains outside GAS |
 | --- | --- | --- |
-| Gemini | `chat` with fixed URL, model allowlist | streaming, images, WebLLM, context tools |
-| DeepSeek | `chat` | streaming |
-| OpenAI | `chat` | model selection UI not yet wired |
-| Anthropic | `chat` | model selection UI not yet wired |
-| OpenRouter | `chat` | model selection UI not yet wired |
-| Telegram / Ceres | `send_message` to approved chats | webhook receiver, live bot & agent runner |
-| Canva | `profile`, `designs`, `image_generate`, `design_generate`, `job_status` | OAuth refresh, image bytes, async task polling |
-| Notion | `search` | Notion scheduler and database mutations |
-| Brave / Scouts | `search` | Scouts relevance/ranking/grounding |
+| Gemini | `chat` with fixed URL, model allowlist; Vanilla conversation and opt-in Ceres replies | streaming, images, WebLLM, context tools |
+| DeepSeek | `chat`; Vanilla conversation and opt-in Ceres replies | streaming |
+| OpenAI | `chat`; Vanilla conversation, model selection UI, opt-in Ceres replies | streaming and multimodal |
+| Anthropic | `chat`; Vanilla conversation and model selection UI | streaming and multimodal |
+| OpenRouter | `chat`; Vanilla conversation and model selection UI | streaming and multimodal |
+| Telegram / Ceres | `send_message`, `edit_message`, `answer_callback`; opt-in server outbound sender | inbound webhook, bot registration, Mini App initData validation may still require server token |
+| Canva | `profile`, `designs`, `image_generate`, `design_generate`, `job_status`; original job controller supports opt-in proxy | OAuth refresh, image bytes; actual AI credits and scopes needed |
+| Notion | `search`, `query_tasks`, `read_task`, `create_task`, `update_task`; original tasks router can opt in | scheduler triggers; account-specific ownership still checked on WeiGuo |
+| Brave / Scouts | `search`; original Scouts route can opt in | Scouts relevance/ranking/grounding |
 | GitHub / Zeus | `repo` read-only | PR writes, installations, workflow runner |
-| LUCA | WeiGuo measures route requests; GAS usage limits | long-term telemetry/Logfire |
+| LUCA | WeiGuo measures route requests; GAS request counters; 5 cloud sources recorded | long-term telemetry/Logfire |
 | Slime | NO direct device/compute control | local/GPU nodes and inference worker |
-| Detroit / Diana / Merlin / Victoria / Orchestra | can call WeiGuo vault route | reasoning, model selection and tool dispatch |
+| Detroit / Diana / Merlin / Victoria / Orchestra | use selected cloud model via WeiGuo vault route | reasoning, offline tools and tool dispatch |
 | Drive / user files | NO migration of file content | Drive OAuth, sync, user content |
 | Google search grounding | NO generic browsing proxy | existing Gemini/Scouts integrations |
 | API Registry (Awesome catalogs) | NO bulk external execution | remains discovery-only |
@@ -77,6 +77,7 @@ automatically make its code writable from this chat.
 | `VAULT_TELEGRAM_CHAT_IDS` | comma-separated numeric **allowed destination chat IDs** |
 | `VAULT_KEY_CANVA` | server-authorized Canva access token (may expire) |
 | `VAULT_KEY_NOTION` | Notion integration token |
+| `VAULT_NOTION_DATA_SOURCE_ID` | Dedicated Notion data source UUID; must match WeiGuo `WEIGUO_NOTION_DATA_SOURCE_ID` |
 | `VAULT_KEY_BRAVE` | Brave Search API token |
 | `VAULT_KEY_GITHUB` | least-privilege GitHub token |
 | `VAULT_RPM_LIMIT` | optional: per-provider requests/minute, default `8` |
@@ -165,9 +166,11 @@ to this body.
    reply, permissions and provider quota.
 6. Confirm chat still works; private mode must continue blocking cloud calls.
 
-Other providers are callable through the signed backend `/relay` route,
-but they are **not wired into all current UI/agents**. Do not claim complete
-migration until each consuming module uses that path and passes live tests.
+All five cloud text providers appear in the AI Model settings, where the
+owner can opt in. The legacy service adapters for Canva, Notion, Scouts,
+Ceres model output and Telegram sending have optional GAS cutovers, controlled
+server-side. Provider presence in an inventory does **not** mean live key
+validation, backend cutover, OAuth refresh or a successful billable operation.
 
 ## 6. Safety & verification checklist
 
@@ -199,3 +202,88 @@ Official references:
 - [Apps Script Web Apps](https://developers.google.com/apps-script/guides/web)
 - [Apps Script quotas](https://developers.google.com/apps-script/guides/services/quotas)
 - [Content Service](https://developers.google.com/apps-script/guides/content)
+
+
+## 7. Complete staged cutover to GAS for original Vanilla services
+
+Setting `VANILLA_GAS_WEB_APP_URL` and `VANILLA_GAS_RELAY_SECRET`
+**does not** automatically redirect production modules. This prevents a partially
+configured vault from suddenly breaking Ceres and your user-facing tools.
+
+On the trusted WeiGuo deployment, explicitly add:
+
+```dotenv
+# Start with one provider, verify, then add more one at a time:
+VANILLA_GAS_PROXY_PROVIDERS=gemini,deepseek,openai,telegram,canva,notion,brave,tavily
+# Still required for Notion's fixed source and per-Google-account isolation:
+WEIGUO_NOTION_DATA_SOURCE_ID=YOUR_EXISTING_NOTION_DATA_SOURCE_UUID
+WEIGUO_NOTION_ENABLED=true
+WEIGUO_SESSION_SECRET=YOUR_EXISTING_WEIGUO_SESSION_SECRET
+# Enables original Canva generation route (separate from secret storage):
+WEIGUO_CANVA_ENABLED=true
+# For Ceres automatic Telegram model replies, set a real allowlisted model:
+CERES_SERVER_MODEL_PROVIDER=gemini
+CERES_SERVER_MODEL_NAME=YOUR_ALLOWLISTED_GEMINI_MODEL
+```
+
+Do not paste real values in public repository. Each provider on this list
+must be a **separate, owner-approved** switch. Failure of a selected GAS
+provider must fail closed; avoid automatically falling back to the old
+provider key because that defeats centralized key custody and obscures
+billing and privacy.
+
+* **Gemini, OpenAI, DeepSeek**: `ceres_server_model`,
+  `ceres_model_catalog`, and `ceres_model_ops` use the GAS path when enabled.
+* **Anthropic, OpenRouter**: available as Vanilla cloud chat models through
+  the authenticated family gateway. Ceres automatic model selection has not
+  been extended to these.
+* **Telegram**: signed outbound send, edit, and callback-acknowledgement;
+  GAS `VAULT_TELEGRAM_CHAT_IDS` must include *every* approved destination
+  chat ID. Existing Ceres inbound webhook registration, bot identity checks
+  and Mini App cryptographic validation remain on WeiGuo; do not remove their
+  server-side bot-token configuration without separately migrating those
+  mechanisms.
+* **Canva**: original generation/polling endpoints can use GAS; the token
+  must be a valid user OAuth access token with the proper Canva scopes and
+  capabilities. GAS does not yet refresh expired Canva OAuth credentials.
+* **Notion**: GAS enforces one fixed data source ID, bounded task schema,
+  allowed page fields and source-scoped updates. WeiGuo still enforces the
+  original Google `sub`/HMAC owner tag check; Notion's database schema must
+  contain `Name`, `When`, `Done`, and `Vanilla Owner`. GAS limits
+  results per query to 15 entries and reports `has_more`; paging is not
+  yet implemented for this proxy.
+* **Brave and Tavily**: original Scouts adapter retains per-member rate
+  limiting, safe HTTPS result URL filtering and regional ranking.
+* **GitHub**: limited to authenticated read-only repository metadata; code
+  search, PR creation and GitHub Actions retain separate authorization and
+  may require independent service keys.
+
+### Key migration and rollback
+
+After GAS smoke tests pass, migrate one provider token at a time from the
+existing WeiGuo server vault to Apps Script Script Properties. Do not delete
+live Ceres webhook/OAuth secrets that are still needed locally. Replace
+legacy Drive `vanilla-provider-credentials-v1.json` with managed *markers*
+only; the updated sync code prevents writing plain provider API keys.
+Keep a protected offline backup for rollback, and revoke old credentials
+only after verifying no old caller uses them.
+
+### What a real end-to-end acceptance must prove
+
+1. Wrong/expired HMAC, repeated nonce, arbitrary upstream path and unapproved
+   provider/model fail *without any provider request*.
+2. Each selected live model returns a real answer, with metered token usage.
+3. Telegram sends to an actual allowlisted chat and cannot send elsewhere.
+4. Canva accepts a real, consented image/design job, whose returned job ID
+   can be polled from the original owner session.
+5. Notion can create, list, reschedule and complete an **owned** test task;
+   a second Google family account cannot read or mutate it.
+6. Scouts returns grounded Brave/Tavily links through the existing search UI.
+7. LUNA, LUCA, Ceres and regular chat continue to work; private mode never
+   makes a cloud call; the existing Slime GPU backend is unaffected.
+8. Rollback works by removing a provider from
+   `VANILLA_GAS_PROXY_PROVIDERS` or disabling it in the model panel,
+   without exposing or destroying other credentials.
+
+Successful CI verifies mocked contracts and compilation, **not** real
+provider connection, paid quota availability, or GAS deployment.

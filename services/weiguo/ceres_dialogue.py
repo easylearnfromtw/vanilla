@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import FamilyIdentity, family_reader
+from gas_relay import gas_provider_enabled
 from ceres_gateway import _allowed_chat_ids, _enabled, _session
 
 router = APIRouter(prefix="/v1/family/ceres", tags=["ceres-family"])
@@ -188,6 +189,9 @@ class ReplyRequest(BaseModel):
 
 
 def _bot_token() -> str:
+    from gas_relay import gas_provider_enabled
+    if gas_provider_enabled("telegram"):
+        return ""  # Only GAS knows the Telegram bot token.
     token = os.getenv("CERES_TELEGRAM_BOT_TOKEN", "")
     if not _BOT.fullmatch(token):
         raise HTTPException(503, "Telegram bot token is not configured")
@@ -226,21 +230,25 @@ async def reply(event_id: int, body: ReplyRequest, user: FamilyIdentity = Depend
         db.execute("UPDATE ceres_inbox SET reviewed_at=COALESCE(reviewed_at,?) WHERE id=?",
                    (now, event_id))
     # Reserve before network I/O: ambiguous failures are never auto-retried.
-    success = False
-    try:
-        async with httpx.AsyncClient(timeout=12.0, follow_redirects=False, trust_env=False) as client:
-            result = await client.post(
-                "https://api.telegram.org/bot" + token + "/sendMessage",
-                json={"chat_id": chat, "text": message, "disable_web_page_preview": True}
-            )
-            if result.status_code == 200:
-                data = result.json()
-                info = data.get("result", {}) if isinstance(data, dict) else {}
-                returned_chat = info.get("chat", {}) if isinstance(info, dict) else {}
-                success = (data.get("ok") is True and
-                           isinstance(returned_chat, dict) and returned_chat.get("id") == chat)
-    except (httpx.HTTPError, ValueError, TypeError):
-        pass
+    if gas_provider_enabled("telegram"):
+        from ceres_agent_delivery import deliver
+        success = await deliver(chat, message, token)
+    else:
+        success = False
+        try:
+            async with httpx.AsyncClient(timeout=12.0, follow_redirects=False, trust_env=False) as client:
+                result = await client.post(
+                    "https://api.telegram.org/bot" + token + "/sendMessage",
+                    json={"chat_id": chat, "text": message, "disable_web_page_preview": True}
+                )
+                if result.status_code == 200:
+                    data = result.json()
+                    info = data.get("result", {}) if isinstance(data, dict) else {}
+                    returned_chat = info.get("chat", {}) if isinstance(info, dict) else {}
+                    success = (data.get("ok") is True and
+                               isinstance(returned_chat, dict) and returned_chat.get("id") == chat)
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
     with _session() as db:
         _outbox_table(db)
         db.execute("UPDATE ceres_outbox SET status=?,updated_at=? WHERE event_id=?",

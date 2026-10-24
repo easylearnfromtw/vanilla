@@ -22,6 +22,7 @@ function harness(settings={}){
   LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})},
   ContentService:{MimeType:{JSON:"json"},createTextOutput:s=>({value:s,setMimeType(){return this;}})},
   Utilities:{
+   getUuid:()=>"00000000-0000-4000-8000-000000000000",
    computeHmacSha256Signature:(text,secret)=>[...crypto.createHmac("sha256",secret).update(text).digest()].map(n=>n>127?n-256:n),
    base64DecodeWebSafe:(encoded)=>[...Buffer.from(encoded,"base64")].map(n=>n>127?n-256:n),
    newBlob:(bytes)=>({getDataAsString:()=>Buffer.from(bytes.map(n=>n&255)).toString("utf8")})
@@ -87,7 +88,7 @@ test("Telegram recipient whitelist blocks unauthorized chat IDs",()=>{
 });
 test("Telegram permitted chat sends with fixed target and no token returned",()=>{
  const h=harness();
- h.setUpstream({ok:true,result:{message_id:42}});
+ h.setUpstream({ok:true,result:{message_id:42,chat:{id:123456789}}});
  const q={action:"relay",approved_cloud_send:true,provider:"telegram",operation:"send_message",
   payload:{chat_id:"123456789",text:"hello"}};
  const out=h.send(h.sign(q));
@@ -105,4 +106,55 @@ test("provider daily quotas fail closed",()=>{
  assert.equal(h.send(h.sign(chat())).ok,true);
  assert.equal(h.send(h.sign(chat())).error,"QUOTA_EXCEEDED");
  assert.equal(h.calls.length,1);
+});
+
+test("Telegram rejects mismatched actual recipient",()=>{
+ const h=harness();h.setUpstream({ok:true,result:{message_id:1,chat:{id:77777777}}});
+ const q={action:"relay",approved_cloud_send:true,provider:"telegram",operation:"send_message",
+  payload:{chat_id:"123456789",text:"hello"}};
+ assert.equal(h.send(h.sign(q)).error,"UPSTREAM_REJECTED");
+});
+test("Telegram supports allowlisted message edits",()=>{
+ const h=harness();h.setUpstream({ok:true,result:{message_id:9,chat:{id:123456789}}});
+ const q={action:"relay",approved_cloud_send:true,provider:"telegram",operation:"edit_message",
+  payload:{chat_id:"123456789",text:"new",message_id:9}};
+ const reply=h.send(h.sign(q));
+ assert.equal(reply.ok,true);assert.match(h.calls[0].url,/\/editMessageText$/);
+});
+test("Notion task paths fail closed without bound data source",()=>{
+ const h=harness({VAULT_KEY_NOTION:"test-only-notion"});
+ const q={action:"relay",approved_cloud_send:true,provider:"notion",operation:"query_tasks",
+  payload:{owner_tag:"a".repeat(64)}};
+ assert.equal(h.send(h.sign(q)).error,"DATA_SOURCE_NOT_CONFIGURED");
+ assert.equal(h.calls.length,0);
+});
+test("Notion query is scoped to fixed data source and owner digest",()=>{
+ const source="7595cbce-7702-4bda-a514-fd09f48e8411";
+ const h=harness({VAULT_KEY_NOTION:"test-only-notion",VAULT_NOTION_DATA_SOURCE_ID:source});
+ h.setUpstream({results:[],has_more:false});
+ const q={action:"relay",approved_cloud_send:true,provider:"notion",operation:"query_tasks",
+   payload:{owner_tag:"a".repeat(64)}};
+ const reply=h.send(h.sign(q));
+ assert.equal(reply.ok,true);
+ assert.equal(h.calls[0].url,"https://api.notion.com/v1/data_sources/"+source+"/query");
+ assert.equal(JSON.parse(h.calls[0].opts.payload).filter.rich_text.equals,"a".repeat(64));
+});
+test("Canva generation uses a server-generated idempotency key and preset schema",()=>{
+ const h=harness({VAULT_KEY_CANVA:"test-only-canva"});
+ h.setUpstream({job:{id:"00000000-0000-4000-8000-000000000001",status:"in_progress"}});
+ const q={action:"relay",approved_cloud_send:true,provider:"canva",operation:"image_generate",
+  payload:{prompt:"A portrait of a flower",aspect_ratio:"square"}};
+ const reply=h.send(h.sign(q));
+ assert.equal(reply.ok,true);
+ assert.equal(h.calls[0].url,"https://api.canva.com/rest/v1/image-generations");
+ const body=JSON.parse(h.calls[0].opts.payload);
+ assert.equal(body.idempotency_key,"00000000-0000-4000-8000-000000000000");
+ assert.deepEqual({...body.asset_upload},{type:"none"});
+});
+test("Status lists all eleven approved providers with no credentials",()=>{
+ const h=harness();
+ const providers=h.send(h.sign({action:"status"})).providers;
+ assert.deepEqual(Object.keys(providers).sort(),
+ ["gemini","openai","deepseek","anthropic","openrouter","telegram",
+  "canva","notion","brave","tavily","github"].sort());
 });

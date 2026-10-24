@@ -9,7 +9,8 @@ let running:Promise<void>|null=null;
 function valid(x:unknown):x is ProviderConfig{
  if(!x||typeof x!=="object")return false;
  const c=x as Partial<ProviderConfig>;
- return (c.provider==="gemini"||c.provider==="deepseek")&&typeof c.key==="string"&&c.key.length>0&&typeof c.model==="string"&&c.model.length>0;
+ return (["gemini","deepseek","openai","anthropic","openrouter"] as string[]).includes(c.provider||"")&&
+  (c.key==="managed:gas"||c.key==="managed:weiguo")&&typeof c.model==="string"&&c.model.length>0;
 }
 async function request(url:string,token:string,init:RequestInit={}):Promise<Response>{
  const res=await fetch(url,{...init,headers:{Authorization:"Bearer "+token,...init.headers}});
@@ -39,10 +40,10 @@ async function upload(token:string,doc:Doc,id?:string):Promise<void>{
 export async function loadProviderConfigs(token:string):Promise<number>{
  activeToken=token;
  const id=await locate(token);
- if(!id){for(const p of ["gemini","deepseek"] as Provider[])removeProvider(p);return 0;}
+ if(!id){for(const p of ["gemini","deepseek","openai","anthropic","openrouter"] as Provider[])removeProvider(p);return 0;}
  const doc=await download(token,id);
  const incoming=doc.configs.filter(valid);
- for(const provider of ["gemini","deepseek"] as Provider[]){
+ for(const provider of ["gemini","deepseek","openai","anthropic","openrouter"] as Provider[]){
   const found=incoming.find(x=>x.provider===provider);
   if(found)setProvider(found);else removeProvider(provider);
  }
@@ -51,7 +52,7 @@ export async function loadProviderConfigs(token:string):Promise<number>{
 export async function saveProviderConfigs(token:string):Promise<void>{
  activeToken=token;
  const id=await locate(token);
- await upload(token,{version:1,updatedAt:new Date().toISOString(),configs:getConfigs()},id);
+ await upload(token,{version:1,updatedAt:new Date().toISOString(),configs:getConfigs().filter(valid)},id);
 }
 export function stopProviderSync(){activeToken="";}
 export function queueProviderSync(token:string):Promise<void>{

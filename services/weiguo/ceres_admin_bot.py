@@ -35,6 +35,20 @@ def owner_subject(chat_id: int) -> str|None:
     return sub if record and record[1]=="owner" else None
 
 async def _telegram(method: str, data: dict) -> None:
+    from gas_relay import gas_provider_enabled, gas_service_call
+    if gas_provider_enabled("telegram"):
+        operation={"sendMessage":"send_message","editMessageText":"edit_message",
+                   "answerCallbackQuery":"answer_callback"}.get(method)
+        if not operation:
+            return False
+        try:
+            payload={"chat_id":data.get("chat_id"),"text":data.get("text")}
+            if operation=="edit_message":payload["message_id"]=data.get("message_id")
+            if operation=="answer_callback":payload={"callback_query_id":data.get("callback_query_id")}
+            result=await gas_service_call("telegram",operation,payload)
+            return result.get("accepted") is True
+        except Exception:
+            return False  # Opaque error; never log the token or chat contents.
     token=os.getenv("CERES_TELEGRAM_BOT_TOKEN","")
     if not re.fullmatch(r"[0-9]{5,15}:[A-Za-z0-9_-]{30,80}",token):
         print("Ceres Telegram send: unconfigured",flush=True)

@@ -6,7 +6,7 @@
  */
 import type {TaskKind} from "./task-kind";
 
-export type ProfileSource="local"|"ollama"|"gemini"|"deepseek";
+export type ProfileSource="local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
 export type ThinkingStyle="none"|"qwen3-switch"|"gemini-level"|"deepseek-switch"|"ollama-think"|"always";
 export type TaskNumbers=Record<TaskKind,number>;
 export type ModelProfile={
@@ -143,7 +143,13 @@ export function profileFor(source:ProfileSource,model:string):ModelProfile{
  if(source==="local")return localProfile(model);
  if(source==="ollama")return ollamaProfile(model);
  if(source==="gemini")return geminiProfile(model);
- return deepseekProfile(model);
+ if(source==="deepseek")return deepseekProfile(model);
+ // Generic cloud relay profiles are intentionally conservative: no invented
+ // model capabilities or provider pricing. Actual limits are server enforced.
+ const base=deepseekProfile(model);
+ return {...base,source,model,family:source,contextTokens:32000,
+   tier:85,thinking:"none"};
+
 }
 
 /* ---------- user-adjustable Ollama context window ---------- */

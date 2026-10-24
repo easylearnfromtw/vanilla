@@ -41,12 +41,14 @@ test("衞國: manifests require safe, account-isolated declarative permissions",
  assert.throws(()=>validateToolManifest({...valid,permissions:["execute"]}),/權限/);
  assert.throws(()=>validateToolManifest({...valid,code:"eval(1)"}),/不接受/);
 });
-test("iPhone empty chat excludes RECENT; Detroit status belongs to the assistant message",()=>{
+test("iPhone chat and sidebar exclude RECENT; Detroit status belongs to the assistant message",()=>{
  const home=readFileSync(new URL("../src/local-ai/ChatHome.tsx",import.meta.url),"utf8");
  const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
  const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
  assert.ok(!home.includes("vh-recent")&&!home.includes("props.recent.slice"));
- assert.ok(app.includes("RECENT · 最近對話"));
+ const sidebar=app.split("<aside className=")[1]?.split("</aside>")[0]||"";
+ assert.ok(!sidebar.includes("RECENT")&&!sidebar.includes("recent-list"));
+ assert.match(sidebar,/items\.map\(navButton\)/);
  const msg=chat.indexOf('index===latestAssistant&&<DetroitStages plan={detroitPlan}/>');
  assert.ok(msg>chat.indexOf('className="message-list"'));
  assert.ok(app.includes('label:"衞國系統"'));

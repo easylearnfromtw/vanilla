@@ -9,9 +9,8 @@ import TabBar from "./ui/TabBar";
 import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
 import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync";
-import {startNewConversation,recentConversations,reopenConversation,currentChatMode,CHAT_ARCHIVE_EVENT} from "./local-ai/chat-session";
-import type {ArchiveSummary} from "./library/conversation-archive";
-import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Plus,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,ShieldCheck,Clock3,SquarePen,Mail,Server} from "lucide-react";
+import {startNewConversation} from "./local-ai/chat-session";
+import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,SquarePen,Mail,Server} from "lucide-react";
 
 // Heavy sections load on demand so the chat opens fast on iPhone.
 const CreamLongitudinal=lazy(()=>import("./cream/CreamLongitudinal"));
@@ -32,28 +31,28 @@ const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 const BASE=import.meta.env.BASE_URL;
 type Section="nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
+// Only these five destinations are exposed in the sidebar and mobile tab bar.
+// The other modules remain available through contextual chat actions and Detroit tool routing.
 const items:NavItem[]=[
- {id:"chat",label:"AI 對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
- {id:"cream",label:"CREAM 長期分析",icon:BarChart3,description:"長期數據追蹤、目標與研究分析",tone:"red"},
+ {id:"chat",label:"對話",icon:MessageCircle,description:"家庭專屬的 AI 助理",tone:"blue"},
+ {id:"settings",label:"設定",icon:Settings2,description:"模型、隱私、雲端與外觀",tone:"ink"},
+ {id:"files",label:"雲端",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
+ {id:"cream",label:"長期追蹤",icon:BarChart3,description:"長期數據追蹤、目標與研究分析",tone:"red"},
+ {id:"nodes",label:"Slime",icon:Server,description:"我的電腦、朋友共享節點與 Windows 推論",tone:"blue"}
+];
+// Section metadata for contextual tool handoffs, not separate navigation entries.
+const tools:NavItem[]=[
  {id:"projects",label:"PROJECT HUB",icon:Code2,description:"專案原始碼、API 與功能整合",tone:"yellow"},
  {id:"library",label:"對話圖片與資料",icon:Images,description:"聊天附件、圖片預覽、更新與刪除",tone:"yellow"},
- {id:"settings",label:"系統設定",icon:Settings2,description:"模型、隱私、雲端與外觀",tone:"ink"}
-];
-const tools:NavItem[]=[
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
- {id:"nodes",label:"Slime 算力網路",icon:Server,description:"我的電腦、朋友共享節點與 Windows 推論",tone:"blue"},
  {id:"detroit",label:"Detroit Studio",icon:WandSparkles,description:"Retina 文件、Bard 生圖、安全及背景任務",tone:"red"},
  {id:"orchestra",label:"Orchestra Studio",icon:Puzzle,description:"Craft 七引擎調度、CREAM 跨格式輸出與作品製作",tone:"yellow"},
  {id:"luna",label:"LUNA 視覺設計",icon:Images,description:"Detroit 原生海報畫布、圖層、模板與本機匯出",tone:"yellow"},
  {id:"sheets",label:"Vanilla 表格",icon:Table2,description:"多工作表、公式、AI 編輯預覽與雲端保存",tone:"red"},
  {id:"email",label:"Janus 郵件設計",icon:Mail,description:"Detroit · Janus 郵件模板、HTML 與 Unlayer 編輯器",tone:"yellow"},
- {id:"files",label:"雲端檔案",icon:FolderOpen,description:"Google Drive 建立、讀取、編輯與垃圾桶",tone:"blue"},
  {id:"builder",label:"Self-Build Studio",icon:WandSparkles,description:"用自然語言新增與改進 Vanilla 工具",tone:"ink"}
 ];
-const tabs=[
- {id:"chat",label:"對話",icon:MessageCircle},{id:"cream",label:"CREAM",icon:BarChart3},
- {id:"projects",label:"專案",icon:Code2},{id:"library",label:"資料",icon:Images},{id:"settings",label:"設定",icon:Settings2}
-];
+const tabs=items.map(({id,label,icon})=>({id,label,icon}));
 function Loading(){return <div className="vh-loading" role="status"><span className="vh-loading-bar"/>載入中…</div>;}
 
 export default function App(){
@@ -76,7 +75,6 @@ const [orchestraSource,setOrchestraSource]=useState<"manual"|"cream"|"ai">("manu
 const [orchestraChart,setOrchestraChart]=useState<OrchestraChart|null>(null);
 const [orchestraAI,setOrchestraAI]=useState<OrchestraHandoff|null>(null);
 const [compactTabs,setCompactTabs]=useState(false);
-const [recent,setRecent]=useState<ArchiveSummary[]>([]);
 const mainRef=useRef<HTMLElement|null>(null);
 useEffect(()=>{const onRemote=()=>setChatKey(x=>x+1);window.addEventListener("vanilla-chat-remote-loaded",onRemote);return()=>window.removeEventListener("vanilla-chat-remote-loaded",onRemote);},[]);
 const [signedIn,setSignedIn]=useState(()=>driveSession());
@@ -90,9 +88,6 @@ const [editFeatureId,setEditFeatureId]=useState<string|null>(null);
 useEffect(()=>{const refresh=()=>setFeatures(loadFeatures());window.addEventListener("vanilla-features-changed",refresh);return()=>window.removeEventListener("vanilla-features-changed",refresh);},[]);
 function openFeature(id:string){setActiveFeatureId(id);setSection("feature");setMenuOpen(false);}
 function editFeature(id:string|null){setEditFeatureId(id);setSection("builder");setMenuOpen(false);}
-const refreshRecent=()=>{void recentConversations(currentChatMode()).then(setRecent);};
-useEffect(()=>{refreshRecent();window.addEventListener(CHAT_ARCHIVE_EVENT,refreshRecent);return()=>window.removeEventListener(CHAT_ARCHIVE_EVENT,refreshRecent);},[]);
-useEffect(()=>{if(menuOpen)refreshRecent();},[menuOpen]);
 useEffect(()=>{
  const go=(next:Section)=>()=>{setSection(next);setMenuOpen(false);};
  const openSheet=(event:Event)=>{
@@ -165,10 +160,6 @@ async function newChat(){
  if(result.error){window.alert("目前對話無法封存，為避免遺失已停止："+result.error);return;}
  setChatKey(k=>k+1);navigate("chat");
 }
-async function openRecent(id:string){
- try{await reopenConversation(id);setChatKey(k=>k+1);navigate("chat");}
- catch(e){window.alert(String(e instanceof Error?e.message:e));}
-}
 const initial=(signedIn?.email||"V").trim().charAt(0).toUpperCase();
 const navButton=(x:NavItem)=>x.id==="nodes"
  ?<a key={x.id} className="nav" href={BASE+"slime/"} target="_blank" rel="noopener noreferrer" onClick={()=>setMenuOpen(false)} aria-label="Slime 算力網路（開啟獨立分頁）">
@@ -184,14 +175,7 @@ return <div className="shell">
  <div><strong>VANILLA AI</strong><small>A MORE HUMAN AI</small></div>
  <button className="sidebar-collapse" aria-label="收合選單" onClick={()=>setMenuOpen(false)}><X size={19}/></button>
 </div>
-<button className="new-chat" onClick={()=>void newChat()}><Plus size={18}/> 新對話</button>
-<div className="nav-caption">WORKSPACE · 工作空間</div>
 <nav aria-label="主要導覽">{items.map(navButton)}</nav>
-<div className="nav-caption">TOOLS · 工具</div>
-<nav aria-label="工具">{tools.map(navButton)}{features.slice(0,6).map(f=><button key={f.id} className={section==="feature"&&activeFeatureId===f.id?"nav active":"nav"} onClick={()=>openFeature(f.id)}><span className="nav-icon tone-ink"><Puzzle size={16}/></span><span>{f.name}</span></button>)}</nav>
-{recent.length>0&&<><div className="nav-caption">RECENT · 最近對話</div>
-<div className="recent-list">{recent.slice(0,8).map(r=><button key={r.id} type="button" className="recent-item" onClick={()=>void openRecent(r.id)} title={r.title}><Clock3 size={14}/><span>{r.title}</span></button>)}</div></>}
-<div className="sidebar-footer"><ShieldCheck size={14}/><span>家庭專用 · 本地優先</span></div>
 </aside>
 <main ref={el=>{mainRef.current=el;}} className={"main "+(section==="chat"?"main-chat":"has-tabbar")}>
 <header className="topbar">

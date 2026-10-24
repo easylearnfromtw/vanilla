@@ -35,8 +35,8 @@ export function officialFastModelBase(modelId:string,modelUrl:string):string|nul
  if(modelId!==FAST_MODEL_ID)return null;
  try{
   const u=new URL(modelUrl);
-  if(u.origin!=="https://huggingface.co"||u.pathname.replace(/\\/g,"/")!=="/mlc-ai/"+FAST_MODEL_ID)return null;
-  return new URL(u.href.replace(/\\/$/,"")+"/resolve/main/").href;
+  if(u.origin!=="https://huggingface.co"||u.username||u.password||u.search||u.hash||u.pathname!=="/mlc-ai/"+FAST_MODEL_ID)return null;
+  return new URL("resolve/main/",u.href.endsWith("/")?u.href:u.href+"/").href;
  }catch{return null;}
 }
 type Dependencies={

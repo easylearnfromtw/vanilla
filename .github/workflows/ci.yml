@@ -29,6 +29,11 @@ jobs:
           npm run test:weiguo
           npm run test:weiguo-auth-ui
           npm run test:detroit
+          npm run test:sandbox
+          npm run test:atuber-sandbox
+          npm run eval:atuber-sandbox
+          npm run test:october-professional
+          npm run eval:october-professional
           npm run test:detroit-bus
           npm run test:diana
           npm run test:awesome-go
@@ -82,6 +87,8 @@ jobs:
           npm run test:reliability
           npm run test:archive
           npm run test:providers
+      - name: Atuber review-only SFT safety gate
+        run: python3 -m unittest discover -s tests -p 'test_atuber_sandbox_review.py'
       - name: Node Fabric Python integration tests
         run: python3 -m unittest discover -s tests -p 'test_node_fabric.py'
       - name: Slime secure pairing and reconnect regression tests
@@ -114,5 +121,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: detroit-core-gate
-          path: artifacts/core-release-gate.json
+          path: |
+            artifacts/core-release-gate.json
+            artifacts/atuber-sandbox-5000/summary.json
+            artifacts/atuber-sandbox-5000/episodes.jsonl
+            artifacts/atuber-sandbox-5000/candidate-review-queue.jsonl
+            artifacts/october-professional-150k/summary.json
+            artifacts/october-professional-150k/episodes.jsonl
+            artifacts/october-professional-150k/candidate-review-queue.jsonl
           if-no-files-found: ignore

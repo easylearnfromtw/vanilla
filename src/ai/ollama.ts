@@ -105,7 +105,7 @@ export async function testOllama(endpoint=config.endpoint,accessToken?:string):P
  * A model appearing in /api/tags is NOT treated as a successful inference.
  * No paid cloud fallback, third-party credential, or persistent prompt logging.
  */
-export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:lg"):
+export async function probeAtuberModel(model:"october:sm"|"october:ml"|"october:lg"|"octuber:flattering"|"octuber:modest"|"octuber:sumptuous"|"octuber:sumptuous-32b"):
  Promise<{model:string;elapsedMs:number;responseTokens:number|null}>{
  if(!config.endpoint)throw new Error("尚未設定可連接的 Ollama HTTPS 主機");
  const base=normalizeOllamaUrl(config.endpoint);

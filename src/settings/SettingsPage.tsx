@@ -5,6 +5,8 @@ import ToneSettings from "../ai/ToneSettings";
 import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
 import ModelConnections from "../ai/ModelConnections";
+import OctuberConsumerApi from "../ai/OctuberConsumerApi";
+import PriceIntelligencePanel from "../pricing/PriceIntelligencePanel";
 import ApiVaultPanel from "../weiguo/ApiVaultPanel";
 import DriveConnection from "../vault/DriveConnection";
 import SlimeWalletPanel from "../slime/SlimeWalletPanel";
@@ -16,7 +18,7 @@ import {getOllamaConfig} from "../ai/ollama";
 import {getLoadedLocalModel} from "../local-ai/engine";
 import type {TaskKind} from "../ai/task-kind";
 
-const SECTIONS=[["account","帳號與同步"],["models","AI 模型"],["tuning","模型調校"],["style","語氣與來源"],["appearance","外觀"],["system","系統狀態"]] as const;
+const SECTIONS=[["account","帳號與同步"],["models","AI 模型"],["tuning","模型調校"],["pricing","比價與價格"],["style","語氣與來源"],["appearance","外觀"],["system","系統狀態"]] as const;
 const TASKS:Array<[TaskKind,string]>=[["casual","閒聊"],["general","一般"],["writing","寫作"],["analysis","分析"],["code","程式"]];
 
 function TuningCard(){
@@ -53,8 +55,9 @@ export default function SettingsPage(){
    <p>每個家庭成員使用自己的 Google 帳號與私有 Drive 空間；共用資料需另外授權，不會自動混合。</p>
    <DriveConnection/><ChatSyncSettings/><SlimeWalletPanel/>
   </section>
-  <section className="panel settings-card" id="models"><h2>AI 模型</h2><ModelConnections/><ApiVaultPanel/></section>
+  <section className="panel settings-card" id="models"><h2>AI 模型</h2><OctuberConsumerApi/><div className="octuber-api-divider"/><ModelConnections/><ApiVaultPanel/></section>
   <TuningCard/>
+  <section className="panel settings-card" id="pricing"><PriceIntelligencePanel/></section>
   <section className="panel settings-card" id="style"><h2>語氣與來源</h2><ToneSettings/><SourceSettings/></section>
   <section className="panel settings-card" id="appearance"><h2>外觀</h2>
    <div className="font-settings"><h3>字型</h3><p>自動模式依文字語系使用系統字型（iPhone 為蘋方）；也可以手動指定，設定保留在此裝置。</p><label htmlFor="font-mode">顯示字型 </label><select id="font-mode" value={fontMode} onChange={e=>setFontMode(e.target.value)}><option value="auto">自動（推薦）</option><option value="system">系統預設</option><option value="sans">無襯線字型</option><option value="serif">襯線字型</option><option value="mono">等寬字型</option></select><p className="font-preview">Vanilla AI · 中文 English 日本語 12345</p></div>

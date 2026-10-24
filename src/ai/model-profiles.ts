@@ -32,7 +32,7 @@ export type LocalCatalogEntry={id:string;label:string;description:string;family:
  * prebuilt list, so ids missing from an older/newer package are hidden, never fabricated. */
 export const LOCAL_CATALOG:LocalCatalogEntry[]=[
  {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",label:"輕量 · Qwen2.5 0.5B",description:"約 1 GB。最省記憶體、反應最快；適合閒聊與簡單問題。",family:"qwen2.5",paramsB:0.5,vramMB:945,thinking:"none"},
- {id:"Qwen3-0.6B-q4f16_1-MLC",label:"輕量新版 · Qwen3 0.6B",description:"約 1.4 GB。比 0.5B 更懂指令；已關閉思考模式以加快回答。",family:"qwen3",paramsB:0.6,vramMB:1404,thinking:"qwen3-switch"},
+ {id:"Qwen3-0.6B-q4f16_1-MLC",label:"OCTUBER FLATTERING · 0.6B",description:"Qwen3 0.6B 基底，模型下載約需 1.4 GB GPU 記憶體。裝置端離線運行，不代表已完成 OCTUBER 專屬權重微調。",family:"qwen3",paramsB:0.6,vramMB:1404,thinking:"qwen3-switch",recommended:true},
  {id:"Qwen3.5-0.8B-q4f16_1-MLC",label:"輕量最新 · Qwen3.5 0.8B",description:"約 1.6 GB。新一代小模型（需較新的 WebLLM 版本）。",family:"qwen3.5",paramsB:0.8,vramMB:1630,thinking:"qwen3-switch"},
  {id:"Qwen2.5-1.5B-Instruct-q4f16_1-MLC",label:"平衡 · Qwen2.5 1.5B",description:"約 1.6 GB。中文表現與速度平衡，多數新款 iPhone 可用。",family:"qwen2.5",paramsB:1.5,vramMB:1630,thinking:"none",recommended:true},
  {id:"Qwen3-1.7B-q4f16_1-MLC",label:"平衡新版 · Qwen3 1.7B",description:"約 2 GB。推理與中文更穩；建議 8 GB 記憶體以上裝置。",family:"qwen3",paramsB:1.7,vramMB:2037,thinking:"qwen3-switch"},
@@ -43,7 +43,7 @@ export const LOCAL_CATALOG:LocalCatalogEntry[]=[
  {id:"Llama-3.2-3B-Instruct-q4f16_1-MLC",label:"英文 · Llama 3.2 3B",description:"約 2.3 GB。英文較強，中文表現普通。",family:"llama3",paramsB:3,vramMB:2264,thinking:"none"},
  {id:"gemma-2-2b-it-q4f16_1-MLC",label:"Gemma 2 2B",description:"約 1.9 GB。Google 開源小模型，多語言尚可。",family:"gemma2",paramsB:2,vramMB:1895,thinking:"none"}
 ];
-export const DEFAULT_LOCAL_MODEL="Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+export const DEFAULT_LOCAL_MODEL="Qwen3-0.6B-q4f16_1-MLC";
 
 /** Suggested cloud model ids (Oct 2026). Users can still type any id their account supports. */
 export const GEMINI_SUGGESTIONS=[
@@ -98,7 +98,9 @@ function ollamaProfile(model:string):ModelProfile{
  // lineage mapping, all three would be treated as unknown 7B models and
  // 14B/30B would silently lose their intended thinking configuration.
  const octoberBaseParams:Record<string,number>={
-  "october:sm":4,"october:ml":14,"october:lg":30
+  "october:sm":4,"october:ml":14,"october:lg":30,
+  "octuber:flattering":4,"octuber:modest":14,"octuber:sumptuous":30,
+  "octuber:sumptuous-32b":32
  };
  const aliasParams=octoberBaseParams[name];
  const paramsB=aliasParams??(parseParamsB(name)||(/taide/.test(name)?8:7));

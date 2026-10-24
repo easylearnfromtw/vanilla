@@ -9,23 +9,39 @@ import {isAtuberModel} from "./prompts";
 
 export const ATUBER_SINGLE_DRIVER=true as const;
 export const ATUBER_LOCAL_MODEL="Qwen3-0.6B-q4f16_1-MLC" as const;
+/** Public OCTUBER names are UI-facing tiers; historical October Ollama tags stay valid. */
+export const OCTUBER_LOCAL_BRAND="OCTUBER FLATTERING" as const;
+export const OCTUBER_TIER_PREFERENCE_KEY="vanilla.octuber.tier-preference.v1";
+export type OctuberTierPreference="auto"|"mid-small"|"mid-large"|"large"|"ultra";
+export function octuberTierPreference():OctuberTierPreference{
+ try{const value=localStorage.getItem(OCTUBER_TIER_PREFERENCE_KEY);return value==="mid-small"||value==="mid-large"||value==="large"||value==="ultra"?value:"auto";}catch{return "auto";}
+}
+export function setOctuberTierPreference(value:OctuberTierPreference):void{
+ try{localStorage.setItem(OCTUBER_TIER_PREFERENCE_KEY,value);}catch{}
+}
 
 /** Install on an approved Ollama host with the matching deployment Modelfiles. */
 export const ATUBER_TIERS=[
- {tier:"mid-small",model:"october:sm",base:"qwen3:4b",label:"中小型 · 4B",approxDownloadGB:2.5},
- {tier:"mid-large",model:"october:ml",base:"qwen3:14b",label:"中大型 · 14B",approxDownloadGB:9.3},
- {tier:"large",model:"october:lg",base:"qwen3:30b",label:"大型 · 30B (MoE)",approxDownloadGB:19}
+ {tier:"mid-small",model:"october:sm",publicAlias:"octuber:flattering",brand:"OCTUBER FLATTERING",base:"qwen3:4b",label:"OCTUBER FLATTERING · 4B",approxDownloadGB:2.5},
+ {tier:"mid-large",model:"october:ml",publicAlias:"octuber:modest",brand:"OCTUBER MODEST",base:"qwen3:14b",label:"OCTUBER MODEST · 14B",approxDownloadGB:9.3},
+ {tier:"large",model:"october:lg",publicAlias:"octuber:sumptuous",brand:"OCTUBER SUMPTUOUS",base:"qwen3:30b",label:"OCTUBER SUMPTUOUS · 30B (MoE)",approxDownloadGB:19}
 ] as const;
-export type AtuberTier="phone"|"mid-small"|"mid-large"|"large"|"custom";
+/** Additional dense flagship, opt-in only; historic three-tier aliases remain unchanged. */
+export const OCTUBER_HIGH_CAPACITY={
+ tier:"ultra",model:"octuber:sumptuous-32b",publicAlias:"octuber:sumptuous-32b",
+ brand:"OCTUBER SUMPTUOUS",base:"qwen3:32b",label:"OCTUBER SUMPTUOUS · 32B Dense",approxDownloadGB:20
+} as const;
+export type AtuberTier="phone"|"mid-small"|"mid-large"|"large"|"ultra"|"custom";
 export function atuberTier(candidate:ModelCandidate):AtuberTier|null{
  if(candidate.source==="local")return candidate.model===ATUBER_LOCAL_MODEL?"phone":null;
  if(candidate.source!=="ollama"||candidate.location!=="自架主機")return null;
  const model=candidate.model.toLowerCase();
- const found=ATUBER_TIERS.find(t=>t.model===model);
+ const found=ATUBER_TIERS.find(t=>t.model===model||t.publicAlias===model);
  if(found)return found.tier;
+ if(model===OCTUBER_HIGH_CAPACITY.model)return "ultra";
  // Backward-compatible owner-created October aliases. Unknown capacity is
  // deliberately NOT counted as a verified large model.
- return /^(?:october|atuber|阿土伯)(?::[a-z0-9._-]+)?$/i.test(candidate.model)&&isAtuberModel(candidate.model)?"custom":null;
+ return /^(?:october|octuber|atuber|阿土伯)(?::[a-z0-9._-]+)?$/i.test(candidate.model)&&isAtuberModel(candidate.model)?"custom":null;
 }
 export type AtuberRouteDecision={
  policy:"atuber-single-driver-v1";
@@ -37,7 +53,7 @@ export type AtuberRouteDecision={
 export function isAtuberDriver(candidate:ModelCandidate):boolean{
  return atuberTier(candidate)!==null;
 }
-const order:Record<AtuberTier,number>={"phone":0,"mid-small":1,"mid-large":2,"large":3,"custom":0};
+const order:Record<AtuberTier,number>={"phone":0,"mid-small":1,"mid-large":2,"large":3,"ultra":4,"custom":0};
 /** Task-dependent floor, not a claim of correctness or hardware readiness. */
 function desiredTier(task:TaskKind,restrictTinyModel:boolean):number{
  if(task==="code")return 3;
@@ -61,7 +77,10 @@ export function selectAtuberDriver(
   return {...base,controller,reason:controller?"ready-local":
    options.restrictTinyModel?"fact-needs-stronger-runtime":"private-needs-local"};
  }
- const target=desiredTier(options.task,Boolean(options.restrictTinyModel));
+ const floor=desiredTier(options.task,Boolean(options.restrictTinyModel));
+ const preference=octuberTierPreference();
+ const requested=preference==="auto"?floor:Math.max(floor,order[preference]);
+ const target=requested;
  // Never allow the 0.6B phone model on verified demanding/factual routes.
  const allowed=hosts.filter(x=>!options.restrictTinyModel||order[atuberTier(x)!]>=1);
  const best=allowed.map((candidate,index)=>({candidate,index,level:order[atuberTier(candidate)!]}))

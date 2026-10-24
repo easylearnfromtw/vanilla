@@ -8,6 +8,7 @@ import {noodlesModelAdjustment} from "../noodles/core";
 import {readNoodles,recordNoodles} from "../noodles/storage";
 import {preferTaideForTaiwan,isTaideModel} from "./taiwan-routing";
 import {profileFor,geminiLiteSibling} from "./model-profiles";
+import {ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY} from "./atuber-control-plane";
 import {localInferenceQueue} from "../detroit/zeus";
 import {createGenerationWatchdog,assertUsableModelAnswer} from "./generation-reliability";
 
@@ -51,7 +52,7 @@ export function resetModelChoices(){try{localStorage.removeItem(VOTE_KEY);localS
 export function listCandidates(options:{localReady:boolean;localModel:string;image:boolean;online:boolean;privateMode:boolean}):ModelCandidate[]{
  const result:ModelCandidate[]=[];
  if(options.localReady&&!options.image){
-  result.push({id:"local:"+options.localModel,source:"local",model:options.localModel,label:"手機本地 AI",location:"本機",note:"在此裝置運算，無 API 使用費"});
+  result.push({id:"local:"+options.localModel,source:"local",model:options.localModel,label:options.localModel===ATUBER_LOCAL_MODEL?"OCTUBER FLATTERING · 本機":"手機本地 AI",location:"本機",note:"在此裝置運算，無 API 使用費"});
  }
  if(options.privateMode)return result;
  if(isOllamaConfigured()&&!options.image){
@@ -60,7 +61,8 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
   if(options.online||!officialCloud){
   const approved=[...new Set([ollama.model,...ollama.models])].filter(Boolean).slice(0,4);
   for(const model of approved){
-   result.push({id:"ollama:"+model,source:"ollama",model,label:(isTaideModel(model)?"TAIDE · ":"Ollama · ")+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
+   const octoberBrand=[...ATUBER_TIERS,OCTUBER_HIGH_CAPACITY].find(t=>t.model===model||t.publicAlias===model)?.brand;
+   result.push({id:"ollama:"+model,source:"ollama",model,label:octoberBrand?octoberBrand+" · 自架":(isTaideModel(model)?"TAIDE · ":"Ollama · ")+model,location:officialCloud?"Ollama Cloud":"自架主機",note:officialCloud?"雲端模型可能有使用量限制與計費":"家庭主機或 VM 運算；請使用可信任的安全連線"});
   }
   }
  }

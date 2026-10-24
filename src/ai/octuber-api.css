@@ -1,0 +1,14 @@
+.octuber-api-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}
+.octuber-api-steps>div{border-radius:13px;border:1px solid rgba(127,127,127,.24);padding:13px 11px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.octuber-api-steps>div.done{border-color:rgba(49,145,96,.5);background:rgba(49,145,96,.06)}
+.octuber-api-steps span{font-size:10px;font-weight:750;letter-spacing:.1em;opacity:.5}
+.octuber-api-steps strong{font-size:12px}
+.octuber-api-steps small{line-height:1.45;font-size:11px;opacity:.7}
+.octuber-api-note{font-size:12px;line-height:1.7;opacity:.75}
+.octuber-host-preset{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.octuber-host-preset button{display:flex;flex-direction:column;text-align:left;gap:6px;background:transparent;color:inherit;border:1px solid rgba(127,127,127,.23);border-radius:13px;padding:13px;cursor:pointer;min-width:0}
+.octuber-host-preset button strong{font-size:11px;line-height:1.4;letter-spacing:.03em}
+.octuber-host-preset button small{font-size:11px;opacity:.68;line-height:1.4}
+.octuber-host-preset button.active{border-color:currentColor;background:rgba(127,127,127,.07)}
+.octuber-host-preset button:disabled{opacity:.48;cursor:not-allowed}
+@media (max-width:720px){.octuber-api-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.octuber-host-preset{grid-template-columns:1fr}}

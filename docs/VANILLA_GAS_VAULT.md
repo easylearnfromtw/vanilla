@@ -31,7 +31,7 @@ Vanilla browser (Google OIDC) → **WeiGuo FastAPI** (existing verified family s
 | Anthropic | `chat`; Vanilla conversation and model selection UI | streaming and multimodal |
 | OpenRouter | `chat`; Vanilla conversation and model selection UI | streaming and multimodal |
 | Telegram / Ceres | `send_message`, `edit_message`, `answer_callback`; opt-in server outbound sender | inbound webhook, bot registration, Mini App initData validation may still require server token |
-| Canva | `profile`, `designs`, `image_generate`, `design_generate`, `job_status`; original job controller supports opt-in proxy | OAuth refresh, image bytes; actual AI credits and scopes needed |
+| Canva | `profile`, `designs`, `image_generate`, `design_generate`, `job_status`; original job controller supports opt-in proxy | OAuth initial consent/authorization code, image bytes; actual AI credits and scopes needed |
 | Notion | `search`, `query_tasks`, `read_task`, `create_task`, `update_task`; original tasks router can opt in | scheduler triggers; account-specific ownership still checked on WeiGuo |
 | Brave / Scouts | `search`; original Scouts route can opt in | Scouts relevance/ranking/grounding |
 | GitHub / Zeus | `repo` read-only | PR writes, installations, workflow runner |
@@ -75,7 +75,11 @@ automatically make its code writable from this chat.
 | `VAULT_KEY_OPENROUTER`, `VAULT_MODELS_OPENROUTER` | OpenRouter credential + models |
 | `VAULT_KEY_TELEGRAM` | Telegram bot token |
 | `VAULT_TELEGRAM_CHAT_IDS` | comma-separated numeric **allowed destination chat IDs** |
-| `VAULT_KEY_CANVA` | server-authorized Canva access token (may expire) |
+| `VAULT_KEY_CANVA` | Canva access token; optional if a full refresh configuration is provided |
+| `VAULT_CANVA_CLIENT_ID` | Canva OAuth client ID (required for refresh) |
+| `VAULT_CANVA_CLIENT_SECRET` | Canva OAuth client secret (required for refresh) |
+| `VAULT_CANVA_REFRESH_TOKEN` | Latest one-time Canva OAuth refresh token (rotated on use) |
+| `VAULT_CANVA_EXPIRES_AT` | Optional Unix expiry timestamp in seconds; needed for scheduled refresh |
 | `VAULT_KEY_NOTION` | Notion integration token |
 | `VAULT_NOTION_DATA_SOURCE_ID` | Dedicated Notion data source UUID; must match WeiGuo `WEIGUO_NOTION_DATA_SOURCE_ID` |
 | `VAULT_KEY_BRAVE` | Brave Search API token |
@@ -245,7 +249,7 @@ billing and privacy.
   mechanisms.
 * **Canva**: original generation/polling endpoints can use GAS; the token
   must be a valid user OAuth access token with the proper Canva scopes and
-  capabilities. GAS does not yet refresh expired Canva OAuth credentials.
+  capabilities. GAS can refresh Canva OAuth access tokens when the client ID, client secret, latest refresh token and expiry are configured. Every refresh token is single-use and replaced with the new one under a script lock. Re-authorize if refresh fails.
 * **Notion**: GAS enforces one fixed data source ID, bounded task schema,
   allowed page fields and source-scoped updates. WeiGuo still enforces the
   original Google `sub`/HMAC owner tag check; Notion's database schema must

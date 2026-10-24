@@ -160,7 +160,8 @@ def _hub_display(text: str) -> str:
     Only use for first-party hub/UI templates: lessons may legitimately teach
     code strings such as r"\\n" and must not be silently modified.
     """
-    return text.replace(r"\\r\\n", "\n").replace(r"\\n", "\n")
+    return (text.replace(r"\\r\\n", "\n").replace(r"\\n", "\n")
+            .replace(r"\r\n", "\n").replace(r"\n", "\n"))
 
 
 def _hub_keyboard():

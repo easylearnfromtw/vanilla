@@ -30,6 +30,8 @@ jobs:
           npm run test:weiguo-auth-ui
           npm run test:detroit
           npm run test:sandbox
+          npm run test:atuber-sandbox
+          npm run eval:atuber-sandbox
           npm run test:detroit-bus
           npm run test:diana
           npm run test:awesome
@@ -113,5 +115,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: detroit-core-gate
-          path: artifacts/core-release-gate.json
+          path: |
+            artifacts/core-release-gate.json
+            artifacts/atuber-sandbox-5000/summary.json
+            artifacts/atuber-sandbox-5000/episodes.jsonl
+            artifacts/atuber-sandbox-5000/candidate-review-queue.jsonl
           if-no-files-found: ignore

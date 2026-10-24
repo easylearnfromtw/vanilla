@@ -12,7 +12,7 @@ import {ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY} from "./atuber-co
 import {localInferenceQueue} from "../detroit/zeus";
 import {createGenerationWatchdog,assertUsableModelAnswer} from "./generation-reliability";
 
-export type ModelSource="local"|"ollama"|"gemini"|"deepseek";
+export type ModelSource="local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";
 export type ModelCandidate={id:string;source:ModelSource;model:string;label:string;location:string;note:string};
 import {classifyTask,type TaskKind} from "./task-kind";
 export {classifyTask,type TaskKind};
@@ -72,10 +72,17 @@ export function listCandidates(options:{localReady:boolean;localModel:string;ima
  if(gemini){
   result.push({id:"gemini:"+gemini.model,source:"gemini",model:gemini.model,label:"Gemini · "+gemini.model,location:"Google 雲端",note:"依帳號額度／計費規則使用"});
   const lite=geminiLiteSibling(gemini.model);
-  if(gemini.model!==lite)result.push({id:"gemini:"+lite,source:"gemini",model:lite,label:"Gemini · Flash-Lite",location:"Google 雲端",note:"較輕量快速的替代模型，仍受 API 額度限制"});
+  if(gemini.key!=="managed:gas"&&gemini.model!==lite)result.push({id:"gemini:"+lite,source:"gemini",model:lite,label:"Gemini · Flash-Lite",location:"Google 雲端",note:"較輕量快速的替代模型，仍受 API 額度限制"});
  }
  const deepseek=cfg.find(x=>x.provider==="deepseek");
  if(deepseek&&!options.image)result.push({id:"deepseek:"+deepseek.model,source:"deepseek",model:deepseek.model,label:"DeepSeek · "+deepseek.model,location:"DeepSeek 雲端",note:"可能產生 API 費用"});
+ for(const source of ["openai","anthropic","openrouter"] as const){
+  const entry=cfg.find(x=>x.provider===source);
+  if(entry&&!options.image&&entry.key==="managed:gas")
+   result.push({id:source+":"+entry.model,source,model:entry.model,
+    label:source.toUpperCase()+" · "+entry.model,location:"安全 API Vault",
+    note:"Google Apps Script 受控非串流轉發；依供應商額度與費率計費"});
+ }
  return options.image?result.filter(x=>x.source==="gemini"):result;
 }
 /** Quality prior from the model profile, adjusted per task (fast models win casual chat). */

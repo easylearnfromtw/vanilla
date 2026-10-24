@@ -81,6 +81,7 @@ jobs:
           npm run test:octuber-pricing
           npm run test:atuber-preflight
           npm run test:atuber-model
+          npm run test:octuber-weights
           npm run test:small-model
           npm run test:reliability
           npm run test:archive

@@ -86,7 +86,10 @@ function reserve_(packet,provider) {
   } finally {lock.releaseLock();}
 }
 function configured_(provider) {
-  return Boolean(key_("VAULT_KEY_"+provider.toUpperCase()));
+  if(key_("VAULT_KEY_"+provider.toUpperCase()))return true;
+  return provider==="canva" && Boolean(
+    key_("VAULT_CANVA_CLIENT_ID")&&key_("VAULT_CANVA_CLIENT_SECRET")&&
+    key_("VAULT_CANVA_REFRESH_TOKEN"));
 }
 function status_() {
   const info={};

@@ -3,9 +3,9 @@ import {createLuna,parseLuna,type LunaDoc,type LunaLayer} from "./model";
 import {generateCloudReply,getConfigs,type Provider} from "../vault/providers";
 import {generateOllamaReply,getOllamaConfig,isOllamaConfigured} from "../ai/ollama";
 import {currentChatMode} from "../local-ai/chat-session";
-export type LunaLayoutProvider="gemini"|"deepseek"|"ollama";
+export type LunaLayoutProvider=Provider|"ollama";
 export function availableLunaLayoutProviders():LunaLayoutProvider[]{
- const cloud=getConfigs().filter(c=>Boolean(c.key)&&["gemini","deepseek"].includes(c.provider)).map(c=>c.provider);
+ const cloud=getConfigs().filter(c=>Boolean(c.key)&&["gemini","deepseek","openai","anthropic","openrouter"].includes(c.provider)).map(c=>c.provider);
  return [...cloud,...(isOllamaConfigured()?["ollama" as const]:[])];
 }
 export function parseLunaAI(raw:string):LunaDoc{

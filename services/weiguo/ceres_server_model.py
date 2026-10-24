@@ -139,7 +139,7 @@ async def generate_reply(
         except HTTPException as exc:
             raise ModelUnavailable("gas-unavailable-" + str(exc.status_code)) from exc
         text = result.get("text")
-        if not isinstance(text, str) or not text.strip() or "\\x00" in text:
+        if not isinstance(text, str) or not text.strip() or "\x00" in text:
             raise ModelUnavailable("gas-empty")
         usage=result.get("usage", {})
         if isinstance(usage, dict):

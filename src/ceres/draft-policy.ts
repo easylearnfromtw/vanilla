@@ -37,10 +37,13 @@ export function cleanCeresDraft(raw:string):string{
  return cleaned;
 }
 
-export function ceresDraftDestination(source:"local"|"ollama"|"gemini"|"deepseek",location:string):string{
+export function ceresDraftDestination(source:"local"|"ollama"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter",location:string):string{
  if(source==="local")return "本機模型：訊息只在目前裝置運算";
  if(source==="ollama")return "Ollama（"+location+"）：訊息會傳送到你設定的 Ollama 端點";
  if(source==="gemini")return "Google Gemini 雲端：訊息會傳送給 Google";
  if(source==="deepseek")return "DeepSeek 雲端：訊息會傳送給 DeepSeek";
+ if(source==="openai")return "OpenAI 雲端：訊息會傳送給 OpenAI";
+ if(source==="anthropic")return "Anthropic 雲端：訊息會傳送給 Anthropic";
+ if(source==="openrouter")return "OpenRouter 雲端：訊息會傳送給 OpenRouter 及所選模型供應商";
  throw Error("不支援的模型來源");
 }

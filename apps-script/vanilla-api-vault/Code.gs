@@ -263,7 +263,7 @@ function github_(req) {
     stars:data.stargazers_count||0,private:Boolean(data.private),archived:Boolean(data.archived)};
 }
 function dispatch_(req) {
-  if(req.action==="status") return status_();
+  if(req.action==="status") { reserve_(req._envelope,"status"); return status_(); }
   const provider=req.provider,op=req.operation;
   if(!PROVIDERS.includes(provider)||typeof op!=="string"||!ACTIONS[provider].includes(op))
     throw Error("ACTION_NOT_ALLOWED");

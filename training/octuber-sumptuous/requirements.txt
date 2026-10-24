@@ -1,0 +1,12 @@
+# CUDA-only training dependencies (install on a separate approved GPU host).
+# Compatibility must be confirmed against the host's CUDA / drivers / PyTorch.
+# Do not install these in the PWA or GitHub Pages builder.
+torch>=2.5
+transformers>=4.51.0
+trl>=0.20.0
+peft>=0.15.0
+accelerate>=1.0.0
+datasets>=3.0.0
+bitsandbytes>=0.45.0
+safetensors>=0.4.0
+huggingface_hub>=0.28.0

@@ -7,6 +7,7 @@ import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACI
 import {getOllamaConfig,probeAtuberModel,isOllamaModelVerified} from "../ai/ollama";
 import {installedTierModel,localOctuberBaseNames} from "../ai/octuber-local-runtimes";
 import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
+import sumptuousManifest from "../../models/octuber-sumptuous/manifest.json";
 
 type Props={
  selected:LocalModelId;
@@ -76,6 +77,7 @@ export default function LocalModelPanel(props:Props){
    <p className="local-model-description"><HardDrive size={12}/> {entry?.description}</p>
    {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
    {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="OCTUBER 模型級距">
+    <p className="local-model-note" role="status"><strong>SUMPTUOUS 30B 獨立模型研發：</strong>{sumptuousManifest.training_completed?"訓練已記錄，仍需獨立權重驗證":"尚未訓練；目前僅能使用原始 Qwen3 30B 基底模型"}。模型版號 <code>{sumptuousManifest.model_id}</code>；程式與權重製作流程已建立，但不能把 API 連線或 Ollama 別名稱作完成微調。</p>
     <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（手機 0.6B／電腦 4B）、MODEST（電腦 14B）、SUMPTUOUS（電腦 30B MoE／32B Dense）。可以直接使用已裝好的 <code>qwen3:30b</code>，不必建立自訂別名；大型權重放在你的電腦，不下載到 iPhone。</p>
     <label className="local-model-note" htmlFor="octuber-tier-choice">運算規格偏好</label>
     <select id="octuber-tier-choice" value={tierChoice} onChange={event=>{const next=event.target.value as OctuberTierPreference;setTierChoice(next);setOctuberTierPreference(next);}}>

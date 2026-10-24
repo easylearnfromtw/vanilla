@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "product": "OCTUBER SUMPTUOUS",
+  "model_id": "octuber-sumptuous-30b-v0.1",
+  "family": "Qwen3 MoE",
+  "total_parameters": "30.5B",
+  "active_parameters": "3.3B",
+  "base_model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+  "base_license": "Apache-2.0",
+  "release_state": "planned-untrained",
+  "training_completed": false,
+  "adapter": null,
+  "merged_weights": null,
+  "gguf": null,
+  "dataset_sha256": null,
+  "holdout_evaluation": null,
+  "model_card": null,
+  "notes": "No 30B OCTUBER weights exist in this repository. GitHub Pages/Ollama aliases/third-party Qwen checkpoints are NOT independent OCTUBER 30B fine-tuned model weights. Only a real reviewed-data CUDA training run followed by checked merge, quantization, evaluation and release may change this status."
+}

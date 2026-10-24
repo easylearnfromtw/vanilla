@@ -6,6 +6,7 @@
  */
 import {capabilityIntent} from "./capability-report";
 import {toolKnowledgeIntent} from "./tool-knowledge";
+import {isAwesomeGoQuestion} from "../detroit/awesome-go";
 import {pythonToolDiscoveryIntent} from "../detroit/python-tool-discovery";
 import {parseDianaInvocation,type DianaTarget} from "../detroit/diana";
 import {proposeProactiveDiana} from "../detroit/diana-auto";
@@ -63,6 +64,9 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean};
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
+ // Requests for a live Go evaluation must open an interactive tool, not print a canned answer.
+ if(isAwesomeGoQuestion(q)&&/(?:推薦|選型|評估|比較|挑選|查核|驗證|研究)/i.test(q)&&!(/^(?:原文如下|以下是原文|引用：|引述：|>)/.test(q)))
+  return {kind:"diana",request:q,forcedTool:null};
  // Questions about tools are answered from the registry, not treated as invocations.
  if(toolKnowledgeIntent(q))return {kind:"tool-knowledge"};
  const diana=parseDianaInvocation(q);

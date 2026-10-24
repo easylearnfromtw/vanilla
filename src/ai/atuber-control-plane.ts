@@ -6,6 +6,7 @@
 import type {ModelCandidate} from "./model-orchestrator";
 import type {TaskKind} from "./task-kind";
 import {isAtuberModel} from "./prompts";
+import {hostedOctuberOption,isHostedOctuberReady} from "./octuber-hosted";
 
 export const ATUBER_SINGLE_DRIVER=true as const;
 export const ATUBER_LOCAL_MODEL="Qwen3-0.6B-q4f16_1-MLC" as const;
@@ -34,6 +35,10 @@ export const OCTUBER_HIGH_CAPACITY={
 export type AtuberTier="phone"|"mid-small"|"mid-large"|"large"|"ultra"|"custom";
 export function atuberTier(candidate:ModelCandidate):AtuberTier|null{
  if(candidate.source==="local")return candidate.model===ATUBER_LOCAL_MODEL?"phone":null;
+ if(candidate.source==="octuber-hosted"){
+  const remote=hostedOctuberOption(candidate.model);
+  return remote&&isHostedOctuberReady(candidate.model)?remote.tier:null;
+ }
  if(candidate.source!=="ollama"||candidate.location!=="自架主機")return null;
  const model=candidate.model.toLowerCase();
  const found=ATUBER_TIERS.find(t=>t.model===model||t.publicAlias===model);
@@ -47,7 +52,7 @@ export type AtuberRouteDecision={
  policy:"atuber-single-driver-v1";
  controller:ModelCandidate|null;
  specialists:ModelCandidate[];
- reason:"ready-local"|"ready-ollama"|"private-needs-local"|
+ reason:"ready-local"|"ready-ollama"|"ready-hosted"|"private-needs-local"|
   "vision-needs-approved-adapter"|"no-atuber-runtime"|"fact-needs-stronger-runtime";
 };
 export function isAtuberDriver(candidate:ModelCandidate):boolean{
@@ -69,7 +74,7 @@ export function selectAtuberDriver(
  const specialists=candidates.filter(x=>!isAtuberDriver(x));
  const eligible=candidates.filter(isAtuberDriver);
  const local=eligible.find(x=>x.source==="local")??null;
- const hosts=eligible.filter(x=>x.source==="ollama");
+ const hosts=eligible.filter(x=>x.source==="ollama"||x.source==="octuber-hosted");
  const base={policy:"atuber-single-driver-v1" as const,specialists};
  if(options.image)return {...base,controller:null,reason:"vision-needs-approved-adapter"};
  if(options.privateMode||options.localOnly){
@@ -92,6 +97,7 @@ export function selectAtuberDriver(
  const controller=preferHost?(best??(options.restrictTinyModel?null:local)):(local??best);
  return {...base,controller,reason:controller?.source==="local"?"ready-local":
   controller?.source==="ollama"?"ready-ollama":
+  controller?.source==="octuber-hosted"?"ready-hosted":
   options.restrictTinyModel?"fact-needs-stronger-runtime":"no-atuber-runtime"};
 }
 /** No cross-boundary fallback or automatic cloud-provider promotion. */
@@ -101,5 +107,6 @@ export function atuberFallback(
  return ranked.find(x=>x.id!==failed.id&&isAtuberDriver(x)&&
   (!(options.privateMode||options.localOnly)||x.source==="local")&&
   !(failed.source==="local"&&x.source!=="local")&&
-  !(failed.source==="ollama"&&x.source!=="ollama"))??null;
+  !(failed.source==="ollama"&&x.source!=="ollama")&&
+  !(failed.source==="octuber-hosted"&&x.source!=="octuber-hosted"))??null;
 }

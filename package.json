@@ -69,7 +69,7 @@
     "test:ceres": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/ceres.test.mjs",
     "test:ceres-slime-ui": "node --test tests/ceres-slime-ui.test.mjs",
     "test:slime-inference": "node --experimental-strip-types --test tests/slime-inference-backend.test.mjs",
-    "test:sandbox": "node --experimental-strip-types --test tests/detroit-sandbox.test.mjs"
+    "test:sandbox": "node --experimental-strip-types --test tests/detroit-sandbox.test.mjs tests/detroit-sandbox-contest.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

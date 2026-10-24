@@ -33,3 +33,6 @@ ceres.env
 artifacts/atuber-*/
 models/atuber/releases/
 *.gguf
+
+# Private October multi-tier LoRA weights, checkpoints and model data
+artifacts/octuber-*/

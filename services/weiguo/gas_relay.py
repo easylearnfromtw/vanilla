@@ -55,7 +55,7 @@ _ALLOWED: dict[str, frozenset[str]] = {
     "deepseek": frozenset({"chat"}),
     "anthropic": frozenset({"chat"}),
     "openrouter": frozenset({"chat"}),
-    "telegram": frozenset({"send_message"}),
+    "telegram": frozenset({"send_message", "edit_message", "answer_callback"}),
     "canva": frozenset({"profile", "designs", "image_generate", "design_generate", "job_status"}),
     "notion": frozenset({"search", "query_tasks", "read_task", "create_task", "update_task"}),
     "brave": frozenset({"search"}),

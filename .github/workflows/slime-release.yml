@@ -105,8 +105,9 @@ jobs:
               cd ..
             else
               cd dist
-              rm -f slime_tools/finance_training.py slime_tools/finance_training_window.py
-              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_welcome.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
+              # Friend has no Owner toolbox, training modules or local shell entry.
+              rm -rf slime_tools
+              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_welcome.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh
               cd ..
             fi
           done
@@ -149,7 +150,7 @@ jobs:
               cp deployment/slime/launch-owner-tools.sh "tmp-$role/start-slime-tools.sh"
               chmod +x "tmp-$role/start-slime-tools.sh"
             else
-              rm -f "tmp-$role/slime_tools/finance_training.py" "tmp-$role/slime_tools/finance_training_window.py"
+              rm -rf "tmp-$role/slime_tools"  # Friend never receives Owner tools
             fi
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done
@@ -180,6 +181,15 @@ jobs:
           for item in Slime-Owner.exe Slime-Friend.exe Slime-Owner-Tools.cmd Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz Slime-Sandbox-Toolkit.zip; do
             test -s "$item"
           done
+          # Reject any Owner local-tool module in a Friend release archive.
+          if unzip -Z1 Slime-Friend-macos.zip | grep -Eq '^slime_tools/'; then
+            echo "Owner toolbox leaked to Friend macOS" >&2
+            exit 1
+          fi
+          if tar -tzf Slime-Friend-linux.tar.gz | grep -Eq '^./slime_tools/'; then
+            echo "Owner toolbox leaked to Friend Linux" >&2
+            exit 1
+          fi
           # The first-run dashboard must ship on both roles and the Owner
           # finance tools must stay Owner-only.
           for role in Owner Friend; do

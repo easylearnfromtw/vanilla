@@ -141,6 +141,21 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 training/atuber-books/hybrid_library.py --catalogue "$RUNNER_TEMP/atuber-book-index/catalog.sqlite3" --raw-csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --content-index "$RUNNER_TEMP/atuber-public-domain-pilot/approved_content.sqlite3" --output "$RUNNER_TEMP/atuber-hybrid-library.sqlite3" --execute
+      - name: Export official open-bibliography searchable SQLite without copyrighted full text
+        timeout-minutes: 15
+        run: |
+          python3 training/atuber-books/hybrid_library.py --raw-csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --output "$RUNNER_TEMP/atuber-public-metadata.sqlite3" --execute
+      - name: Audit metadata-only export
+        run: |
+          python3 - <<'PY'
+          import sqlite3,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"atuber-public-metadata.sqlite3"
+          with sqlite3.connect(p) as c:
+              count=c.execute("SELECT COUNT(*) FROM books").fetchone()[0]
+              full=c.execute("SELECT COUNT(*) FROM paragraphs").fetchone()[0]
+              assert count>=10000 and full==0
+          print("Safe open book records exported:",count,"Full text in export:",full)
+          PY
       - name: One million real SGD steps for fuzzy/related book relevance
         timeout-minutes: 15
         run: |
@@ -205,6 +220,16 @@ jobs:
           if count < 1:
               raise SystemExit('No classified metadata records, inspect original CSV columns')
           PY
+      - name: Publish only public bibliographic metadata SQLite for reproducible use
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-public-book-metadata-index
+          path: |
+            ${{ runner.temp }}/atuber-public-metadata.sqlite3
+            ${{ runner.temp }}/atuber-public-metadata.report.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload audit reports only, no corpus or full text
         if: always()
         uses: actions/upload-artifact@v4

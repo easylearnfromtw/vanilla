@@ -28,7 +28,7 @@ test('1000 actual deployed-source records have distinct IDs, article URLs, CC at
    assert.ok(item.authors.length>0);
    assert.ok(['cc-by-4.0','cc-by-3.0','cc0-1.0'].includes(item.license));
    for(const excerpt of row.evidence){
-    assert.ok(excerpt.excerpt.length>=60&&excerpt.excerpt.length<=260);
+    assert.ok(Array.from(excerpt.excerpt).length>=60&&Array.from(excerpt.excerpt).length<=260);
     assert.match(excerpt.chunk_sha256,/^[a-f0-9]{64}$/);
     assert.match(excerpt.chunk_id,/^paper_[a-f0-9]{26}$/);
     count++;

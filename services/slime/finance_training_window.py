@@ -6,7 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from finance_training import TIERS, BLOCKED_60B, audit_finance, launch_finance
+from finance_training import TIERS, audit_finance, launch_finance, inspect_finance_adapter
 
 
 def open_finance_training_window(parent, *, owner: bool):
@@ -161,6 +161,17 @@ def open_finance_training_window(parent, *, owner: bool):
     buttons.pack(fill="x", pady=8)
     ttk.Button(buttons, text="檢查 20 大市場與 GPU 前置條件", command=audit).pack(side="left", padx=(0, 8))
     ttk.Button(buttons, text="本人授權後啟動金融 QLoRA", command=start).pack(side="left")
+    def inspect_checkpoint():
+        selected = filedialog.askdirectory(
+            parent=win, title="選擇金融 QLoRA 權重資料夾（training-provenance.json）")
+        if not selected:
+            return
+        background(
+            lambda: inspect_finance_adapter(repo.get(), data.get(), tier.get(), selected),
+            lambda row: "本地權重雜湊及來源回條檢查完成；仍不代表獨立 GPU 證明或通過盲測。"
+        )
+    ttk.Button(box, text="檢查已產生的金融 Adapter（唯讀）",
+               command=inspect_checkpoint).pack(anchor="w", pady=(2, 4))
     ttk.Label(box, textvariable=status, wraplength=785).pack(anchor="w", pady=6)
     ttk.Label(
         box, wraplength=785,

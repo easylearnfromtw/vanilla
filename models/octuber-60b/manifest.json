@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "product": "OCTUBER 60B",
+  "model_id": "octuber-60b-v0.1",
+  "family": "gpt-oss MoE, pruned HyperNova 60B derivative",
+  "total_parameters": "~59B (60B class)",
+  "active_parameters": "~4.8B",
+  "base_model": "MultiverseComputingCAI/HyperNova-60B",
+  "base_license": "Apache-2.0",
+  "release_state": "sandbox-planned-untrained",
+  "training_completed": false,
+  "actual_cuda_sandbox_executed": false,
+  "training_driver_validated": false,
+  "adapter": null,
+  "merged_weights": null,
+  "gguf": null,
+  "training_dataset_sha256": null,
+  "note": "Upstream is a 59B-parameter pruned gpt-oss MoE model. MXFP4/60B PEFT compatibility remains unverified on CUDA. Sandbox memory estimates and small toy gradient steps do NOT constitute 60B training, model release or independent weights."
+}

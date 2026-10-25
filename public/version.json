@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.03-hermes-firecrawl-evidence",
-  "description": "Hermes 210 skill index: select up to three opt-in references; Firecrawl v2 domain-scoped search and SHA256 unreviewed evidence export. Neural weights are NOT trained."
+  "build": "2026.10.25.04-octuber-30b-60b-gpu-sandbox",
+  "description": "Actual OCTUBER 30B/60B neural checkpoint roadmap; offline GPU capacity sandbox and toy CUDA gradient gate. 30B/60B weights NOT trained; real CUDA host needed."
 }

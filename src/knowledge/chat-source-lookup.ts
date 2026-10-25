@@ -1,12 +1,13 @@
-/** Explicit only: source search routed from chat to 柳岸書城／霞海書院.
+import {gdeltNewsUrl,parseLiveNews,type NewsMarket} from "../bluestar/news-source.ts";
+/** Explicit only: source search routed from chat to 柳岸書城／霞海書院／藍星報社.
  * Public metadata is not evidence of having read the full book or paper.
  */
-type LibraryRoute={kind:"book"|"paper";query:string};
+type LibraryRoute={kind:"book"|"paper"|"news";query:string};
 export function parseKnowledgeLookup(text:string):LibraryRoute|null{
  const s=text.trim();
- const match=s.match(/^(?:請?幫?我?(?:查詢|搜尋|查找|查|找)\s*)?(柳岸書城|霞海書院)\s*[：:\s]+\s*(.{2,120})$/);
+ const match=s.match(/^(?:請?幫?我?(?:查詢|搜尋|查找|查|找)\s*)?(柳岸書城|霞海書院|藍星報社)\s*[：:\s]+\s*(.{2,120})$/);
  if(!match)return null;
- return {kind:match[1]==="柳岸書城"?"book":"paper",query:match[2].trim()};
+ return {kind:match[1]==="柳岸書城"?"book":match[1]==="霞海書院"?"paper":"news",query:match[2].trim()};
 }
 function validHttp(value:unknown):string|null{
  if(typeof value!=="string"||value.length>1500)return null;
@@ -18,6 +19,22 @@ async function getJson(url:string,signal?:AbortSignal):Promise<unknown>{
  return resp.json();
 }
 export async function findKnowledgeSources(route:LibraryRoute,signal?:AbortSignal):Promise<string>{
+ if(route.kind==="news"){
+  // Exact source request only; a newsroom metadata lookup is NOT a model update.
+  const m=route.query.match(/^(台灣|臺灣|中國|日本|韓國|美國)\s*(.*)$/);
+  const countries:Record<string,NewsMarket>={"台灣":"TW","臺灣":"TW","中國":"CN","日本":"JP","韓國":"KR","美國":"US"};
+  const market=m?countries[m[1]]:"TW";
+  const keyword=(m?.[2]||route.query).trim();
+  const url=gdeltNewsUrl(market,"general",keyword);
+  const data=await getJson(url,signal);
+  const articles=parseLiveNews(data,market).slice(0,6).map(x=>({
+   title:x.title,source_url:x.url,publisher:x.source,source_country:x.market,
+   indexed_at:x.detectedAt,evidence_scope:"metadata-only"
+  }));
+  if(!articles.length)return "藍星報社尚無符合條件、可回溯原始媒體的新聞標題。";
+  return "以下為**藍星報社**即時檢索所得新聞來源資料。時間是 GDELT 的收錄時間，尚未取得原新聞全文，不可將標題視為報導內容已證實，也不代表 OCTUBER 已以該新聞訓練。"+
+   "\n\n~~~newsrefs\n"+JSON.stringify({protocol:"bluestar-newsrefs-v1",origin:"gdelt-article-metadata",articles})+"\n~~~";
+ }
  if(route.kind==="book"){
   const query="https://openlibrary.org/search.json?q="+encodeURIComponent(route.query)+"&limit=6&fields=key,title,author_name,first_publish_year,isbn";
   const raw=await getJson(query,signal) as {docs?:Array<{key?:string;title?:string;author_name?:string[];isbn?:string[]}>};

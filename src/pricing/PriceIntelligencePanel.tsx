@@ -2,6 +2,7 @@ import {useMemo,useState} from "react";
 import "./price-intelligence.css";
 import {ArrowUpRight,BarChart3,Download,RefreshCw,ShieldCheck} from "lucide-react";
 import {comparePrices,parsePriceRecords,priceProductKey,priceSearchSources,priceSellerLabel,type PriceRecord} from "./price-engine";
+import {executeOctuberPriceCream,type OctuberCreamPriceReceipt} from "./octuber-cream-detroit";
 
 const KEY="vanilla.octuber.prices.v1";
 const EXAMPLE="product,sku,merchant,marketplace,source,price,observed_at\n藍牙耳機 ABC,ABC-001,示範賣家甲,shopee,biggo,1590,2026-10-24T10:00:00+08:00\n藍牙耳機 ABC,ABC-001,示範賣家乙,coupang,feebee,1690,2026-10-24T10:10:00+08:00";
@@ -31,6 +32,8 @@ export default function PriceIntelligencePanel(){
  const [current,setCurrent]=useState("");
  const [cost,setCost]=useState("");
  const [margin,setMargin]=useState("20");
+ const [creamReport,setCreamReport]=useState<OctuberCreamPriceReceipt|null>(null);
+ const [creamBusy,setCreamBusy]=useState(false);
  const products=useMemo(()=>{
   const map=new Map<string,string>();
   rows.forEach(x=>map.set(priceProductKey(x),x.product+(x.sku?" · "+x.sku:"")));
@@ -44,6 +47,7 @@ export default function PriceIntelligencePanel(){
   currentPrice:Number(current),cost:Number(cost),minimumMargin,maxChangeRate:0.1
  }):null;
  function updateRows(items:PriceRecord[]){
+  setCreamReport(null);
   const next=[...rows,...items].slice(-500);
   try{localStorage.setItem(KEY,JSON.stringify(next));setRows(next);setStatus("匯入 "+items.length+" 筆報價，僅儲存在此裝置。資料未經來源網站即時驗證。");}
   catch{setStatus("本機空間不足，未儲存報價；請清理瀏覽器儲存空間後重試。");}
@@ -61,6 +65,16 @@ export default function PriceIntelligencePanel(){
    updateRows(records);
    setManualMerchant("");setManualPrice("");setManualUrl("");
   }catch(error){setStatus("價格紀錄無法保存："+String(error instanceof Error?error.message:error));}
+ }
+ async function analyzeCurrentWithCream(){
+  if(creamBusy)return;
+  setCreamBusy(true);setCreamReport(null);
+  try{
+   const receipt=await executeOctuberPriceCream(rows,selectedKey,{explicitUserAction:true,privateMode:true});
+   setCreamReport(receipt);
+   setStatus("Detroit 已呼叫 CREAM 完成 "+receipt.analyzedQuotes+" 筆本機報價的唯讀統計；無外網請求。");
+  }catch(error){setStatus("CREAM／Detroit 統計未完成："+String(error instanceof Error?error.message:error));}
+  finally{setCreamBusy(false);}
  }
  function exportPrices(){
   const data=JSON.stringify(rows,null,2);
@@ -106,7 +120,7 @@ export default function PriceIntelligencePanel(){
   </div>
   <p role="status" aria-live="polite" className="octuber-pricing-note">{status}</p>
   {products.length>0&&<div className="octuber-pricing-analysis">
-   <label htmlFor="octuber-product">比較同一規格商品<select id="octuber-product" value={selectedKey} onChange={e=>setSelected(e.target.value)}>{products.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label>
+   <label htmlFor="octuber-product">比較同一規格商品<select id="octuber-product" value={selectedKey} onChange={e=>{setSelected(e.target.value);setCreamReport(null);}}>{products.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label>
    <div className="octuber-pricing-grid">
     <label>目前售價（NT$）<input inputMode="decimal" type="number" min="1" value={current} onChange={e=>setCurrent(e.target.value)} placeholder="例如 1890"/></label>
     <label>商品完全成本（NT$）<input inputMode="decimal" type="number" min="0" value={cost} onChange={e=>setCost(e.target.value)} placeholder="例如 1200"/></label>
@@ -118,6 +132,20 @@ export default function PriceIntelligencePanel(){
     <div><span>最低毛利售價</span><strong>{money(summary.floorPrice)}</strong></div>
     <div><span>建議參考售價</span><strong>{summary.targetPrice===null?"資料不足":money(summary.targetPrice)}</strong></div>
    </div>:<p className="octuber-pricing-note">輸入目前售價與完全成本，才會計算限制單次 ±10% 的定價建議。建議值不會自動發布。</p>}
+   <div className="octuber-pricing-actions">
+    <button type="button" disabled={creamBusy} onClick={()=>void analyzeCurrentWithCream()}>{creamBusy?"CREAM 統計中…":"交給 Detroit → CREAM 統計報價"}</button>
+   </div>
+   {creamReport&&creamReport.productKey===selectedKey&&<div className="octuber-pricing-upload" aria-live="polite">
+    <strong>CREAM 已驗證統計 · Detroit 本機唯讀回條</strong>
+    <div className="octuber-pricing-metrics">
+     <div><span>確認賣家數</span><strong>{creamReport.merchants}</strong></div>
+     <div><span>報價平均</span><strong>{money(creamReport.stats.mean)}</strong></div>
+     <div><span>報價中位數</span><strong>{money(creamReport.stats.median)}</strong></div>
+     <div><span>最低報價</span><strong>{money(creamReport.stats.min)}</strong></div>
+    </div>
+    <p className="octuber-pricing-note">{creamReport.insights.join("；")}</p>
+    <p className="octuber-pricing-note">{creamReport.warnings.join("；")}</p>
+   </div>}
    <div className="octuber-pricing-table"><table><thead><tr><th>販售平台／店鋪</th><th>價格</th><th>觀察時間</th><th>證據</th></tr></thead>
     <tbody>{selectedRows.map(record=><tr key={record.id}><td>{priceSellerLabel(record)}</td><td>{money(record.price)}</td><td>{record.observedAt?new Date(record.observedAt).toLocaleString("zh-TW"):"未提供"}</td><td>{record.url?<a href={record.url} target="_blank" rel="noopener noreferrer">查看商品</a>:"人工匯入"}</td></tr>)}</tbody>
    </table></div>

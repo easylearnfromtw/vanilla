@@ -56,7 +56,7 @@ class FinanceReleaseGate(unittest.TestCase):
             self.assertFalse(result["independent_financial_benchmark_passed"])
             self.assertFalse(result["all_five_artifacts_present"])
             self.assertEqual(len(result["missing_tiers"]), 4)
-            self.assertEqual(result["sixty_b"], "NOT_SUPPORTED_BY_THIS_TRAINER")
+            self.assertEqual(result["sixty_b"], "NO_VERIFIED_60B_TRAINER")
 
     def test_tampered_weights_or_data_blocked(self):
         with tempfile.TemporaryDirectory() as td:

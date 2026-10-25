@@ -7,6 +7,10 @@ on:
       - "tests/test_octuber_human_shopper.py"
       - "training/atuber/human_shopper_policy_net.py"
       - "tests/test_octuber_human_shopper_policy.py"
+      - "src/pricing/octuber-cream-detroit.ts"
+      - "src/pricing/PriceIntelligencePanel.tsx"
+      - "tests/octuber-price-detroit-cream.test.mjs"
+      - "scripts/octuber-price-detroit-million.mjs"
       - ".github/workflows/octuber-human-shopper-prices.yml"
   workflow_dispatch:
 permissions:
@@ -20,6 +24,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Prepare native Detroit and CREAM TypeScript test runtime
+        run: npm install --no-audit --no-fund
+      - name: Verify real Detroit -> CREAM price tool handoff and million intent checks
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-price-detroit-cream.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs scripts/octuber-price-detroit-million.mjs
       - name: Verify simulator and authorization gates (synthetic fixtures are never market quotations)
         run: |
           python -m py_compile training/atuber/human_shopper_sim.py
@@ -108,3 +121,4 @@ jobs:
             artifacts/octuber-human-shopper/sample-human-trajectories.jsonl
             artifacts/octuber-human-shopper-policy/policy-training-report.json
             artifacts/octuber-human-shopper-policy/historical-shopper-range-policy.npz
+            artifacts/octuber-cream-detroit-routing-audit.json

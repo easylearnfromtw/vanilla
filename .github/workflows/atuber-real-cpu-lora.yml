@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      HF_HOME: ${{ runner.temp }}/atuber-hf-cache
+      HF_HOME: /tmp/atuber-hf-cache
       TOKENIZERS_PARALLELISM: 'false'
       HF_HUB_DISABLE_TELEMETRY: '1'
       OMP_NUM_THREADS: '4'

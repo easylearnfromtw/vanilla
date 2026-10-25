@@ -51,9 +51,10 @@ jobs:
           python -m unittest discover -s tests -p test_slime_sandbox_center.py
           python -m unittest discover -s tests -p test_slime_local_model_tools.py
           python -m unittest discover -s tests -p test_slime_training_evidence.py
+ -m unittest discover -s tests -p test_slime_github_training_monitor.py
           python -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
           python -m pip install "pyinstaller==6.16.0"
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools --hidden-import github_training_window --hidden-import github_training_status services/weiguo/slime_desktop.py
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
           Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
@@ -119,6 +120,7 @@ jobs:
           python3 -m unittest discover -s tests -p test_slime_sandbox_bundle.py
           python3 -m unittest discover -s tests -p test_slime_local_model_tools.py
           python3 -m unittest discover -s tests -p test_slime_training_evidence.py
+ -m unittest discover -s tests -p test_slime_github_training_monitor.py
           python3 -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
           mkdir -p dist
           for role in Owner Friend; do

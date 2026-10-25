@@ -14,6 +14,7 @@ const LEXICON:Array<readonly [string,string]>=[
  ["憂鬱","depression"],["抑鬱","depression"],["體溫","temperature"],
  ["直腸溫度","rectal"],["睡眠","sleep"],["胰島素","insulin"],["營養","nutrition"],
  ["基因","genetic"],["遺傳","genetic"],["血栓","thromboembolism"],["新冠","covid"],
+ ["癌","cancer"],["糖","diabetes"],["心","heart"],["肺","lung"],["腦","brain"],["血","blood"],["痛","pain"],["藥","drug"],
  ["機器學習","machine"],["自閉症","autism"],["月經","menstruation"],["肥胖","obesity"],
  ["微小頭症","microcephaly"]
 ];
@@ -86,7 +87,7 @@ export function scoreXiahaiPassage(query:string,excerpt:string):{score:number;ma
  return {score:matched.length*4+coverage*6,matched_terms:matched};
 }
 export async function retrieveXiahaiEvidence(question:string,signal?:AbortSignal):Promise<Hit[]>{
- if(question.trim().length<3||question.length>200)throw Error("請提供 3–200 字的研究問題");
+ if(!question.trim()||question.length>200)throw Error("請提供 1–200 字的研究問題");
  const manifest=await getJson(asset("manifest.json"),signal) as Manifest;
  if(!manifest||manifest.schema!=="xiahai-verified-1000-evidence-v1"||
     manifest.paper_count!==1000||!Array.isArray(manifest.papers)||manifest.papers.length!==1000)
@@ -157,6 +158,6 @@ export function xiahaiVerifiedSourceFooter(hits:Hit[]):string{
  "\n\n*這些是程式核對的來源連結，不表示模型每個敘述皆已獲證實，也不能取代臨床指南。*";
 }
 export function parseXiahaiEvidenceQuestion(value:string):string|null{
- const match=value.trim().match(/^(?:請)?(?:根據|依照|使用|用)?(?:霞海全文|霞海論文問答|霞海書院全文)\s*[:：,，]?\s*(.{3,200})$/);
+ const match=value.trim().match(/^(?:請)?(?:根據|依照|使用|用)?(?:霞海全文|霞海論文問答|霞海書院全文)\s*[:：,，]?\s*(.{1,200})$/);
  return match?match[1].trim():null;
 }

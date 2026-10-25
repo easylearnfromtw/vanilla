@@ -1,0 +1,42 @@
+name: OCTUBER Finance 30Y contract tests
+on:
+  pull_request:
+    paths:
+      - "training/octuber-finance/**"
+      - "training/atuber/multitier_*.py"
+      - "tests/test_octuber_finance_pipeline.py"
+      - "tests/test_atuber_multitier_qlora.py"
+      - "tests/test_octuber_multitier.py"
+      - ".github/workflows/octuber-finance.yml"
+  push:
+    branches:
+      - "feat/octuber-finance-30y-top20-20261025"
+    paths:
+      - "training/octuber-finance/**"
+      - "training/atuber/multitier_*.py"
+      - "tests/test_octuber_finance_pipeline.py"
+      - "tests/test_atuber_multitier_qlora.py"
+      - "tests/test_octuber_multitier.py"
+      - ".github/workflows/octuber-finance.yml"
+permissions:
+  contents: read
+jobs:
+  data-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax only (NO GPU or data download)
+        run: |
+          python3 -m py_compile training/octuber-finance/pipeline.py
+          python3 -m py_compile training/atuber/multitier_plan.py
+          python3 -m py_compile training/atuber/multitier_train.py
+      - name: Synthetic finance and chronological holdout regression
+        run: python3 -m unittest discover -s tests -p 'test_octuber_finance_pipeline.py' -v
+      - name: CPU-only multi-tier training safety and permissions
+        run: |
+          python3 -m unittest discover -s tests -p 'test_atuber_multitier_qlora.py' -v
+          python3 -m unittest discover -s tests -p 'test_octuber_multitier.py' -v

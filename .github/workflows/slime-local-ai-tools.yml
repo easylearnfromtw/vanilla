@@ -1,0 +1,50 @@
+name: Slime local Owner AI tools
+on:
+  pull_request:
+    branches: [main, feature/octuber-local-multisize-qlora-20261025]
+    paths:
+      - "services/slime/desktop.py"
+      - "services/slime/local_model_tools.py"
+      - "services/slime/local_model_window.py"
+      - "tests/test_slime_local_model_tools.py"
+      - ".github/workflows/slime-local-ai-tools.yml"
+      - ".github/workflows/slime-desktop.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-local-tool-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify local Owner-only tool and QLoRA security gates without a GPU
+        shell: bash
+        run: |
+          python -m py_compile services/slime/local_model_tools.py services/slime/local_model_window.py services/slime/desktop.py
+          python -m unittest discover -s tests -p "test_slime_local_model_tools.py" -v
+      - name: Validate existing Owner / Friend Slime onboarding stays intact
+        shell: bash
+        run: |
+          python -m unittest discover -s tests -p "test_slime_desktop.py" -v
+      - name: Explicitly prevent fake GPU/adapter success reporting
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root=Path("services/slime")
+          assert "if ROLE == \"owner\"" in (root/"desktop.py").read_text()
+          models=(root/"local_model_tools.py").read_text()
+          assert "preflight-eligible-untrained" in models
+          assert "actual_model_weights_verified" in models
+          assert "ProxyHandler({})" in models
+          assert "--allow-download" in models
+          print("SLIME_OWNER_TOOL_INTEGRATION_TESTED_NO_GPU_DOWNLOAD_OR_TRAINING_EXECUTED")
+          PY

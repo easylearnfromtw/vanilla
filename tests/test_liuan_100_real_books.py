@@ -28,6 +28,7 @@ class OneHundredBookCorpus(unittest.TestCase):
         self.assertIsNone(lib.book_row({**self.example(8),"text":"too short"}))
         self.assertIsNone(lib.book_row({**self.example(8),"language":"zh"}))
         self.assertIsNone(lib.book_row({**self.example(8),"title":"A Modern Translation"}))
+        self.assertIsNone(lib.book_row({**self.example(9),"title":"Index of the Project Gutenberg Works of Adam Smith"}))
 
     def test_100_unique_real_length_rows_become_100_hash_verified_index_books(self):
         with tempfile.TemporaryDirectory() as tmp:

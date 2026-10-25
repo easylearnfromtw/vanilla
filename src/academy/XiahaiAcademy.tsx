@@ -20,7 +20,7 @@ export default function XiahaiAcademy(){
  async function search(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const text=query.trim();
-  if(text.length<2){setMessage("請輸入至少兩個字的論文名稱、主題或 DOI。");return;}
+  if(!text){setMessage("請至少輸入 1 個字的論文名稱、主題或 DOI。");return;}
   const serial=++current.current;
   setBusy(true);setMessage("");setSubmitted("");setResults([]);setEvidenceHits([]);
   try{
@@ -56,7 +56,7 @@ export default function XiahaiAcademy(){
     <label className="sr-only" htmlFor="xiahai-query">論文標題、研究主題或 DOI</label>
     <input id="xiahai-query" value={query} onChange={e=>setQuery(e.target.value)}
       autoComplete="off" maxLength={180} placeholder={researchMode==="body"?"例如：糖尿病 MODY、白內障 頭暈、heart failure":"搜尋論文標題、研究主題或 DOI…"} />
-    <button type="submit" disabled={busy||query.trim().length<2}>{busy?"檢索中…":"檢索文獻"}</button>
+    <button type="submit" disabled={busy||!query.trim()}>{busy?"檢索中…":"檢索文獻"}</button>
    </form>
    <div className="xiahai-batch-choice">
     <span>證據來源</span>

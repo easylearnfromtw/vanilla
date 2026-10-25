@@ -1,5 +1,6 @@
 import {useRef,useState,type FormEvent} from "react";
-import {ArrowUpRight,BookOpen,Copy,ExternalLink,LibraryBig,Search,ShieldCheck} from "lucide-react";
+import {ArrowUpRight,BookOpen,LibraryBig,Search,ShieldCheck} from "lucide-react";
+import EvidenceCard from "./EvidenceCard";
 import {getScholarlyRankTable,getScholarlyAuthorityLedger,searchOpenAlexWorks,type AcademicHit} from "../search/scholarly-discovery";
 import "./xiahai-academy.css";
 
@@ -16,7 +17,7 @@ export default function XiahaiAcademy(){
  const [results,setResults]=useState<AcademicHit[]>([]);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
- const [copied,setCopied]=useState("");
+ const [batchSize,setBatchSize]=useState<8|100>(8);
  const current=useRef(0);
  const rankingCount=Object.keys(getScholarlyRankTable()).length;
  const authorityCount=getScholarlyAuthorityLedger().length;
@@ -27,7 +28,7 @@ export default function XiahaiAcademy(){
   const serial=++current.current;
   setBusy(true);setMessage("");setSubmitted("");setResults([]);
   try{
-   const papers=await searchOpenAlexWorks(text);
+   const papers=await searchOpenAlexWorks(text,batchSize);
    if(serial!==current.current)return;
    setSubmitted(text);setResults(papers);
    if(!papers.length)setMessage("OpenAlex 未回傳可引用的論文；可改用英文關鍵詞，或開啟 arXiv 原站搜尋。");
@@ -36,12 +37,6 @@ export default function XiahaiAcademy(){
    setMessage("未能取得 OpenAlex 即時資料："+(error instanceof Error?error.message:"來源連線失敗")+
     "。請使用下方原站連結查找；未取得的論文不會被假造。");
   }finally{if(serial===current.current)setBusy(false);}
- }
- async function copyCitation(paper:AcademicHit){
-  try{
-   await navigator.clipboard.writeText(citationText(paper));
-   setCopied(paper.source_id);
-  }catch{setMessage("無法複製引用，請透過論文來源連結自行核對。");}
  }
  return <div className="xiahai">
   <div className="xiahai-topline"><span className="xiahai-seal" aria-hidden="true">霞海</span><span>VANILLA RESEARCH · SCHOLARLY LIBRARY</span></div>
@@ -60,6 +55,11 @@ export default function XiahaiAcademy(){
       autoComplete="off" maxLength={180} placeholder="搜尋論文標題、研究主題或 DOI…" />
     <button type="submit" disabled={busy||query.trim().length<2}>{busy?"檢索中…":"檢索文獻"}</button>
    </form>
+   <div className="xiahai-batch-choice">
+    <span>單次檢索</span>
+    <button type="button" className={batchSize===8?"selected":""} onClick={()=>setBatchSize(8)}>8 篇 · 快速</button>
+    <button type="button" className={batchSize===100?"selected":""} onClick={()=>setBatchSize(100)}>100 篇 · Evidence 批次練習</button>
+   </div>
    <div className="xiahai-source-links">
     <span>學術來源</span>
     <a href="https://openalex.org/" target="_blank" rel="noopener noreferrer">OpenAlex <ArrowUpRight size={14}/></a>
@@ -83,17 +83,8 @@ export default function XiahaiAcademy(){
   <section className="xiahai-results" aria-label="論文檢索結果" aria-live="polite">
    <div className="xiahai-section-title"><LibraryBig size={18}/><h2>學術文獻</h2>{submitted&&<span>「{submitted}」 · {results.length} 筆</span>}</div>
    {message&&<p className="xiahai-feedback" role="status">{message}</p>}
-   {!busy&&!submitted&&!message&&<div className="xiahai-empty"><BookOpen size={26}/><p>從一個研究問題開始，查找可追溯的論文來源。</p><small>書院目前提供即時書目引用；全文檢索與模型微調仍在另一條建置流程。</small></div>}
-   {results.length>0&&<ol className="xiahai-list">{results.map((paper,index)=><li key={paper.source_id} className="xiahai-paper">
-    <div className="xiahai-paper-head"><span className="xiahai-index">{String(index+1).padStart(2,"0")}</span><span className="xiahai-provider">{paper.provider}</span><span className="xiahai-weight">引用權重 {paper.citation_weight}/5</span></div>
-    <h3>{paper.title}</h3>
-    <p>{paper.snippet}</p>
-    {paper.doi&&<div className="xiahai-doi">DOI · {paper.doi}</div>}
-    <div className="xiahai-actions">
-     <a href={paper.url} target="_blank" rel="noopener noreferrer">開啟論文來源 <ExternalLink size={14}/></a>
-     <button type="button" onClick={()=>void copyCitation(paper)}><Copy size={14}/>{copied===paper.source_id?"已複製引用":"複製引用"}</button>
-    </div>
-   </li>)}</ol>}
+   {!busy&&!submitted&&!message&&<div className="xiahai-empty"><BookOpen size={26}/><p>從一個研究問題開始，查找可追溯的論文來源。</p><small>書院提供即時書目引用及 VANILLA Evidence 書目可追溯評級；全文模型訓練仍為獨立流程。</small></div>}
+   {results.length>0&&<ol className="xiahai-list">{results.map((paper,index)=><EvidenceCard key={paper.source_id} paper={paper} index={index}/>)}</ol>}
   </section>
   <footer className="xiahai-footer">霞海書院 · 論文來源索引　｜　來源可追溯，知識不設門第。</footer>
  </div>;

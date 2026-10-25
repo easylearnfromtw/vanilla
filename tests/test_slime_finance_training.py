@@ -34,8 +34,8 @@ class FinanceOwnerBridgeTests(unittest.TestCase):
             sample = [
                 {"id": f"{name}_{n}", "user": f"{name} what happened at index {n}?",
                  "assistant": "Evidence is required before making a market claim.",
-                 "source": "original-owner-reviewed-test-fixture",
-                 "domain": "finance", "reviewed": True, "consent": True}
+                 "source": "authored",
+                 "domain": "research", "reviewed": True, "consent": True}
                 for n in range(101)
             ]
             path = approved / (name + ".jsonl")

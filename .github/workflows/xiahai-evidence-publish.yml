@@ -1,0 +1,112 @@
+name: Xiahai Verified Evidence Pack
+on:
+  pull_request:
+    paths:
+      - 'training/scholarly/publish_xiahai_evidence.py'
+      - 'src/academy/xiahai-evidence.ts'
+      - 'src/knowledge/chat-source-lookup.ts'
+      - 'src/local-ai/LocalChat.tsx'
+      - 'tests/test_xiahai_evidence_pack.py'
+      - 'tests/xiahai-evidence-qa.test.mjs'
+      - '.github/workflows/xiahai-evidence-publish.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/scholarly/publish_xiahai_evidence.py'
+      - '.github/workflows/xiahai-evidence-publish.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-1000-real-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify refusal and sample-driven quality checks
+        run: |
+          python3 -m unittest discover -s tests -p 'test_xiahai_evidence_pack.py' -v
+          node --experimental-strip-types --test tests/xiahai-evidence-qa.test.mjs
+      - name: Obtain verified exact 1000-paper GitHub Actions artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/actions/artifacts/12588893981/zip" > "$RUNNER_TEMP/source.zip"
+          python3 - <<'PY'
+          import os,zipfile,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          with zipfile.ZipFile(root/"source.zip") as z:
+            expected="xiahai-1000-licensed-paper-bodies.sqlite3"
+            assert expected in z.namelist(),"VERIFIED_ARTIFACT_BODY_MISSING"
+            with z.open(expected) as inp, (root/expected).open("wb") as out:
+              while buf:=inp.read(1024*1024):out.write(buf)
+          PY
+      - name: Export bounded, attributed evidence snippets from 1000 genuine fulltexts
+        run: |
+          python3 training/scholarly/publish_xiahai_evidence.py \
+            --index "$RUNNER_TEMP/xiahai-1000-licensed-paper-bodies.sqlite3" \
+            --output "$RUNNER_TEMP/verified-xiahai" --execute
+      - name: Validate source coverage, 10 shards and bounded verbatim evidence
+        run: |
+          python3 - <<'PY'
+          import os,json,pathlib
+          d=pathlib.Path(os.environ["RUNNER_TEMP"])/"verified-xiahai"
+          m=json.loads((d/"manifest.json").read_text())
+          r=json.loads((d/"export-report.json").read_text())
+          assert m["paper_count"]==1000
+          assert m["real_fulltext_chunks_checked"]==41796
+          assert r["real_papers"]==1000
+          assert r["shard_count"]==10
+          assert len(list(d.glob("shard-*.json")))==10
+          assert 2000<=m["excerpt_count"]<=3000
+          assert m["total_public_excerpt_characters"]<=780000
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+            f.write("## 霞海書院：真正 1000 篇全文證據上線包\n")
+            f.write(f'- Verified independent papers: {m["paper_count"]}\n')
+            f.write(f'- Full source paragraphs SHA-verified: {m["real_fulltext_chunks_checked"]}\n')
+            f.write(f'- Original quote extracts and CC attribution: {m["excerpt_count"]}\n')
+            f.write('- User-facing content: excerpts only; full paper text never published.\n')
+            f.write('- Consumer guidance and Qwen neural training not implied.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xiahai-1000-provenance-safe-public-evidence
+          path: ${{ runner.temp }}/verified-xiahai/
+          retention-days: 30
+          if-no-files-found: error
+  publish-on-main-only:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify-1000-real-evidence
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: xiahai-evidence-static-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: xiahai-1000-provenance-safe-public-evidence
+          path: ${{ runner.temp }}/verified-xiahai
+      - name: Permanently version bounded evidence on main, not complete fulltexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Snapshot is immutable once first committed; never override newer corpus.
+          if test -s public/evidence/xiahai-1000/manifest.json; then
+            echo "VERIFIED_EVIDENCE_PACK_ALREADY_VERSIONED"
+            exit 0
+          fi
+          mkdir -p public/evidence/xiahai-1000
+          cp "$RUNNER_TEMP/verified-xiahai/"*.json public/evidence/xiahai-1000/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/evidence/xiahai-1000
+          git commit -m "data(xiahai): publish 1000 verified CC BY evidence excerpt citations"
+          git push origin HEAD:main

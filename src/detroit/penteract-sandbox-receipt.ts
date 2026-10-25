@@ -62,7 +62,7 @@ export async function verifySyntheticFiveDBundle(
  if(digest!==report.artifactSha256)throw Error("5D_ARTIFACT_SHA256_MISMATCH");
  return {artifact,updates:10000000,selectedStep:n,
   syntheticValidationLoss:report.syntheticValidationSelectedLoss,
-  syntheticSealedTestMatches:report.sealedSyntheticTestSelectedMatches,
+  syntheticSealedTestMatches:Number(report.sealedSyntheticTestSelectedMatches),
   localSha256:digest,
   authenticity:"local-sha256-match-only-not-signed",authorized:false};
 }

@@ -16,7 +16,7 @@ def article_xml(number:int,license="https://creativecommons.org/licenses/by/4.0/
  return f'''<record xmlns:xlink="http://www.w3.org/1999/xlink">
  <header><identifier>oai:pubmedcentral.nih.gov:{number}</identifier></header>
  <metadata><article><front><article-meta>
- <article-id pub-id-type="pmc">{number}</article-id>
+ <article-id pub-id-type="pmcid">PMC{number}</article-id>
  <title-group><article-title>Scientific Evaluation {number}</article-title></title-group>
  <permissions><license xlink:href="{license}"/></permissions>
  </article-meta></front><body><sec><p>{text}</p></sec></body></article></metadata></record>'''
@@ -28,6 +28,13 @@ class PmcLicensedTests(unittest.TestCase):
   self.assertEqual(item["pmcid"],"PMC12345")
   self.assertEqual(item["license"],"cc-by")
   self.assertGreater(len(item["content"]),2000)
+ def test_legacy_pmcid_alias_is_cross_checked(self):
+  import xml.etree.ElementTree as ET
+  current=article_xml(12345)
+  legacy=current.replace('pub-id-type="pmcid">PMC12345','pub-id-type="pmcaid">12345')
+  item,reason=parse_article_record(ET.fromstring(legacy))
+  self.assertIsNone(reason)
+  self.assertEqual(item["pmcid"],"PMC12345")
  def test_noncommercial_default_and_conflicts_must_fail_closed(self):
   import xml.etree.ElementTree as ET
   for license in ["https://creativecommons.org/licenses/by-nc/4.0/",
@@ -38,8 +45,8 @@ class PmcLicensedTests(unittest.TestCase):
    self.assertEqual(why,"not-explicit-cc0-or-cc-by")
  def test_jats_article_id_must_match_oai(self):
   import xml.etree.ElementTree as ET
-  x=article_xml(12345).replace('<article-id pub-id-type="pmc">12345</article-id>',
-                            '<article-id pub-id-type="pmc">99999</article-id>')
+  x=article_xml(12345).replace('<article-id pub-id-type="pmcid">PMC12345</article-id>',
+                            '<article-id pub-id-type="pmcid">PMC99999</article-id>')
   item,reason=parse_article_record(ET.fromstring(x))
   self.assertEqual(reason,"jats-pmcid-mismatch")
  def test_100_real_structured_document_records_with_exact_license(self):

@@ -22,10 +22,10 @@ const LEXICON:Array<readonly [string,string]>= [
  ["肥胖","obesity"],["微小頭症","microcephaly"],
  ["嬰兒","infants"],["心臟","cardiac"]
 ];
-function words(raw:string):string[]{
+function words(raw:string,max=16):string[]{
  const english=(raw.toLowerCase().match(/[a-z][a-z-]{2,}/g)||[]).filter(x=>!STOP.has(x));
  const chinese=LEXICON.filter(([zh])=>raw.includes(zh)).map(([,en])=>en);
- return [...new Set([...english,...chinese])].slice(0,16);
+ return [...new Set([...english,...chinese])].slice(0,max);
 }
 function lexicalMatch(word:string,lexicon:Set<string>):boolean{
  // Strict complete-word match prevents "stent" matching "persistent".
@@ -40,9 +40,9 @@ export function rankXiahaiPassages(question:string,passages:Passage[]):Array<{pa
  if(!query.length)return [];
  return passages.flatMap(p=>{
   if(!/^paper_[0-9a-f]{26}$/.test(p.chunk_id)||!(/^[0-9a-f]{64}$/).test(p.chunk_sha256)||
-     typeof p.excerpt!=="string"||p.excerpt.length<60||p.excerpt.length>260||
+     typeof p.excerpt!=="string"||[...p.excerpt].length<60||[...p.excerpt].length>260||
      !Number.isInteger(p.position))return [];
-  const available=new Set(words(p.excerpt));
+  const available=new Set(words(p.excerpt,300));
   const overlap=query.filter(t=>lexicalMatch(t,available)).length;
   // For multi-term research questions require at least TWO terms within the
   // same physically published excerpt, not scattered around a whole paper.
@@ -77,7 +77,7 @@ export function rankXiahaiPapers(papers:Paper[],query:string,limit=8):Array<{pap
  if(!inputs.length)return [];
  const hits=papers.flatMap(p=>{
   if(!validPaper(p))return [];
-  const title=new Set(words(p.title)),author=new Set(words(p.authors.join(" ")));
+  const title=new Set(words(p.title,300)),author=new Set(words(p.authors.join(" "),100));
   const terms=new Set(p.terms);
   let value=0;
   for(const word of inputs){

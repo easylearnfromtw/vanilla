@@ -29,6 +29,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_scholarly_live_ingest.py' -v
           python3 -m unittest discover -s tests -p 'test_scholarly_priority.py' -v
+          python3 -m unittest discover -s tests -p 'test_pmc_1000_cuda_gate.py' -v
 
   live-licensed-paper:
     # PR code from this repository only; public official upstream; no secrets on PR.

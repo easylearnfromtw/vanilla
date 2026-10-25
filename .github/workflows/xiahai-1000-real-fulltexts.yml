@@ -1,0 +1,96 @@
+name: Xiahai 1000 Real Licensed Paper Fulltexts
+on:
+  pull_request:
+    paths:
+      - 'training/scholarly/pmc_1000_fulltexts.py'
+      - 'training/scholarly/pmc_fulltext_ranker.py'
+      - 'tests/test_pmc_1000_real_papers.py'
+      - '.github/workflows/xiahai-1000-real-fulltexts.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/scholarly/pmc_1000_fulltexts.py'
+      - 'training/scholarly/pmc_fulltext_ranker.py'
+      - '.github/workflows/xiahai-1000-real-fulltexts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-1000-paper-body-and-cpu-gradient-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify JATS full body, provenance, CC BY/CC0 rights and ranker refusal
+        run: |
+          python3 -m unittest discover -s tests -p 'test_pmc_1000_real_papers.py' -v
+          python3 -m unittest discover -s tests -p 'test_scholarly_live_ingest.py' -v
+      - name: Retrieve exactly 1000 REAL open licensed fulltext research articles
+        timeout-minutes: 65
+        run: |
+          python3 training/scholarly/pmc_1000_fulltexts.py \
+            --index "$RUNNER_TEMP/xiahai-1000-licensed-paper-bodies.sqlite3" \
+            --target 1000 --max-pages 550 --from-date 2026-01-01 --execute
+      - name: Actually train passage ranker from full article bodies (not metadata)
+        timeout-minutes: 14
+        run: |
+          python3 training/scholarly/pmc_fulltext_ranker.py \
+            --index "$RUNNER_TEMP/xiahai-1000-licensed-paper-bodies.sqlite3" \
+            --output "$RUNNER_TEMP/xiahai-1000-fulltext-real-sgd" \
+            --steps 250000 --execute
+      - name: Verify 1000 papers, body hashes, actual SGD and heldout papers
+        run: |
+          python3 - <<'PY'
+          import os,json,hashlib,sqlite3,math
+          from pathlib import Path
+          directory=Path(os.environ["RUNNER_TEMP"])
+          index=directory/"xiahai-1000-licensed-paper-bodies.sqlite3"
+          report=json.loads(index.with_suffix(".report.json").read_text())
+          training=directory/"xiahai-1000-fulltext-real-sgd"
+          trained=json.loads((training/"training-report.json").read_text())
+          model=(training/"passage-ranker.json").read_bytes()
+          assert report["actual_paper_fulltexts"]==1000,report
+          assert report["distinct_pmc_sources"]==1000,report
+          assert report["actual_body_chunks"]>5000,report
+          assert report["source_body_characters"]>4_800_000,report
+          assert trained["real_papers_read"]==1000,trained
+          assert trained["actual_sgd_optimizer_steps"]==250000,trained
+          assert trained["scalar_parameter_updates"]==1750000,trained
+          assert trained["qwen_neural_optimizer_steps"]==0,trained
+          assert trained["heldout_papers"]>=30,trained
+          assert math.isfinite(trained["heldout_after"]["log_loss"])
+          assert trained["weights_sha256"]==hashlib.sha256(model).hexdigest()
+          with sqlite3.connect(index) as db:
+            assert db.execute("SELECT COUNT(*) FROM papers").fetchone()[0]==1000
+            assert db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]==report["actual_body_chunks"]
+            assert db.execute("SELECT COUNT(*) FROM papers WHERE license IN ('cc-by-4.0','cc-by-3.0','cc0-1.0')").fetchone()[0]==1000
+            for text,digest in db.execute("SELECT text,text_sha256 FROM chunks LIMIT 100"):
+              assert hashlib.sha256(text.encode()).hexdigest()==digest
+          print("ACTUAL_RESEARCH_PAPER_FULLTEXTS",report["actual_paper_fulltexts"])
+          print("ACTUAL_FULLTEXT_PASSAGES",report["actual_body_chunks"])
+          print("ACTUAL_ARTICLE_BODY_SGD_STEPS",trained["actual_sgd_optimizer_steps"])
+          print("ACTUAL_HELDOUT_SYNTHETIC_PASSAGE_ACCURACY",trained["heldout_after"]["accuracy"])
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+            f.write("## 霞海書院：1000 真實開放授權學術全文與 CPU 真正 SGD\n")
+            f.write(f'- Actual article bodies: {report["actual_paper_fulltexts"]}\n')
+            f.write(f'- SHA256 verifiable body passages: {report["actual_body_chunks"]}\n')
+            f.write(f'- License counts: {report["license_breakdown"]}\n')
+            f.write(f'- Actual passage-based SGD optimizer steps: {trained["actual_sgd_optimizer_steps"]}\n')
+            f.write(f'- Synthetic heldout accuracy: {trained["heldout_after"]["accuracy"]}\n')
+            f.write('- Qwen/October neural optimizer steps: 0. Human scientific advisory tests are not performed.\n')
+          PY
+      - name: Preserve licensed attribution-protected fulltext evidence and measured small-model weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiahai-1000-actual-fulltext-and-trained-passage-ranker
+          path: |
+            ${{ runner.temp }}/xiahai-1000-licensed-paper-bodies.sqlite3
+            ${{ runner.temp }}/xiahai-1000-licensed-paper-bodies.report.json
+            ${{ runner.temp }}/xiahai-1000-fulltext-real-sgd/passage-ranker.json
+            ${{ runner.temp }}/xiahai-1000-fulltext-real-sgd/training-report.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 3

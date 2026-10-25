@@ -61,6 +61,17 @@ export default function XiahaiAcademy(){
    </div>
    <p className="xiahai-note">僅在你按下「檢索文獻」時傳送關鍵字給 OpenAlex。查詢取得的是文獻中繼資料，不代表下載或閱讀論文全文。</p>
   </section>
+  <section className="xiahai-policy" aria-label="1,000 篇學術全文訓練的實測報告">
+   <div className="xiahai-policy-heading"><BookOpen size={18}/><strong>真實全文知識庫 · 1,000 篇</strong></div>
+   <div className="xiahai-tiers" role="list">
+    <span role="listitem"><b>1,000</b> PMC 真實論文全文</span>
+    <span role="listitem"><b>41,796</b> 原文分段</span>
+    <span role="listitem"><b>250,000</b> CPU 模型更新步數</span>
+   </div>
+   <p>已實際建立 1,000 篇開放授權論文的離線全文索引，使用原文片段訓練檢索小模型。每篇保留原始作者、DOI 與 CC BY 授權出處；尚未進行 Qwen 的 GPU 神經模型微調。</p>
+   <p className="xiahai-muted">本頁上方的即時搜尋仍使用 OpenAlex 書目資料，尚未直接連線至離線全文 SQLite。CPU 的 99.987% 分段匹配測試結果，不代表專業建議的正確率。</p>
+   <div className="xiahai-source-links"><a href="https://github.com/easylearnfromtw/vanilla/actions/runs/40168229489" target="_blank" rel="noopener noreferrer">查看原始訓練與來源驗證紀錄 <ArrowUpRight size={14}/></a></div>
+  </section>
   <section className="xiahai-policy" aria-label="引用權重制度">
    <div className="xiahai-policy-heading"><ShieldCheck size={18}/><strong>學術引用優先級</strong></div>
    <div className="xiahai-tiers" role="list">

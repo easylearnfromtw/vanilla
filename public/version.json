@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.13-xiahai-passage-evidence-guard",
-  "description": "霞海書院 1000 篇真實 CC BY PMC 全文的 3000 段已驗證公開精簡證據，新增實際段落與研究問題的文字相關性檢查。相關標題不足以引用無關段落；原文不足時明確棄權。已建立 RAG，未進行 Qwen GPU 微調或專家醫學答覆準確率驗證。"
+  "build": "2026.10.25.13-bluestar-press",
+  "description": "藍星報社正式版：台灣、中國、日本、韓國、美國新聞來源索引、GDELT 即時搜尋、20 年史料檔案與 OCTUBER 資料權利門檻。新聞全文訓練尚未完成。"
 }

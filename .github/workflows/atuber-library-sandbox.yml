@@ -1,0 +1,87 @@
+name: Atuber Library Sandbox
+on:
+  pull_request:
+    paths:
+      - 'training/atuber-books/**'
+      - 'tests/test_atuber_books_sandbox.py'
+      - '.github/workflows/atuber-library-sandbox.yml'
+  workflow_dispatch:
+    inputs:
+      import_catalogue:
+        description: 'Download official NBINet CSV and build metadata-only catalogue'
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline library sandbox tests
+        run: python3 -m unittest discover -s tests -p 'test_atuber_books_sandbox.py' -v
+      - name: Downloader dry run
+        run: |
+          python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/atuber-downloaded"
+          test ! -e "$RUNNER_TEMP/atuber-downloaded"
+
+  official-open-metadata:
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && inputs.import_catalogue == true)
+    needs: test-offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download the single official NBINet CSV
+        run: |
+          python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/nbinet-source" --execute
+      - name: Index 100k topics and 10k language extension targets
+        run: |
+          python3 training/atuber-books/catalog_sandbox.py --csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --source nbinet --output "$RUNNER_TEMP/atuber-book-index" --topic-target 100000 --language-target 10000 --execute
+      - name: Report measured records, never fake training
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          result = json.loads((root/'atuber-book-index/report.json').read_text())
+          download = json.loads((root/'nbinet-source/download_provenance.json').read_text())
+          count = result['actual']['indexed_unique']
+          print('Download source:', download['source_page'])
+          print('SHA256:', download['download_sha256'])
+          print('Unique catalogue records:', count)
+          print('Quotas fulfilled:', result['targets_reached'])
+          print('Books read (full text):', result['book_full_texts_read'])
+          print('Weight updates:', result['weight_updates'])
+          summary = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY'])
+          with summary.open('a') as f:
+              f.write('## Atuber official library metadata import\n\n')
+              f.write(f'- Unique book metadata records: {count:,}\n')
+              f.write(f'- Download SHA256: {download["download_sha256"]}\n')
+              f.write(f'- Full targets reached: {result["targets_reached"]}\n')
+              f.write('- Full texts read: 0; model weight updates: 0\n')
+          if count < 1:
+              raise SystemExit('No classified metadata records, inspect original CSV columns')
+          PY
+      - name: Upload audit reports only, no corpus or full text
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-open-library-metadata-reports
+          path: |
+            ${{ runner.temp }}/nbinet-source/download_provenance.json
+            ${{ runner.temp }}/atuber-book-index/report.json
+          if-no-files-found: warn
+          retention-days: 7

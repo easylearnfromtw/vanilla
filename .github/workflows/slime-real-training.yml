@@ -72,11 +72,11 @@ jobs:
             --input "$RUNNER_TEMP/slime-labs/ndc-history.csv" \
             --output "$RUNNER_TEMP/slime-labs/policy" \
             --train-cases 50000 --validation-cases 12000 --steps 1000
-      - name: Perform 20000 genuine Detroit tiny 5D SGD updates (not Qwen)
+      - name: Perform 100000 genuine Detroit tiny 5D SGD updates (not Qwen)
         run: |
           node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs \
             scripts/train-penteract-10m.mjs \
-            --steps 20000 --out-dir "$RUNNER_TEMP/slime-labs/detroit"
+            --steps 100000 --out-dir "$RUNNER_TEMP/slime-labs/detroit"
       - name: Verify exact optimizer steps, data and artifact checksums
         run: |
           python - <<'PY'
@@ -90,7 +90,8 @@ jobs:
           assert policy["actual_optimizer_steps"]==1000 and policy["weight_change_l2"]>0
           assert policy["accuracy_gate_passed"] is True
           assert policy["production_price_forecasting_92pct_proven"] is False
-          assert detroit["actualWeightUpdates"]==20000 and detroit["cudaUsed"] is False
+          assert detroit["actualWeightUpdates"]==100000 and detroit["cudaUsed"] is False
+          assert detroit["actualWeightUpdates"]>0 and detroit["artifactSha256"]
           assert detroit["atuber0_6BWeightsUpdated"] is False
           sha=hashlib.sha256((root/"policy/historical-shopper-range-policy.npz").read_bytes()).hexdigest()
           assert policy["checkpoint_sha256"]==sha
@@ -100,8 +101,12 @@ jobs:
             "price_range_neural_optimizer_steps":policy["actual_optimizer_steps"],
             "price_range_heldout_accuracy":policy["range_decision_true_heldout_accuracy"],
             "detroit_five_d_optimizer_steps":detroit["actualWeightUpdates"],
+            "detroit_five_d_surrogate_only":True,
             "gpu_cuda_training_steps":0,
             "qwen_llm_optimizer_steps":0,
+            "independent_cpu_optimizers_run":2,
+            "total_real_small_model_optimizer_steps":101000,
+            "training_not_production_deployment":True,
             "genuine_human_price_training_labels":0,
             "historical_government_data_not_current_quotes":True,
             "price_policy_sha256":sha,

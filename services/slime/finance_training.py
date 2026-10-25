@@ -245,3 +245,30 @@ def launch_finance(repo, data_root, tier, revision, *, owner=False, confirmed=Fa
         "optimizer_steps_verified": 0, "released": False,
         "no_claim_of_completed_financial_training": True,
     }
+
+
+
+def inspect_finance_adapter(repo, data_root, tier, checkpoint_dir, *, python_exe=None):
+    """Read-only integrity gate for an OWNER-SELECTED finance adapter folder.
+
+    A passing checksum does NOT prove genuine remote GPU execution, financial
+    reasoning accuracy, causal conclusions or production deployment readiness.
+    """
+    if tier not in TIERS:
+        raise ValueError("SLIME_FINANCE_UNSUPPORTED_CHECKPOINT_TIER")
+    project, _, _, _, release, _, paths = _files(repo, data_root)
+    target = Path(checkpoint_dir).expanduser().resolve(strict=True)
+    if not target.is_dir() or target.is_relative_to(project):
+        raise ValueError("SLIME_FINANCE_PRIVATE_CHECKPOINT_FOLDER_REQUIRED")
+    outcome = _json_command(
+        [_python(python_exe), str(release), "--approved-dir",
+         str(paths["train"].parent), "--adapter", tier + "=" + str(target)],
+        cwd=project, python_env=_environment(), timeout=120)
+    if (tier not in outcome.get("verified_candidate_tiers", [])
+        or outcome.get("production_release_authorized") is not False
+        or outcome.get("independent_financial_benchmark_passed") is not False):
+        raise ValueError("SLIME_FINANCE_CHECKPOINT_RELEASE_GATE_REFUSED")
+    return {"status": "integrity-screen-only-not-released", "tier": tier,
+            "adapter": outcome["artifacts"][tier],
+            "blind_benchmark_passed": False, "production_released": False,
+            "caveat": outcome["proof_limit"]}

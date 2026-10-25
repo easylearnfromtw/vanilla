@@ -48,7 +48,7 @@ OpenAlex 的作者機構不是 QS、THE 等獨立的正式排名資料；**若�
 最少 100 筆真正不同的已審核、原文權利可用的專業 QA；不足會回報未達門檻，不會生成可供訓練的檔案。範例執行方式：
 
 ~~~bash
-python3 training/atuber-books/consumer_knowledge.py --reviewed-jsonl training/data/reviewed-knowledge.jsonl --output training/data/atuber-consumer-qa.jsonl --execute
+python3 training/atuber-books/consumer_knowledge.py --reviewed-jsonl training/data/reviewed-knowledge.jsonl --approved-fulltext-index training/data/all-approved-fulltexts.sqlite3 --output training/data/atuber-consumer-qa.jsonl --execute
 python3 training/atuber/train.py --dataset training/data/atuber-consumer-qa.jsonl --validate-only
 # 經 Owner 明確授權且有 CUDA 硬體時，才執行真正 SFT／QLoRA
 python3 training/atuber/train.py --dataset training/data/atuber-consumer-qa.jsonl --output training/outputs/consumer-advice-v1 --train --steps 180 --max-length 512
@@ -68,3 +68,6 @@ python3 training/atuber/train.py --dataset training/data/atuber-consumer-qa.json
 Open Library 或 OpenAlex 的額度、跨網域請求限制可能使即時搜尋暫不可用，屆時應使用原始來源網站或經批准的 API 連線，不應將其標成成功。
 
 泛用阿土伯對消費者的醫療、金融、心理、投資、購買等建議，現在加上額外的依據、適用條件、風險及棄權規範。這是提示層的防錯能力，不代表 GPU 已重新訓練了 Qwen 權重或已證明金融／醫療建議正確。要強化知識，必須持續累積合法全文、真正審核過的專業發現及獨立問答盲測。
+
+
+**來源雜湊硬門檻**：正式輸出 Qwen SFT 候選檔案前，每一筆人工已審核專業答案必須在 `--approved-fulltext-index` 提供的私有全文資料庫內找到同一來源 ID、原始來源 URL 和完全一致的段落 SHA256。只有自填「訓練核准」或「證據已審核」而無匹配原文，不能匯出訓練資料。此檢查確保資料確曾存在，不自動證明該專業結論的因果或外部效度，仍須人類審閱。

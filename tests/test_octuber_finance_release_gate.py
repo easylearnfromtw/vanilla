@@ -30,15 +30,20 @@ class FinanceReleaseGate(unittest.TestCase):
         weights.parent.mkdir(parents=True)
         weights.write_bytes(b"NOT_REAL_WEIGHTS" * 150)
         receipt = {
-            "training_state": "completed", "product": "October",
+            "status": "ADAPTER_TRAINED_NOT_RELEASED",
             "tier": "0.6b", "base_model": gate.TIERS["0.6b"],
-            "gpu": "synthetic-test-value-not-a-GPU-receipt",
-            "data_sha256": hashes["train"],
-            "eval_data_sha256": hashes["eval"],
+            "base_revision": "a" * 40,
+            "timestamp_utc": "2026-10-25T07:00:00+00:00",
+            "gpu": {"available": True, "device": "SYNTHETIC-NO-REAL-CUDA"},
+            "data_provenance": {
+                "train_sha256": hashes["train"], "eval_sha256": hashes["eval"],
+                "provenance_sha256": gate.sha256(approved / "approved-provenance.json"),
+            },
             "adapter_sha256": gate.sha256(weights),
-            "requested_optimizer_steps": 20, "completed_optimizer_steps": 20,
+            "completed_gradient_steps": 20,
+            "approved_rows": 150, "chronological_eval_rows": 120,
             "train_loss": 1.2, "eval_loss": 1.1,
-            "request_digest": "a" * 64,
+            "independent_backtest_passed": False, "released": False,
         }
         (artifact / "training-provenance.json").write_text(json.dumps(receipt))
         return approved, artifact, hashes
@@ -57,7 +62,7 @@ class FinanceReleaseGate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             approved, artifact, _ = self.fixture(Path(td))
             (artifact / "adapter" / "adapter_model.safetensors").write_bytes(b"changed" * 500)
-            with self.assertRaisesRegex(ValueError, "CHECKPOINT_LINEAGE_MISMATCH"):
+            with self.assertRaisesRegex(ValueError, "FINANCE_WEIGHTS_TAMPERED"):
                 gate.validate(approved, {"0.6b": artifact})
         with tempfile.TemporaryDirectory() as td:
             approved, artifact, _ = self.fixture(Path(td))

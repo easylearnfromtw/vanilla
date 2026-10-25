@@ -4,6 +4,7 @@ on:
     paths:
       - 'training/atuber-books/**'
       - 'tests/test_atuber_books_sandbox.py'
+      - 'tests/test_atuber_hybrid_relevance.py'
       - '.github/workflows/atuber-library-sandbox.yml'
   workflow_dispatch:
     inputs:
@@ -31,6 +32,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_atuber_title_weight_sandbox.py' -v
           python3 -m unittest discover -s tests -p 'test_atuber_licensed_content.py' -v
           python3 -m unittest discover -s tests -p 'test_atuber_content_weights.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_hybrid_relevance.py' -v
       - name: Downloader dry run
         run: |
           python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/atuber-downloaded"
@@ -135,6 +137,65 @@ jobs:
               output.write(f'- Heldout passage classification: {r["holdout_final"]["accuracy"]}\n')
               output.write('- Qwen/October neural LLM weight updates: 0\n')
           PY
+      - name: Index entire official source catalogue and all authorized full-text sources
+        timeout-minutes: 15
+        run: |
+          python3 training/atuber-books/hybrid_library.py --catalogue "$RUNNER_TEMP/atuber-book-index/catalog.sqlite3" --raw-csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --content-index "$RUNNER_TEMP/atuber-public-domain-pilot/approved_content.sqlite3" --output "$RUNNER_TEMP/atuber-hybrid-library.sqlite3" --execute
+      - name: Export official open-bibliography searchable SQLite without copyrighted full text
+        timeout-minutes: 15
+        run: |
+          python3 training/atuber-books/hybrid_library.py --raw-csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --output "$RUNNER_TEMP/atuber-public-metadata.sqlite3" --execute
+      - name: Audit metadata-only export
+        run: |
+          python3 - <<'PY'
+          import sqlite3,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"atuber-public-metadata.sqlite3"
+          with sqlite3.connect(p) as c:
+              count=c.execute("SELECT COUNT(*) FROM books").fetchone()[0]
+              full=c.execute("SELECT COUNT(*) FROM paragraphs").fetchone()[0]
+              assert count>=10000 and full==0
+          print("Safe open book records exported:",count,"Full text in export:",full)
+          PY
+      - name: One million real SGD steps for fuzzy/related book relevance
+        timeout-minutes: 15
+        run: |
+          python3 training/atuber-books/fuzzy_relevance_train.py --index "$RUNNER_TEMP/atuber-hybrid-library.sqlite3" --output "$RUNNER_TEMP/atuber-relevance" --steps 1000000 --execute
+      - name: Verify ranked source-backed book and exact rights coverage
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib,sys
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          library=json.loads((root/"atuber-hybrid-library.report.json").read_text())
+          rank=json.loads((root/"atuber-relevance/report.json").read_text())
+          assert library["catalogue_only_records"]>=10000
+          assert library["rights_cleared_fulltext_books"]==2
+          assert library["fulltext_passages"]>=3000
+          assert rank["optimizer_steps_completed"]==1000000
+          assert rank["qwen_october_llm_weight_updates"]==0
+          sys.path.insert(0,"training/atuber-books")
+          from hybrid_library import search
+          r=search(root/"atuber-hybrid-library.sqlite3","division of labor",5,root/"atuber-relevance/ranker.json")
+          assert any(x["citation_scope"]=="original-text-passage" for x in r["items"])
+          s=search(root/"atuber-hybrid-library.sqlite3","股票投資",5,root/"atuber-relevance/ranker.json")
+          assert s["items"] and any(x["source_scope"]=="catalogue-dataset" for x in s["items"])
+          assert all(x["availability"]=="metadata-only" and x["evidence"] is None
+                     for x in s["items"] if x["source_scope"]=="catalogue-dataset")
+          assert all(x["evidence"] is not None
+                     for x in s["items"] if x["citation_scope"]=="original-text-passage")
+          print("Raw unique catalogue records:",library["catalogue_only_records"])
+          print("Actual full-text works:",library["rights_cleared_fulltext_books"])
+          print("Indexed text chunks:",library["fulltext_passages"])
+          print("Real fuzzy ranker SGD:",rank["optimizer_steps_completed"])
+          print("Synthetic heldout book pair relevance:",rank["holdout_after"]["accuracy"])
+          with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as f:
+              f.write("\n## Complete supplied library / grounded image-citation metadata\n")
+              f.write(f'- Catalogue-only records: {library["catalogue_only_records"]:,}\n')
+              f.write(f'- Copyright/rights-reviewed fulltext books: {library["rights_cleared_fulltext_books"]:,}\n')
+              f.write(f'- Total full-text passages: {library["fulltext_passages"]:,}\n')
+              f.write(f'- Fuzzy relevance SGD updates: {rank["optimizer_steps_completed"]:,}\n')
+              f.write(f'- Heldout synthetic relevance-pair accuracy: {rank["holdout_after"]["accuracy"]}\n')
+              f.write('- No GPU/LLM fine-tune; no unlicensed fulltext or cover downloads.\n')
+          PY
       - name: Report measured records, never fake training
         run: |
           python3 - <<'PY'
@@ -159,6 +220,16 @@ jobs:
           if count < 1:
               raise SystemExit('No classified metadata records, inspect original CSV columns')
           PY
+      - name: Publish only public bibliographic metadata SQLite for reproducible use
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-public-book-metadata-index
+          path: |
+            ${{ runner.temp }}/atuber-public-metadata.sqlite3
+            ${{ runner.temp }}/atuber-public-metadata.report.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload audit reports only, no corpus or full text
         if: always()
         uses: actions/upload-artifact@v4
@@ -173,5 +244,8 @@ jobs:
             ${{ runner.temp }}/atuber-public-domain-pilot/pilot_report.json
             ${{ runner.temp }}/content-weight-sandbox/report.json
             ${{ runner.temp }}/content-weight-sandbox/content_weights.json
+            ${{ runner.temp }}/atuber-hybrid-library.report.json
+            ${{ runner.temp }}/atuber-relevance/report.json
+            ${{ runner.temp }}/atuber-relevance/ranker.json
           if-no-files-found: warn
           retention-days: 7

@@ -3,6 +3,7 @@ import {Check,Copy,AlertCircle} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import VenusBlocks from "../venus/VenusBlocks";
+import BookCitationCards,{parseBookCitationPayload} from "./BookCitationCards";
 import {parseVenusMessage} from "../venus/presentation";
 
 /** Native safe Markdown. No raw HTML plugin, injected markup, or external code highlighter. */
@@ -39,6 +40,16 @@ function CodePanel({children}:{children?:ReactNode}){
   {copyState==="ok"&&<span className="markdown-sr-only" role="status">程式碼已複製到剪貼簿</span>}
  </div>;
 }
+function BookRefsPanel({children}:{children?:ReactNode}){
+ const codeNode=Children.toArray(children).find(node=>isValidElement(node));
+ const classes=isValidElement<{className?:string}>(codeNode)?codeNode.props.className||"":"";
+ const raw=collectText(children).trim();
+ if(/(?:^|\s)language-bookrefs(?:\s|$)/.test(classes)){
+  const records=parseBookCitationPayload(raw);
+  if(records)return <BookCitationCards books={records}/>;
+ }
+ return <CodePanel>{children}</CodePanel>;
+}
 function MarkdownTable({children}:{children?:ReactNode}){
  return <div className="markdown-table-shell">
   <div className="markdown-table-topline"><span>資料表</span><small>橫向捲動可查看完整內容</small></div>
@@ -56,7 +67,7 @@ export default function ChatMarkdown({source}:{source:string}){
   <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
    a:({href,children})=><a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
    table:({children})=><MarkdownTable>{children}</MarkdownTable>,
-   pre:({children})=><CodePanel>{children}</CodePanel>
+   pre:({children})=><BookRefsPanel>{children}</BookRefsPanel>
   }}>{view.text||"正在生成回答…"}</ReactMarkdown>
   {view.blocks.length>0&&<VenusBlocks blocks={view.blocks}/>}
  </div>;

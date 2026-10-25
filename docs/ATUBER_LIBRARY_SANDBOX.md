@@ -148,3 +148,55 @@ python3 training/atuber-books/content_weight_sandbox.py \
 ~~~
 
 此第二組小模型的標籤是「這個段落來自哪一本書」；評估未參與訓練的段落是否能辨識其來源。它能學到書內詞彙、措辭的統計特徵，**不是**推導書內經濟原理、財務知識、投資建議或哲學論證；同一本書不同段落分到 train/test 的測試還有作品風格與語料洩漏限制。輸出內容權重與前後測報告，但 LoRA、0.6B／4B／14B／30B 語言模型權重更新一律記為零。若希望模型真正將內容轉成可問答的能力，應以這套私有有引文 RAG 加上人工審核的書本 Q&A 訓練、獨立保留書本測試與 CUDA QLoRA 驗證。
+
+
+## Phase 4 — 圖書封面引用、模糊關鍵詞、完整授權全文索引
+
+### ChatGPT 式書籍封面及出處卡
+
+已在 Vanilla ChatMarkdown 整合 BookCitationCards：收到可信的本地索引產生的 bookrefs 片段時，會渲染書籍封面、書名、作者、來源連結、資料範圍、原文證據（如有）。缺少 ISBN 則顯示「無封面」；封面不是書內文字證據。採 Open Library Covers API 指南推薦的 ISBN 直連與延遲載入，不做批次掃描： https://openlibrary.org/dev/docs/api/covers 。
+
+操作：在已建立本地索引的主機執行下面命令產生 Markdown 格式書籍引用卡，再將查詢結果交給 Vanilla 聊天渲染流程。
+
+~~~bash
+python3 training/atuber-books/hybrid_library.py \
+  --index training/data/atuber-hybrid-library.sqlite3 \
+  --ranker training/data/atuber-relevance-1m/ranker.json \
+  --query "市場經濟與勞動分工" --markdown-cards
+~~~
+
+目前實作完成的是書籍卡片渲染器及 CLI 資料契約，**並未建立可供所有線上使用者任意查詢的常駐公開 API**。GitHub Pages 無法直接讀取另一台主機的 SQLite；要與線上聊天室自動聯動，須在擁有者授權的 HTTPS 主機放置索引並經存取控制提供查詢服務。模型自行生成的引用 JSON 未經查核不得視為真實原始來源。
+
+### 全部實際取得的書目 vs 全部權利確認的正文
+
+先前僅以經濟、金融、股票、心理、哲學及中英文配額篩選 6,143 筆書目；現在新增 raw CSV 匯入，**不再因主題配額限制刪除其他書名**，並接受多個事先已通過來源權利與 SHA256 驗證的本地書籍資料庫。
+
+~~~bash
+python3 training/atuber-books/hybrid_library.py \
+  --catalogue training/data/atuber-books-20261025/catalog.sqlite3 \
+  --raw-csv training/data/nbinet.csv \
+  --content-index training/data/historical-books-pilot/approved_content.sqlite3 \
+  --output training/data/atuber-hybrid-library.sqlite3 --execute
+~~~
+
+支援重複加入 --raw-csv、--catalogue、--content-index，針對全部實際提供的資料建立完整可檢索索引。SQLite 的 ngram 書目反向索引與 FTS5 trigram 原文索引可支援繁中／英文及局部錯字；每筆書目與已審核全文分別保留 source_scope 和 citation_scope。全文段落使用 chunk_id、位置與原文 SHA256 引用；只提供可檢驗的少量摘錄，避免無來源大量轉載。
+
+注意：這是**將所有實際合法可用的全文全部建索引**，不是從 NBINet 書名就推論它有全文。若官方原始 CSV 約有兩萬筆，而已授權全文只有兩本，報告會明確顯示兩萬筆書目／兩本全文，不會虛構其餘書的內文。此資料庫留在私有環境，不會當作網站公開靜態檔。
+
+### 100 萬次「查詢 → 相關或模糊圖書」梯度更新
+
+~~~bash
+python3 training/atuber-books/fuzzy_relevance_train.py \
+  --index training/data/atuber-hybrid-library.sqlite3 \
+  --output training/data/atuber-relevance-1m \
+  --steps 1000000 --execute
+
+python3 training/atuber-books/hybrid_library.py \
+  --index training/data/atuber-hybrid-library.sqlite3 \
+  --ranker training/data/atuber-relevance-1m/ranker.json \
+  --query "股市心理 行為經濟"
+~~~
+
+真實更新一個使用 7 個特徵（含偏置）的輕量相關性排序模型，產生 ranker.json、權重 SHA256、訓練前後測試結果與 optimizer step 紀錄。訓練資料是基於已取得書名／作者的字詞、前綴、錯字與相關詞彙生成的合成配對，並用未見過的書目 ID 做保留集測試；測試分數不等於真實使用者搜尋表現。中英詞彙包括通膨/inflation、股票/stock、勞動分工/division of labour 等，但不宣稱任何詞語都一定找得到證據。
+
+這一百萬次是「小型書籍搜尋排序器」的真實 SGD 訓練，不是阿土伯 0.6B／4B／14B／30B 大語言模型的梯度更新，也不是已理解兩萬本書的論證。若要真正提升書本知識問答，要在已授權全文上建有引用證據的 Q&A、人工核對、LLM LoRA 微調及獨立書籍測試。

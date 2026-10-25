@@ -1,0 +1,135 @@
+name: Atuber 100 Real Licensed Fulltext Training
+
+on:
+  pull_request:
+    paths:
+      - 'training/scholarly/pmc_licensed_100.py'
+      - 'training/atuber/multi_paper_cpu_lora.py'
+      - 'tests/test_atuber_pmc_100.py'
+      - '.github/workflows/atuber-100-real-fulltext-train.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/scholarly/pmc_licensed_100.py'
+      - 'training/atuber/multi_paper_cpu_lora.py'
+      - 'tests/test_atuber_pmc_100.py'
+      - '.github/workflows/atuber-100-real-fulltext-train.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atuber-licensed-100-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-rights-and-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline rights, 100 JATS article identity, and document holdout tests
+        run: python3 -m unittest discover -s tests -p 'test_atuber_pmc_100.py' -v
+
+  real-100-source-and-weights:
+    needs: validate-rights-and-holdout
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      HF_HOME: /tmp/atuber-academic-model
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download and verify exactly 100 real independently licensed PMC JATS full texts
+        run: |
+          python3 -u training/scholarly/pmc_licensed_100.py \
+            --output "$RUNNER_TEMP/atuber-licensed-papers" \
+            --target 100 --from-date 2026-09-01 \
+            --max-pages 100 --min-delay 0.75 \
+            --execute
+      - name: Audit article hashes, licenses and independent heldout papers before CPU model download
+        run: |
+          python3 training/atuber/multi_paper_cpu_lora.py \
+            --index "$RUNNER_TEMP/atuber-licensed-papers.sqlite3" \
+            --required-papers 100 --audit-only
+      - name: Install CPU-only PyTorch and open-source LoRA dependencies
+        run: |
+          python3 -m pip install --no-cache-dir 'torch==2.6.0+cpu' --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install --no-cache-dir 'transformers>=4.53,<5' 'peft>=0.17,<0.24' 'accelerate>=1.3,<2'
+      - name: Actually train Qwen3-0.6B LoRA for 100 optimizer steps and evaluate unseen papers
+        run: |
+          python3 -u training/atuber/multi_paper_cpu_lora.py \
+            --index "$RUNNER_TEMP/atuber-licensed-papers.sqlite3" \
+            --output "$RUNNER_TEMP/atuber-100-paper-trained-adapter" \
+            --required-papers 100 --steps 100 --sequence-length 96 --train
+      - name: Independently verify real safetensors SHA, train/eval split, and optimizer steps
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          r=json.loads((root/"atuber-100-paper-trained-adapter/training-provenance.json").read_text())
+          w=root/"atuber-100-paper-trained-adapter/adapter/adapter_model.safetensors"
+          assert r["audited_licensed_papers"]==100
+          assert r["actual_optimizer_steps"]==100
+          assert r["unique_training_papers_touched"]==r["train_papers"]
+          assert r["independent_heldout_papers_evaluated"]==r["heldout_papers"]>=2
+          assert r["weight_delta_verified"] is True
+          assert hashlib.sha256(w.read_bytes()).hexdigest()==r["adapter_sha256"]
+          assert r["model_release_approved"] is False
+          print("VERIFIED REAL 100-PAPER LoRA:",r["actual_optimizer_steps"],"optimizer steps")
+          print("Unseen paper holdout loss baseline:",r["pretraining_holdout_next_token_loss"])
+          print("Unseen paper holdout loss after:",r["posttraining_holdout_next_token_loss"])
+          print("Heldout improvement:",r["holdout_loss_improved"])
+          print("Actual adapter bytes:",w.stat().st_size)
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+            f.write("## Atuber 100 real rights-approved fulltexts / CPU LoRA\n")
+            for k in ("audited_licensed_papers","train_papers","heldout_papers",
+                      "actual_optimizer_steps","unique_training_papers_touched",
+                      "pretraining_holdout_next_token_loss","posttraining_holdout_next_token_loss",
+                      "holdout_loss_improved","adapter_sha256"):
+              f.write(f"- {k}: {r[k]}\n")
+            f.write("- Scientific correctness and independent question-answer accuracy: **not yet established**.\n")
+          PY
+      - name: Report actual counts even if source permission or network prevents the 100 target
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          for name in ("atuber-licensed-papers.report.json",
+                       "atuber-100-paper-trained-adapter/training-provenance.json"):
+            path=root/name
+            if path.exists():
+              r=json.loads(path.read_text())
+              print("ACTUAL_REPORT",name,json.dumps({
+                k:r[k] for k in (
+                  "target_fulltexts","licensed_fulltexts_indexed","licensed_chunks_indexed",
+                  "stop_reason","actual_optimizer_steps","adapter_sha256"
+                ) if k in r
+              },ensure_ascii=False))
+            else:
+              print("REPORT_NOT_PRESENT",name)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: atuber-100-licensed-corpus-and-adapter-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/atuber-licensed-papers.report.json
+            ${{ runner.temp }}/atuber-licensed-papers.sqlite3
+            ${{ runner.temp }}/atuber-100-paper-trained-adapter/training-provenance.json
+            ${{ runner.temp }}/atuber-100-paper-trained-adapter/adapter/
+          retention-days: 60
+          compression-level: 6
+          if-no-files-found: warn

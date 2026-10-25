@@ -71,7 +71,7 @@ test("Atuber and Detroit only use manually opted-in learned 5D weights in explic
 test("5D bridge rejects 20k smoke-test report as proof of 10M synthetic training",async()=>{
  const {report,artifact}=trainFiveD({updates:TRAIN_ROWS});
  assert.equal(report.actualWeightUpdates,20000);
- const raw=JSON.stringify(artifact)+"\\n";
+ const raw=JSON.stringify(artifact)+String.fromCharCode(10);
  await assert.rejects(()=>verifySyntheticFiveDBundle(raw,report),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
  await assert.rejects(()=>verifySyntheticFiveDBundle(raw,{...report,actualWeightUpdates:10000000}),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
  await assert.rejects(()=>verifySyntheticFiveDBundle(raw,{...report,artifactSha256:"0".repeat(64)}),/5D_TRAINING_REPORT_NOT_ACCEPTED/);

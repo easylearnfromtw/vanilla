@@ -20,3 +20,11 @@ SLIME Owner → 本機工具 → **GitHub 訓練紀錄／CPU LoRA 與 GPU 核准
 官方說明：GitHub 標準公共 ubuntu-latest 為 CPU；Tesla T4 GPU Larger Runner（16 GiB VRAM）是需組織／企業資格的另外付費選項：https://docs.github.com/en/actions/concepts/runners/larger-runners
 
 此功能只新增 SLIME Owner 狀態 UI，不會自動進行 Qwen CUDA 更新、下載機密資料或安裝模型。
+
+## 最新已核實的工作狀態（2026-10-25）
+
+- [Qwen3-0.6B CPU LoRA workflow](https://github.com/easylearnfromtw/vanilla/actions/runs/40173195624)：成功，原始回條和 adapter 需逐一驗證；不是 CUDA 模型。
+- [100 篇 CC 條件 PMC 文獻的實際訓練](https://github.com/easylearnfromtw/vanilla/actions/runs/40173038105)：工作流程已成功。
+- [1000 篇 PMC 授權全文 LoRA](https://github.com/easylearnfromtw/vanilla/actions/runs/40173038011)：最後檢查時仍在執行真正 CPU optimizer 步驟，尚無完成證據。
+
+這些內容是有時間點的說明；以 SLIME 監控頁重新查詢的最新 Actions 狀態和實際 adapter 回條為準。不要把「仍在執行」更新為「成功」，直到模型驗證步驟真正完成。

@@ -7,6 +7,7 @@ refer to actual evidence and mark dataset-level bibliographic references.
 """
 from __future__ import annotations
 import argparse
+import csv
 import hashlib
 import json
 import re
@@ -14,6 +15,7 @@ import sqlite3
 import unicodedata
 from collections import Counter
 from pathlib import Path
+from catalog_sandbox import get as catalog_field, book_id as catalog_book_id, detect_language, classify
 
 SYNONYMS = {
  "通膨": ("通貨膨脹", "inflation"), "通貨膨脹": ("通膨", "inflation"),
@@ -61,15 +63,15 @@ def cover_reference(isbn):
        "license_note":"Show on demand only; verify rights if redistributing."
     }
 
-def create_index(catalogs,contents,output):
+def create_index(catalogs,contents,output,raw_csvs=()):
     """Index *all records supplied*; supports many metadata/content databases.
     Output private. Runtime/memory scale depends on SQLite disk and indexes.
     """
     if output.exists():
         raise ValueError("REFUSE_OVERWRITE_LIBRARY_INDEX")
-    if not catalogs and not contents:
+    if not catalogs and not contents and not raw_csvs:
         raise ValueError("AT_LEAST_ONE_LOCAL_SOURCE_DATABASE_REQUIRED")
-    sources=[Path(x) for x in (list(catalogs)+list(contents))]
+    sources=[Path(x) for x in (list(catalogs)+list(contents)+list(raw_csvs))]
     if any(not p.is_file() for p in sources):
         raise ValueError("SOURCE_DATABASE_NOT_PRESENT")
     output.parent.mkdir(parents=True,exist_ok=True)
@@ -122,6 +124,21 @@ def create_index(catalogs,contents,output):
                                  "catalogue-dataset","metadata-only",topic or "",language or "")
                 finally:
                     db.close()
+            for file in raw_csvs:
+                from catalog_sandbox import input_rows
+                for row in input_rows(Path(file)):
+                    title=catalog_field(row,"title")
+                    if not title or len(title)>500:
+                        continue
+                    author=catalog_field(row,"author")
+                    isbn=catalog_field(row,"isbn")
+                    year=catalog_field(row,"year")
+                    ident=catalog_book_id(title,author,year,isbn)
+                    language,_=detect_language(catalog_field(row,"language"),title)
+                    topic=",".join(classify(title,catalog_field(row,"subject")))
+                    add_book("meta:"+ident,title,author,isbn,
+                        "https://data.gov.tw/dataset/7502",
+                        "catalogue-dataset","metadata-only",topic,language)
             for file in contents:
                 db=sqlite3.connect(Path(file).resolve().as_uri()+"?mode=ro",uri=True)
                 try:
@@ -158,6 +175,7 @@ def create_index(catalogs,contents,output):
             "book_content_training_steps":0,
             "covers_downloaded":0,
             "input_catalogues":[str(x) for x in catalogs],
+            "input_raw_catalogue_csvs":[str(x) for x in raw_csvs],
             "input_content_databases":[str(x) for x in contents],
             "metadata_vs_fulltext_distinguished":True
         }
@@ -251,7 +269,7 @@ def search(index,query,limit=8,ranker_file=None):
                                   FROM paragraphs p WHERE p.id IN ({placeholders})""",batch).fetchall()
                 for chunk_id,book_id,offset,body,digest in rows:
                     matched=next((phrase for cid,_,phrase in passage_hits if cid==chunk_id),query)
-                    s=max(fuzzy_score(phrase,body[:600]) for phrase in alt)
+                    s=max(fuzzy_score(phrase,body) for phrase in alt)
                     if s>0 and (book_id not in grouped or s>grouped[book_id]["score"]):
                         grouped[book_id]={"score":s,"chunk_id":chunk_id,"position":offset,
                                          "body":body,"sha256":digest,"matched_term":matched}
@@ -306,6 +324,7 @@ def markdown_cards(result):
 def main(argv=None):
     p=argparse.ArgumentParser(description="Offline, rights-scoped book citation/search index")
     p.add_argument("--catalogue",type=Path,action="append",default=[])
+    p.add_argument("--raw-csv",type=Path,action="append",default=[])
     p.add_argument("--content-index",type=Path,action="append",default=[])
     p.add_argument("--output",type=Path)
     p.add_argument("--index",type=Path)
@@ -325,7 +344,7 @@ def main(argv=None):
     if not a.execute:
         print(json.dumps({"state":"dry-run","covers_downloaded":0,"all_books_fulltext_claim":False},ensure_ascii=False))
         return 0
-    print(json.dumps(create_index(a.catalogue,a.content_index,a.output),ensure_ascii=False,indent=2))
+    print(json.dumps(create_index(a.catalogue,a.content_index,a.output,a.raw_csv),ensure_ascii=False,indent=2))
     return 0
 
 if __name__=="__main__":

@@ -23,6 +23,8 @@ DATA_SOURCES={"biggo","feebee","lbj","merchant","authorized-feed","manual"}
 MARKETPLACES={"shopee":"蝦皮購物","coupang":"酷澎","momo":"momo購物網",
  "pchome":"PChome 24h","yahoo":"Yahoo購物","rakuten":"樂天市場"}
 SECONDARY="secondary-republication-of-government-prices"
+NDC_URL="https://data.gov.tw/dataset/22933"
+NDC_CSV="https://ws.ndc.gov.tw/001/administrator/10/relfile/0/9862/17300d07-7b9f-4c88-a1ab-0e406342def4.csv"
 
 def positive(raw,field,allow_zero=False):
  try: value=float(str(raw or "").strip().replace(",",""))
@@ -39,7 +41,35 @@ def get_rows(path):
  if not rows:raise ValueError("PRICE_DATA_EMPTY")
  return rows,hashlib.sha256(file.read_bytes()).hexdigest()
 
+def read_official_ndc(path):
+ """Government retail *ranges*, anonymous merchants, NOT shoppable vendor quotes."""
+ source_rows,digest=get_rows(path)
+ required={"日期","商品類別","商品名稱","最低價格","最高價格"}
+ if not required.issubset(set(source_rows[0])):
+  raise ValueError("OFFICIAL_NDC_FIVE_COLUMNS_REQUIRED")
+ records,identities=[],set()
+ for row in source_rows:
+  product=str(row.get("商品名稱") or "").strip()
+  category=str(row.get("商品類別") or "").strip()
+  try:
+   observed=date.fromisoformat(str(row.get("日期") or ""))
+   if observed>date.today():continue
+   low=positive(row.get("最低價格"),"PRICE_MIN")
+   high=positive(row.get("最高價格"),"PRICE_MAX")
+   if high<low or not product or not category:continue
+  except ValueError:continue
+  identity=(category.casefold(),product.casefold(),observed.isoformat())
+  if identity in identities:continue
+  identities.add(identity)
+  records.append({"product":product,"sku":"","category":category,
+    "lo":low,"hi":high,"reference_date":observed.isoformat(),
+    "reference_url":NDC_CSV,"quotes":[]})
+ if not records:raise ValueError("NO_VALID_GOV_PRICE_INTERVALS")
+ return sorted(records,key=lambda r:(r["category"],r["product"],r["reference_date"])),digest,len(source_rows)
+
 def load_prices(path,mode,*,research_secondary=False,ack_authorized=False):
+ if mode=="ndc-official":
+  return read_official_ndc(path)
  source_rows,digest=get_rows(path)
  rows=[]
  if mode=="published-range":
@@ -131,6 +161,7 @@ def simulate(rows,*,episodes=10000,seed=20261025,sample_limit=250,now=None):
  timestamp=now.timestamp() if now else datetime.now(timezone.utc).timestamp()
  counts=Counter()
  categories=Counter()
+ reference_checks=Counter()
  previews=[]
  for index in range(episodes):
   item=rows[index%len(rows)]
@@ -139,6 +170,9 @@ def simulate(rows,*,episodes=10000,seed=20261025,sample_limit=250,now=None):
   reference=statistics.median((item["lo"],item["hi"]))
   budget=round(reference*rng.uniform(.72,1.32),2)
   action,why,seller,steps=evaluate(item,person,budget,timestamp)
+  reference_comparison=("under-historical-range" if budget<item["lo"] else
+    "above-historical-range" if budget>item["hi"] else "within-historical-range")
+  reference_checks[reference_comparison]+=1
   counts[action]+=1
   counts["total"]+=1
   categories[item["category"]]+=1
@@ -146,16 +180,17 @@ def simulate(rows,*,episodes=10000,seed=20261025,sample_limit=250,now=None):
    previews.append({"episode":index+1,"simulated_persona":person,
       "real_reference_product":item["product"],"exact_sku_or_spec":item["sku"],
       "published_or_offered_price_bounds_twd":[item["lo"],item["hi"]],
-      "hypothetical_budget_twd":budget,"simulated_actions":steps,
+      "hypothetical_budget_twd":budget,"range_comparison":reference_comparison,
+      "simulated_actions":steps,
       "decision":action,"reason":why,"shop_choice":seller,
       "market_quote_untouched":True,"human_preference_is_synthetic":True})
- return counts,categories,previews
+ return counts,categories,reference_checks,previews
 
 def run(argv=None):
  ap=argparse.ArgumentParser(description=__doc__)
  ap.add_argument("--input",type=Path,required=True)
  ap.add_argument("--output",type=Path,required=True)
- ap.add_argument("--mode",required=True,choices=("published-range","retail-offers"))
+ ap.add_argument("--mode",required=True,choices=("published-range","retail-offers","ndc-official"))
  ap.add_argument("--episodes",type=int,default=10000)
  ap.add_argument("--seed",type=int,default=20261025)
  ap.add_argument("--research-secondary",action="store_true")
@@ -164,7 +199,7 @@ def run(argv=None):
  if args.output.exists() and any(args.output.iterdir()):raise ValueError("OUTPUT_NOT_EMPTY")
  rows,digest,original=load_prices(args.input,args.mode,
      research_secondary=args.research_secondary,ack_authorized=args.ack_authorized_feed)
- counts,categories,previews=simulate(rows,episodes=args.episodes,seed=args.seed)
+ counts,categories,reference_checks,previews=simulate(rows,episodes=args.episodes,seed=args.seed)
  args.output.mkdir(parents=True,exist_ok=True)
  (args.output/"sample-human-trajectories.jsonl").write_text(
      "".join(json.dumps(x,ensure_ascii=False)+"\n" for x in previews),encoding="utf-8")
@@ -176,7 +211,11 @@ def run(argv=None):
    "shopper_preferences_are_simulated":True,"decisions_are_not_real_orders":True,
    "model_optimizer_steps":0,"qwen_model_weights_changed":False,
    "live_web_access_calls":0,"site_bot_evasion":False,
-   "counts":dict(counts),"category_episode_counts":dict(categories),
+   "counts":dict(counts),"range_comparison_counts":dict(reference_checks),
+   "category_episode_counts":dict(categories),
+   "latest_observed_price_date":max((r["reference_date"] or "unknown") for r in rows),
+   "not_live_market_prices":args.mode!="retail-offers",
+   "prices_do_not_identify_shopee_or_coupang":args.mode!="retail-offers",
    "trajectory_preview_rows":len(previews),
    "no_marketplace_inference_from_biggo_feebee_lbj":True,
    "pricing_trust_rule":"If no fresh independent retail sellers or complete freight costs, abstain."}

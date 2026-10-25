@@ -1,0 +1,132 @@
+name: Owner-only Qwen CUDA QLoRA Real Training
+run-name: Real QLoRA, ${{ inputs.mode }}, ${{ inputs.steps }} optimizer steps
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        description: Explicit data-audit or real Qwen LoRA training mode
+        options:
+          - audit-only
+          - licensed-books
+          - reviewed-consumer-sft
+        required: true
+        default: audit-only
+      steps:
+        type: choice
+        description: Real GPU optimizer updates ONLY after rights and data checks
+        options:
+          - '32'
+          - '64'
+          - '128'
+          - '256'
+        required: true
+        default: '32'
+permissions:
+  contents: read
+concurrency:
+  group: atuber-owner-gpu
+  cancel-in-progress: false
+jobs:
+  approved-cuda-only:
+    if: github.ref == 'refs/heads/main'
+    # Configure this environment to require explicit reviewer approval.
+    environment: atuber-gpu-approval
+    # A label for YOUR GPU runner. Can be a self-hosted Linux NVIDIA node, or a
+    # separately provisioned GitHub larger T4 GPU runner with the SAME name.
+    # Does not allocate or bill a GPU automatically. If no such runner exists,
+    # the job remains queued and no optimizer steps are completed.
+    runs-on: atuber-gpu
+    timeout-minutes: 240
+    env:
+      ATUBER_PRIVATE_ROOT: /srv/atuber-private
+      TOKENIZERS_PARALLELISM: 'false'
+      HF_HOME: /srv/atuber-private/cache/huggingface
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TRANSFORMERS_OFFLINE: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Refuse absent CUDA GPU and absent private owner corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v nvidia-smi >/dev/null || { echo '::error::NO_NVIDIA_GPU_RUNNER'; exit 1; }
+          nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+          test -d "$ATUBER_PRIVATE_ROOT" || { echo '::error::PRIVATE_STORAGE_NOT_MOUNTED'; exit 1; }
+          test -w "$ATUBER_PRIVATE_ROOT" || { echo '::error::PRIVATE_STORAGE_NOT_WRITABLE'; exit 1; }
+          # Refuse GitHub checked-out/book stage index as a substitute for genuine reviewed corpus.
+          if [ "${{ inputs.mode }}" != 'reviewed-consumer-sft' ]; then
+            test -s "$ATUBER_PRIVATE_ROOT/approved-books.sqlite3" || {
+              echo '::error::RIGHTS_APPROVED_BOOKS_DATABASE_REQUIRED'; exit 1;
+            }
+          else
+            test -s "$ATUBER_PRIVATE_ROOT/reviewed-consumer-qa.jsonl" || {
+              echo '::error::REVIEWED_CONSUMER_SFT_REQUIRED'; exit 1;
+            }
+          fi
+      - name: Validate actual reviewed book rights or private QA data (CPU only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.mode }}" = "reviewed-consumer-sft" ]; then
+            python3 training/atuber/train.py \
+              --dataset "$ATUBER_PRIVATE_ROOT/reviewed-consumer-qa.jsonl" --validate-only
+          else
+            python3 training/atuber-books/approved_fulltext_qlora.py \
+              --index "$ATUBER_PRIVATE_ROOT/approved-books.sqlite3" \
+              --required-approved-books 20 --audit-only
+          fi
+      - name: Audit-only — no GPU optimizer updates
+        if: inputs.mode == 'audit-only'
+        shell: bash
+        run: |
+          echo 'Dataset audit successful. Actual GPU weight updates=0.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Install supported CUDA-compatible training libraries
+        if: inputs.mode != 'audit-only'
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check -r training/atuber/requirements.txt
+          python3 - <<'PY'
+          import torch
+          if not torch.cuda.is_available():raise SystemExit('CUDA_NOT_AVAILABLE_FOR_REAL_QLORA')
+          print("REAL_GPU:",torch.cuda.get_device_name(0))
+          print("CUDA_VERSION:",torch.version.cuda)
+          PY
+      - name: Actually update Qwen3-0.6B neural model weights on licensed books
+        if: inputs.mode == 'licensed-books'
+        timeout-minutes: 210
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          output="$ATUBER_PRIVATE_ROOT/outputs/$GITHUB_RUN_ID-book-qlora"
+          python3 training/atuber-books/approved_fulltext_qlora.py \
+            --index "$ATUBER_PRIVATE_ROOT/approved-books.sqlite3" \
+            --required-approved-books 20 \
+            --output "$output" --steps "${{ inputs.steps }}" \
+            --max-length 512 --train
+          test -s "$output/adapter/adapter_model.safetensors"
+          test -s "$output/training-provenance.json"
+          echo "Verified GPU adapter saved on protected owner GPU storage: $output" >> "$GITHUB_STEP_SUMMARY"
+      - name: Actually update Qwen3-0.6B neural model weights on reviewed consumer Q&A
+        if: inputs.mode == 'reviewed-consumer-sft'
+        timeout-minutes: 210
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          output="$ATUBER_PRIVATE_ROOT/outputs/$GITHUB_RUN_ID-consumer-sft"
+          python3 training/atuber/train.py \
+            --dataset "$ATUBER_PRIVATE_ROOT/reviewed-consumer-qa.jsonl" \
+            --output "$output" --steps "${{ inputs.steps }}" \
+            --max-length 512 --train
+          test -s "$output/adapter/adapter_model.safetensors"
+          test -s "$output/training-provenance.json"
+          echo "Verified GPU adapter saved on protected owner GPU storage: $output" >> "$GITHUB_STEP_SUMMARY"
+      - name: Do not expose copyrighted book bodies, QA or model checkpoints as GitHub artifacts
+        shell: bash
+        run: |
+          echo 'Training files and QLoRA adapters were NOT uploaded to public GitHub Actions artifacts.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'A successful run is not a validation of safe consumer professional advice.' >> "$GITHUB_STEP_SUMMARY"

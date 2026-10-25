@@ -49,7 +49,7 @@ def dataset(index):
     con=sqlite3.connect(index.resolve().as_uri()+"?mode=ro",uri=True)
     try:
         rows=con.execute("""SELECT id,title,author,topic FROM books
-              WHERE source_scope='catalogue-dataset' ORDER BY id""").fetchall()
+              WHERE source_scope IN ('catalogue-dataset','verified-historical-source') ORDER BY id""").fetchall()
     finally:
         con.close()
     if len(rows)<80:

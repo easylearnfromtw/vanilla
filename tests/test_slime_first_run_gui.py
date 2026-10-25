@@ -114,6 +114,23 @@ class FirstRunExperienceTests(unittest.TestCase):
         heartbeat.assert_called_once()
         http.assert_not_called()
 
+    def test_stop_during_https_poll_drops_new_inference_job(self):
+        stop=threading.Event()
+        def poll(*args, **kwargs):
+            stop.set()
+            return {"job":{"id":"untrusted-task","request":{"model":"qwen3:0.6b"}}}
+        with patch.dict(os.environ,{"GECKO_FLEET_NODE":"false"}), \
+             patch.object(runner,"_heartbeat",return_value={
+                "ok":True,"owner_enabled":True,"inference_enabled":True
+             }), \
+             patch.object(runner,"_models",return_value=["qwen3:0.6b"]), \
+             patch.object(runner,"_register"), \
+             patch.object(runner,"_http",side_effect=poll), \
+             patch.object(runner,"_execute") as inference:
+            runner.run(server=desktop.DEFAULT_SERVER,token="z"*48,
+                       stop_event=stop,allow_power_off=False)
+        inference.assert_not_called()
+
     def test_pending_power_command_cancels_on_stop(self):
         stop=MagicMock()
         stop.wait.return_value=True

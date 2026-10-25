@@ -1,0 +1,75 @@
+name: October simulated human shopping with public Taiwan price facts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "training/atuber/human_shopper_sim.py"
+      - "tests/test_octuber_human_shopper.py"
+      - ".github/workflows/octuber-human-shopper-prices.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-price-synthetic-shopper-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify simulator and authorization gates (synthetic fixtures are never market quotations)
+        run: |
+          python -m py_compile training/atuber/human_shopper_sim.py
+          python -m unittest discover -s tests -p 'test_octuber_human_shopper.py' -v
+      - name: Obtain official first-party Taiwanese public historical price ranges
+        run: |
+          curl --fail --show-error --location --retry 2 --connect-timeout 20 --max-time 180 \
+            "https://ws.ndc.gov.tw/001/administrator/10/relfile/0/9862/17300d07-7b9f-4c88-a1ab-0e406342def4.csv" \
+            --output /tmp/official-ndc-retail.csv
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          f=Path("/tmp/official-ndc-retail.csv")
+          assert 10000 < f.stat().st_size < 100_000_000
+          assert f.open("rb").read(70).startswith("日期,商品類別,商品名稱,最低價格,最高價格".encode())
+          print("OFFICIAL_NDC_CSV_BYTES",f.stat().st_size)
+          print("OFFICIAL_NDC_CSV_SHA256",hashlib.sha256(f.read_bytes()).hexdigest())
+          PY
+      - name: Run 1 million distinct simulated shopping journeys on historical TWD facts
+        run: |
+          python training/atuber/human_shopper_sim.py \
+            --input /tmp/official-ndc-retail.csv \
+            --mode ndc-official \
+            --episodes 1000000 \
+            --output artifacts/octuber-human-shopper
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          summary=json.loads(Path("artifacts/octuber-human-shopper/summary.json").read_text())
+          assert summary["episodes"]==1_000_000
+          assert summary["observed_source_rows"]>300_000
+          assert summary["distinct_seed_products"]>300
+          assert summary["counts"]["total"]==1_000_000
+          assert summary["counts"]["seek-verified-offers"]==1_000_000
+          assert summary["model_optimizer_steps"]==0
+          assert summary["live_web_access_calls"]==0
+          assert summary["decisions_are_not_real_orders"] is True
+          assert summary["prices_do_not_identify_shopee_or_coupang"] is True
+          assert summary["latest_observed_price_date"]<"2026-10-01"
+          print("PROVEN_TRUE_HISTORICAL_PRICE_SOURCE_ROWS",summary["observed_source_rows"])
+          print("PROVEN_DIFFERENT_PRODUCTS",summary["distinct_seed_products"])
+          print("SIMULATED_BUYER_JOURNEYS",summary["episodes"])
+          print("REAL_RETAILER_PRICE_ROWS",0)
+          print("REAL_LLM_GRADIENT_UPDATES",0)
+          PY
+      - name: Upload small redacted behavioral receipts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octuber-human-shopper-1m-ndc-history
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/octuber-human-shopper/summary.json
+            artifacts/octuber-human-shopper/sample-human-trajectories.jsonl

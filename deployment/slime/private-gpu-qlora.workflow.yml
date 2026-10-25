@@ -1,0 +1,141 @@
+# OWNER ACTION REQUIRED: Copy THIS FILE into a SEPARATE PRIVATE repository at:
+# .github/workflows/slime-private-gpu-qlora.yml
+# Never use a permanent self-hosted runner with the PUBLIC Vanilla repository.
+# Register a dedicated, locked-down, preferably ephemeral NVIDIA runner to
+# that private repository only. Configure required reviewers for its environment.
+name: SLIME private Owner GPU QLoRA
+run-name: Owner-authorized private NVIDIA Qwen3 LoRA — ${{ inputs.model_size }}
+on:
+  workflow_dispatch:
+    inputs:
+      model_size:
+        description: Official Qwen3 model size (separate adapters; start at 0.6b)
+        type: choice
+        required: true
+        default: 0.6b
+        options: ["0.6b","1.7b","4b","8b","14b","30b","32b"]
+      revision:
+        description: Exact 40-hex official Hugging Face base model commit SHA
+        required: true
+        type: string
+      steps:
+        description: True QLoRA optimizer steps
+        required: true
+        type: choice
+        default: "16"
+        options: ["16","32","64"]
+      allow_download:
+        description: Permit fetching the exact pinned official model once
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: private-slime-gpu-one-at-a-time
+  cancel-in-progress: false
+jobs:
+  actual-qlora:
+    # All of these must be true before any work is scheduled. The template
+    # must be physically in a PRIVATE repo with a main-only reviewed workflow.
+    if: ${{ github.event.repository.private && github.ref == 'refs/heads/main' }}
+    runs-on: [self-hosted, linux, x64, slime-private-gpu]
+    environment: slime-gpu-training
+    timeout-minutes: 90
+    env:
+      SRC_SHA: ${{ vars.VANILLA_APPROVED_SOURCE_SHA }}
+      APPROVED_JSONL: ${{ vars.SLIME_GPU_DATASET_PATH }}
+      MODEL_SIZE: ${{ inputs.model_size }}
+      BASE_SHA: ${{ inputs.revision }}
+      UPDATES: ${{ inputs.steps }}
+      DOWNLOAD_OK: ${{ inputs.allow_download }}
+      HF_HOME: /srv/slime-private/hf-cache
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - name: Refuse missing local source pin, private data or CUDA resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$SRC_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::SOURCE_SHA_MUST_BE_PINNED"; exit 2; }
+          [[ "$BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::MODEL_SHA_MUST_BE_PINNED"; exit 2; }
+          [[ "$UPDATES" =~ ^(16|32|64)$ ]] || exit 2
+          [[ "$MODEL_SIZE" =~ ^(0[.]6b|1[.]7b|4b|8b|14b|30b|32b)$ ]] || exit 2
+          [[ "$APPROVED_JSONL" = /* ]] || { echo "::error::PRIVATE_JSONL_REQUIRED"; exit 2; }
+          [[ -s "$APPROVED_JSONL" ]] || { echo "::error::APPROVED_JSONL_NOT_FOUND"; exit 2; }
+          real_data="$(realpath -e "$APPROVED_JSONL")"
+          [[ "$real_data" == /srv/slime-private/datasets/*.jsonl ]] || {
+            echo "::error::APPROVED_DATA_MUST_STAY_UNDER_PRIVATE_DATASET_ROOT"; exit 2;
+          }
+          [[ ! -L "$APPROVED_JSONL" ]] || { echo "::error::DATASET_LINK_DENIED"; exit 2; }
+          command -v git; command -v python3; command -v nvidia-smi
+          nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+          python3 - <<'PY'
+          import torch
+          if not torch.cuda.is_available():raise SystemExit("ACTUAL_NVIDIA_CUDA_REQUIRED")
+          print("OWNER_PRIVATE_GPU",torch.cuda.get_device_name(0))
+          PY
+      - name: Fetch immutable reviewed Vanilla source from public origin only
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          local_source="$RUNNER_TEMP/vanilla-reviewed-$GITHUB_RUN_ID"
+          [[ ! -e "$local_source" ]] || { echo "::error::SOURCE_PATH_ALREADY_EXISTS"; exit 2; }
+          git init -q "$local_source"
+          git -C "$local_source" remote add origin https://github.com/easylearnfromtw/vanilla.git
+          git -C "$local_source" fetch --no-tags --depth 1 origin "$SRC_SHA"
+          git -C "$local_source" checkout --detach -q FETCH_HEAD
+          [[ "$(git -C "$local_source" rev-parse HEAD)" == "$SRC_SHA" ]] || {
+            echo "::error::PINNED_VANILLA_SOURCE_MISMATCH"; exit 2;
+          }
+          echo "SLIME_SOURCE_DIR=$local_source" >> "$GITHUB_ENV"
+      - name: Audit genuine approved dialogs before creating any checkpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$SLIME_SOURCE_DIR"
+          python3 training/atuber/multisize_train.py --model-size "$MODEL_SIZE" \
+            --dataset "$APPROVED_JSONL" --base-revision "$BASE_SHA" \
+            --steps "$UPDATES" --max-length 512 --validate-only
+      - name: Run real CUDA NF4 QLoRA without transmitting private datasets
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$SLIME_SOURCE_DIR"
+          out="/srv/slime-private/outputs/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$MODEL_SIZE"
+          [[ ! -e "$out" ]] || { echo "::error::REFUSE_OVERWRITE_PREVIOUS_LORA"; exit 2; }
+          args=(python3 training/atuber/multisize_train.py
+            --model-size "$MODEL_SIZE" --dataset "$APPROVED_JSONL"
+            --base-revision "$BASE_SHA" --steps "$UPDATES"
+            --max-length 512 --output "$out" --train)
+          if [[ "$DOWNLOAD_OK" == "true" ]]; then args+=(--allow-download); fi
+          "${args[@]}"
+          echo "SLIME_ADAPTER_PATH=$out" >> "$GITHUB_ENV"
+      - name: Verify real changed LoRA weights and write non-sensitive local manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,hashlib,pathlib
+          out=pathlib.Path(os.environ["SLIME_ADAPTER_PATH"])
+          p=out/"adapter/adapter_model.safetensors"
+          report=json.loads((out/"training-provenance.json").read_text(encoding="utf8"))
+          assert p.is_file() and p.stat().st_size>1000
+          assert report["actual_optimizer_steps"]==int(os.environ["UPDATES"])
+          assert report["adapter_sha256"]==hashlib.sha256(p.read_bytes()).hexdigest()
+          assert report["qwen_lora_adapter_updated"] is True
+          assert report["merged_or_ollama_model_registered"] is False
+          assert report["base_revision"].lower()==os.environ["BASE_SHA"].lower()
+          assert report["dataset_sha256"] and report["heldout_rows"]>=5
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf8") as f:
+            f.write("### Private GPU QLoRA: real adapter verification passed\n")
+            f.write("- Size: "+report["model_size"]+"\n")
+            f.write("- Actual optimizer steps: "+str(report["actual_optimizer_steps"])+"\n")
+            f.write("- SHA256: "+report["adapter_sha256"]+"\n")
+            f.write("- Stored on Owner's private GPU storage ONLY; not released.\n")
+          print("VERIFIED_PRIVATE_GPU_LORA_STEPS",report["actual_optimizer_steps"])
+          PY
+      # No upload-artifact action! Data and weights remain on protected host.

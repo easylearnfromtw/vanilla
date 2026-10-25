@@ -35,6 +35,8 @@ node --experimental-strip-types --experimental-loader ./tests/ts-extension-loade
 報告同時記錄最後一次與選中版本的分數，並使用先前沒有參與選擇的另一組
 **合成**封存測集呈現差異。不因此宣稱已驗證真人問答的泛化能力。
 
+新版完整 1,000 萬次跑完後（GitHub Actions 可下載原始數據），第 100 萬步的低驗證損失權重在另一組 300 筆合成封存測試中只匹配 **217/300**，反而低於第 1,000 萬步末尾權重的 **229/300**。這是不同合成資料分布造成的模型選擇落差，不能把「最佳驗證損失」誤認成真實泛化最優。**這兩種候選都沒有通過獨立真人審核測試，因此不允許自動進入正式阿土伯或 Detroit 路由。**
+
 GitHub Actions 工作流程 `.github/workflows/octuber-penteract-10m.yml` 在 PR 和主要版本更新時執行完整 1,000 萬次訓練，再用機械檢查確認更新次數、下降的合成留出損失、false 權限與 false 0.6B／30B／60B 權重宣告。成功時，可至 Actions 對應工作下載 `octuber-detroit-atuber-5d-10m-synthetic-weights` 檔案。報告不可被當作 0.6B／30B／60B 模型權重訓練證明。
 
 ## 3. Detroit 與阿土伯如何串聯？

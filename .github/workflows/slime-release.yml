@@ -186,7 +186,22 @@ jobs:
             echo "Owner tools shortcut leaked into Friend Linux package" >&2
             exit 1
           fi
+          # Public Friend builds must not bundle the OCTUBER Owner financial
+          # training launcher; Owner bundles must contain both reviewed modules.
+          for script in finance_training.py finance_training_window.py; do
+            unzip -Z1 Slime-Owner-macos.zip | grep -Fxq "slime_tools/$script"
+            tar -tzf Slime-Owner-linux.tar.gz | grep -Fxq "./slime_tools/$script"
+            if unzip -Z1 Slime-Friend-macos.zip | grep -Fxq "slime_tools/$script"; then
+              echo "Private financial training module leaked to Friend macOS: $script" >&2
+              exit 1
+            fi
+            if tar -tzf Slime-Friend-linux.tar.gz | grep -Fxq "./slime_tools/$script"; then
+              echo "Private financial training module leaked to Friend Linux: $script" >&2
+              exit 1
+            fi
+          done
           sha256sum Slime-* > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
       - name: Publish GitHub release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -202,5 +217,24 @@ jobs:
             release_tag="slime-v$(date -u +%Y%m%d)-${GITHUB_SHA:0:12}"
             target_args=(--target "$GITHUB_SHA")
           fi
+          cat > /tmp/slime-release-notes.md <<'NOTES'
+          # SLIME · OCTUBER 全球金融訓練正式安裝版
+
+          此版本將 OCTUBER 1996–2026 全球 20 大市場的金融資料稽核、
+          五種模型（0.6B、4B、14B、30B、32B）QLoRA 訓練介面整合到
+          **SLIME Owner** 的本機工具中。
+
+          - Owner 可手動選擇授權行情與審核資料，檢查來源雜湊、時序切分、CUDA 與顯存。
+          - 需要本人逐項同意 GPU 運算、資料權利及模型授權，才可啟動本機訓練。
+          - Friend 不包含這兩個金融訓練模組；Telegram／網頁不能遠端派工訓練。
+          - 60B 相容性尚未驗證，保持停用。
+          - 附 Windows、macOS、Linux Owner／Friend 安裝包與 SHA256SUMS.txt。
+          - 目前沒有內含任何已訓練的金融模型權重；正式資料與 CUDA 訓練需自行提供。
+          - 尚未提供安裝程式碼簽章或 macOS 公證。請核對校驗碼，只從官方 Releases 下載。
+
+          原始碼及操作指引：
+          https://github.com/easylearnfromtw/vanilla/blob/main/docs/SLIME_OCTUBER_FINANCE_TRAINING.md
+          NOTES
           gh release create "$release_tag" release/* --repo "$GITHUB_REPOSITORY" \
-            --title "Slime $release_tag" --generate-notes "${target_args[@]}"
+            --title "Slime $release_tag · OCTUBER Finance" \
+            --notes-file /tmp/slime-release-notes.md "${target_args[@]}"

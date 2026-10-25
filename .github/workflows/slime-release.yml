@@ -230,12 +230,18 @@ jobs:
             target_args=(--target "$GITHUB_SHA")
           fi
           cat > /tmp/slime-release-notes.md <<'NOTES'
-          # SLIME · OCTUBER 全球金融訓練正式安裝版
+          # SLIME · 新版桌面首次使用與 OCTUBER 金融訓練
 
           此版本將 OCTUBER 1996–2026 全球 20 大市場的金融資料稽核、
           五種模型（0.6B、4B、14B、30B、32B）QLoRA 訓練介面整合到
           **SLIME Owner** 的本機工具中。
 
+          - **全新下載後體驗**：Windows/macOS/Linux 開啟 SLIME 即進入本機配對精靈及節點儀表板。
+          - 配對碼有效性、HTTPS 故障、心跳、Owner 推論許可與本機 Ollama 狀態分別顯示；
+            配對完成不再自動開啟 Google 獎勵頁，須使用者自行點選。
+          - 「開始共享／停止共享／解除配對」有明確授權與取消路徑，停止後不接收新的模型工作；
+            進階 CLI 與自願授權的自動啟動功能仍保留。
+          - 首次使用與疑難排解：https://github.com/easylearnfromtw/vanilla/blob/main/docs/SLIME_AFTER_INSTALL_GUIDE.md
           - Owner 可手動選擇授權行情與審核資料，檢查來源雜湊、時序切分、CUDA 與顯存。
           - 需要本人逐項同意 GPU 運算、資料權利及模型授權，才可啟動本機訓練。
           - Friend 不包含這兩個金融訓練模組；Telegram／網頁不能遠端派工訓練。

@@ -15,8 +15,15 @@ import webbrowser
 GUIDE_URL = "https://easylearnfromtw.github.io/vanilla/slime/"
 
 
+
+class NodeAuthorizationRevoked(Exception):
+    """Heartbeat credentials were denied; this is NOT an expired invite code."""
+
+
 def explain_failure(error):
     """Actionable guidance with no bearer tokens, invite text or response bodies."""
+    if isinstance(error, NodeAuthorizationRevoked):
+        return "已儲存的裝置授權無效或已撤銷。請聯絡 Telegram Ceres Owner 確認節點授權；不要再次提交舊配對碼。"
     if isinstance(error, HTTPError):
         if error.code in (401, 403):
             return "配對碼無效、已使用或已逾期。請在 Telegram Ceres /hub 重新取得一次性配對碼。"
@@ -284,7 +291,12 @@ class Dashboard:
         settings = dict(self.settings)
         def work():
             from slime_runner_agent import _heartbeat, _models
-            state = _heartbeat(settings["server"], settings["token"])
+            try:
+                state = _heartbeat(settings["server"], settings["token"])
+            except HTTPError as exc:
+                if exc.code in (401, 403):
+                    raise NodeAuthorizationRevoked() from None
+                raise
             if not isinstance(state, dict) or state.get("ok") is not True:
                 raise ConnectionError("HEARTBEAT_NOT_CONFIRMED")
             try:
@@ -317,7 +329,7 @@ class Dashboard:
         self.running = True
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
-        self.service.set("啟動中 · 背景 HTTPS 心跳輪詢")
+        self.service.set("已啟動 · 本機 HTTPS 輪詢中（是否在線請按檢查）")
         self.message.set("共享已啟動（不代表 Ollama 已可推論）；按停止即可結束。")
         def worker():
             try:

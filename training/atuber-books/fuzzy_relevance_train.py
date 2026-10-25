@@ -26,6 +26,7 @@ def vec(q,title,author,topic):
     ts=grams(t)
     combined=grams(t+" "+a+" "+p)
     return (
+        1.0, # learnable bias so dissimilar books can be classified negative
         1.0 if q and q in t else 0.0,
         len(qs&ts)/max(1,len(qs)),
         len(qs&combined)/max(1,len(qs|combined)),
@@ -106,7 +107,7 @@ def fit(index,output,steps=1_000_000):
         raise ValueError("RANKER_STEP_CAP_1M")
     groups,books=dataset(index)
     train=groups["train"]
-    weights=[0.0]*6
+    weights=[0.0]*7
     baselines={k:metrics(v,weights) for k,v in groups.items() if k!="train"}
     stride=37
     while math.gcd(stride,len(train))!=1:
@@ -123,7 +124,7 @@ def fit(index,output,steps=1_000_000):
             changes+=1
     final={k:metrics(v,weights) for k,v in groups.items() if k!="train"}
     output.mkdir(parents=True)
-    model={"version":"atuber-fuzzy-book-ranker-v1","feature_count":6,
+    model={"version":"atuber-fuzzy-book-ranker-v1","feature_count":7,
            "weights":weights,"intercept":0.0,
            "description":"synthetic metadata lexical relevance, not semantic book comprehension"}
     (output/"ranker.json").write_text(json.dumps(model,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")

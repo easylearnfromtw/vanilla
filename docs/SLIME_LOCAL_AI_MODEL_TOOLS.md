@@ -53,3 +53,15 @@ python -m unittest discover -s tests -p "test_slime_local_model_tools.py" -v
 桌面包：`.github/workflows/slime-desktop.yml` 已加入打包前的安全測試；`.github/workflows/slime-local-ai-tools.yml` 會在 Windows／macOS／Linux 三平台跑離線回歸。
 
 **部署狀態（2026-10-25）：** 此功能已透過整合 PR #323 合併至正式 `main`，並發布 `slime-v20261025-75e47da5af4d` 三平台版本。另有本期 Owner 工具快捷啟動更新。此處的「已發布」只指可下載安裝包，**不代表已安裝到使用者電腦**；仍沒有真正新訓練的 Qwen 語言模型權重。使用方式見 `docs/SLIME_UNIFIED_SANDBOX_RELEASE.md`。
+
+
+## 已訓練權重的本機證據驗收（2026-10-25）
+
+SLIME Owner → 「本機模型管理／QLoRA」現在提供兩個新的**唯讀**操作：
+
+1. **驗證本機 LoRA 權重與 SHA-256**：先將自己有權使用的訓練結果保存在本機，選取有 `training-provenance.json` 與 `adapter/` 的輸出資料夾。程式檢查 `adapter_model.safetensors` 是否含有效的 LoRA tensor index、`adapter_config.json` 是否是 `LORA`、權重 SHA-256 是否與報告一致、步數及訓練／保留集損失報告有無明顯矛盾。它**不會讀取／上傳訓練語料、呼叫 GitHub、啟動 GPU 或部署模型**。
+2. **檢視沙盤執行回條**：識別先前真人購物模擬以及 SLIME CPU SGD 沙盤報告，但**絕不**把一百萬次購物回合轉為 Qwen3 語言模型的一百萬步梯度；回條中自稱 CPU 工作卻填非零 Qwen 步數時直接拒絕。
+
+重要：僅驗證本機檔案內部雜湊與內容格式相符，並**不能獨立證明**訓練真的發生過、使用權有效、模型通過專家問答、訓練品質良好或已部署。若需要更高可信度，仍需從 GitHub Actions 的真實訓練紀錄或 Owner 私有 GPU Runner 取得對應版本、任務 ID 與實驗記錄。
+
+真實完成的最小 Qwen 證據可查看 [GitHub CPU LoRA 執行 #40168176257](https://github.com/easylearnfromtw/vanilla/actions/runs/40168176257)：**Qwen3-0.6B 四次 CPU LoRA optimizer updates**，單篇核可來源、短段落保留集、沒有 CUDA。它**不代表**大模型多領域能力或正式發行。公開 GitHub 不可直接附加擁有私人語料的長駐 GPU Runner；GPU 應依 `docs/SLIME_PRIVATE_GPU_REAL_TRAINING.md` 在 Owner 私有 repo、審核環境及真實 CUDA 主機執行。

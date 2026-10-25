@@ -78,7 +78,7 @@ export async function retrieveXiahaiEvidence(question:string,signal?:AbortSignal
   return passages.length>=2?[{paper,score,passages}]:[];
  });
 }
-export function formatXiahaiEvidence(question:string,hits:Hit[]):string{
+export function formatXiahaiEvidence(hits:Hit[]):string{
  if(!hits.length)return "霞海書院這 1000 篇文章的短節錄中，沒有足夠匹配的來源。不能由此推論研究結論，請改用英文研究關鍵詞。";
  return "**引用自霞海書院｜1,000 篇真實 PMC 全文的短節錄（未經方法學評讀）**\n\n"+
  hits.slice(0,6).map((h,i)=>{

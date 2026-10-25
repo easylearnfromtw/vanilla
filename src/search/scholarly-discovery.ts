@@ -2,8 +2,9 @@
  * arXiv records can be surfaced from verified OpenAlex locations.
  * Never insert a private API key into the public browser bundle.
  */
-import {scholarlyCitationPriority,type RankTable,type Institution} from "./scholarly-priority.ts";
+import {scholarlyCitationPriority,type RankTable,type Institution,type Authority} from "./scholarly-priority.ts";
 const RANK_KEY="vanilla.scholarly.qs2027.rankings.v1";
+const AUTH_KEY="vanilla.scholarly.nonuniversity.authorities.v1";
 export type AcademicHit={title:string;url:string;snippet:string;provider:"OpenAlex"|"arXiv";citation_weight:number;source_id:string;doi?:string};
 export function isScholarlyQuery(query:string):boolean{
  return /(?:論文|學術|期刊|文獻|研究證據|研究報告|實證研究|預印本|arxiv|openalex|systematic review|meta.analysis|randomized controlled trial|peer.reviewed|scholarly|academic papers?|research papers?|literature review|doi:10\.)/i.test(query);
@@ -56,9 +57,37 @@ export function getScholarlyRankTable():RankTable{
   return out;
  }catch{return {};}
 }
+function cleanAuthority(entry:unknown):Authority|null{
+ if(!entry||typeof entry!=="object")return null;
+ const row=entry as Record<string,unknown>;
+ const match_id=String(row.match_id||"").trim();
+ const category=row.category;
+ const evidence_url=String(row.evidence_url||"").trim();
+ const reviewer=String(row.reviewer||"").trim();
+ if(match_id.length>130||!(/^(?:doi:10\\.\\d{4,9}\\/\\S+|arxiv:\\d{4}\\.\\d{4,5}|openalex:w\\d+|orcid:\\d{4}-\\d{4}-\\d{4}-[\\dx]{4})$/i).test(match_id)||
+  !["industry_leader","authoritative_expert","established_theory"].includes(String(category))||
+  row.verified!==true||!reviewer||reviewer.length>150)return null;
+ try{const u=new URL(evidence_url);if(u.protocol!=="https:"||!u.hostname.includes(".")||u.username||u.password)return null;}catch{return null;}
+ return {match_id,category:category as Authority["category"],evidence_url,reviewer,verified:true};
+}
+export function saveScholarlyAuthorityLedger(jsonl:string):number{
+ if(jsonl.length>350000)throw Error("權威審核名冊過大");
+ const rows=jsonl.trim().split(/\\r?\\n/).filter(Boolean);
+ if(!rows.length||rows.length>1000)throw Error("權威名冊需有 1–1000 筆審核紀錄");
+ const valid=rows.map(line=>{let record:unknown;try{record=JSON.parse(line);}catch{throw Error("權威名冊需要 JSONL 格式");}
+  const value=cleanAuthority(record);if(!value)throw Error("名冊有未驗證、未具依據或身份識別碼不合格的紀錄");return value;});
+ localStorage.setItem(AUTH_KEY,JSON.stringify(valid));
+ return valid.length;
+}
+export function getScholarlyAuthorityLedger():Authority[]{
+ try{const s=localStorage.getItem(AUTH_KEY);if(!s||s.length>350000)return [];
+  const rows=JSON.parse(s) as unknown;if(!Array.isArray(rows))return [];
+  return rows.slice(0,1000).flatMap(x=>{const entry=cleanAuthority(x);return entry?[entry]:[]});
+ }catch{return [];}
+}
 type OpenAlexWork={
  id?:unknown;doi?:unknown;title?:unknown;publication_year?:unknown;is_retracted?:boolean;
- authorships?:Array<{institutions?:Institution[]}>;
+ authorships?:Array<{institutions?:Institution[];author?:{orcid?:string}}>;
  locations?:Array<{landing_page_url?:string;pdf_url?:string;source?:{display_name?:string}}>;
 };
 const safe=(v:unknown,max=180)=>String(v||"").replace(/<[^>]*>/g," ").replace(/[\x00-\x1F]/g," ").trim().slice(0,max);
@@ -85,7 +114,8 @@ export function parseOpenAlexHits(input:unknown,ranks:RankTable={}):AcademicHit[
   const key=doi?"doi:"+doi.toLowerCase():arxiv||id;
   if(seen.has(key))continue;seen.add(key);
   const institutes=(work.authorships||[]).flatMap(a=>a.institutions||[]);
-  const priority=scholarlyCitationPriority({doi,openalex_id:id,institutions:institutes},ranks);
+  const orcids=(work.authorships||[]).map(a=>a.author?.orcid).filter((x):x is string=>typeof x==="string");
+  const priority=scholarlyCitationPriority({doi,openalex_id:id,arxiv_id:arxiv?arxiv.replace("https://arxiv.org/abs/","arxiv:"):undefined,author_orcids:orcids,institutions:institutes},ranks,getScholarlyAuthorityLedger());
   const yr=Number(work.publication_year);
   const year=Number.isInteger(yr)&&yr>1700&&yr<2200?String(yr):"年份未提供";
   const schools=institutes.map(x=>safe(x.display_name,50)).filter(Boolean).slice(0,2).join("、");
@@ -97,7 +127,7 @@ export function parseOpenAlexHits(input:unknown,ranks:RankTable={}):AcademicHit[
     snippet:[mode,year,schools,label].filter(Boolean).join(" · ").slice(0,480),
     provider:arxiv?"arXiv":"OpenAlex",citation_weight:priority.citation_weight,source_id:id,...(doi?{doi}:{})});
  }
- return out;
+ return out.sort((a,b)=>b.citation_weight-a.citation_weight);
 }
 export async function searchOpenAlexWorks(query:string):Promise<AcademicHit[]>{
  const q=query.trim().slice(0,180);

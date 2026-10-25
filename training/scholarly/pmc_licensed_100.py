@@ -65,7 +65,7 @@ def license_link_from_jats(node):
  accepted=set()
  rejected=False
  for fragment in fragments:
-  for found in re.finditer(r"https?://creativecommons\\.org/(?:licenses|publicdomain)/[^\\s<>'\\\"]+",fragment,re.I):
+  for found in re.finditer(r'https?://creativecommons[.]org/(?:licenses|publicdomain)/[^ \t\r\n<>"\x27]+',fragment,re.I):
    raw=found.group(0).rstrip(".,;:)]")
    grant=normalized_license(raw)
    if grant:

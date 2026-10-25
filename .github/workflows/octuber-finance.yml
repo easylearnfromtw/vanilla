@@ -5,6 +5,7 @@ on:
       - "training/octuber-finance/**"
       - "training/atuber/multitier_*.py"
       - "tests/test_octuber_finance_pipeline.py"
+      - "tests/test_octuber_finance.py"
       - "tests/test_atuber_multitier_qlora.py"
       - "tests/test_octuber_multitier.py"
       - ".github/workflows/octuber-finance.yml"
@@ -15,6 +16,7 @@ on:
       - "training/octuber-finance/**"
       - "training/atuber/multitier_*.py"
       - "tests/test_octuber_finance_pipeline.py"
+      - "tests/test_octuber_finance.py"
       - "tests/test_atuber_multitier_qlora.py"
       - "tests/test_octuber_multitier.py"
       - ".github/workflows/octuber-finance.yml"
@@ -31,11 +33,14 @@ jobs:
           python-version: "3.11"
       - name: Syntax only (NO GPU or data download)
         run: |
-          python3 -m py_compile training/octuber-finance/pipeline.py
+          python3 -m compileall -q training/octuber-finance
           python3 -m py_compile training/atuber/multitier_plan.py
           python3 -m py_compile training/atuber/multitier_train.py
       - name: Synthetic finance and chronological holdout regression
-        run: python3 -m unittest discover -s tests -p 'test_octuber_finance_pipeline.py' -v
+        run: |
+          python3 -m unittest discover -s tests -p 'test_octuber_finance_pipeline.py' -v
+          python3 -m unittest discover -s tests -p 'test_octuber_finance.py' -v
+          python3 training/octuber-finance/train_tiers.py --tier all
       - name: CPU-only multi-tier training safety and permissions
         run: |
           python3 -m unittest discover -s tests -p 'test_atuber_multitier_qlora.py' -v

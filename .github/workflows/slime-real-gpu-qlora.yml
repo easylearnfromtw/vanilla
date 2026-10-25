@@ -125,7 +125,7 @@ jobs:
               f.write(f"- Qwen3 size: {report['model_size']}\n")
               f.write(f"- Optimizer steps: {report['actual_optimizer_steps']}\n")
               f.write(f"- GPU: {report['gpu_name']}\n")
-              f.write(f"- Adapter SHA-256: \`{report['adapter_sha256']}\`\n")
+              f.write(f"- Adapter SHA-256: {report['adapter_sha256']}\n")
               f.write("- Weights remain **only on the Owner GPU runner**. No upload or production deployment.\n")
           PY
       # Intentionally do not upload weights or potentially sensitive training

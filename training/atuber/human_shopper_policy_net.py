@@ -15,15 +15,17 @@ from human_shopper_sim import read_official_ndc
 CLASSES=["below-published-range","within-published-range","above-published-range"]
 
 def _split(rows):
- # Prevent learning/evaluating on the same named product over different days.
- tr,ev=[],[]
+ # Group by product name across every historical date and every category.
+ tr,val,holdout=[],[],[]
  for x in rows:
-  key=x["category"].casefold()+"\0"+x["product"].casefold()
+  key=x["product"].strip().casefold()
   bucket=int.from_bytes(hashlib.sha256(key.encode()).digest()[:4],"big")%100
-  (ev if bucket<20 else tr).append(x)
- if min(len(tr),len(ev))<200:raise ValueError("INSUFFICIENT_DISTINCT_PRICE_HISTORY")
- assert not {x["product"] for x in tr}&{x["product"] for x in ev}
- return tr,ev
+  (holdout if bucket<15 else val if bucket<30 else tr).append(x)
+ if min(len(tr),len(val),len(holdout))<200:
+  raise ValueError("INSUFFICIENT_DISTINCT_PRICE_HISTORY")
+ groups=[{r["product"].strip().casefold() for r in part} for part in (tr,val,holdout)]
+ assert not (groups[0]&groups[1] or groups[0]&groups[2] or groups[1]&groups[2])
+ return tr,val,holdout
 
 def _dataset(source,n,rng):
  features=np.empty((n,5),dtype=np.float32)
@@ -48,10 +50,11 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
   raise ValueError("POLICY_CASE_LIMIT")
  if not 20<=steps<=5000:raise ValueError("WEIGHT_STEP_LIMIT")
  source,digest,raw_rows=read_official_ndc(path)
- train_rows,heldout_rows=_split(source)
+ train_rows,validation_rows,heldout_rows=_split(source)
  rng=np.random.default_rng(20261025)
  x,y,distinct_train=_dataset(train_rows,train_cases,rng)
- z,expected,distinct_test=_dataset(heldout_rows,eval_cases,rng)
+ z,expected,distinct_validation=_dataset(validation_rows,eval_cases,rng)
+ holdout_x,holdout_labels,distinct_heldout=_dataset(heldout_rows,eval_cases,rng)
  weights=[
    rng.normal(0,.1,(5,24)).astype(np.float32),
    np.zeros(24,dtype=np.float32),
@@ -86,8 +89,9 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
    if acc>best_accuracy:
     best_accuracy=acc
     best_weights=[p.copy() for p in weights]
- # The test set is used here for checkpoint selection: the score is not
- # an untouched final generalization estimate. Report it as validation.
+ # Final heldout product labels have NEVER been used for optimizer or checkpoint selection.
+ holdout_pred=np.argmax(np.tanh(holdout_x@best_weights[0]+best_weights[1])@best_weights[2]+best_weights[3],axis=1)
+ holdout_accuracy=float(np.mean(holdout_pred==holdout_labels))
  trained_change=float(np.sqrt(sum(np.sum((a-b)**2) for a,b in zip(best_weights,first))))
  if trained_change<=0:raise RuntimeError("NEURAL_WEIGHTS_NOT_UPDATED")
  output=Path(output)
@@ -97,7 +101,7 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
  np.savez_compressed(model_file,w=best_weights[0],b=best_weights[1],
                      u=best_weights[2],c=best_weights[3])
  majority=Counter(y).most_common(1)[0][0]
- baseline_acc=float(np.mean(expected==majority))
+ baseline_acc=float(np.mean(holdout_labels==majority))
  report={
   "mode":"actual-neural-gradient-updates-on-synthetic-human-budget-labels",
   "model":"small-price-range-comparison-policy-not-a-market-forecast",
@@ -107,14 +111,18 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
   "source_distinct_products":len({r["product"] for r in source}),
   "train_examples_from_simulated_preferences":len(x),
   "validation_examples_from_unseen_product_names":len(z),
+  "test_examples_from_unseen_product_names":len(holdout_x),
   "underlying_unique_product_names_train":distinct_train,
-  "underlying_unique_product_names_validation":distinct_test,
+  "underlying_unique_product_names_validation":distinct_validation,
+  "underlying_unique_product_names_heldout":distinct_heldout,
   "actual_optimizer_steps":steps,
   "trainable_parameters":sum(p.size for p in best_weights),
   "weight_change_l2":round(trained_change,6),
   "range_decision_validation_accuracy":round(best_accuracy,6),
+  "range_decision_true_heldout_accuracy":round(holdout_accuracy,6),
   "majority_baseline_validation_accuracy":round(baseline_acc,6),
   "validation_used_for_checkpoint_selection":True,
+  "holdout_not_used_for_training_or_checkpoint_selection":True,
   "genuine_human_labels":0,
   "actual_biggo_feebee_lbj_training_quotes":0,
   "qwen_gradient_updates":0,

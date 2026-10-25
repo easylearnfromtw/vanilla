@@ -35,3 +35,31 @@ test("Slash command actually expands to CITYMUS route",async()=>{
  assert.ok(matchSlashCommands("/音").some(x=>x.cmd==="/音樂"));
  assert.equal(routeMessage(expandSlashCommand("/音樂").text,ctx).kind,"citymus");
 });
+
+test("CITYMUS falls back to verified metadata if deployed Pages library is unavailable",async()=>{
+ const originalFetch=globalThis.fetch;
+ const paths=[];
+ globalThis.fetch=async(input)=>{
+  const url=String(input);paths.push(url);
+  if(url.includes("/api/search"))return new Response(JSON.stringify({query:"推薦爵士音樂",total:2500,matched:0,tracks:[],attribution:{label:"Powered by CITYMUS"}}),{status:200});
+  if(url.includes("/citymus-library.js"))return new Response("Not found",{status:404});
+  if(url.includes("/data/legal_music_library.json"))return new Response(JSON.stringify({tracks:[
+   {id:"verified-1",title:"Verified Jazz Demo",artist:"Verified Artist",genre:"jazz",license:"CC0",source:"https://example.org/track"},
+   {id:"verified-2",title:"Classical Demo",artist:"Verified Composer",genre:"classical",license:"CC BY",source:"https://example.org/work"}
+  ]}),{status:200});
+  throw Error("Unexpected fetch "+url);
+ };
+ try{
+  const {searchCitymus}=await import("../src/music/citymus.ts");
+  const report=await searchCitymus("推薦爵士音樂");
+  assert.equal(report.via,"public-catalog");
+  assert.equal(report.total,2);
+  assert.equal(report.tracks.length,1);
+  assert.equal(report.tracks[0].title,"Verified Jazz Demo");
+  assert.equal(report.tracks[0].sourceUrl,"https://example.org/track");
+  assert.ok(paths.some(url=>url.includes("citymus-library.js")));
+  assert.ok(paths.some(url=>url.includes("legal_music_library.json")));
+  const miss=await searchCitymus("完全沒有的歌曲_zzxyx");
+  assert.equal(miss.tracks.length,0);
+ }finally{globalThis.fetch=originalFetch;}
+});

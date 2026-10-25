@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.13-bluestar-press",
-  "description": "藍星報社正式版：台灣、中國、日本、韓國、美國新聞來源索引、GDELT 即時搜尋、20 年史料檔案與 OCTUBER 資料權利門檻。新聞全文訓練尚未完成。"
+  "build": "2026.10.25.14-xiahai-bilingual-evidence",
+  "description": "霞海書院既有的1000篇PMCID與3000段原文節錄引用保留，新增部分繁中關鍵字、完整單字比對、生成後程式核對的PMC/作者/授權/段落來源回條。引用可追溯不等於醫療建議已驗證；未執行Qwen或OCTUBER GPU微調。"
 }

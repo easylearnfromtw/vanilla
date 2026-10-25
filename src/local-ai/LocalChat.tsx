@@ -754,6 +754,7 @@ async function send(value=draft):Promise<void>{
   return;
  }
  let xiahaiGrounding="";
+ let xiahaiSourceFooter="";
  const actualResearchQuestion=!image&&!fileName&&!fileContext?parseXiahaiEvidenceQuestion(question):null;
  if(actualResearchQuestion){
   if(privateMode){toolReply(question,"私密模式不向網站讀取學術資料。請切換一般模式後再啟用霞海原文檢索。","privacy");return;}
@@ -765,13 +766,14 @@ async function send(value=draft):Promise<void>{
     toolReply(question,"霞海書院已建立 1,000 篇正式來源，但沒有找到符合這項研究問題的可核對原文節錄。請換成英文關鍵詞；不會編造 DOI 或研究發現。","research");return;
    }
    xiahaiGrounding=xiahaiPromptContext(actualResearchQuestion,hits);
+   xiahaiSourceFooter=xiahaiVerifiedSourceFooter(hits);
   }catch(error){
    toolReply(question,"霞海全文證據未能取得，未向模型提供虛構原文："+String(error instanceof Error?error.message:error),"research");return;
   }finally{setBusy(false);}
   // Explicit, fully retrieved scholarly evidence bypasses unrelated tool routes.
   // A normal model answers, with only bounded real excerpts in its context.
   if(!canReply){toolReply(question,"霞海已核對到論文證據，但目前沒有就緒的 AI 模型來解釋。請先載入阿土伯或連接已授權模型。","research");return;}
-  await answerWithModel(actualResearchQuestion,{inlineFileContext:"",webContext:"",webSources:[],xiahaiGrounding,citationFooter:xiahaiVerifiedSourceFooter(hits)},question);
+  await answerWithModel(actualResearchQuestion,{inlineFileContext:"",webContext:"",webSources:[],xiahaiGrounding,citationFooter:xiahaiSourceFooter},question);
   return;
  }
  setDetroitPlan(null);

@@ -323,15 +323,34 @@ def status(settings):
 def main():
     try:
         flags=set(sys.argv[1:])
-        if flags-{"--setup","--status","--leave","--reward","--gecko","--fleet","--help"} or len(flags)>1:
-            raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko、--fleet")
+        if flags-{"--setup","--status","--leave","--reward","--gecko","--fleet","--tools","--help"} or len(flags)>1:
+            raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko、--fleet、--tools")
         if "--help" in flags:
             print("Slime 下載 → 一次性邀請配對 → 授權後啟用 Ollama → Ctrl+C 停止共享")
             print("--status 查詢連線；--leave 退出並撤銷；--setup 顯示配對狀態")
             print("--reward 重新開啟 Google 節點獎勵領取頁")
             print("--gecko Owner 自願啟用同 LAN 安裝包鏡像和無 Telegram 配對")
             print("--fleet 由機房部署憑證將受管伺服器加入 Gecko，不輸入 Telegram 代碼")
+            print("--tools 僅此 Owner 電腦開啟本機 AI 模型與沙盤管理介面")
             return 0
+        # A local desktop function, never a remotely dispatched Slime task.
+        # Permit opening the offline Owner toolbox without pairing.
+        if "--tools" in flags:
+            if _role() != "owner":
+                raise ValueError("只有本機 Slime-Owner 才能開啟模型與沙盤工具")
+            local_sources=(
+                Path(__file__).resolve().parent/"slime_tools",
+                Path(__file__).resolve().parents[1]/"slime",
+            )
+            for directory in local_sources:
+                if directory.is_dir():
+                    sys.path.insert(0,str(directory))
+                    break
+            try:
+                from unified_tools_window import run_owner_tools
+            except ImportError:
+                raise ValueError("SLIME_OWNER_TOOLS_NOT_BUNDLED") from None
+            return run_owner_tools()
         config=_load()
         if "--reward" in flags and not config:
             print("請先完成 Slime 節點配對，才能領取 Google 獎勵。")

@@ -14,6 +14,8 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
+from local_model_window import open_local_model_window
+from sandbox_window import open_sandbox_window
 from urllib.parse import urlsplit, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -120,7 +122,7 @@ class SlimeApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Slime · " + ("我的電腦" if ROLE == "owner" else "朋友的電腦"))
-        self.geometry("530x430")
+        self.geometry("550x485")
         self.minsize(440, 380)
         self.configure(bg="#F5F7F3")
         self.profile = load()
@@ -159,6 +161,15 @@ class SlimeApp(tk.Tk):
         ttk.Checkbutton(self.connected, text="允許此裝置出現在可用資源池",
                         variable=self.sharing, command=self.beat).pack(anchor="w", pady=10)
         ttk.Button(self.connected, text="退出並撤銷配對", command=self.leave).pack(anchor="w", pady=8)
+        if ROLE == "owner":
+            # This opens a purely local Owner dialog; the server cannot trigger it.
+            ttk.Button(frame, text="本機工具 · AI 模型管理／LoRA 訓練",
+                       command=lambda: open_local_model_window(self, owner=True)).pack(
+                           fill="x", pady=(8, 2))
+        if ROLE == "owner":
+            ttk.Button(frame, text="本機工具 · 所有沙盤統一管理",
+                       command=lambda: open_sandbox_window(self, owner=True)).pack(
+                           fill="x", pady=(3, 2))
         ttk.Separator(frame).pack(fill="x", pady=(16, 12))
         ttk.Label(frame, textvariable=self.status, wraplength=455).pack(anchor="w")
         ttk.Label(frame, text="不會存取私人檔案、執行遠端指令、控制電源或自動開機。"

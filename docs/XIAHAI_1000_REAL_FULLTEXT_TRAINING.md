@@ -1,5 +1,25 @@
 # 霞海書院：1000 篇真正開放授權學術全文與訓練
 
+## 已實際完成的 2026-10-25 GitHub Actions 結果
+
+[完整實際運算 Workflow #40168229489](https://github.com/easylearnfromtw/vanilla/actions/runs/40168229489) **成功通過**。這不是 metadata 清單或人工假資料，而是官方 PMC OAI-PMH 真正傳回的 JATS article-body 內容：
+
+| 實測項目 | 真實執行結果 |
+| --- | ---: |
+| 不同 PMC ID 的論文全文 | **1,000 篇** |
+| 所有已存實際全文分段 | **41,796** |
+| 正文字符合計 | **40,674,048** |
+| 具 DOI 的全文論文 | **998** |
+| CC BY 4.0 | **997** |
+| CC BY 3.0 | **3** |
+| 真正的 CPU SGD optimizer steps | **250,000** |
+| 七參數更新總次數 | **1,750,000** |
+| train／validation／test 文章 | **797／110／93 篇** |
+| 93 篇未參與訓練的論文中的合成段落匹配準確率 | **99.987%** |
+| 實際 Qwen GPU LoRA 權重更新 | **0** |
+
+GitHub Actions artifact ID **12588893981**，包含 `xiahai-1000-licensed-paper-bodies.sqlite3`、報告，以及實際訓練出的 `passage-ranker.json`。這個結果驗證了**讀取原文、檢索建庫以及用原文片段做小型 CPU 模型實際訓練**。**99.987% 是合成段落相似性測試，不是任何健康、醫療、財經決策問答準確率，也沒有證明 Qwen 學會 1,000 篇論文**。
+
 ## 真正的執行／數量證據
 
 以美國國家醫學圖書館提供的 **PMC Open Access** 官方 OAI-PMH API `https://pmc.ncbi.nlm.nih.gov/api/oai/v1/mh/` 的 `set=pmc-open` 和 `metadataPrefix=pmc` 取回 JATS XML 的**文章 BODY，不只標題／摘要**。完整來源和權利以每篇 `PMC<數字>`、DOI、原作者及作品頁永久連結追蹤。

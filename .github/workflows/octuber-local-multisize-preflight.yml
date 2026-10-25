@@ -46,7 +46,7 @@ jobs:
           PY
       - name: Verify front-end local model probes, exact tag matching and hardware estimates
         run: |
-          npm ci --no-audit --no-fund
+          npm install --no-audit --no-fund
           npm run test:octuber-multisize
           npm run test:octuber-native
           npm run test:atuber-preflight

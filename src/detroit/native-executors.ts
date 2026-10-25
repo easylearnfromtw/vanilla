@@ -3,7 +3,7 @@
  */
 import {detroitBus} from "./capability-bus";
 import {searchLiveWeb} from "../search/live-search";
-import {parseCreamCSV,analyzeCream} from "../cream/core";
+import {registerDetroitCreamExecutor} from "./cream-native";
 import {createRetinaDocument,downloadRetina,type RetinaFormat} from "./retina";
 import {buildEmailTemplate,type EmailTemplateKind} from "../email/email-templates";
 import {promptLuna,parseLunaLibrary,lunaStorageKey,LUNA_MAX_PROJECTS} from "../luna/model";
@@ -44,10 +44,7 @@ export function registerDetroitNativeExecutors():void{
   if(ctx.privateMode)throw Error("私密模式不可搜尋外網");
   return searchLiveWeb(query);
  });
- detroitBus.register("cream",async(raw)=>{
-  const data=assertObject(raw),csv=limited(data.csv,2000000);
-  return analyzeCream(parseCreamCSV(csv,typeof data.source==="string"?data.source:"Detroit 匯入資料"));
- });
+ registerDetroitCreamExecutor();
  detroitBus.register("retina",async(raw)=>{
   const data=assertObject(raw);
   const title=limited(data.title,100),body=limited(data.body,160000);

@@ -44,9 +44,9 @@ class HumanShoppingSandbox(unittest.TestCase):
  def test_actual_retailer_is_explicit_not_aggregator(self):
   with tempfile.TemporaryDirectory() as tmp:
    input=Path(tmp)/"seller.csv"
-   write(input,[offer("seller-a","biggo","shopee",100),
-                offer("seller-b","feebee","coupang",110),
-                offer("seller-a","lbj","shopee",130)])
+   write(input,[offer("seller-a","biggo","shopee",100,freight="0"),
+                offer("seller-b","feebee","coupang",110,freight="0"),
+                offer("seller-a","lbj","shopee",130,freight="0")])
    with self.assertRaisesRegex(ValueError,"EXPLICIT_AUTHORIZED"):
     load_prices(input,"retail-offers")
    rows,_,count=load_prices(input,"retail-offers",ack_authorized=True)

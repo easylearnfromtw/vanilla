@@ -60,7 +60,7 @@ jobs:
               out.write(f'- Real distinct books: **{report["real_books_indexed"]}**\n')
               out.write(f'- Fulltext indexed chunks: **{report["actual_fulltext_chunks"]:,}**\n')
               out.write(f'- Original source text characters: **{report["source_text_characters"]:,}**\n')
-              out.write(f'- Historical nonfiction candidates: **{report["historical_nonfiction_candidates"]}**\n')
+              out.write(f'- Topic-keyword title matches (NOT reviewed nonfiction): **{report["historical_topic_keyword_matches"]}**\n')
               out.write('- Rights: jurisdiction/edition review still required. Qwen weight updates: **0**.\n')
           print("VERIFIED REAL BOOKS:",report["real_books_indexed"])
           print("VERIFIED REAL BOOK SEGMENTS:",report["actual_fulltext_chunks"])

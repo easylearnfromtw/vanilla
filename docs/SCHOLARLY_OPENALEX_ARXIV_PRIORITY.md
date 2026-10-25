@@ -25,6 +25,8 @@ For non-university-produced papers, verified recognized industry leaders, author
 - Python metadata source adapters and licensed corpus export: training/scholarly/prepare.py
 - Python priority policy: training/scholarly/priority.py
 - Browser-side reusable pure ranking module: src/search/scholarly-priority.ts
+- Browser OpenAlex discovery, citation ordering, CSV / audited exception import: src/search/scholarly-discovery.ts
+- Academic queries hook into src/search/live-search.ts; owners can import rankings and reviewed exceptions from the Search Settings panel
 - Node unit tests: tests/scholarly-priority.test.mjs
 
 ### Ranking CSV: owner-supplied
@@ -88,6 +90,8 @@ The outputs are: .index.jsonl with **every** indexed paper and citation weight; 
 
 The CLI is a limited pilot, not a million-paper harvester. For 100K–10M papers, deploy a permitted server-side cursor/OAI-PMH sync, database/object storage, deduplication, licensing review, retry/resume and GPU training separately. arXiv HTTPS availability depends on network and endpoint; do not fall back to plain HTTP.
 
-**Not yet performed:** importing a complete QS ranking table, mass fulltext retrieval, live Vanilla chat RAG integration, scheduled sync, or 0.6B / 4B / 14B / 30B fine-tuning.
+**Now implemented on the feature branch:** academically scoped live OpenAlex metadata lookup through Vanilla's existing search route, arXiv location detection as preprint status, locally stored operator CSV rankings and reviewed non-university authority JSONL. These are metadata citations; none imply that the PDF was obtained or read. The branch must pass CI and merge to go live.
+
+**Not yet performed:** importing a complete licensed QS ranking table, mass fulltext retrieval, a production fulltext/vector RAG backend, scheduled sync, direct arXiv Atom lookup from the static browser (CORS), or 0.6B / 4B / 14B / 30B GPU fine-tuning.
 
 Sources: https://help.openalex.org/data/works/ ; https://help.openalex.org/data/locations/ ; https://info.arxiv.org/help/bulk_data.html ; https://info.arxiv.org/help/license/index.html ; https://www.topuniversities.com/world-university-rankings

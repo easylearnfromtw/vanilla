@@ -53,7 +53,7 @@ class FinanceReleaseGate(unittest.TestCase):
             approved, artifact, _ = self.fixture(Path(td))
             result = gate.validate(approved, {"0.6b": artifact})
             self.assertFalse(result["production_release_authorized"])
-            self.assertFalse(result["independent_finance_benchmark_passed"])
+            self.assertFalse(result["independent_financial_benchmark_passed"])
             self.assertFalse(result["all_five_artifacts_present"])
             self.assertEqual(len(result["missing_tiers"]), 4)
             self.assertEqual(result["sixty_b"], "NOT_SUPPORTED_BY_THIS_TRAINER")

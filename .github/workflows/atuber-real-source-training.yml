@@ -1,0 +1,77 @@
+name: Atuber Real Book Metadata SGD
+on:
+  pull_request:
+    paths:
+      - 'training/atuber-books/liuan_metadata_ranker_input.py'
+      - 'training/atuber-books/fuzzy_relevance_train.py'
+      - 'tests/test_liuan_metadata_ranker_training.py'
+      - '.github/workflows/atuber-real-source-training.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/atuber-books/liuan_metadata_ranker_input.py'
+      - 'training/atuber-books/fuzzy_relevance_train.py'
+      - '.github/workflows/atuber-real-source-training.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  train-real-source-metadata-ranker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify training data source and rights boundary
+        run: |
+          python3 -m unittest discover -s tests -p 'test_liuan_metadata_ranker_training.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_hybrid_relevance.py' -v
+      - name: Build exactly 100 real titles and authors as factual metadata input
+        run: |
+          python3 training/atuber-books/liuan_metadata_ranker_input.py \
+            --source src/knowledge/liuan-historical-100.ts \
+            --index "$RUNNER_TEMP/liuan-100-metadata.sqlite3" --execute
+      - name: Actually train 1000000 source relevance SGD steps
+        timeout-minutes: 10
+        run: |
+          python3 training/atuber-books/fuzzy_relevance_train.py \
+            --index "$RUNNER_TEMP/liuan-100-metadata.sqlite3" \
+            --output "$RUNNER_TEMP/liuan-100-real-metadata-ranker" \
+            --steps 1000000 --execute
+      - name: Verify actual SGD steps, weights and heldout evaluation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os, hashlib, math
+          root=Path(os.environ["RUNNER_TEMP"])/"liuan-100-real-metadata-ranker"
+          report=json.loads((root/"report.json").read_text())
+          model=json.loads((root/"ranker.json").read_text())
+          assert report["unique_source_books"]==100
+          assert report["optimizer_steps_completed"]==1000000
+          assert report["scalar_parameter_updates"]==7000000
+          assert report["qwen_october_llm_weight_updates"]==0
+          assert report["full_book_llm_gradient_steps"]==0
+          assert report["holdout_pairs"]>=30
+          assert all(math.isfinite(float(x)) for x in model["weights"])
+          assert any(abs(x)>0.01 for x in model["weights"])
+          assert report["weights_sha256"]==hashlib.sha256((root/"ranker.json").read_bytes()).hexdigest()
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as out:
+            out.write("## 柳岸書城 100 本來源 — 實際 CPU SGD（非 LLM）\n")
+            out.write(f'- Optimizer steps: {report["optimizer_steps_completed"]:,}\n')
+            out.write(f'- Weight updates: {report["scalar_parameter_updates"]:,}\n')
+            out.write(f'- Real book metadata records: {report["unique_source_books"]}\n')
+            out.write(f'- Heldout synthetic pairs: {report["holdout_pairs"]}\n')
+            out.write(f'- Heldout accuracy before and after: {report["holdout_before"]["accuracy"]}, {report["holdout_after"]["accuracy"]}\n')
+            out.write('- Qwen GPU/LLM training steps: 0. Real book fulltext was NOT used to update model weights.\n')
+          print("VERIFIED_METADATA_SGD_STEPS",report["optimizer_steps_completed"])
+          print("VERIFIED_HELDOUT_ACCURACY",report["holdout_after"]["accuracy"])
+          PY
+      - name: Preserve trained tiny weights, metadata and real evaluation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: liuan-100-actual-metadata-sgd-checkpoint
+          path: ${{ runner.temp }}/liuan-100-real-metadata-ranker/
+          if-no-files-found: error
+          retention-days: 30

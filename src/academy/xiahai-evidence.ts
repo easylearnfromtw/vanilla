@@ -8,8 +8,24 @@ export type Hit={paper:Paper;passages:Passage[];score:number};
 type Manifest={schema:string;paper_count:number;papers:Paper[]};
 // Generic scientific boilerplate must never count as direct passage evidence.
 const STOP=new Set(["the","and","are","was","for","with","from","this","that","study","research","paper","does","what","which","when","how","tell","about","their","using","effects","result","clinical","answer","based","can","could","have","been","were","other","there","these","also","more","some","results","after","before","medical","health","evidence","analysis","review","reviews","systematic"]);
+// Narrow, auditable Chinese keyword aliases only. No machine-translation
+// guesses, no invisible transfer of a consumer's question to an outside API.
+const LEXICON:Array<readonly [string,string]>= [
+ ["糖尿病","diabetes"],["白內障","cataract"],["頭暈","dizziness"],
+ ["乳癌","breast"],["乳腺癌","breast"],["癌症","cancer"],
+ ["高血壓","hypertension"],["憂鬱","depression"],["抑鬱","depression"],
+ ["體溫","temperature"],["直腸溫度","rectal"],
+ ["失眠","insomnia"],["睡眠","sleep"],["胰島素","insulin"],
+ ["營養","nutrition"],["基因","genetic"],["遺傳","genetic"],
+ ["血栓","thromboembolism"],["新冠","covid"],["人工智慧","artificial"],
+ ["機器學習","machine"],["自閉症","autism"],["月經","menstruation"],
+ ["肥胖","obesity"],["微小頭症","microcephaly"],
+ ["嬰兒","infants"],["心臟","cardiac"]
+];
 function words(raw:string):string[]{
- return [...new Set((raw.toLowerCase().match(/[a-z][a-z-]{2,}/g)||[]).filter(x=>!STOP.has(x)))].slice(0,16);
+ const english=(raw.toLowerCase().match(/[a-z][a-z-]{2,}/g)||[]).filter(x=>!STOP.has(x));
+ const chinese=LEXICON.filter(([zh])=>raw.includes(zh)).map(([,en])=>en);
+ return [...new Set([...english,...chinese])].slice(0,16);
 }
 function lexicalMatch(word:string,lexicon:Set<string>):boolean{
  // Strict complete-word match prevents "stent" matching "persistent".

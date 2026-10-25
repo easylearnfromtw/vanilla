@@ -39,10 +39,10 @@ def local(tag):
  return tag.rsplit("}",1)[-1].lower()
 
 def tagged(node,name):
- return next((x for x in node.iter() if local(x.tag)==name),None)
+ return next((x for x in node.iter() if local(x.tag)==name.lower()),None)
 
 def children(node,name):
- return [x for x in node.iter() if local(x.tag)==name]
+ return [x for x in node.iter() if local(x.tag)==name.lower()]
 
 def text(node):
  return re.sub(r"\s+"," ","".join(node.itertext())).strip() if node is not None else ""

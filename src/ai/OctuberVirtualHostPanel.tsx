@@ -88,8 +88,14 @@ export default function OctuberVirtualHostPanel(){
     <option value="60b">僅 60B</option>
    </select>
   </label>
-  <label>模擬排程步數：{steps}
-   <input type="range" min={5} max={100} step={5} value={steps} onChange={event=>{setSteps(Number(event.target.value));setReport(null);}}/>
+  <label>模擬排程步數：{steps.toLocaleString("en-US")}
+   <select value={steps} onChange={event=>{setSteps(Number(event.target.value));setReport(null);}}>
+    <option value={20}>20 次（快速）</option>
+    <option value={100}>100 次</option>
+    <option value={1000}>1,000 次</option>
+    <option value={10000}>10,000 次</option>
+    <option value={100000}>100,000 次（僅排程模擬）</option>
+   </select>
   </label>
   <label style={{display:"flex",alignItems:"center",gap:8}}>
    <input type="checkbox" checked={fault} onChange={event=>{setFault(event.target.checked);setReport(null);}}/>
@@ -109,6 +115,7 @@ export default function OctuberVirtualHostPanel(){
    </div>)}
   </div>}
   <p role="status">{message}</p>
-  <small>虛擬 96 GiB 只是一個假設配置，並不是實際提供的 GPU。模擬的步數不代表反向傳播、效能測量、模型損失改善或訓練已完成。完整故障事件、元資料檢查點與人工審核資料檢查請在電腦用 Python 沙盤執行。</small>
+  <p><a href="https://github.com/easylearnfromtw/vanilla/blob/main/training/octuber-gpu-sandbox/core_sandbox.py" target="_blank" rel="noreferrer">查看阿土伯式核心：10 萬次真實微型 CPU 梯度測試程式</a></p>
+  <small>虛擬 96 GiB 只是一個假設配置，並不是實際提供的 GPU。畫面選擇 10 萬次只表示排程計數，並不在瀏覽器執行 10 萬次神經網路梯度。另有 CLI 可實際更新 72 參數的微型替身核心；該測試不能證明 0.6B／30B／60B 訓練完成。完整故障事件、元資料檢查點與人工審核資料檢查請在電腦用 Python 沙盤執行。</small>
  </section>;
 }

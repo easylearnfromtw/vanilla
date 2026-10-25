@@ -128,3 +128,23 @@ python3 training/atuber-books/licensed_content.py \
 這種全文檢索稱為 RAG，**不等於 LLM 權重訓練**。若要讓 0.6B 的 LoRA 權重真正學會內容，需要人工確認原文、撰寫並審核有證據的 Q&A，交現有 training/octuber-knowledge/review.py 審查並轉為 SFT 資料，再由 Owner 在 CUDA 主機上執行 training/atuber/train.py，產生可驗證的 adapter 和保留集評測報告。當前 QLoRA 管線單次最高 5,000 步；不能拿此次小分類器的一百萬步替代。4B／14B／30B 權重不會因 GitHub CI 訓練而自動更新。
 
 提醒：[Project Gutenberg 授權政策](https://www.gutenberg.org/policy/license) 有美國與其他法域差別，也有經授權上架但非公版的書。臺灣使用者必須個別確認正文、譯文、版本及訓練權利，不得看到公開書目便假定所有正文都能使用。
+
+
+### 3. 正文訓練沙盤：兩本公版歷史著作，另一組 100 萬次小模型 SGD
+
+為了不把「一百萬次書名分類更新」冒充「書內知識學習」，增加第二組 **真正取自正文**的沙盤參數訓練：兩本逐本核對來源的古典著作（Adam Smith 原文國富論，PG #3300；W. K. Marriott 1908 英譯君主論，PG #1232）。下載限定上述兩份官方 Gutenberg 純文字檔，保留 Gutenberg 授權文字，全文放在臨時/私有資料夾，不把原文提交 GitHub。PG 標示美國公有領域；國際使用仍須核對個別作品、譯本和所在地法域。
+
+~~~bash
+# 先預覽不連網
+python3 training/atuber-books/public_domain_pilot.py \
+  --output training/data/historical-books-pilot
+# 明確啟動：共兩個指定來源 HTTP GET，下載原文、建索引、留下 SHA256
+python3 training/atuber-books/public_domain_pilot.py \
+  --output training/data/historical-books-pilot --execute
+# 另一組 1M 次真正的**正文詞彙分類器**數值梯度更新
+python3 training/atuber-books/content_weight_sandbox.py \
+  --index training/data/historical-books-pilot/approved_content.sqlite3 \
+  --output training/data/content-sgd-1m --steps 1000000 --execute
+~~~
+
+此第二組小模型的標籤是「這個段落來自哪一本書」；評估未參與訓練的段落是否能辨識其來源。它能學到書內詞彙、措辭的統計特徵，**不是**推導書內經濟原理、財務知識、投資建議或哲學論證；同一本書不同段落分到 train/test 的測試還有作品風格與語料洩漏限制。輸出內容權重與前後測報告，但 LoRA、0.6B／4B／14B／30B 語言模型權重更新一律記為零。若希望模型真正將內容轉成可問答的能力，應以這套私有有引文 RAG 加上人工審核的書本 Q&A 訓練、獨立保留書本測試與 CUDA QLoRA 驗證。

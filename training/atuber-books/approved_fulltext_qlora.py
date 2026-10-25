@@ -48,6 +48,9 @@ def audit(index:Path,required_approved:int=20)->dict:
         ids={b[0] for b in books}
         if len(ids)!=len(books):
             raise ValueError("FULLTEXT_BOOK_IDS_DUPLICATED")
+        if any(basis not in {"owned","permission","compatible-license"}
+               or reviewer.startswith("automated") for _,_,basis,_,reviewer,_ in books):
+            raise ValueError("CANDIDATE_PUBLIC_DOMAIN_NOT_HUMAN_RIGHTS_REVIEWED")
         if any(not ident or not title or not basis or not reference or not reviewer
                or not isinstance(content_sha,str) or len(content_sha)!=64
                for ident,title,basis,reference,reviewer,content_sha in books):

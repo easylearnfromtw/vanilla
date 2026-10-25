@@ -1,0 +1,79 @@
+name: Liuan 100 Real Historical Books
+on:
+  pull_request:
+    paths:
+      - 'training/atuber-books/liuan_100_real_books.py'
+      - 'training/atuber-books/approved_fulltext_qlora.py'
+      - 'tests/test_liuan_100_real_books.py'
+      - '.github/workflows/liuan-100-real-books.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/atuber-books/liuan_100_real_books.py'
+      - '.github/workflows/liuan-100-real-books.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-100-real-books:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline real-text safeguards
+        run: |
+          python3 -m unittest discover -s tests -p 'test_liuan_100_real_books.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_fulltext_qlora_audit.py' -v
+      - name: Install only Parquet reader
+        run: python3 -m pip install --disable-pip-version-check pyarrow==21.0.0
+      - name: Actually retrieve one or more bounded non-Gutenberg shards and index 100 distinct real complete books
+        timeout-minutes: 40
+        run: |
+          python3 training/atuber-books/liuan_100_real_books.py \
+            --index "$RUNNER_TEMP/liuan100-historical.sqlite3" \
+            --catalog "$RUNNER_TEMP/liuan100-books.json" \
+            --report "$RUNNER_TEMP/liuan100-report.json" \
+            --max-shards 8 --execute
+      - name: Audit 100 titles, fulltext chunks, source URLs and no neural training permission
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,sqlite3
+          base=pathlib.Path(os.environ["RUNNER_TEMP"])
+          report=json.loads((base/"liuan100-report.json").read_text())
+          rows=json.loads((base/"liuan100-books.json").read_text())
+          assert report["real_books_indexed"]==100
+          assert report["actual_fulltext_chunks"]>=1000
+          assert len(rows)==100 and len(set(b["source_url"] for b in rows))==100
+          assert all(b["rights_status"]=="jurisdiction-and-edition-review-required"
+                     and b["training_permission"] is False for b in rows)
+          with sqlite3.connect(base/"liuan100-historical.sqlite3") as db:
+              assert db.execute("SELECT COUNT(*) FROM books").fetchone()[0]==100
+              assert db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]==report["actual_fulltext_chunks"]
+              assert db.execute("SELECT COUNT(*) FROM books WHERE rights_basis='rights-review-required'").fetchone()[0]==100
+              for body,digest in db.execute("SELECT body,body_sha256 FROM chunks LIMIT 50"):
+                  assert hashlib.sha256(body.encode()).hexdigest()==digest
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as out:
+              out.write("## 柳岸書城｜100 本真正全文（歷史候選）\n")
+              out.write(f'- Real distinct books: **{report["real_books_indexed"]}**\n')
+              out.write(f'- Fulltext indexed chunks: **{report["actual_fulltext_chunks"]:,}**\n')
+              out.write(f'- Original source text characters: **{report["source_text_characters"]:,}**\n')
+              out.write(f'- Topic-keyword title matches (NOT reviewed nonfiction): **{report["historical_topic_keyword_matches"]}**\n')
+              out.write('- Rights: jurisdiction/edition review still required. Qwen weight updates: **0**.\n')
+          print("VERIFIED REAL BOOKS:",report["real_books_indexed"])
+          print("VERIFIED REAL BOOK SEGMENTS:",report["actual_fulltext_chunks"])
+          print("STAGING RIGHTS STATUS:",report["copyright_training_grant"])
+          PY
+      - name: Preserve actual 100-book private staging index and source catalogue for owner
+        uses: actions/upload-artifact@v4
+        with:
+          name: liuan-100-real-historical-fulltext-index
+          path: |
+            ${{ runner.temp }}/liuan100-historical.sqlite3
+            ${{ runner.temp }}/liuan100-books.json
+            ${{ runner.temp }}/liuan100-report.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 1

@@ -65,3 +65,17 @@ test("paper lookup requires OpenAlex ID/DOI and does not claim reviewed findings
   assert.match(response,/"priority":1/);
  }finally{globalThis.fetch=previous;}
 });
+
+import {LIUAN_VERIFIED_HISTORICAL_BOOKS,LIUAN_INDEX_REPORT} from "../src/knowledge/liuan-historical-100.ts";
+test("柳岸書城 static page references 100 actually indexed longform historical books",()=>{
+ assert.equal(LIUAN_VERIFIED_HISTORICAL_BOOKS.length,100);
+ assert.equal(new Set(LIUAN_VERIFIED_HISTORICAL_BOOKS.map(([id])=>id)).size,100);
+ for(const [id,title,author] of LIUAN_VERIFIED_HISTORICAL_BOOKS){
+  assert.ok(/^\d+$/.test(id)&&Number(id)>0,"Gutenberg source IDs required");
+  assert.ok(title.trim().length>=5&&author.includes(","),"grounded named author/title required: "+id);
+ }
+ assert.equal(LIUAN_INDEX_REPORT.books,100);
+ assert.equal(LIUAN_INDEX_REPORT.textChunks,37950);
+ assert.equal(LIUAN_INDEX_REPORT.fulltextHostedOnPublicWebsite,false);
+ assert.equal(LIUAN_INDEX_REPORT.rights,"jurisdiction-and-edition-review-required");
+});

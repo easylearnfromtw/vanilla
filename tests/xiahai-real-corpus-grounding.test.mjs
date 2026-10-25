@@ -20,7 +20,9 @@ const studies=[
  {query:'rectal temperature',expected:'PMC7618561'},
  {query:'breast cancer',expected:'PMC4445249'},
  {query:'depression hypertension',expected:'PMC7618362'},
- {query:'Zika microcephaly',expected:'PMC7618589'}
+ {query:'Zika microcephaly',expected:'PMC7618589'},
+ {query:'糖尿病 MODY',expected:'PMC7618620'},
+ {query:'白內障 頭暈',expected:'PMC4949987'}
 ];
 test('public deployment package is 1000 real attributed papers and 3000 traceable short passages',()=>{
  assert.equal(manifest.schema,'xiahai-verified-1000-evidence-v1');
@@ -54,7 +56,7 @@ test('handpicked independent topics only route to published, query-related actua
   assert.ok(ctx.includes(exact.passages[0].chunk_id));
   confirmed++;
  }
- assert.equal(confirmed,6);
+ assert.equal(confirmed,8);
 });
 test('refuses unrelated or overly broad clinical question without quotable direct evidence',()=>{
  assert.equal(rankXiahaiPapers(manifest.papers,'',8).length,0);

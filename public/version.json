@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.11-xiahai-1000-real-pmc-fulltexts",
-  "description": "霞海書院已實際建立1000篇PMC開放授權論文全文、41,796段可追溯正文，對原文段落執行250,000次CPU SGD檢索訓練。Qwen CUDA微調尚未執行，網頁目前仍使用OpenAlex即時書目搜尋。"
+  "build": "2026.10.25.12-xiahai-verified-evidence-rag",
+  "description": "霞海書院 1,000 篇真實 PMC 全文經 GitHub Actions 驗證 41,796 段 SHA256，精簡 3,000 段 CC BY 來源節錄分 10 卷供網站引用；對話需明確使用「霞海全文」才將已索引證據加入阿土伯提示。這是 RAG 不是新的 Qwen GPU 權重訓練；未完成方法學人工評讀。"
 }

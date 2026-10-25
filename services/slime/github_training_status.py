@@ -75,14 +75,17 @@ def normalize_runs(raw:dict)->dict:
         if not isinstance(run,dict):
             continue
         name=run.get("name")
-        if name not in TRAINING_TYPES:
+        if not isinstance(name,str) or name not in TRAINING_TYPES:
             continue
         rid=run.get("id")
         if type(rid) is not int or not RUN_ID.fullmatch(str(rid)) or rid in seen:
             continue
         status=run.get("status")
         conclusion=run.get("conclusion")
-        if status not in VALID_STATUS or conclusion not in VALID_CONCLUSION:
+        if (not isinstance(status,str) or status not in VALID_STATUS or
+            conclusion is not None and (not isinstance(conclusion,str) or conclusion not in VALID_CONCLUSION)):
+            continue
+        if conclusion not in VALID_CONCLUSION:
             continue
         sha=run.get("head_sha")
         if not isinstance(sha,str) or not COMMIT.fullmatch(sha):

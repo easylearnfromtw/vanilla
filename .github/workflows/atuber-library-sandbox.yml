@@ -162,7 +162,11 @@ jobs:
           r=search(root/"atuber-hybrid-library.sqlite3","division of labor",5,root/"atuber-relevance/ranker.json")
           assert any(x["citation_scope"]=="original-text-passage" for x in r["items"])
           s=search(root/"atuber-hybrid-library.sqlite3","股票投資",5,root/"atuber-relevance/ranker.json")
-          assert s["items"] and all(x["availability"]=="metadata-only" for x in s["items"])
+          assert s["items"] and any(x["source_scope"]=="catalogue-dataset" for x in s["items"])
+          assert all(x["availability"]=="metadata-only" and x["evidence"] is None
+                     for x in s["items"] if x["source_scope"]=="catalogue-dataset")
+          assert all(x["evidence"] is not None
+                     for x in s["items"] if x["citation_scope"]=="original-text-passage")
           print("Raw unique catalogue records:",library["catalogue_only_records"])
           print("Actual full-text works:",library["rights_cleared_fulltext_books"])
           print("Indexed text chunks:",library["fulltext_passages"])

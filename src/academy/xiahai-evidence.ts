@@ -58,7 +58,7 @@ export function rankXiahaiPapers(papers:Paper[],query:string,limit=8):Array<{pap
  */
 export function scoreXiahaiPassage(query:string,excerpt:string):{score:number;matched_terms:string[]}|null{
  const q=words(query);
- if(!q.length||excerpt.length<60||excerpt.length>260)return null;
+ if(!q.length||Array.from(excerpt).length<60||Array.from(excerpt).length>260)return null;
  const canonical=(term:string):string=>term.length>=5&&term.endsWith("s")&&!term.endsWith("ss")?term.slice(0,-1):term;
  const terms=new Set((excerpt.toLowerCase().match(/[a-z][a-z-]{2,}/g)||[]).map(canonical));
  const matched=q.filter(word=>terms.has(canonical(word)));
@@ -116,7 +116,7 @@ export function formatXiahaiEvidence(hits:Hit[]):string{
  }).join("\n\n")+"\n\n註：只提供原文證據定位，不表示論文結果成立、適用個人診療或已進行 Qwen GPU 微調。";
 }
 export function xiahaiPromptContext(query:string,hits:Hit[]):string{
- if(!hits.length)return "霞海書院 1000 篇全文公開的短節錄中沒有與問題足夠匹配的段落；只找到相關文章標題不構成證據。不得編造論文結論或 DOI。";
+ if(!hits.length)return "霞海書院 1000 篇全文公開的短節錄中無符合問題、且文字重合足夠的段落；只找到相關文章標題不構成證據。不得編造論文結論或 DOI。";
  const blocks=hits.slice(0,5).map((h,i)=>{
   const p=h.paper;
   return "["+(i+1)+"] "+p.title+"\n作者："+p.authors.slice(0,5).join("、")+

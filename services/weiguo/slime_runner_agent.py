@@ -350,7 +350,7 @@ def run(*, server=None, token=None, stop_event=None, allow_power_off=None):
                 if not models:
                     print("Ollama 沒有已下載的模型；30 秒後重試，不輪詢遠端任務。")
                     last_register=0
-                    time.sleep(30)
+                    if pause(30): return
                     continue
                 _register(server,token,models)
                 last_register=now

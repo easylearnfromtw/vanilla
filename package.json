@@ -11,7 +11,7 @@
     "test:builder": "node --experimental-strip-types --test tests/builder.test.mjs",
     "test:assistant": "node --experimental-strip-types --test tests/assistant.test.mjs",
     "test:security": "node --experimental-strip-types --test tests/security-language.test.mjs",
-    "test:local-chat": "node --experimental-strip-types --test tests/local-chat.test.mjs tests/knowledge-source-contract.test.mjs",
+    "test:local-chat": "node --experimental-strip-types --test tests/local-chat.test.mjs tests/knowledge-source-contract.test.mjs tests/xiahai-evidence-qa.test.mjs",
     "test:model-download": "node --experimental-strip-types --test tests/model-download-watchdog.test.mjs tests/model-download-diagnostics.test.mjs tests/octuber-fast-download.test.mjs",
     "test:webllm-guard": "node --experimental-strip-types --test tests/webllm-request-guard.test.mjs tests/atuber-frame-pressure.test.mjs",
     "test:capabilities": "node --experimental-strip-types --test tests/capability-report.test.mjs",

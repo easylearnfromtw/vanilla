@@ -27,9 +27,9 @@ WORDS = {
     "philosophy": ("哲學", "倫理學", "存在主義", "形上學", "知識論", "邏輯哲學", "philosoph", "ethics", "metaphysic", "epistemolog", "existentialism"),
 }
 ALIASES = {
-    "title": ("題名", "書名", "正題名", "主題名", "title", "245$a$d", "245$a", "書名(245$a$d)", "書名 (245$a$d)", "mainTitle"),
+    "title": ("題名", "書名", "正題名", "主題名", "title", "245$a$d", "245$a", "書名 (245$a$b)", "書名(245$a$b)", "書名(245$a$d)", "書名 (245$a$d)", "mainTitle"),
     "author": ("作者", "編著者", "著者", "作者(Name)", "creator", "245$c", "編著者(245$c)", "編著者 (245$c)"),
-    "isbn": ("isbn", "isbn (020$a)", "020$a"),
+    "isbn": ("isbn", "isbn (020$a)", "isbn (020$a$c)", "020$a$c", "020$a"),
     "year": ("出版年", "出版年份", "年度", "出版年月", "createdyear", "008/07-10", "出版年(008/07-10)", "出版年 (008/07-10)"),
     "subject": ("主題", "主題詞", "關鍵字", "分類名稱", "subject", "keywords", "650$a"),
     "language": ("語文", "語文別", "語言", "language", "008/35-37"),

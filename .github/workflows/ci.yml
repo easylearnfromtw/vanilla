@@ -29,6 +29,8 @@ jobs:
           npm run test:weiguo
           npm run test:weiguo-auth-ui
           npm run test:detroit
+          npm run test:october-professional
+          npm run eval:october-professional
           npm run test:detroit-bus
           npm run test:diana
           npm run test:awesome-go
@@ -121,5 +123,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: detroit-core-gate
-          path: artifacts/core-release-gate.json
+          path: |
+            artifacts/core-release-gate.json
+            artifacts/october-professional-150k/summary.json
+            artifacts/october-professional-150k/episodes.jsonl
+            artifacts/october-professional-150k/candidate-review-queue.jsonl
           if-no-files-found: ignore

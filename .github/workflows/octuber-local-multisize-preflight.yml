@@ -1,0 +1,53 @@
+name: October Qwen3 seven-size local CPU preflight
+on:
+  pull_request:
+    branches: [main, feature/octuber-language-qlora-price-cream-detroit-20261025]
+    paths:
+      - "training/atuber/multisize_registry.py"
+      - "training/atuber/multisize_train.py"
+      - "src/ai/octuber-local-runtimes.ts"
+      - "src/ai/atuber-control-plane.ts"
+      - "src/ai/ollama.ts"
+      - "src/local-ai/LocalModelPanel.tsx"
+      - "scripts/atuber-runtime-preflight.mjs"
+      - "tests/test_atuber_multisize.py"
+      - "tests/octuber-multisize-local.test.mjs"
+      - "package.json"
+      - ".github/workflows/octuber-local-multisize-preflight.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-seven-sizes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate no implicit full-model weight downloads or unauthorized training
+        run: |
+          python -m py_compile training/atuber/multisize_registry.py training/atuber/multisize_train.py
+          python -m unittest discover -s tests -p 'test_atuber_multisize.py' -v
+          python -m unittest discover -s tests -p 'test_atuber_price_tool_sft.py' -v
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          m=json.loads(Path("models/atuber/manifest.json").read_text())
+          assert m["release_state"]=="bootstrap-only"
+          assert m["standalone_weights"] is None
+          print("VALID_QWEN3_LOCAL_SIZES",7)
+          print("ACTUAL_QWEN_LORA_UPDATES",0)
+          print("ADAPTER_WEIGHTS_CREATED",0)
+          PY
+      - name: Verify front-end local model probes, exact tag matching and hardware estimates
+        run: |
+          npm ci --no-audit --no-fund
+          npm run test:octuber-multisize
+          npm run test:octuber-native
+          npm run test:atuber-preflight
+          npm run build

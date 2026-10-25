@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.25.13-bluestar-press";
+export const VANILLA_BUILD="2026.10.25.14-xiahai-grounded-quote-gate";

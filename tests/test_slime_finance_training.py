@@ -153,7 +153,7 @@ class FinanceOwnerBridgeTests(unittest.TestCase):
         self.assertFalse(Path(result["output"]).exists())
         cmd = spawned.call_args.args[0]
         self.assertEqual(cmd[0], sys.executable)
-        self.assertEqual(Path(cmd[1]), repo / "training/octuber-finance/train_tiers.py")
+        self.assertEqual(Path(cmd[1]).resolve(), (repo / "training/octuber-finance/train_tiers.py").resolve())
         self.assertIn("--train", cmd)
         self.assertNotIn("--allow-model-download", cmd)
         self.assertIn("--ack-data-rights", cmd)

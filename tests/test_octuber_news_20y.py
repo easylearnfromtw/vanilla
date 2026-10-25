@@ -18,6 +18,7 @@ def load(name, filename):
 
 pipeline = load("octuber_news_pipeline", "pipeline.py")
 gdelt = load("octuber_gdelt_candidates", "gdelt_candidates.py")
+publisher = load("octuber_news_publisher", "publish_archive.py")
 
 
 def item(url="https://news.example.com/story?utm_source=x", **changes):
@@ -77,6 +78,14 @@ class PipelineTests(unittest.TestCase):
             self.assertFalse(report["article_target_met"])
             self.assertFalse(report["real_model_weights_trained"])
             self.assertEqual(len((base / "approved.jsonl").read_text().splitlines()), 2)
+            published = publisher.export_snapshot(base / "db.sqlite", base / "public.json", 20)
+            self.assertEqual(published["metadata_indexed"], 3)
+            self.assertEqual(published["rights_reviewed_unique_full_articles"], 2)
+            self.assertFalse(published["full_text_exported"])
+            public = json.loads((base / "public.json").read_text())
+            self.assertEqual(len(public["articles"]), 3)
+            self.assertNotIn("text", public["articles"][0])
+            self.assertNotIn("rights_reference", public["articles"][0])
             repeat = pipeline.ingest(args)
             self.assertEqual(repeat["metadata_indexed"], 3)
             self.assertEqual(len((base / "approved.jsonl").read_text().splitlines()), 2)

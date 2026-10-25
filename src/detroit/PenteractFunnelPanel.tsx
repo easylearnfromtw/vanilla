@@ -5,6 +5,7 @@ import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract
 import {sectionPenteract5D,type FiveSlice} from "./penteract-section";
 import {shadowPenteractRoute} from "./penteract-shadow";
 import {routeLearnedFive,assertLearnedFiveWeights,type LearnedFiveWeights} from "./penteract-learned";
+import {verifySyntheticFiveDBundle,type VerifiedSyntheticFiveDReceipt} from "./penteract-sandbox-receipt";
 import {activateAtuberFiveDSandbox,clearAtuberFiveDSandbox,atuberFiveDSandboxActive} from "./atuber-5d-sandbox-bridge";
 import {latestOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "./penteract-telemetry";
 import "./penteract-5d.css";
@@ -20,6 +21,8 @@ export default function PenteractFunnelPanel(){
  const [showAll,setShowAll]=useState(false);
  const [showSlice,setShowSlice]=useState(false);
  const [learnedArtifact,setLearnedArtifact]=useState<LearnedFiveWeights|null>(null);
+ const [learnedArtifactRaw,setLearnedArtifactRaw]=useState("");
+ const [verifiedReceipt,setVerifiedReceipt]=useState<VerifiedSyntheticFiveDReceipt|null>(null);
  const [learnedError,setLearnedError]=useState("");
  const [atuberBridgeEnabled,setAtuberBridgeEnabled]=useState(false);
  const [slice,setSlice]=useState<FiveSlice>({w:0,v:0});
@@ -128,32 +131,56 @@ export default function PenteractFunnelPanel(){
    </div>
    <section className="october-5d-learned" aria-label="可訓練五維投影器的本機影子模式">
     <h3>03 · 可訓練五維投影器 <small>本機載入權重 / 不執行工具</small></h3>
-    <p>可從 GitHub Actions 下載最新「OCTUBER 5D · 10M」沙盤產生的權重 JSON，再於此頁本機載入。僅顯示比較結果，不會切換正式路由、傳送檔案或開啟新模型。</p>
+    <p>可從 GitHub Actions 下載「OCTUBER 5D · 10M」權重與報告。先本機載入權重供影子預覽，再提供同一批次的訓練報告完成 SHA-256 配對，才可手動啟用阿土伯唯讀串聯。已執行的一千萬次更新不代表最後一次的權重最佳，故訓練器保留合成驗證損失最低的檢查點。這不是來源簽章，也不會切換正式路由。</p>
     <label className="october-5d-file">讀取 CPU 訓練權重（JSON，不超過 180 KB）
      <input aria-label="Upload local five-dimensional projector weights" type="file" accept=".json,application/json" onChange={async e=>{
       const selected=e.currentTarget.files?.[0];
       e.currentTarget.value="";
       if(!selected)return;
-      setLearnedArtifact(null);
+      // Never keep a previously activated bridge after replacing the file.
+      clearAtuberFiveDSandbox();setAtuberBridgeEnabled(false);
+      setLearnedArtifact(null);setLearnedArtifactRaw("");setVerifiedReceipt(null);
       setLearnedError("");
       if(selected.size>180000){setLearnedError("權重檔超過本機 180 KB 限制");return;}
       try{
-       const parsed=JSON.parse(await selected.text());
+       const raw=await selected.text();
+       const parsed=JSON.parse(raw);
        setLearnedArtifact(assertLearnedFiveWeights(parsed));
+       setLearnedArtifactRaw(raw);
       }catch{
        setLearnedError("權重檔案格式、維度或訓練來源不符合 5D 規格");
       }
      }}/>
     </label>
+    {learnedArtifact&&<label className="october-5d-file">再載入同一次訓練的報告（five-d-sandbox-report.json；用於比對 SHA-256）
+     <input aria-label="Upload corresponding five-dimensional training report" type="file" accept=".json,application/json" onChange={async e=>{
+      const selected=e.currentTarget.files?.[0];e.currentTarget.value="";
+      setVerifiedReceipt(null);setLearnedError("");
+      clearAtuberFiveDSandbox();setAtuberBridgeEnabled(false);
+      if(!selected||!learnedArtifactRaw)return;
+      if(selected.size>60000){setLearnedError("訓練報告超出 60 KB 限制");return;}
+      try{
+       const report=JSON.parse(await selected.text());
+       setVerifiedReceipt(await verifySyntheticFiveDBundle(learnedArtifactRaw,report));
+      }catch{
+       setLearnedError("訓練報告與五維權重的摘要不符，或不是有效的 1,000 萬步檢查點配對");
+      }
+     }}/>
+    </label>}
+    {verifiedReceipt&&<p role="status" className="october-5d-note">
+     已完成本機 SHA-256 檔案配對：實際執行 1,000 萬次數值更新，載入第 {verifiedReceipt.selectedStep.toLocaleString("en-US")} 步的最佳合成驗證檢查點。
+     這是檔案一致性檢查，不是來源簽章、人工盲測或正式路由授權。
+    </p>}
     {learnedError&&<p role="alert">{learnedError}</p>}
     {learnedArtifact&&<div className="october-5d-controls">
      <button type="button" onClick={()=>{
       if(atuberBridgeEnabled||atuberFiveDSandboxActive()){
        clearAtuberFiveDSandbox();setAtuberBridgeEnabled(false);
       }else{
-       activateAtuberFiveDSandbox(learnedArtifact);setAtuberBridgeEnabled(true);
+       if(!verifiedReceipt)return;
+       activateAtuberFiveDSandbox(verifiedReceipt.artifact);setAtuberBridgeEnabled(true);
       }
-     }}>{atuberBridgeEnabled?"停止串聯阿土伯五維影子建議":"啟用阿土伯 × Detroit 唯讀影子串聯（本頁工作階段）"}</button>
+     }} disabled={!atuberBridgeEnabled&&!verifiedReceipt}>{atuberBridgeEnabled?"停止串聯阿土伯五維影子建議":"核對訓練報告後啟用阿土伯 × Detroit 唯讀影子串聯"}</button>
      <small>只在你明確輸入「阿土伯：五維分析 ...」時比對；不會修改主模型、授權工具或保存聊天內容。重新整理網頁即清除。</small>
     </div>}
     {learnedPreview?<div className="october-5d-learning-grid">

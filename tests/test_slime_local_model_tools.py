@@ -124,12 +124,12 @@ class SlimeLocalModels(unittest.TestCase):
     called=proc.call_args
     args=called.args[0]
     self.assertEqual(args[0],sys.executable)
-    self.assertEqual(args[1],str(source/"multisize_train.py"))
+    self.assertEqual(Path(args[1]).resolve(),(source/"multisize_train.py").resolve())
     self.assertNotIn("shell",called.kwargs)
     self.assertNotIn("--allow-download",args)
     self.assertNotIn("SLIME_NODE_TOKEN",called.kwargs["env"])
     self.assertEqual(called.kwargs["stdin"],tools.subprocess.DEVNULL)
-    self.assertEqual(Path(called.kwargs["cwd"]),repo)
+    self.assertEqual(Path(called.kwargs["cwd"]).resolve(),repo.resolve())
  def test_slime_binary_ui_contains_owner_only_entry(self):
   code=(ROOT/"services"/"slime"/"desktop.py").read_text(encoding="utf8")
   window=(ROOT/"services"/"slime"/"local_model_window.py").read_text(encoding="utf8")

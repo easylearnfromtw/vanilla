@@ -361,6 +361,10 @@ def run(*, server=None, token=None, stop_event=None, allow_power_off=None):
                 if stop_event is not None and stop_event.is_set():
                     return
                 polled=_http("GET",server+"/v1/slime/node/runner/poll",authorization=token)
+                # A stop request may arrive while HTTPS was in flight.
+                # In that case never execute a newly received model task.
+                if stop_event is not None and stop_event.is_set():
+                    return
                 job=polled.get("job")
                 if not job:
                     if pause(3): return

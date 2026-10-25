@@ -73,6 +73,29 @@ python3 training/octuber-news-20y/pipeline.py --status \
 
 使用 SQLite 持續去重，輸出 JSONL 是純文字 continued-pretraining 候選格式，**並非既有七欄人工編寫 SFT 格式**。不可把這個檔案直接餵給 `training/octuber-sumptuous/train.py`；那個模型需要由 `training/octuber-knowledge/review.py` 審核並轉成專用 SFT 問答。下一階段才是獨立的多語言持續預訓練（DAPT）與經審核指令微調、時間切分評測。
 
+## 藍星報社（Blue Star Press）前端整合
+
+本分支將新聞整合到 Vanilla 現有的五個主要導覽項目之外的獨立來源分館：
+
+- 頁面：`/vanilla/?press=bluestar`（**需先合併／部署才生效**）；聊天頂部來源捷徑新增「藍星報社」，不增加主要側邊欄項目。
+- 「最新新聞」：使用官方 GDELT DOC 2.0 ArticleList JSON，依出版媒體所在地 `sourcecountry` 查台灣、中國、日本、韓國、美國最近 1 週的新聞 metadata，每次最多 50 筆；每篇保留原始新聞連結、標題、媒體來源、GDELT 收錄時間。搜尋結果**不是全文**。GDELT 官方 CORS 支援：https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/
+- 「20 年歷史檔案」：從同源的 `public/bluestar/archive.json` 讀取本地 OCTUBER SQLite 資料庫所發布的**近期索引快照**，不會讀取或洩漏本地 private/ 路徑。初版快照真實數量 **0**，因為未完成大規模新聞匯入；沒有偽造資料。上線後，使用下列指令把**已實際匯入的資料庫**轉成可供報社瀏覽的 metadata 快照。
+- Chat：明確輸入 `藍星報社 日本 半導體` 可進行新聞來源查詢；未明確要求時不自動擷取新聞，也不會因此開始微調。
+- 如需查 2006–2026 全部 20,000,000 篇，必須後續增設後端分頁查詢 API 與權限／配額管理；當前靜態 snapshot 並非完整全文資料庫。
+
+```bash
+# 首先確認已經有真實入庫的 private/octuber-news/articles.sqlite
+python3 training/octuber-news-20y/publish_archive.py \
+  --db private/octuber-news/articles.sqlite \
+  --output public/bluestar/archive.json \
+  --max-per-market 40
+
+# 程式絕不匯出原文、授權合約、審核人員資料
+node --experimental-strip-types --test tests/bluestar-newsroom.test.mjs
+```
+
+**新聞呈現的引用規範：**「引用自藍星報社」僅代表透過藍星整理與檢索新聞線索，應同時提供原始媒體、URL 與日期。媒體原稿的著作權仍屬原權利人；不得把外站新聞大段重製，也不得以新聞標題單獨推論新聞全文內容或財經事實。
+
 ## 驗收條件與模型訓練界線
 
 - 匯入不少於 **20,000,000** 篇獨立、已審核、可合法用於訓練的新聞全文（不是 GDELT 事件或僅有網址的紀錄）。

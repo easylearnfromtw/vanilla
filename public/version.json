@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.12-xiahai-verified-evidence-rag",
-  "description": "霞海書院 1,000 篇真實 PMC 全文經 GitHub Actions 驗證 41,796 段 SHA256，精簡 3,000 段 CC BY 來源節錄分 10 卷供網站引用；對話需明確使用「霞海全文」才將已索引證據加入阿土伯提示。這是 RAG 不是新的 Qwen GPU 權重訓練；未完成方法學人工評讀。"
+  "build": "2026.10.25.13-xiahai-passage-evidence-guard",
+  "description": "霞海書院 1000 篇真實 CC BY PMC 全文的 3000 段已驗證公開精簡證據，新增實際段落與研究問題的文字相關性檢查。相關標題不足以引用無關段落；原文不足時明確棄權。已建立 RAG，未進行 Qwen GPU 微調或專家醫學答覆準確率驗證。"
 }

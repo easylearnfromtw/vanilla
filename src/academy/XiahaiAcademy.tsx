@@ -28,7 +28,7 @@ export default function XiahaiAcademy(){
     const hits=await retrieveXiahaiEvidence(text);
     if(serial!==current.current)return;
     setEvidenceHits(hits);setSubmitted(text);
-    if(!hits.length)setMessage("這 1,000 篇的精簡原文證據尚未找到對應節錄。建議改用英文研究關鍵字，不會推測論文結論。");
+    if(!hits.length)setMessage("這 1,000 篇的精簡原文證據尚未找到對應節錄。請換個英文或支援的繁中醫學關鍵詞，不會推測論文結論。");
     return;
    }
    const papers=await searchOpenAlexWorks(text,batchSize);
@@ -55,7 +55,7 @@ export default function XiahaiAcademy(){
     <Search size={19} aria-hidden="true"/>
     <label className="sr-only" htmlFor="xiahai-query">論文標題、研究主題或 DOI</label>
     <input id="xiahai-query" value={query} onChange={e=>setQuery(e.target.value)}
-      autoComplete="off" maxLength={180} placeholder="搜尋論文標題、研究主題或 DOI…" />
+      autoComplete="off" maxLength={180} placeholder={researchMode==="body"?"例如：糖尿病 MODY、白內障 頭暈、heart failure":"搜尋論文標題、研究主題或 DOI…"} />
     <button type="submit" disabled={busy||query.trim().length<2}>{busy?"檢索中…":"檢索文獻"}</button>
    </form>
    <div className="xiahai-batch-choice">

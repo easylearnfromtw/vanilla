@@ -10,7 +10,7 @@ import {recordClientFault} from "../luca/client-diagnostics";
 import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
 import {parseKnowledgeLookup,findKnowledgeSources} from "../knowledge/chat-source-lookup";
-import {parseXiahaiEvidenceQuestion,retrieveXiahaiEvidence,xiahaiPromptContext} from "../academy/xiahai-evidence";
+import {parseXiahaiEvidenceQuestion,retrieveXiahaiEvidence,xiahaiPromptContext,xiahaiVerifiedSourceFooter} from "../academy/xiahai-evidence";
 import {consumerGuidance} from "../knowledge/evidence";
 import {venusPresentationGuidance} from "../venus/presentation";
 import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
@@ -754,6 +754,7 @@ async function send(value=draft):Promise<void>{
   return;
  }
  let xiahaiGrounding="";
+ let xiahaiSourceFooter="";
  const actualResearchQuestion=!image&&!fileName&&!fileContext?parseXiahaiEvidenceQuestion(question):null;
  if(actualResearchQuestion){
   if(privateMode){toolReply(question,"私密模式不向網站讀取學術資料。請切換一般模式後再啟用霞海原文檢索。","privacy");return;}
@@ -765,13 +766,14 @@ async function send(value=draft):Promise<void>{
     toolReply(question,"霞海書院已建立 1,000 篇正式來源，但沒有找到符合這項研究問題的可核對原文節錄。請換成英文關鍵詞；不會編造 DOI 或研究發現。","research");return;
    }
    xiahaiGrounding=xiahaiPromptContext(actualResearchQuestion,hits);
+   xiahaiSourceFooter=xiahaiVerifiedSourceFooter(hits);
   }catch(error){
    toolReply(question,"霞海全文證據未能取得，未向模型提供虛構原文："+String(error instanceof Error?error.message:error),"research");return;
   }finally{setBusy(false);}
   // Explicit, fully retrieved scholarly evidence bypasses unrelated tool routes.
   // A normal model answers, with only bounded real excerpts in its context.
   if(!canReply){toolReply(question,"霞海已核對到論文證據，但目前沒有就緒的 AI 模型來解釋。請先載入阿土伯或連接已授權模型。","research");return;}
-  await answerWithModel(actualResearchQuestion,{inlineFileContext:"",webContext:"",webSources:[],xiahaiGrounding},question);
+  await answerWithModel(actualResearchQuestion,{inlineFileContext:"",webContext:"",webSources:[],xiahaiGrounding,citationFooter:xiahaiSourceFooter},question);
   return;
  }
  setDetroitPlan(null);
@@ -1296,8 +1298,8 @@ async function send(value=draft):Promise<void>{
  await answerWithModel(question,{inlineFileContext,webContext,webSources,toolEvidence:goEvidence||undefined,factGuidance},visibleClarificationAnswer);
 }
 
-async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string;xiahaiGrounding?:string},visibleQuestion?:string){
- const {inlineFileContext,webContext,webSources,toolEvidence,factGuidance="",xiahaiGrounding=""}=found;
+async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string;xiahaiGrounding?:string;citationFooter?:string},visibleQuestion?:string){
+ const {inlineFileContext,webContext,webSources,toolEvidence,factGuidance="",xiahaiGrounding="",citationFooter=""}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
  const nativeOrchestra=!image&&!nativeArtifact?planOrchestraAutoDraft(question):null;
@@ -1565,7 +1567,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep",toolGrounding:trustedToolGrounding});
   const drafted=finalizeHumanizedText(humanize,result||"");
   const artifactNote=await finishNativeArtifact(drafted);
-  setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
+  setHistory([...next,{role:"assistant",content:drafted+artifactNote+citationFooter,source:primary.source,model:primary.model,...base,durationMs:Date.now()-started,id:assistantId,createdAt:assistantTime}]);
   if(image)markDetroit("retina","done","Retina 已透過授權的 Gemini 圖片模型完成辨識");
   if(detroit.depth!=="quick"){markDetroit("dionysus","done","模型推論已完成");markDetroit("er-ya","done","保留來源、限制及需求核對規則");if(detroit.needsArtifact&&!nativeArtifact)markDetroit("retina","skipped","本題未要求支援格式的本機匯出");markDetroit("venus","done","已使用安全 Markdown／Venus 結構化元件呈現；不可靠格式保留原始文字");}
   setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
@@ -1593,7 +1595,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
     },{task,privateMode,signal:controller.signal,deep:detroit.depth==="deep"});
     const drafted=finalizeHumanizedText(humanize,recovered||"");
     const artifactNote=await finishNativeArtifact(drafted);
-    setHistory([...next,{role:"assistant",content:drafted+artifactNote,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
+    setHistory([...next,{role:"assistant",content:drafted+artifactNote+citationFooter,source:alternative.source,model:alternative.model,...altBase,id:assistantId,createdAt:assistantTime}]);setImage(null);setImageName("");setFileContext("");setFileName("");setFileStatus("");
     if(detroit.depth!=="quick")markDetroit("dionysus","done","備援推論已完成");
     setLastRoute("已由 "+alternative.label+" 備援完成；原模型失敗已記錄");
    }catch(fallbackError){

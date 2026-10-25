@@ -1,0 +1,4 @@
+.knowledge-toplinks{display:flex;align-items:center;gap:5px;min-width:0}
+.knowledge-toplinks button{border:1px solid #dfe4e2;border-radius:16px;background:transparent;color:#51665d;padding:6px 10px;font-size:11px;white-space:nowrap;cursor:pointer}
+.knowledge-toplinks button:hover,.knowledge-toplinks button:focus-visible{background:#eef3ef;border-color:#b7cfc0;color:#264c36}
+@media(max-width:440px){.knowledge-toplinks{gap:4px}.knowledge-toplinks button{font-size:10px;padding:5px 7px}.topbar .knowledge-toplinks{margin:0}}

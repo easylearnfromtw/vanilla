@@ -55,7 +55,7 @@ export default function XiahaiAcademy(){
     <Search size={19} aria-hidden="true"/>
     <label className="sr-only" htmlFor="xiahai-query">論文標題、研究主題或 DOI</label>
     <input id="xiahai-query" value={query} onChange={e=>setQuery(e.target.value)}
-      autoComplete="off" maxLength={180} placeholder="搜尋論文標題、研究主題或 DOI…" />
+      autoComplete="off" maxLength={180} placeholder={researchMode==="body"?"例如：糖尿病 MODY、白內障 頭暈、rectal temperature":"搜尋論文標題、研究主題或 DOI…"} />
     <button type="submit" disabled={busy||query.trim().length<2}>{busy?"檢索中…":"檢索文獻"}</button>
    </form>
    <div className="xiahai-batch-choice">
@@ -75,7 +75,7 @@ export default function XiahaiAcademy(){
      target="_blank" rel="noopener noreferrer">arXiv 原站搜尋 <ArrowUpRight size={14}/></a>
    </div>
    <p className="xiahai-note">{researchMode==="body"?
-    "全文模式只向本站請求固定的 1,000 篇論文短節錄；原文片段可追溯，但尚未做臨床證據評讀，也不會公開整篇原文。":
+    "全文模式只向本站請求固定的 1,000 篇論文短節錄，支援部分繁體中文醫學關鍵詞；至少兩個關鍵詞必須在同一段原文中找到，否則不當作可用證據。此索引尚未做臨床方法學評讀，不公開整篇原文。":
     "即時書目模式才會將關鍵字傳送給 OpenAlex；書目檢索不代表下載或閱讀論文全文。"}</p>
   </section>
   <section className="xiahai-policy" aria-label="1,000 篇學術全文訓練的實測報告">

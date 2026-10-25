@@ -14,7 +14,7 @@ import json
 import math
 import statistics
 from collections import defaultdict
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -198,14 +198,25 @@ def monthly_samples(market, records, provenance):
     for rec in records:
         month_ends[(rec["date"].year, rec["date"].month)] = rec
     results = []
-    for rec in month_ends.values():
-        if rec["ret"] is None:
+    previous_month_close = None
+    previous_month_key = None
+    for month_key, rec in sorted(month_ends.items()):
+        # A calendar-month return requires a price from the adjacent prior
+        # month. Missing months are data gaps, not a made-up monthly return.
+        adjacent = previous_month_key is not None and (
+            month_key[0] * 12 + month_key[1] - previous_month_key[0] * 12 - previous_month_key[1] == 1
+        )
+        month_return = (100 * (rec["close"] / previous_month_close - 1)
+                        if adjacent and previous_month_close is not None else None)
+        previous_month_close, previous_month_key = rec["close"], month_key
+        if month_return is None:
             continue
         day = rec["date"]
         user = (f"截至 {day} 收盤，分析 {market['exchange']} 的"
                 f"{market['representative_index']}；只根據當時已知行情判讀風險，不預測未來股價。")
         answer = (f"截至 {day}，指數收盤 {rec['close']:.4f}（原始指數點數）。"
-                  f"相較前一個交易日報酬 {fmt(rec['ret'])}；"
+                  f"相較前一個月末交易日報酬 {fmt(month_return)}；"
+                  f"當日相較前一個交易日報酬 {fmt(rec['ret'])}；"
                   f"過去約20交易日年化波動率 {fmt(rec['vol20'])}；"
                   f"相對近252筆觀測高點回撤 {fmt(rec['drawdown'])}。"
                   "這些是歷史統計，不足以單獨證明漲跌原因，也不保證未來報酬。"
@@ -218,32 +229,25 @@ def monthly_samples(market, records, provenance):
     return results
 
 def first_reaction(market, records, event, provenance):
-    zone = ZoneInfo(market["tz"])
-    published = event["_utc"]
-    # Conservative close times. If the real exchange closes early, exact
-    # event-day alignment requires a licensed exchange calendar.
-    close_time = time(16, 0)
-    if market["id"] in {"shanghai", "shenzhen"}:
-        close_time = time(15, 0)
-    elif market["id"] in {"japan", "korea", "taiwan"}:
-        close_time = time(15, 0) # conservative; may differ from actual
-    elif market["id"] == "hong_kong":
-        close_time = time(16, 0)
-    elif market["id"] == "nse_india" or market["id"] == "bse_india":
-        close_time = time(15, 30)
+    # Without an authoritative exchange session calendar, never guess closing
+    # times or decide an intraday headline was known before a particular close.
+    # Select the FIRST full local market day strictly AFTER publication date.
+    published_local = event["_utc"].astimezone(ZoneInfo(market["tz"])).date()
+    if not START <= published_local <= END:
+        return None
     for idx, rec in enumerate(records):
-        closing = datetime.combine(rec["date"], close_time, zone)
-        if closing.astimezone(timezone.utc) <= published:
+        if rec["date"] <= published_local:
             continue
         if rec["ret"] is None or idx + 5 >= len(records):
             return None
-        # Do not associate extremely stale headlines with later sessions.
-        if (closing.astimezone(timezone.utc) - published).days > 8:
+        # Do not associate old headlines with arbitrarily distant sessions.
+        if (rec["date"] - published_local).days > 8:
             return None
         horizon = records[idx+5]
-        # Keep labels strictly inside the same chronological partition:
-        # an event near a split boundary must not see future data there.
-        if split_for(rec["date"]) != split_for(horizon["date"]):
+        # Chronological time split applies to publication, first informed day
+        # AND last outcome day. Never allow split-boundary event leakage.
+        if len({split_for(published_local), split_for(rec["date"]),
+                split_for(horizon["date"])}) != 1:
             return None
         return rec, horizon
     return None
@@ -271,14 +275,14 @@ def event_samples(market, records, provenance, events):
         answer = (f"事件：{e['title']}。來源：{e['source_name']}（{e['source_url']}），"
                   f"刊布時間 {e['published_at']}。{e['summary']} "
                   f"證據狀態：{inference}。"
-                  f"市場反應：首個事件資訊已公開後的交易日 {first['date']} 報酬 "
+                  f"市場反應：刊布後首個完整交易日 {first['date']} 報酬 "
                   f"{fmt(first['ret'])}；此後五個交易日累計 {fmt(follow5)}（截至 {day}）。"
                   "事件與報酬同時發生不代表事件是唯一或已證明的漲跌原因；"
                   "對全球市場還須控制時差、同期政策、財報及其他消息。"
                   "以上為已發生市場變化的事後分析，不是當時可預知的未來結果。")
         ev = {"kind": "event_study", "source_url": e["source_url"],
               "published_at": e["published_at"], "causal_status": status,
-              "first_informed_close": str(first["date"]), "as_of": str(day),
+              "first_full_session_after_publication": str(first["date"]), "as_of": str(day),
               "price_sha256": provenance["file_sha256"]}
         identifier = f"fin_{market['id']}_{e['id']}_{day:%Y%m%d}"
         if len(identifier) > 80:

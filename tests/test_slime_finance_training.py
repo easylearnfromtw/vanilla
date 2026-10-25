@@ -163,6 +163,33 @@ class FinanceOwnerBridgeTests(unittest.TestCase):
         for key in ("SLIME_NODE_TOKEN", "VANILLA_API_KEY", "HF_TOKEN"):
             self.assertNotIn(key, environment)
 
+    def test_adapter_inspection_never_conflates_hashes_with_blind_release(self):
+        repo, data, root = self.fixture()
+        checkpoint = root / "checkpoint"
+        checkpoint.mkdir()
+        with patch.object(f, "_json_command", return_value={
+            "verified_candidate_tiers": ["0.6b"],
+            "production_release_authorized": False,
+            "independent_financial_benchmark_passed": False,
+            "artifacts": {"0.6b": {"steps": 180, "adapter_sha256": "a"*64}},
+            "proof_limit": "Local receipts are not independent evidence"
+        }) as called:
+            status = f.inspect_finance_adapter(repo, data, "0.6b", checkpoint,
+                                               python_exe=sys.executable)
+            self.assertEqual(status["status"], "integrity-screen-only-not-released")
+            self.assertFalse(status["production_released"])
+            self.assertIn("--approved-dir", called.call_args.args[0])
+        with self.assertRaisesRegex(ValueError, "UNSUPPORTED_CHECKPOINT"):
+            f.inspect_finance_adapter(repo, data, "60b", checkpoint)
+        with patch.object(f, "_json_command", return_value={
+            "verified_candidate_tiers": ["0.6b"],
+            "production_release_authorized": True,
+            "independent_financial_benchmark_passed": False
+        }):
+            with self.assertRaisesRegex(ValueError, "RELEASE_GATE_REFUSED"):
+                f.inspect_finance_adapter(repo, data, "0.6b", checkpoint,
+                                          python_exe=sys.executable)
+
     def test_slime_sandbox_plan_registers_existing_finance_trainer_only_as_preview(self):
         import sandbox_center as s
         task = s.BY_ID["octuber-finance-plan"]

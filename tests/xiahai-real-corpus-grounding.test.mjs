@@ -37,7 +37,7 @@ test('public deployment package is 1000 real attributed papers and 3000 traceabl
   assert.ok(validPaper(p),'source PMCID and CC attribution invalid: '+p.id);
   const evidence=sources.get(p.id);
   assert.equal(evidence.length,3);
-  assert.ok(evidence.every(s=>s.excerpt.length<=260));
+  assert.ok(evidence.every(s=>[...s.excerpt].length<=260));
  }
 });
 test('handpicked independent topics only route to published, query-related actual excerpt IDs',()=>{

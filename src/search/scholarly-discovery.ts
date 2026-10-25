@@ -138,7 +138,7 @@ export function parseOpenAlexHits(input:unknown,ranks:RankTable={},maxItems=12):
 }
 export async function searchOpenAlexWorks(query:string,limit=8):Promise<AcademicHit[]>{
  const q=query.trim().slice(0,180);
- if(q.length<2)throw Error("論文搜尋至少需要兩個字");
+ if(!q)throw Error("論文搜尋至少需要一個字");
  const u=new URL("https://api.openalex.org/works");
  u.searchParams.set("search",q);
  const cap=limit===100?100:8;

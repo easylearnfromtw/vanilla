@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'training/scholarly/pmc_licensed_100.py'
+      - 'training/scholarly/pmc_license_probe.py'
       - 'training/atuber/multi_paper_cpu_lora.py'
       - 'tests/test_atuber_pmc_100.py'
       - '.github/workflows/atuber-100-real-fulltext-train.yml'
@@ -34,6 +35,9 @@ jobs:
           python-version: '3.12'
       - name: Offline rights, 100 JATS article identity, and document holdout tests
         run: python3 -m unittest discover -s tests -p 'test_atuber_pmc_100.py' -v
+      - name: One official PMC page — diagnose identity and license fields only
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        run: python3 training/scholarly/pmc_license_probe.py
 
   real-100-source-and-weights:
     needs: validate-rights-and-holdout

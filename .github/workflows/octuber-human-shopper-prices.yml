@@ -5,6 +5,8 @@ on:
     paths:
       - "training/atuber/human_shopper_sim.py"
       - "tests/test_octuber_human_shopper.py"
+      - "training/atuber/human_shopper_policy_net.py"
+      - "tests/test_octuber_human_shopper_policy.py"
       - ".github/workflows/octuber-human-shopper-prices.yml"
   workflow_dispatch:
 permissions:
@@ -63,6 +65,31 @@ jobs:
           print("REAL_RETAILER_PRICE_ROWS",0)
           print("REAL_LLM_GRADIENT_UPDATES",0)
           PY
+      - name: Train a separate neural shopping-range policy with REAL NDC bounds and SYNTHETIC buyer preferences
+        run: |
+          python -m pip install --disable-pip-version-check --no-input "numpy>=1.26,<3"
+          python -m unittest discover -s tests -p "test_octuber_human_shopper_policy.py" -v
+          python training/atuber/human_shopper_policy_net.py \
+            --input /tmp/official-ndc-retail.csv \
+            --output artifacts/octuber-human-shopper-policy \
+            --train-cases 50000 \
+            --validation-cases 12000 \
+            --steps 1000
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("artifacts/octuber-human-shopper-policy/policy-training-report.json").read_text())
+          assert r["actual_optimizer_steps"]==1000
+          assert r["weight_change_l2"]>0
+          assert r["source_distinct_products"]>300
+          assert r["holdout_not_used_for_training_or_checkpoint_selection"] is True
+          assert r["qwen_gradient_updates"]==0
+          assert r["genuine_human_labels"]==0
+          assert r["actual_biggo_feebee_lbj_training_quotes"]==0
+          assert not r["merchant_purchase_recommendation_enabled"]
+          print("REAL_NEURAL_POLICY_UPDATES",r["actual_optimizer_steps"])
+          print("HISTORICAL_RANGE_HELDOUT_ACCURACY",r["range_decision_true_heldout_accuracy"])
+          PY
       - name: Upload small redacted behavioral receipts only
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,3 +100,5 @@ jobs:
           path: |
             artifacts/octuber-human-shopper/summary.json
             artifacts/octuber-human-shopper/sample-human-trajectories.jsonl
+            artifacts/octuber-human-shopper-policy/policy-training-report.json
+            artifacts/octuber-human-shopper-policy/historical-shopper-range-policy.npz

@@ -45,3 +45,23 @@ test("newsroom accessible by explicit deep link and tool action, not a sixth nav
  assert.match(app,/section==="bluestar"\?<div className="workspace-page"><BlueStarNewsroom\/>/);
  assert.match(app,/title="藍星報社 · 五國新聞來源"/);
 });
+
+test("news metadata is also available by explicit 藍星報社 chat lookup",async()=>{
+ const {parseKnowledgeLookup,findKnowledgeSources}=await import("../src/knowledge/chat-source-lookup.ts");
+ assert.deepEqual(parseKnowledgeLookup("藍星報社 日本 半導體"),{kind:"news",query:"日本 半導體"});
+ assert.equal(parseKnowledgeLookup("今天的新聞"),null);
+ const original=globalThis.fetch;
+ let target="";
+ globalThis.fetch=async url=>{
+  target=String(url);
+  return {ok:true,json:async()=>({articles:[{title:"Japan technology policy report",url:"https://example.jp/news/23",domain:"example.jp",seendate:"20261025T100000Z"}]})};
+ };
+ try{
+  const result=await findKnowledgeSources({kind:"news",query:"日本 半導體"});
+  assert.match(target,/sourcecountry%3Ajapan/);
+  assert.match(result,/藍星報社/);
+  assert.match(result,/metadata-only/);
+  assert.match(result,/https:\/\/example\.jp\/news\/23/);
+  assert.doesNotMatch(result,/full_text.*Japan/);
+ }finally{globalThis.fetch=original;}
+});

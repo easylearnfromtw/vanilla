@@ -88,7 +88,7 @@ class HybridLibraryTest(unittest.TestCase):
         output=self.root/"ranker"
         report=t.fit(self.db,output,steps=300)
         self.assertEqual(report["optimizer_steps_completed"],300)
-        self.assertEqual(report["scalar_parameter_updates"],1800)
+        self.assertEqual(report["scalar_parameter_updates"],2100)
         self.assertGreater(report["holdout_pairs"],0)
         self.assertEqual(report["qwen_october_llm_weight_updates"],0)
         results=h.search(self.db,"經濟政策",limit=3,ranker_file=output/"ranker.json")

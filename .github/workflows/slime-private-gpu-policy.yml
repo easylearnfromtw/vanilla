@@ -1,0 +1,44 @@
+name: SLIME GPU private runner security and CPU LoRA regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "deployment/slime/private-gpu-qlora.workflow.yml"
+      - "docs/SLIME_PRIVATE_GPU_REAL_TRAINING.md"
+      - "docs/SLIME_GITHUB_REAL_TRAINING.md"
+      - ".github/workflows/slime-real-gpu-qlora.yml"
+      - ".github/workflows/atuber-approved-cuda-qlora.yml"
+      - ".github/workflows/atuber-real-cpu-lora.yml"
+      - ".github/workflows/slime-private-gpu-policy.yml"
+      - "tests/test_slime_private_gpu_policy.py"
+  push:
+    branches: [main]
+    paths:
+      - "deployment/slime/private-gpu-qlora.workflow.yml"
+      - "docs/SLIME_PRIVATE_GPU_REAL_TRAINING.md"
+      - ".github/workflows/slime-private-gpu-policy.yml"
+      - "tests/test_slime_private_gpu_policy.py"
+permissions:
+  contents: read
+jobs:
+  public-private-gpu-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate executable trainer policy and forbid public self-hosted GPU
+        run: |
+          python -m unittest discover -s tests -p "test_slime_private_gpu_policy.py" -v
+          python -m unittest discover -s tests -p "test_slime_github_training.py" -v
+          python -m unittest discover -s tests -p "test_atuber_cpu_lora_pilot.py" -v
+      - name: Confirm that this is NOT a CUDA training invocation
+        run: |
+          python - <<'PY'
+          print("PR_GPU_VM_PROVISIONED",False)
+          print("ACTUAL_GPU_LORA_OPTIMIZER_UPDATES",0)
+          print("PRIVATE_SOURCE_OR_DATA_UPLOADED",False)
+          print("MANUAL_OWNER_GPU_APPROVAL_REQUIRED",True)
+          PY

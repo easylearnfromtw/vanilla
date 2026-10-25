@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  rankXiahaiPapers,retrieveXiahaiEvidence,parseXiahaiEvidenceQuestion,
- xiahaiPromptContext,formatXiahaiEvidence,rankXiahaiPassages
+ xiahaiPromptContext,formatXiahaiEvidence,rankXiahaiPassages,xiahaiVerifiedSourceFooter
 } from '../src/academy/xiahai-evidence.ts';
 
 const papers=Array.from({length:1000},(_,i)=>({
@@ -44,6 +44,12 @@ test('RAG uses only the 1000 real source-linked records and never fabricates sou
   assert.ok(cards.includes('引用自霞海書院'));
   assert.ok(cards.includes('creativecommons.org/licenses/by/4.0/'));
   assert.ok(cards.includes('paper_'+('a'.repeat(26))));
+  const footer=xiahaiVerifiedSourceFooter(hits);
+  assert.ok(footer.includes('引用自霞海書院'));
+  assert.ok(footer.includes('https://pmc.ncbi.nlm.nih.gov/articles/PMC12000008/'));
+  assert.ok(footer.includes('CC 授權'));
+  assert.ok(footer.includes('程式直接核對'));
+
   const empty=await retrieveXiahaiEvidence('unmatchedrareterm');
   assert.deepEqual(empty,[]);
   assert.ok(xiahaiPromptContext('irrelevant',empty).includes('無符合'));

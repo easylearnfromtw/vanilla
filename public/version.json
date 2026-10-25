@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.05-virtual-gpu-host-simulation",
-  "description": "30B and 60B virtual host training scheduling sandbox with hypothetical 24/48/96 GiB GPUs, failure injection, metadata checkpoint resume and JSON export; NO real GPU or trained weights."
+  "build": "2026.10.25.06-atuber-core-100k-sandbox",
+  "description": "100k actual CPU gradient steps per tiny 72-parameter LoRA-style surrogate; 100k virtual scheduling steps per 30B and 60B goal. Shared Atuber training policy only, no 0.6B/30B/60B neural weights trained."
 }

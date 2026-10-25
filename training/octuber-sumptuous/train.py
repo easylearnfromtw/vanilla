@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(1, str(Path(__file__).resolve().parents[1] / "atuber"))
 from dataset import validate_jsonl, to_conversations  # noqa: E402
+from core_contract import LORA_RANK, LORA_ALPHA, LORA_DROPOUT, core_policy  # noqa: E402
 
 BASE = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 MODEL_ID = "octuber-sumptuous-30b-v0.1"
@@ -123,7 +124,7 @@ def _train(dataset: Path, output: Path, *, base_revision: str,
         push_to_hub=False,
     )
     peft_config = LoraConfig(
-        r=8, lora_alpha=16, lora_dropout=0.05,
+        r=LORA_RANK, lora_alpha=LORA_ALPHA, lora_dropout=LORA_DROPOUT,
         target_modules=list(TARGET_MODULES), bias="none", task_type="CAUSAL_LM",
     )
     trainer = SFTTrainer(
@@ -152,6 +153,7 @@ def _train(dataset: Path, output: Path, *, base_revision: str,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "architecture": "Qwen3 MoE 30B total / 3B active",
         "method": "NF4 QLoRA SFT attention-only",
+        "training_core_policy": core_policy(),
         "target_modules": list(TARGET_MODULES),
         "steps": steps,
         "max_length": max_length,

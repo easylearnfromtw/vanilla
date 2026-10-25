@@ -1,2 +1,2 @@
 /** Increment alongside public/version.json so iOS PWA displays its actual build. */
-export const VANILLA_BUILD="2026.10.25.05-virtual-gpu-host-simulation";
+export const VANILLA_BUILD="2026.10.25.06-atuber-core-100k-sandbox";

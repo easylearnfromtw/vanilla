@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dataset import BASE, validate_jsonl, to_conversations
+from core_contract import LORA_RANK, LORA_ALPHA, LORA_DROPOUT, core_policy
 
 
 def digest(path: Path) -> str:
@@ -79,7 +80,7 @@ def train(dataset: str, output: str, *, max_steps: int, sequence_length: int) ->
         seed=20261022,
     )
     peft_cfg = LoraConfig(
-        r=8, lora_alpha=16, lora_dropout=0.05,
+        r=LORA_RANK, lora_alpha=LORA_ALPHA, lora_dropout=LORA_DROPOUT,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"],
         bias="none", task_type="CAUSAL_LM",
     )
@@ -100,6 +101,7 @@ def train(dataset: str, output: str, *, max_steps: int, sequence_length: int) ->
     provenance = {
         "schema": 1,
         "product": "atuber",
+        "training_core_policy": core_policy(),
         "training_state": "completed",
         "model_id": "atuber-0.1",
         "base_model": BASE,

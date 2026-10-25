@@ -59,7 +59,7 @@ export function parseBookCitationPayload(source:string):AtuberBookResult[]|null{
    citation_scope:validEvidence?"original-text-passage":"catalogue-dataset-reference",
    evidence:validEvidence?{
     chunk_id:(ev as Record<string,string>).chunk_id,
-    excerpt:(ev as Record<string,string>).excerpt.slice(0,400),
+    excerpt:(ev as Record<string,string>).excerpt.slice(0,180),
     offset:Number((ev as Record<string,unknown>).offset)||0,
    }:null,
   });
@@ -94,11 +94,11 @@ function BookCard({book}:{book:AtuberBookResult}){
 }
 export default function BookCitationCards({books}:{books:AtuberBookResult[]}){
  return <section className="atuber-book-citations" aria-label="書籍引用與封面">
-  <h4>相關書籍與出處</h4>
-  <p>封面依 ISBN 即時取得。卡片來自回答提供的結構化資料，並非自動完成獨立查證；請點開原始來源確認書目、版次與引文。</p>
+  <h4>引用自柳岸書城</h4>
+  <p>封面依 ISBN 即時取得。柳岸書城是書目與知識索引，並非原著作者或出版者。本卡片不是獨立來源查核；請點開原始來源確認書目、版次與引文。</p>
   <div className="atuber-book-grid">
    {books.slice(0,MAX_CARDS).map(b=><BookCard key={b.book_id} book={b}/>)}
   </div>
-  <small>封面提供：Open Library。圖片與書目可能分屬不同版本，不以封面作為全文證據。</small>
+  <small>封面提供：Open Library。圖片與書目可能分屬不同版本，不以封面作為全文證據。<a href="?archive=liuan">前往柳岸書城索引</a></small>
  </section>;
 }

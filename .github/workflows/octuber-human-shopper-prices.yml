@@ -81,6 +81,12 @@ jobs:
           r=json.loads(Path("artifacts/octuber-human-shopper-policy/policy-training-report.json").read_text())
           assert r["actual_optimizer_steps"]==1000
           assert r["weight_change_l2"]>0
+          assert r["accuracy_target"]==0.92
+          assert r["accuracy_gate_passed"] is True, "92% range-classification holdout gate not passed"
+          assert r["range_decision_true_heldout_accuracy"]>=0.92
+          assert r["test_examples_from_unseen_product_names"]>=1000
+          assert r["deterministic_rule_baseline_accuracy"]>=0.999
+          assert r["production_price_forecasting_92pct_proven"] is False
           assert r["source_distinct_products"]>300
           assert r["holdout_not_used_for_training_or_checkpoint_selection"] is True
           assert r["qwen_gradient_updates"]==0

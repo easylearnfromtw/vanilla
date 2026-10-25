@@ -104,8 +104,8 @@ class Dashboard:
             ttk.Label(card, text="本機配對設定需要人工確認", style="Paper.TLabel",
                       font=("Arial", 16, "bold")).pack(anchor="w")
             ttk.Label(card, text="既有裝置憑證資料可能損壞。為避免同一節點殘留有效授權，"
-                      "請先備份原始設定，聯絡 Telegram Ceres Owner 撤銷該節點，"
-                      "再使用原本的 --leave／重新安裝程序處理。",
+                      "請先備份 ~/.vanilla/slime/ 下對應的 owner.json 或 friend.json，"
+                      "在 Telegram Ceres Owner 撤銷舊節點後，再移走損壞的本機設定重新配對。",
                       style="Muted.TLabel", wraplength=605).pack(anchor="w", pady=12)
             ttk.Button(card, text="查看配對與安全說明", command=self.help).pack(anchor="w")
         elif self.settings:
@@ -253,6 +253,9 @@ class Dashboard:
         geo, power = self.geo.get(), self.power.get()
         self.pair_button.configure(state="disabled")
         def work():
+            # Validate the code/HTTPS first; an invalid code never triggers IP lookup.
+            self.desktop._invite(code)
+            self.desktop._server(server)
             external_ip = self.desktop._public_ip() if geo else ""
             return self.desktop.pair_with_consent(
                 server=server, label=label, secret=code, consent=True,
@@ -414,5 +417,16 @@ def run_dashboard():
     # Import inside UI entry only; legacy CLI works without a graphical desktop.
     import slime_desktop
     app = Dashboard(slime_desktop)
+    # The frozen Windows executable uses --console for legacy --status/--leave.
+    # Hide its console only when the real graphical dashboard is open.
+    import sys
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        try:
+            import ctypes
+            handle = ctypes.windll.kernel32.GetConsoleWindow()
+            if handle:
+                ctypes.windll.user32.ShowWindow(handle, 0)
+        except (AttributeError, OSError):
+            pass
     app.root.mainloop()
     return 0

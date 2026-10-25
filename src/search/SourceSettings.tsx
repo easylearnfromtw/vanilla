@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {saveScholarlyRankCsv,getScholarlyRankTable} from "./scholarly-discovery";
+import {saveScholarlyRankCsv,getScholarlyRankTable,saveScholarlyAuthorityLedger,getScholarlyAuthorityLedger} from "./scholarly-discovery";
 import FirecrawlPanel from "../firecrawl/FirecrawlPanel";
 import {Search,Plus,Trash2,ExternalLink,BookOpen} from "lucide-react";
 import {getSources,setSources,addSource,searchLinks,type PreferredSource} from "./source-preferences";
@@ -14,6 +14,7 @@ export default function SourceSettings(){
  const [readerToken,setReaderToken]=useState("");
  const [testing,setTesting]=useState(false);
  const [scholarlyStatus,setScholarlyStatus]=useState(()=>Object.keys(getScholarlyRankTable()).length+" 個已匯入的排名識別碼（僅此裝置）");
+ const [authorityStatus,setAuthorityStatus]=useState(()=>getScholarlyAuthorityLedger().length+" 筆已審核的非大學研究例外");
  const [region,setRegion]=useState(getScoutsRegion);
  function update(list:PreferredSource[]){
   try{setSources(list);setList(getSources());setStatus("已更新網站偏好（本裝置設定）");}catch(e){setStatus(e instanceof Error?e.message:String(e));}
@@ -78,6 +79,19 @@ export default function SourceSettings(){
     }}/>
    </label>
    <small role="status">{scholarlyStatus}</small>
+   <label>匯入非大學產業／學者／重要理論權重 5 審核名冊（JSONL）
+    <input type="file" accept=".jsonl,.json,application/json" aria-label="匯入非大學權威審核名冊" onChange={async e=>{
+     const file=e.currentTarget.files?.[0];e.currentTarget.value="";
+     if(!file)return;
+     try{
+      if(file.size>350000)throw Error("審核名冊超過 350 KB");
+      const count=saveScholarlyAuthorityLedger(await file.text());
+      setAuthorityStatus("已儲存 "+count+" 筆權威例外；身分認定和依據須由審核者負責。");
+     }catch(error){setAuthorityStatus("匯入失敗："+(error instanceof Error?error.message:String(error)));}
+    }}/>
+   </label>
+   <small role="status">{authorityStatus}</small>
+
    <small>未匯入或無法核實學校時暫採權重 1；非大學權威例外須有審核紀錄。學術搜尋顯示中繼資料不等於下載全文或完成模型微調。</small>
   </div>
   <FirecrawlPanel/>

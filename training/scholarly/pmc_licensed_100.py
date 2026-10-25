@@ -237,8 +237,8 @@ def store(db,item):
  return len(parts)
 def collect(target:int,output:Path,from_date:str,max_pages:int,delay:float,
             fetcher=fetch_official):
- if not 20<=target<=100:raise ValueError("TARGET_MUST_BE_20_TO_100")
- if not 1<=max_pages<=100 or not .5<=delay<=10:raise ValueError("PMC_RATE_OR_PAGE_BUDGET")
+ if not 20<=target<=1000:raise ValueError("TARGET_MUST_BE_20_TO_1000")
+ if not 1<=max_pages<=500 or not .5<=delay<=10:raise ValueError("PMC_RATE_OR_PAGE_BUDGET")
  if not re.fullmatch(r"\d{4}-\d{2}-\d{2}",from_date):raise ValueError("INVALID_OAI_FROM_DATE")
  db_path=Path(str(output)+".sqlite3")
  report_path=Path(str(output)+".report.json")
@@ -290,7 +290,7 @@ def collect(target:int,output:Path,from_date:str,max_pages:int,delay:float,
   "target_fulltexts":target,"licensed_fulltexts_indexed":accepted,
   "licensed_chunks_indexed":passages,
   "oai_pages_retrieved":pages,"excluded_reasons":dict(reasons),
-  "stop_reason":stop_reason,"source":"PMC official OAI-PMH/JATS",
+  "stop_reason":stop_reason,"source":"PMC official OAI-PMH/JATS","distinct_pmcids":len(seen),
   "sample_sources":examples,
   "corpus_sha256":hashlib.sha256(db_path.read_bytes()).hexdigest(),
   "weights_updated":0,"trainable_fulltext_source_type":"PMC-JATS-CC0-or-CC-BY",
@@ -298,7 +298,7 @@ def collect(target:int,output:Path,from_date:str,max_pages:int,delay:float,
  report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf8")
  return report
 def main():
- p=argparse.ArgumentParser(description="Real PMC explicit CC-BY/CC0 100 fulltext scientific paper corpus")
+ p=argparse.ArgumentParser(description="Real PMC explicit CC-BY/CC0 scientific fulltext corpus, up to 1000 independent papers")
  p.add_argument("--output",type=Path,required=True)
  p.add_argument("--target",type=int,default=100)
  p.add_argument("--from-date",default="2026-09-01")

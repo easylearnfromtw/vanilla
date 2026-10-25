@@ -1,0 +1,34 @@
+name: OCTUBER historical news corpus offline tests
+on:
+  pull_request:
+    paths:
+      - "training/octuber-news-20y/**"
+      - "tests/test_octuber_news_20y.py"
+      - "tests/bluestar-newsroom.test.mjs"
+      - "src/bluestar/**"
+      - "src/App.tsx"
+      - "public/bluestar/**"
+      - ".github/workflows/octuber-news-20y.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  corpus-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Blue Star newsroom metadata and deep-link tests
+        run: node --experimental-strip-types --test tests/bluestar-newsroom.test.mjs
+      - name: Offline data rights and dedup tests
+        run: python3 -m unittest discover -s tests -p 'test_octuber_news_20y.py' -v
+      - name: GDELT dry run, never downloads an article or updates weights
+        run: |
+          python3 training/octuber-news-20y/gdelt_candidates.py --period 200610 --output private/octuber-news/unused.jsonl
+          python3 -m py_compile training/octuber-news-20y/pipeline.py training/octuber-news-20y/gdelt_candidates.py training/octuber-news-20y/publish_archive.py

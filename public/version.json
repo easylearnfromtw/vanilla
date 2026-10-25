@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.08-penteract-10m-best-checkpoint",
-  "description": "10M actual CPU SGD updates to a 1925-parameter 5D shadow projector, choose lowest synthetic-validation checkpoint; sealed synthetic test and pairwise SHA256 local receipt. NOT language model fine-tuning, model rights or signed provenance."
+  "build": "2026.10.25.09-liuan-xiahai-knowledge",
+  "description": "柳岸書城 book source archive and existing 霞海書院 paper archive; grounded author/DOI/ISBN source cards and reviewed knowledge-to-consumer advice audit. Not fulltext Qwen GPU trained. Includes previously merged Penteract sandbox work."
 }

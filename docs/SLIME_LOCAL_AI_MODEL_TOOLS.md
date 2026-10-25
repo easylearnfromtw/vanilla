@@ -52,4 +52,4 @@ python -m unittest discover -s tests -p "test_slime_local_model_tools.py" -v
 
 桌面包：`.github/workflows/slime-desktop.yml` 已加入打包前的安全測試；`.github/workflows/slime-local-ai-tools.yml` 會在 Windows／macOS／Linux 三平台跑離線回歸。
 
-**部署狀態：** 此功能先在開發版 PR 中，未合併至正式版本、沒有覆寫目前 SLIME 已安裝程式，也沒有任何真的新 Qwen 語言模型權重。
+**部署狀態（2026-10-25）：** 此功能已透過整合 PR #323 合併至正式 `main`，並發布 `slime-v20261025-75e47da5af4d` 三平台版本。另有本期 Owner 工具快捷啟動更新。此處的「已發布」只指可下載安裝包，**不代表已安裝到使用者電腦**；仍沒有真正新訓練的 Qwen 語言模型權重。使用方式見 `docs/SLIME_UNIFIED_SANDBOX_RELEASE.md`。

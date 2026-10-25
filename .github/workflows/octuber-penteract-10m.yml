@@ -7,6 +7,7 @@ on:
       - 'src/detroit/atuber-5d-sandbox-bridge.ts'
       - 'src/detroit/atuber-tool-coordinator.ts'
       - 'src/detroit/PenteractFunnelPanel.tsx'
+      - 'src/detroit/penteract-sandbox-receipt.ts'
       - 'tests/penteract-10m.test.mjs'
       - '.github/workflows/octuber-penteract-10m.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'src/detroit/atuber-5d-sandbox-bridge.ts'
       - 'src/detroit/atuber-tool-coordinator.ts'
       - 'src/detroit/PenteractFunnelPanel.tsx'
+      - 'src/detroit/penteract-sandbox-receipt.ts'
       - '.github/workflows/octuber-penteract-10m.yml'
   workflow_dispatch:
 
@@ -43,15 +45,41 @@ jobs:
           node --input-type=module -e '
           import {readFileSync} from "node:fs";
           import {join} from "node:path";
+          import {createHash} from "node:crypto";
           const dir=process.env.EVIDENCE_DIR;
           const r=JSON.parse(readFileSync(join(dir,"five-d-sandbox-report.json"),"utf8"));
           const w=JSON.parse(readFileSync(join(dir,"five-d-weights.json"),"utf8"));
+          const raw=readFileSync(join(dir,"five-d-weights.json"));
+          const sha=createHash("sha256").update(raw).digest("hex");
           if(r.actualWeightUpdates!==10000000||r.trainableParameters!==1925||
              r.syntheticHoldoutFinalLoss>=r.syntheticHoldoutInitialLoss||
+             r.syntheticValidationSelectedLoss>r.syntheticValidationLastLoss||
+             !(r.bestCheckpointStep>=1&&r.bestCheckpointStep<=10000000)||
+             r.exportedWeightsCheckpointStep!==r.bestCheckpointStep||
+             r.additionalUpdatesAfterBest!==10000000-r.bestCheckpointStep||
+             r.sealedSyntheticTestRows!==300||
+             r.sealedSyntheticTestNotUsedForCheckpointSelection!==true||
+             r.artifactSha256!==sha||
              r.cudaUsed!==false||r.atuber0_6BWeightsUpdated!==false||
              r.detroitFactoryToolsDispatched!==false||r.productionRouterModified!==false||
-             w.provenance.epochs!==500||w.provenance.expertReviewed!==false)process.exit(2);
-          console.log("VERIFIED_10M_REAL_5D_SYNTHETIC_SGD_NO_LLM_WEIGHTS");
+             w.provenance.epochs!==r.bestCheckpointStep/20000||
+             w.provenance.expertReviewed!==false)process.exit(2);
+          console.log("VERIFIED_10M_REAL_5D_SYNTHETIC_SGD_BEST_CHECKPOINT_NO_LLM_WEIGHTS");
+          '
+      - name: Verify uploaded weight/report pair with the same browser-side SHA gate
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/octuber-penteract-10m
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --input-type=module -e '
+          import {readFileSync} from "node:fs";
+          import {join} from "node:path";
+          import {verifySyntheticFiveDBundle} from "./src/detroit/penteract-sandbox-receipt.ts";
+          const dir=process.env.EVIDENCE_DIR;
+          const report=JSON.parse(readFileSync(join(dir,"five-d-sandbox-report.json"),"utf8"));
+          const raw=readFileSync(join(dir,"five-d-weights.json"),"utf8");
+          const matched=await verifySyntheticFiveDBundle(raw,report);
+          if(matched.updates!==10000000||matched.authorized!==false)process.exit(2);
+          console.log("VERIFIED_5D_WEIGHTS_AND_REPORT_SHA256_STILL_READONLY");
           '
       - name: Upload auditable local shadow weights and metrics
         uses: actions/upload-artifact@v4

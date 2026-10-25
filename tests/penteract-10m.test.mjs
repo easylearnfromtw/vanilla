@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {trainFiveD,TRAIN_ROWS,EVAL_ROWS,FULL_UPDATES} from "../scripts/train-penteract-10m.mjs";
+import {readFileSync} from "node:fs";
+import {trainFiveD,TRAIN_ROWS,EVAL_ROWS,SEALED_TEST_ROWS,FULL_UPDATES} from "../scripts/train-penteract-10m.mjs";
+import {verifySyntheticFiveDBundle} from "../src/detroit/penteract-sandbox-receipt.ts";
 import {assertLearnedFiveWeights,routeLearnedFive} from "../src/detroit/penteract-learned.ts";
 import {activateAtuberFiveDSandbox,clearAtuberFiveDSandbox,atuberFiveDSandboxActive} from "../src/detroit/atuber-5d-sandbox-bridge.ts";
 import {planAtuberReadOnly} from "../src/detroit/atuber-tool-plan.ts";
@@ -10,6 +12,7 @@ test("5D 10M pipeline is actual bounded CPU SGD, not a made-up training counter"
  assert.equal(FULL_UPDATES,10000000);
  assert.equal(TRAIN_ROWS,20000);
  assert.equal(EVAL_ROWS,240);
+ assert.equal(SEALED_TEST_ROWS,300);
  assert.throws(()=>trainFiveD({updates:1}),/UPDATES_REQUIRE/);
  assert.throws(()=>trainFiveD({updates:10000001}),/UPDATES_REQUIRE/);
  const {report,artifact}=trainFiveD({updates:TRAIN_ROWS});
@@ -25,6 +28,14 @@ test("5D 10M pipeline is actual bounded CPU SGD, not a made-up training counter"
  assert.equal(artifact.provenance.trainCount,20000);
  assert.equal(artifact.provenance.evalCount,240);
  assert.equal(artifact.provenance.epochs,1);
+ assert.equal(report.bestCheckpointStep,TRAIN_ROWS);
+ assert.equal(report.exportedWeightsCheckpointStep,TRAIN_ROWS);
+ assert.equal(report.sealedSyntheticTestRows,SEALED_TEST_ROWS);
+ assert.equal(report.sealedSyntheticTestNotUsedForCheckpointSelection,true);
+ assert.ok(report.syntheticValidationSelectedLoss<=report.syntheticValidationLastLoss);
+ assert.equal(report.syntheticValidationSelectedLoss,report.syntheticHoldoutFinalLoss);
+ assert.equal(report.additionalUpdatesAfterBest,0);
+ assert.match(report.artifactSha256,/^[0-9a-f]{64}$/);
  assert.equal(artifact.provenance.expertReviewed,false);
  assert.doesNotThrow(()=>assertLearnedFiveWeights(artifact));
  const result=routeLearnedFive("修復 Python API 程式錯誤",artifact);
@@ -55,4 +66,23 @@ test("Atuber and Detroit only use manually opted-in learned 5D weights in explic
  const gone=await executeAtuberReadOnly(plan,{privateMode:true});
  assert.match(gone.evidence,/learnedShadow/);
  assert.match(gone.evidence,/null/);
+});
+
+test("5D bridge rejects 20k smoke-test report as proof of 10M synthetic training",async()=>{
+ const {report,artifact}=trainFiveD({updates:TRAIN_ROWS});
+ assert.equal(report.actualWeightUpdates,20000);
+ const raw=JSON.stringify(artifact)+String.fromCharCode(10);
+ await assert.rejects(()=>verifySyntheticFiveDBundle(raw,report),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
+ await assert.rejects(()=>verifySyntheticFiveDBundle(raw,{...report,actualWeightUpdates:10000000}),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
+ await assert.rejects(()=>verifySyntheticFiveDBundle(raw,{...report,artifactSha256:"0".repeat(64)}),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
+});
+
+test("5D training preview cannot quietly grant Detroit or Atuber tool permissions",()=>{
+ const studio=readFileSync(new URL("../src/detroit/PenteractFunnelPanel.tsx",import.meta.url),"utf8");
+ const bridge=readFileSync(new URL("../src/detroit/atuber-5d-sandbox-bridge.ts",import.meta.url),"utf8");
+ assert.ok(studio.includes("verifySyntheticFiveDBundle"));
+ assert.ok(studio.includes("disabled={!atuberBridgeEnabled&&!verifiedReceipt}"));
+ assert.ok(studio.includes("clearAtuberFiveDSandbox();setAtuberBridgeEnabled(false)"));
+ for(const forbidden of ["fetch(","localStorage","sessionStorage","eval("])
+  assert.equal(bridge.includes(forbidden),false,forbidden);
 });

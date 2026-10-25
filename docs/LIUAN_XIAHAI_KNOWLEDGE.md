@@ -5,9 +5,9 @@
 Vanilla 聊天上方有兩個可直接開啟的獨立頁面，原本五項側邊欄不變：
 
 - 書籍索引：本網站路徑加上 \`?archive=liuan\`，名稱 **柳岸書城**
-- 論文索引：本網站路徑加上 \`?archive=xiahai\`，名稱 **霞海書院**
+- 論文索引：本網站路徑加上 \`?academy=xiahai\`，名稱 **霞海書院**
 
-兩館有獨立畫面、搜尋欄、結果、來源權利標籤、原始 URL。書籍搜索接 Open Library 使用者發起的公共 metadata API；論文搜索接 OpenAlex 使用者發起的公共 works API。沒有 API key 時 OpenAlex 只有基本的匿名額度；超額或 API 不可用要顯示失敗，不應偽造數據。頁面沒有秘密 API key，沒有對館藏大量抓取或下載全文。初始柳岸書城展示的兩本書是先前完成全文索引驗證的古典著作；**不代表網頁已部署 19,552 本完整 SQLite 索引**。大批書目在獨立的私有/開放書目 SQLite 及已下載資料包中。要讓網站直接瀏覽全套索引，仍需部署授權且有負載限制的查詢後端或提供靜態分頁；目前此 API 尚不存在。
+兩館有獨立畫面、搜尋欄、結果、來源權利標籤、原始 URL。書籍搜索接 Open Library 使用者發起的公共 metadata API；論文搜索接 OpenAlex 使用者發起的公共 works API。沒有 API key 時 OpenAlex 只有基本的匿名額度；超額或 API 不可用要顯示失敗，不應偽造數據。頁面沒有秘密 API key，沒有對館藏大量抓取或下載全文。初始柳岸書城展示的兩本書是先前完成全文索引驗證的古典著作；**不代表網頁已部署 19,552 本完整 SQLite 索引**。大批書目在獨立的私有/開放書目 SQLite 及已下載資料包中。要讓網站直接瀏覽全套索引，仍需部署授權且有負載限制的查詢後端或提供靜態分頁；目前供私人完整索引的持續查詢 API 尚不存在。
 
 ## 引用名稱：品牌是索引館而不是出版者
 
@@ -21,7 +21,7 @@ Vanilla 的 Markdown 渲染器支援經資料來源工具產生的 \`bookrefs\` 
 
 ## 霞海書院資料與大學引用優先級
 
-OpenAlex 作品索引與 arXiv 是主要公共論文來源；本期已實作從 OpenAlex 擷取作者、期刊、年份、DOI、開放取用旗標、機構名稱的資料索引，\`training/atuber-books/xiahai_papers.py\`。要本機實際從 OpenAlex 撈取小量論文資料：
+OpenAlex 作品索引與 arXiv 是主要公共論文來源；現有霞海書院另已實作 OpenAlex 與 arXiv 來源資料、QS 排名識別碼及人工權威例外管理；本期也實作從 OpenAlex 擷取作者、期刊、年份、DOI、開放取用旗標、機構名稱的資料索引，\`training/atuber-books/xiahai_papers.py\`。要本機實際從 OpenAlex 撈取小量論文資料：
 
 ~~~bash
 python3 training/atuber-books/xiahai_papers.py --query "behavioral economics consumer decisions" --output training/data/xiahai-papers.sqlite3 --per-page 10 --execute

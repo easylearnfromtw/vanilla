@@ -1,4 +1,4 @@
-import {useRef,useState} from "react";
+import {useRef,useState,type FormEvent} from "react";
 import {ArrowUpRight,BookOpen,Copy,ExternalLink,LibraryBig,Search,ShieldCheck} from "lucide-react";
 import {getScholarlyRankTable,getScholarlyAuthorityLedger,searchOpenAlexWorks,type AcademicHit} from "../search/scholarly-discovery";
 import "./xiahai-academy.css";
@@ -20,7 +20,7 @@ export default function XiahaiAcademy(){
  const current=useRef(0);
  const rankingCount=Object.keys(getScholarlyRankTable()).length;
  const authorityCount=getScholarlyAuthorityLedger().length;
- async function search(event:React.FormEvent<HTMLFormElement>){
+ async function search(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const text=query.trim();
   if(text.length<2){setMessage("請輸入至少兩個字的論文名稱、主題或 DOI。");return;}

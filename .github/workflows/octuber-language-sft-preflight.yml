@@ -1,0 +1,60 @@
+name: Atuber real LLM LoRA preflight (CPU only, no fake weights)
+on:
+  pull_request:
+    branches: [main, feature/octuber-three-site-authorized-price-feeds-20261025]
+    paths:
+      - "training/atuber/price_tool_sft_candidates.py"
+      - "training/atuber/dataset.py"
+      - "training/atuber/train.py"
+      - "tests/test_atuber_price_tool_sft.py"
+      - "docs/OCTUBER_LANGUAGE_LORA_PRICE_TOOLS.md"
+      - ".github/workflows/octuber-language-sft-preflight.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cpu-data-and-training-code-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate actual Atuber LoRA scripts without pretending GPU exists
+        run: |
+          python -m py_compile training/atuber/train.py training/atuber/dataset.py training/atuber/price_tool_sft_candidates.py
+          python -m unittest discover -s tests -p "test_atuber_price_tool_sft.py" -v
+          python -m unittest discover -s tests -p "test_atuber_independent_model.py" -v
+      - name: Build unapproved language examples and refuse direct SFT
+        run: |
+          python training/atuber/price_tool_sft_candidates.py \
+            --output artifacts/atuber-price-tool-unreviewed.jsonl
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path("artifacts/atuber-price-tool-unreviewed.jsonl")
+          rows=[json.loads(line) for line in p.read_text().splitlines()]
+          assert len(rows)>=150
+          assert all(x["reviewed"] is False and x["consent"] is False for x in rows)
+          assert all(x["source"]=="candidate-generated" for x in rows)
+          print("GENUINE_HUMAN_REVIEWED_ROWS",0)
+          print("ACTUAL_LLM_ADAPTER_FILES_CREATED",0)
+          print("ACTUAL_QWEN_OPTIMIZER_STEPS",0)
+          print("DRAFT_DIALOGUE_CANDIDATES",len(rows))
+          PY
+          if python training/atuber/train.py \
+            --dataset artifacts/atuber-price-tool-unreviewed.jsonl \
+            --validate-only > /tmp/draft-sft-check.log 2>&1; then
+            echo "ERROR: unapproved synthetic dataset unexpectedly passed" >&2
+            exit 1
+          fi
+          grep -q "TRAINING_APPROVAL_REQUIRED" /tmp/draft-sft-check.log
+          echo "UNAPPROVED_DATASET_CORRECTLY_BLOCKED"
+      - name: Preserve candidate draft for private human review, not model weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-pricing-cream-detroit-unreviewed-sft-draft
+          retention-days: 14
+          if-no-files-found: error
+          path: artifacts/atuber-price-tool-unreviewed.jsonl

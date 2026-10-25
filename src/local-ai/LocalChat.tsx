@@ -15,6 +15,8 @@ import {consumerGuidance} from "../knowledge/evidence";
 import {venusPresentationGuidance} from "../venus/presentation";
 import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
+import CitymusResults from "../music/CitymusResults";
+import {searchCitymus} from "../music/citymus";
 import ChatHome from "./ChatHome";
 import LocalModelPanel from "./LocalModelPanel";
 import GoogleSourcesPanel from "../cream/GoogleSourcesPanel";
@@ -65,7 +67,7 @@ import {classifyTaiwanTopic,isTaideModel,taiwanEvidenceGuidance,isTaiwanTaideEna
 import {learnToneFromMessage,toneFeedback,applyExplicitToneRequest,type ToneFeedback} from "../ai/tone-adaptation";
 import {exportText,parseTable} from "./smart-output";
 import type {ImageInput} from "../vault/providers";
-import {ArrowUp,Square,Sparkles,Copy,Check,ThumbsUp,ThumbsDown,ChevronDown,LockKeyhole,Plus,X,MoreHorizontal,Search,BarChart3,Database,FolderOpen,Code2,Wrench,Paperclip,Globe,Brain} from "lucide-react";
+import {ArrowUp,Square,Sparkles,Copy,Check,ThumbsUp,ThumbsDown,ChevronDown,LockKeyhole,Plus,X,MoreHorizontal,Search,BarChart3,Database,FolderOpen,Code2,Wrench,Paperclip,Globe,Brain,Headphones} from "lucide-react";
 import {availableProviders} from "../vault/providers";
 import {detectLocalAICapabilities} from "./capabilities";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
@@ -118,6 +120,7 @@ function restoreMerlinPending(turns:ChatTurn[]):MerlinClarification|null{
 }
 const TOOL={
  merlin:{id:"merlin-clarify",label:"Merlin · 需求釐清"},
+ citymus:{id:"citymus",label:"CITYMUS · 音樂資料庫"},
  books:{id:"liuan-book-lookup",label:"柳岸書城 · 書籍來源"},
  research:{id:"xiahai-paper-lookup",label:"霞海書院 · 論文來源"},
  capability:{id:"capability",label:"功能實況"},venus:{id:"venus",label:"Venus · 圖片搜尋"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
@@ -126,7 +129,7 @@ const TOOL={
  retina:{id:"retina",label:"Retina · 圖片辨識"},github:{id:"github",label:"GitHub 原始碼"},save:{id:"save",label:"保存"},builder:{id:"builder",label:"Self-Build"},privacy:{id:"privacy",label:"私密模式"},diana:{id:"diana",label:"Diana 工具選擇"}
 } as const;
 type ToolKey=keyof typeof TOOL;
-const TOOL_ICON:Record<string,typeof Search>={search:Search,web:Globe,cream:BarChart3,sheets:BarChart3,memory:Database,files:FolderOpen,save:FolderOpen,github:Code2,builder:Wrench,project:Code2,privacy:LockKeyhole};
+const TOOL_ICON:Record<string,typeof Search>={citymus:Headphones,search:Search,web:Globe,cream:BarChart3,sheets:BarChart3,memory:Database,files:FolderOpen,save:FolderOpen,github:Code2,builder:Wrench,project:Code2,privacy:LockKeyhole};
 function prettyModel(model:string):string{
  const local=LOCAL_MODELS.find(x=>x.id===model);
  if(local)return local.label.replace(/^[^·]*·\s*/,"");
@@ -885,6 +888,22 @@ async function send(value=draft):Promise<void>{
  let webIndex:IndexedPage[]=[];
  let goEvidence=""; // Populated by the audited Go route, consumed only after Veritas checks.
  switch(route.kind){
+  case "citymus":{
+   // Honor Vanilla's offline private-mode policy: no remote catalog calls.
+   if(privateMode){toolReply(question,"私密模式不會向 CITYMUS 傳送音樂查詢；切換一般模式才能查詢 CITYMUS 真實曲庫。","privacy");return;}
+   if(!online){toolReply(question,"目前離線，無法連線 CITYMUS 音樂資料庫。請恢復網路後再查。","citymus");return;}
+   setBusy(true);setLastRoute("CITYMUS：正在查詢合法公開音樂曲庫…");
+   try{
+    const result=await searchCitymus(question);
+    const answer=result.tracks.length?
+     "已從 CITYMUS "+(result.via==="api"?"音樂搜尋 API":"公開音樂曲庫")+" 查到 "+result.tracks.length+" 首曲目。下方可查看歌手、曲風、授權來源與可用試聽。":
+     "CITYMUS 目前找不到符合「"+question+"」的授權曲目。可以改用下方曲風標籤繼續搜尋；沒有虛構歌曲或歌手。";
+    toolReply(question,answer,"citymus",{music:result});
+   }catch(e){
+    toolReply(question,"CITYMUS 資料來源暫時無法取得真實結果："+String(e instanceof Error?e.message:e)+"。請稍後重試，或開啟 CITYMUS 原站：https://easylearnfromtw.github.io/musictown/","citymus");
+   }finally{setBusy(false);}
+   return;
+  }
   case "go-research":{
    // Never auto-install third-party Go source or send conversation text to GitHub.
    if(privateMode||!online){
@@ -1745,6 +1764,7 @@ return <section className={"chat"+(empty?" chat-empty":"")+(privateMode?" is-pri
  <div className="message-text">{turn.role==="assistant"?(turn.content?<ChatMarkdown source={stripRenderedTable(turn.content)}/>:<span className="typing-dots" aria-label="正在生成"><i/><i/><i/></span>):turn.content}</div>
  {turn.role==="assistant"&&index===latestAssistant&&<DetroitStages plan={detroitPlan}/>}
   {turn.role==="assistant"&&(turn.contexts?.length||turn.notice)?<div className="message-context">{turn.contexts?.length?<span>參考：{turn.contexts.join("、")}</span>:null}{turn.notice&&<span className="context-notice">{turn.notice}</span>}</div>:null}
+ {turn.role==="assistant"&&turn.music&&<CitymusResults result={turn.music} onSearch={q=>void send(q)}/>}
  {turn.role==="assistant"&&<MessageArtifacts turn={turn} onOpenTable={openTableInSheets} onOpenSheet={openCreatedSheet} onOpenCream={creamDataset?.importedAt===turn.cream?.importedAt?openCreamInSheets:undefined} allowGridCraft={!privateMode}/>}
  {turn.role==="assistant"&&turn.content&&!streamingThis&&<div className="message-actions">
   <button type="button" className="message-copy" title="複製回答" aria-label="複製回答" onClick={()=>void copyMessage(turn.content,index)}>{copied===index?<Check size={15}/>:<Copy size={15}/>}</button>

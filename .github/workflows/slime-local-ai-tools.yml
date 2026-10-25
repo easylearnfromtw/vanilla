@@ -50,3 +50,32 @@ jobs:
           assert "--allow-download" in models
           print("SLIME_OWNER_TOOL_INTEGRATION_TESTED_NO_GPU_DOWNLOAD_OR_TRAINING_EXECUTED")
           PY
+
+  windows-unsigned-preview:
+    needs: offline-local-tool-tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create locally executable preview (no auto-install or publication)
+        shell: pwsh
+        run: |
+          python -m pip install "pyinstaller>=6.10,<7"
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name Slime-Owner services/slime/desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name Slime-Friend services/slime/desktop.py
+          if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "SLIME_WINDOWS_EXECUTABLE_NOT_CREATED" }
+          Get-FileHash -Algorithm SHA256 dist/Slime-Owner.exe,dist/Slime-Friend.exe | Format-Table
+      - name: Upload owner-tested PREVIEW ONLY, unsigned and not deployed
+        uses: actions/upload-artifact@v4
+        with:
+          name: slime-local-qwen-owner-friend-windows-UNSIGNED-preview
+          path: |
+            dist/Slime-Owner.exe
+            dist/Slime-Friend.exe
+          if-no-files-found: error
+          retention-days: 7

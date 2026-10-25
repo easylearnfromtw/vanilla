@@ -89,6 +89,27 @@ jobs:
               output.write(f'- Holdout accuracy: {r["holdout_final"]["accuracy"]}\n')
               output.write('- October/Qwen LLM steps: 0; full texts read: 0\n')
           PY
+      - name: Build two public-domain historical book text indices (not LLM training)
+        timeout-minutes: 10
+        run: |
+          python3 training/atuber-books/public_domain_pilot.py --output "$RUNNER_TEMP/atuber-public-domain-pilot" --execute
+      - name: Verify public-domain pilot citations and retain no texts
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          r=json.loads((root/"atuber-public-domain-pilot/pilot_report.json").read_text())
+          assert r["books_indexed"]==2
+          assert r["econ_search_has_evidence"] and r["philosophy_search_has_evidence"]
+          assert r["llm_weight_updates"]==0
+          print("Full historical books indexed for evidence retrieval:",r["books_indexed"])
+          print("Evidence chunks:",r["chunks_indexed"])
+          with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as output:
+              output.write("\n## Public-domain full-book RAG pilot (not weights)\n")
+              output.write(f'- Full texts indexed privately: {r["books_indexed"]}\n')
+              output.write(f'- Evidence chunks: {r["chunks_indexed"]}\n')
+              output.write('- LLM gradient updates: 0; corpus not uploaded\n')
+          PY
       - name: Report measured records, never fake training
         run: |
           python3 - <<'PY'
@@ -124,5 +145,6 @@ jobs:
             ${{ runner.temp }}/title-weight-sandbox/training_report.json
             ${{ runner.temp }}/title-weight-sandbox/weights.json
             ${{ runner.temp }}/title-weight-sandbox/title_holdout_questions.jsonl
+            ${{ runner.temp }}/atuber-public-domain-pilot/pilot_report.json
           if-no-files-found: warn
           retention-days: 7

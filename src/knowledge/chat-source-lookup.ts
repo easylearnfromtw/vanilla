@@ -5,7 +5,7 @@ import {gdeltNewsUrl,parseLiveNews,type NewsMarket} from "../bluestar/news-sourc
 type LibraryRoute={kind:"book"|"paper"|"news";query:string};
 export function parseKnowledgeLookup(text:string):LibraryRoute|null{
  const s=text.trim();
- const match=s.match(/^(?:請?幫?我?(?:查詢|搜尋|查找|查|找)\s*)?(柳岸書城|霞海書院|藍星報社)\s*[：:\s]+\s*(.{2,120})$/);
+ const match=s.match(/^(?:請?幫?我?(?:查詢|搜尋|查找|查|找)\s*)?(柳岸書城|霞海書院|藍星報社)\s*[：:\s]+\s*(.{1,120})$/);
  if(!match)return null;
  return {kind:match[1]==="柳岸書城"?"book":match[1]==="霞海書院"?"paper":"news",query:match[2].trim()};
 }

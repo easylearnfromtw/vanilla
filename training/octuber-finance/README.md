@@ -226,3 +226,17 @@ python3 -m unittest discover -s tests -p 'test_octuber_worldbank_import.py'
 ~~~
 
 No GPU, protected newspaper scraping, paid feed download or model training is performed by these checks.
+
+
+## Private GPU execution integration (manual, NOT automatically running)
+
+The opt-in GitHub Actions file is .github/workflows/octuber-finance-gpu.yml. It is an authenticated workflow_dispatch, not a push / cron trigger. It only runs on the protected main branch and explicitly requires YES_APPROVE_PRIVATE_GPU plus the GitHub Environment octuber-finance-gpu approvals. It selects ONE tier and immutable upstream base revision per run; 60B stays blocked.
+
+To make this executable, the repository owner must FIRST:
+1. Merge the reviewed PR to protected main only after all CI/security checks pass.
+2. Register a dedicated trusted self-hosted Linux CUDA GPU runner with label octuber-gpu. GitHub-hosted standard jobs DO NOT provide the assumed GPU. Configure Python 3.11+, compatible PyTorch CUDA, transformers, datasets, PEFT, TRL, bitsandbytes and model access. Protect this runner from untrusted PR code.
+3. Configure protected GitHub Environment octuber-finance-gpu with required reviewers, and two repository/environment variables: OCTUBER_FINANCE_DATA_ROOT and OCTUBER_FINANCE_OUTPUT_ROOT as absolute private paths on the GPU host.
+4. Put 20 validated, licensed market CSVs plus price-rights.json beneath the data root; also approved/train.jsonl, approved/eval.jsonl, approved/test.jsonl, approved/approved-provenance.json and the underlying rights review materials. Never commit paid datasets, private keys or raw news to GitHub.
+5. Manually dispatch the workflow for one tier and an actual 40-character immutable upstream commit, after approving GPU costs/model rights and optional multi-GB weight download.
+
+No workflow run, GPU rental, live 30-year data fetch or model release has been done through this pull request. Check actual NVIDIA logs, adapter hash, independent blind tests and human deployment signoff before announcing any trained OCTUBER finance release.

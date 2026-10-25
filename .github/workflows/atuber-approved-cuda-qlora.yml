@@ -9,6 +9,7 @@ on:
         options:
           - audit-only
           - licensed-books
+          - licensed-papers
           - reviewed-consumer-sft
         required: true
         default: audit-only
@@ -57,7 +58,11 @@ jobs:
           test -d "$ATUBER_PRIVATE_ROOT" || { echo '::error::PRIVATE_STORAGE_NOT_MOUNTED'; exit 1; }
           test -w "$ATUBER_PRIVATE_ROOT" || { echo '::error::PRIVATE_STORAGE_NOT_WRITABLE'; exit 1; }
           # Refuse GitHub checked-out/book stage index as a substitute for genuine reviewed corpus.
-          if [ "${{ inputs.mode }}" != 'reviewed-consumer-sft' ]; then
+          if [ "${{ inputs.mode }}" = 'licensed-papers' ]; then
+            test -s "$ATUBER_PRIVATE_ROOT/approved-papers.sqlite3" || {
+              echo '::error::RIGHTS_REVIEWED_1000_PAPERS_NOT_MOUNTED'; exit 1;
+            }
+          elif [ "${{ inputs.mode }}" != 'reviewed-consumer-sft' ]; then
             test -s "$ATUBER_PRIVATE_ROOT/approved-books.sqlite3" || {
               echo '::error::RIGHTS_APPROVED_BOOKS_DATABASE_REQUIRED'; exit 1;
             }
@@ -73,6 +78,10 @@ jobs:
           if [ "${{ inputs.mode }}" = "reviewed-consumer-sft" ]; then
             python3 training/atuber/train.py \
               --dataset "$ATUBER_PRIVATE_ROOT/reviewed-consumer-qa.jsonl" --validate-only
+          elif [ "${{ inputs.mode }}" = "licensed-papers" ]; then
+            python3 training/atuber-books/approved_fulltext_qlora.py \
+              --index "$ATUBER_PRIVATE_ROOT/approved-papers.sqlite3" \
+              --required-approved-books 1000 --audit-only
           else
             python3 training/atuber-books/approved_fulltext_qlora.py \
               --index "$ATUBER_PRIVATE_ROOT/approved-books.sqlite3" \
@@ -110,6 +119,22 @@ jobs:
           test -s "$output/adapter/adapter_model.safetensors"
           test -s "$output/training-provenance.json"
           echo "Verified GPU adapter saved on protected owner GPU storage: $output" >> "$GITHUB_STEP_SUMMARY"
+      - name: Actually update Qwen3-0.6B neural model on 1000 licensed fulltext papers
+        if: inputs.mode == 'licensed-papers'
+        timeout-minutes: 210
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          output="$ATUBER_PRIVATE_ROOT/outputs/$GITHUB_RUN_ID-xiahai-1000-paper-qlora"
+          python3 training/atuber-books/approved_fulltext_qlora.py \
+            --index "$ATUBER_PRIVATE_ROOT/approved-papers.sqlite3" \
+            --required-approved-books 1000 \
+            --output "$output" --steps "${{ inputs.steps }}" \
+            --max-length 512 --train
+          test -s "$output/adapter/adapter_model.safetensors"
+          test -s "$output/training-provenance.json"
+          echo "1000 licensed papers REAL Qwen CUDA adapter saved under owner-controlled storage: $output" >> "$GITHUB_STEP_SUMMARY"
       - name: Actually update Qwen3-0.6B neural model weights on reviewed consumer Q&A
         if: inputs.mode == 'reviewed-consumer-sft'
         timeout-minutes: 210

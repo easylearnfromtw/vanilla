@@ -71,7 +71,7 @@ test("柳岸書城 static page references 100 actually indexed longform historic
  assert.equal(LIUAN_VERIFIED_HISTORICAL_BOOKS.length,100);
  assert.equal(new Set(LIUAN_VERIFIED_HISTORICAL_BOOKS.map(([id])=>id)).size,100);
  for(const [id,title,author] of LIUAN_VERIFIED_HISTORICAL_BOOKS){
-  assert.ok(Number.isInteger(id)&&id>0,"Gutenberg source IDs required");
+  assert.ok(/^\d+$/.test(id)&&Number(id)>0,"Gutenberg source IDs required");
   assert.ok(title.length>8&&author.includes(","),"grounded named author/title required");
  }
  assert.equal(LIUAN_INDEX_REPORT.books,100);

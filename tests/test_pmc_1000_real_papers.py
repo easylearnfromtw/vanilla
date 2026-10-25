@@ -39,6 +39,7 @@ def fake_batch(*articles):
 class PaperCorpusTests(unittest.TestCase):
  def test_cc_by_and_cc0_exact_license_only(self):
   for license_url in ("https://creativecommons.org/licenses/by/4.0/",
+                      "http://creativecommons.org/licenses/by/4.0/",
                       "https://creativecommons.org/publicdomain/zero/1.0/"):
    xml=ET.fromstring(fake_article(license_url))
    result=pmc.paper_data(xml)

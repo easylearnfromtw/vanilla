@@ -86,7 +86,18 @@ class SourcePolicies(unittest.TestCase):
             p=Path(d)/"reviewed.jsonl"
             dest=Path(d)/"sft.jsonl"
             p.write_text("".join(json.dumps(self.example(i),ensure_ascii=False)+"\n" for i in range(110)))
-            report=knowledge.produce(p,dest)
+            with self.assertRaisesRegex(ValueError,"PRIVATE_RIGHTS_CLEARED_EVIDENCE"):
+                knowledge.produce(p,dest)
+            evidence=Path(d)/"rights_reviewed_fixture.sqlite3"
+            with sqlite3.connect(evidence) as c:
+                c.execute("CREATE TABLE books(id TEXT PRIMARY KEY,source_url TEXT)")
+                c.execute("CREATE TABLE chunks(book_id TEXT,body TEXT,body_sha256 TEXT)")
+                c.execute("INSERT INTO books VALUES(?,?)",("owned_book","https://example.org/approved-book"))
+                for i in range(110):
+                    body=f"owned source {i}"
+                    c.execute("INSERT INTO chunks VALUES(?,?,?)",
+                        ("owned_book",body,hashlib.sha256(body.encode()).hexdigest()))
+            report=knowledge.produce(p,dest,evidence_index=evidence)
             self.assertEqual(report["items"],110)
             self.assertEqual(report["language_model_updates"],0)
             rows=[json.loads(line) for line in dest.read_text().splitlines()]
@@ -94,7 +105,7 @@ class SourcePolicies(unittest.TestCase):
             self.assertTrue(all("柳岸書城" in row["assistant"] for row in rows))
             self.assertTrue(all("https://example.org/approved-book" in row["assistant"] for row in rows))
             with self.assertRaisesRegex(ValueError,"REFUSE_OVERWRITE"):
-                knowledge.produce(p,dest)
+                knowledge.produce(p,dest,evidence_index=evidence)
 
 if __name__=="__main__":
     unittest.main()

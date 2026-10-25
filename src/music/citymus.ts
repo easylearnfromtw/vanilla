@@ -33,7 +33,7 @@ const NON_SEARCH=/(?:製作|設計|建立|開發|部署|寫|編輯|生成|產生
 /** Music queries are routed before general web search; ordinary music theory/news aren't hijacked. */
 export function citymusIntent(question:string):boolean{
  const q=question.trim();
- if(q.length<2||q.length>220||NON_SEARCH.test(q))return false;
+ if(q.length<2||q.length>220||NON_SEARCH.test(q)||/citymus.{0,20}(?:api|網站|部署|串接|資料庫|設定|整合|功能|後台)/i.test(q))return false;
  return KEYWORD.test(q)||/^(?:推薦音樂|推薦歌曲|找音樂|查音樂|音樂推薦|找歌|查歌|找歌手|查歌手|查專輯|歌單推薦|播放音樂|音樂搜尋|推薦幾首|音樂|歌曲|music|citymus)[！!。.?？\s]*$/i.test(q);
 }
 function text(v:unknown,max=160){return typeof v==="string"?v.trim().slice(0,max):"";}
@@ -91,12 +91,15 @@ async function fetchWithTimeout(url:string,ms:number,signal?:AbortSignal):Promis
 }
 /** Public database fallback keeps actual CITYMUS metadata, never synthetic track records. */
 async function catalogFallback(query:string,signal?:AbortSignal):Promise<CitymusSearchResult>{
- const url=WEB+"data/legal_music_library.json";
- const res=await fetchWithTimeout(url,9000,signal);
+ // GitHub Pages publishes a compiled 4,500-track library, not /data/*.json.
+ // Parse the known JSON assignment as data. Never eval or execute downloaded JavaScript.
+ const res=await fetchWithTimeout(WEB+"citymus-library.js",10000,signal);
  if(!res.ok)throw Error("CITYMUS 公開曲庫 HTTP "+res.status);
- const raw:unknown=await res.json();
- const values=Array.isArray(raw)?raw:raw&&typeof raw==="object"&&Array.isArray((raw as {tracks?:unknown}).tracks)?(raw as {tracks:unknown[]}).tracks:[];
- if(!values.length)throw Error("CITYMUS 公開曲庫目前沒有可讀取曲目");
+ const js=await res.text(),prefix="window.CITYMUS_LIBRARY=";
+ const begin=js.indexOf(prefix),end=js.indexOf(";\nwindow.CITYMUS_LIBRARY_REPORT=",begin);
+ if(begin<0||end<0||end-begin>12000000)throw Error("CITYMUS 公開曲庫格式不正確");
+ const values:unknown[]=JSON.parse(js.slice(begin+prefix.length,end));
+ if(!Array.isArray(values)||!values.length)throw Error("CITYMUS 公開曲庫目前沒有可讀取曲目");
  const items=values.map(normalizeTrack).filter((t):t is CitymusTrack=>Boolean(t));
  const ranked=items.map(track=>({track,score:score(track,query)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
  const broad=isBroad(query);

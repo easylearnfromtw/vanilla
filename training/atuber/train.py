@@ -30,6 +30,15 @@ def digest(path: Path) -> str:
 def train(dataset: str, output: str, *, max_steps: int, sequence_length: int) -> None:
     rows, data_sha = validate_jsonl(dataset)
     training, holdout = to_conversations(rows)
+    # Explicit prompt/completion records avoid relying on a Qwen chat
+    # template that may not expose generation-token masks for
+    # assistant_only_loss. The SFT loss must apply to the answer, not
+    # teach the model to imitate untrusted user instructions.
+    def completion_record(row: dict) -> dict:
+        messages = row["messages"]
+        return {"prompt": messages[:-1], "completion": messages[-1:]}
+    train_examples = [completion_record(row) for row in training]
+    eval_examples = [completion_record(row) for row in holdout]
     try:
         import torch
         from datasets import Dataset
@@ -69,7 +78,7 @@ def train(dataset: str, output: str, *, max_steps: int, sequence_length: int) ->
         max_steps=max_steps,
         warmup_ratio=0.03,
         gradient_checkpointing=True,
-        assistant_only_loss=True,
+        completion_only_loss=True,
         packing=False,
         report_to="none",
         save_strategy="no",
@@ -84,8 +93,8 @@ def train(dataset: str, output: str, *, max_steps: int, sequence_length: int) ->
         bias="none", task_type="CAUSAL_LM",
     )
     trainer = SFTTrainer(
-        model=model, args=cfg, train_dataset=Dataset.from_list(training),
-        eval_dataset=Dataset.from_list(holdout), peft_config=peft_cfg,
+        model=model, args=cfg, train_dataset=Dataset.from_list(train_examples),
+        eval_dataset=Dataset.from_list(eval_examples), peft_config=peft_cfg,
         processing_class=tokenizer
     )
     outcome = trainer.train()

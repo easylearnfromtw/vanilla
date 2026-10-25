@@ -146,6 +146,15 @@ def evidence(db:Path,question:str,limit:int=5)->dict:
     query=question.casefold().strip()
     # Conservative lexical retrieval, not a semantic answer or claim of having read all works.
     terms=re.findall(r"[\u3400-\u9fff]{2,}|[a-zA-Z]{3,}",query)
+    # Chinese questions are usually unspaced sentences; use overlapping
+    # trigrams to recover relevant phrases without claiming semantic matching.
+    segmented=[]
+    for term in terms:
+        if len(term)>3 and re.fullmatch(r"[\u3400-\u9fff]+",term):
+            segmented.extend(term[i:i+3] for i in range(len(term)-2))
+        else:
+            segmented.append(term)
+    terms=sorted(set(segmented))
     if not terms:
         terms=[query]
     uri=db.resolve().as_uri()+"?mode=ro"

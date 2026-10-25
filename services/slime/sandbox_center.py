@@ -35,6 +35,7 @@ TASKS = (
  {"id":"octuber-shopper-1m","name":"October 模擬真人購物 100 萬次","group":"shopping","script":"training/atuber/human_shopper_sim.py","engine":"python","input":"ndc-csv","mode":"simulated-buyer-journeys","weight_scope":"none","large":True,"network":False},
  {"id":"octuber-shopper-policy","name":"October 歷史價位區間神經決策模型","group":"shopping","script":"training/atuber/human_shopper_policy_net.py","engine":"python","input":"ndc-csv","mode":"small-neural-gradient","weight_scope":"small-price-range-policy","large":False,"network":False},
  {"id":"atuber-language-candidates","name":"阿土伯語言微調教材草稿","group":"language","script":"training/atuber/price_tool_sft_candidates.py","engine":"python","input":"none","mode":"UNREVIEWED-candidate-generation","weight_scope":"none","large":False,"network":False},
+ {"id":"octuber-finance-plan","name":"OCTUBER 金融20大市場五模型 QLoRA 容量預覽","group":"gpu","script":"training/octuber-finance/train_tiers.py","engine":"python","input":"none","mode":"finance-qlora-plan-only","weight_scope":"none","large":False,"network":False},
  {"id":"atuber-local-qlora-gate","name":"七尺寸 QLoRA GPU 與資料預檢","group":"language","script":"training/atuber/actual_gpu_execution_gate.py","engine":"python","input":"none","mode":"read-only-preflight","weight_scope":"none","large":False,"network":False},
 )
 BY_ID={x["id"]:x for x in TASKS}
@@ -151,6 +152,8 @@ def compile_plan(root: str|Path, task_id:str, *, input_path:str|Path|None=None,
                "--output",str(target/"output")]
     elif task_id=="atuber-language-candidates":
         argv+=["--output",str(target/"unreviewed.jsonl")]
+    elif task_id=="octuber-finance-plan":
+        argv+=["--tier","all"]
     elif task_id=="atuber-local-qlora-gate":
         if model_size not in ("0.6b","1.7b","4b","8b","14b","30b","32b"):
             raise ValueError("SLIME_QLORA_SIZE_INVALID")

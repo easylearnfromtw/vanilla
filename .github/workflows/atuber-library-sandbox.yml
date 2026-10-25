@@ -48,6 +48,15 @@ jobs:
       - name: Download the single official NBINet CSV
         run: |
           python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/nbinet-source" --execute
+      - name: Diagnose header names without exposing book content
+        run: |
+          python3 - <<'PY'
+          import csv,os,pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'nbinet-source/nbinet.csv'
+          with p.open(encoding='utf-8-sig', newline='') as data:
+              reader=csv.reader(data)
+              print('CSV HEADER FIELDS (names only):',repr(next(reader, []))[:3500])
+          PY
       - name: Index 100k topics and 10k language extension targets
         run: |
           python3 training/atuber-books/catalog_sandbox.py --csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --source nbinet --output "$RUNNER_TEMP/atuber-book-index" --topic-target 100000 --language-target 10000 --execute

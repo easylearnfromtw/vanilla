@@ -145,7 +145,9 @@ class FirstRunExperienceTests(unittest.TestCase):
         flow=(ROOT/".github/workflows/slime-release.yml").read_text("utf-8")
         for fragment in ["--hidden-import slime_welcome","slime_welcome.py",
                          "Slime-Owner-macos.zip","Slime-Friend-linux.tar.gz",
-                         "test_slime_first_run_gui.py"]:
+                         "test_slime_first_run_gui.py",
+                         "Owner toolbox leaked to Friend macOS",
+                         "Owner toolbox leaked to Friend Linux"]:
             self.assertIn(fragment,flow)
         for script in ("Slime-Owner.command","Slime-Friend.command","launch-owner.sh",
                        "launch-friend.sh"):

@@ -10,6 +10,7 @@ from local_model_tools import (
     MODEL_SIZES, local_inventory, verify_local_inference, audit_training,
     launch_owner_training
 )
+from training_evidence import inspect_local_lora, inspect_sandbox_report
 
 
 def open_local_model_window(parent: tk.Tk, *, owner: bool) -> None:
@@ -166,6 +167,35 @@ def open_local_model_window(parent: tk.Tk, *, owner: bool) -> None:
     buttons.pack(fill="x", pady=7)
     ttk.Button(buttons, text="檢查訓練條件", command=audit_view).pack(side="left", padx=(0, 8))
     ttk.Button(buttons, text="本人確認後啟動 QLoRA", command=train_view).pack(side="left")
+    def verify_saved_checkpoint():
+        selected = filedialog.askdirectory(
+            parent=win, title="選擇訓練輸出資料夾（含 adapter/ 與 training-provenance.json）"
+        )
+        if not selected:
+            return
+        def finished(result):
+            display(json.dumps(result, ensure_ascii=False, indent=2))
+            return "已驗證本機 adapter 檔案和訓練回條相符；尚未獨立證明訓練來源，也沒有部署。"
+        background(lambda: inspect_local_lora(selected), finished)
+
+    def verify_sandbox_receipt():
+        selected = filedialog.askopenfilename(
+            parent=win, title="選擇 SLIME 沙盤測試回條",
+            filetypes=[("JSON", "*.json")]
+        )
+        if not selected:
+            return
+        def finished(result):
+            display(json.dumps(result, ensure_ascii=False, indent=2))
+            return "這是沙盤測試回條，不是 Qwen 語言權重更新。"
+        background(lambda: inspect_sandbox_report(selected), finished)
+
+    verify_controls = ttk.Frame(main)
+    verify_controls.pack(fill="x", pady=(2, 3))
+    ttk.Button(verify_controls, text="驗證本機 LoRA 權重與 SHA-256",
+               command=verify_saved_checkpoint).pack(side="left", padx=(0, 8))
+    ttk.Button(verify_controls, text="檢視沙盤執行回條",
+               command=verify_sandbox_receipt).pack(side="left")
     ttk.Label(main, textvariable=status, wraplength=685).pack(anchor="w", pady=6)
     ttk.Label(main, text="Slime Friend 無權啟動此工具；無新權重時維持原本模型。"
               "程序啟動後需查看本機日誌及獨立測試結果。",

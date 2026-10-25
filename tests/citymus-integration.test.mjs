@@ -21,3 +21,17 @@ test("CITYMUS results are source-grounded and not encoded as made-up defaults",a
  assert.equal(typeof module.searchCitymus,"function");
  assert.equal(module.citymusIntent("請幫我推薦爵士音樂"),true);
 });
+
+test("Artist queries and slash music commands keep music route",()=>{
+ for(const q of ["查詢歌手 周杰倫","幫我找五月天的歌","推薦台語歌","張學友唱過什麼歌"]){
+  assert.equal(routeMessage(q,ctx).kind,"citymus",q);
+ }
+});
+test("Slash command actually expands to CITYMUS route",async()=>{
+ const {expandSlashCommand,matchSlashCommands}=await import("../src/assistant/chat-router.ts");
+ const slash=expandSlashCommand("/音樂 推薦爵士");
+ assert.equal(slash?.text,"CITYMUS 搜尋音樂：推薦爵士");
+ assert.equal(routeMessage(slash.text,ctx).kind,"citymus");
+ assert.ok(matchSlashCommands("/音").some(x=>x.cmd==="/音樂"));
+ assert.equal(routeMessage(expandSlashCommand("/音樂").text,ctx).kind,"citymus");
+});

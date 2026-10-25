@@ -51,6 +51,42 @@ def normalized_license(value:str):
   if key not in ALLOWED:return None
   return ("cc-by" if key in CC_BY else "cc0","https://"+key+"/")
  except ValueError:return None
+def license_link_from_jats(node):
+ """Use only explicit Creative Commons URLs inside a JATS license element.
+
+ Some current PMC XML uses <license-p><ext-link xlink:href=...>,
+ and others present the direct URL as element text. Never accept NC/ND/SA.
+ """
+ fragments=[]
+ for elem in node.iter():
+  for key in (XHREF,"href"):
+   if elem.attrib.get(key):fragments.append(elem.attrib[key])
+ fragments.extend(t.strip() for t in node.itertext() if t and t.strip())
+ accepted=set()
+ rejected=False
+ for fragment in fragments:
+  for found in re.finditer(r"https?://creativecommons\\.org/(?:licenses|publicdomain)/[^\\s<>'\\\"]+",fragment,re.I):
+   raw=found.group(0).rstrip(".,;:)]")
+   grant=normalized_license(raw)
+   if grant:
+    accepted.add(grant)
+    continue
+   # XML mixed content may place an immediate capitalized sentence after
+   # a canonical URL (e.g. .../4.0/This work...). Recover ONLY that form.
+   for prefix in ("http://","https://"):
+    for base in sorted(ALLOWED,key=len,reverse=True):
+     canonical=prefix+base+"/"
+     if not raw.lower().startswith(canonical):continue
+     tail=raw[len(canonical):]
+     if tail and re.fullmatch(r"[A-Z][A-Za-z.,-]*",tail):
+      grant=normalized_license(canonical)
+      if grant:
+       accepted.add(grant)
+       break
+    if grant:break
+   if not grant:rejected=True
+ if rejected or len(accepted)!=1:return None
+ return next(iter(accepted))
 def tag_name(elem):return elem.tag.rsplit("}",1)[-1]
 def children(elem,tag):return [x for x in elem if tag_name(x)==tag]
 def nested(elem,*path):
@@ -128,7 +164,7 @@ def parse_article_record(record):
          for x in id_nodes]
  if match.group(1) not in pmcids:return None,"jats-pmcid-mismatch"
  license_nodes=[x for x in metadata.iter() if tag_name(x)=="license"]
- valid=[normalized_license(n.attrib.get(XHREF) or n.attrib.get("href") or "") for n in license_nodes]
+ valid=[license_link_from_jats(n) for n in license_nodes]
  valid=[x for x in valid if x]
  if not valid:return None,"not-explicit-cc0-or-cc-by"
  # Multiple conflicting machine-readable licenses are ambiguous; reject.

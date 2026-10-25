@@ -1,3 +1,4 @@
+import {evidenceScore,normalizeAuthor,type EvidenceAuthor,type VanillaEvidence} from "./vanilla-evidence.ts";
 /** Public OpenAlex academic discovery (metadata only; NO full-text training).
  * arXiv records can be surfaced from verified OpenAlex locations.
  * Never insert a private API key into the public browser bundle.
@@ -5,7 +6,7 @@
 import {scholarlyCitationPriority,type RankTable,type Institution,type Authority} from "./scholarly-priority.ts";
 const RANK_KEY="vanilla.scholarly.qs2027.rankings.v1";
 const AUTH_KEY="vanilla.scholarly.nonuniversity.authorities.v1";
-export type AcademicHit={title:string;url:string;snippet:string;provider:"OpenAlex"|"arXiv";citation_weight:number;source_id:string;doi?:string};
+export type AcademicHit={title:string;url:string;snippet:string;provider:"OpenAlex"|"arXiv";citation_weight:number;source_id:string;doi?:string;authors:EvidenceAuthor[];evidence:VanillaEvidence;citation_basis?:string};
 export function isScholarlyQuery(query:string):boolean{
  return /(?:論文|學術|期刊|文獻|研究證據|研究報告|實證研究|預印本|arxiv|openalex|systematic review|meta.analysis|randomized controlled trial|peer.reviewed|scholarly|academic papers?|research papers?|literature review|doi:10\.)/i.test(query);
 }
@@ -87,8 +88,8 @@ export function getScholarlyAuthorityLedger():Authority[]{
  }catch{return [];}
 }
 type OpenAlexWork={
- id?:unknown;doi?:unknown;title?:unknown;publication_year?:unknown;is_retracted?:boolean;
- authorships?:Array<{institutions?:Institution[];author?:{orcid?:string}}>;
+ id?:unknown;doi?:unknown;title?:unknown;publication_year?:unknown;is_retracted?:boolean;type?:string;referenced_works_count?:number;primary_location?:{source?:{display_name?:string}};
+ authorships?:Array<{institutions?:Institution[];author?:{id?:string;display_name?:string;orcid?:string}}>;
  locations?:Array<{landing_page_url?:string;pdf_url?:string;source?:{display_name?:string}}>;
 };
 const safe=(v:unknown,max=180)=>String(v||"").replace(/<[^>]*>/g," ").replace(/[\x00-\x1F]/g," ").trim().slice(0,max);
@@ -104,11 +105,11 @@ function arxivURL(work:OpenAlexWork):string{
  }
  return "";
 }
-export function parseOpenAlexHits(input:unknown,ranks:RankTable={}):AcademicHit[]{
+export function parseOpenAlexHits(input:unknown,ranks:RankTable={},maxItems=12):AcademicHit[]{
  if(!input||typeof input!=="object"||!Array.isArray((input as {results?:unknown}).results))throw Error("OpenAlex 回應格式錯誤");
  const works=(input as {results:OpenAlexWork[]}).results;
  const out:AcademicHit[]=[],seen=new Set<string>();
- for(const work of works.slice(0,12)){
+ for(const work of works.slice(0,Math.max(1,Math.min(100,maxItems)))){
   const id=String(work.id||"");
   if(!/^https:\/\/openalex\.org\/W\d+$/.test(id)||work.is_retracted===true||!String(work.title||"").trim())continue;
   const doi=validDOI(work.doi),arxiv=arxivURL(work);
@@ -117,6 +118,11 @@ export function parseOpenAlexHits(input:unknown,ranks:RankTable={}):AcademicHit[
   const institutes=(work.authorships||[]).flatMap(a=>a.institutions||[]);
   const orcids=(work.authorships||[]).map(a=>a.author?.orcid).filter((x):x is string=>typeof x==="string");
   const priority=scholarlyCitationPriority({doi,openalex_id:id,arxiv_id:arxiv?arxiv.replace("https://arxiv.org/abs/","arxiv:"):undefined,author_orcids:orcids,institutions:institutes},ranks,getScholarlyAuthorityLedger());
+  const authors=(work.authorships||[]).flatMap(a=>{const person=normalizeAuthor(a.author||{});return person?[person]:[]});
+  const evidence=evidenceScore({openalex_id:id,doi,title:String(work.title||""),publication_year:Number(work.publication_year),
+   source_name:work.primary_location?.source?.display_name||"",work_type:work.type||"",
+   referenced_works_count:work.referenced_works_count||0,is_retracted:work.is_retracted,
+   source_url:arxiv||(doi?"https://doi.org/"+doi:id),authors});
   const yr=Number(work.publication_year);
   const year=Number.isInteger(yr)&&yr>1700&&yr<2200?String(yr):"年份未提供";
   const schools=institutes.map(x=>safe(x.display_name,50)).filter(Boolean).slice(0,2).join("、");
@@ -126,23 +132,24 @@ export function parseOpenAlexHits(input:unknown,ranks:RankTable={}):AcademicHit[
   const mode=arxiv?"arXiv 預印本線索（審查狀態未核實）":"OpenAlex 論文中繼資料（未讀取全文）";
   out.push({title:safe(work.title,160),url:arxiv||(doi?"https://doi.org/"+doi:id),
     snippet:[mode,year,schools,label].filter(Boolean).join(" · ").slice(0,480),
-    provider:arxiv?"arXiv":"OpenAlex",citation_weight:priority.citation_weight,source_id:id,...(doi?{doi}:{})});
+    provider:arxiv?"arXiv":"OpenAlex",citation_weight:priority.citation_weight,source_id:id,authors,evidence,citation_basis:priority.citation_basis,...(doi?{doi}:{})});
  }
  return out.sort((a,b)=>b.citation_weight-a.citation_weight);
 }
-export async function searchOpenAlexWorks(query:string):Promise<AcademicHit[]>{
+export async function searchOpenAlexWorks(query:string,limit=8):Promise<AcademicHit[]>{
  const q=query.trim().slice(0,180);
  if(q.length<2)throw Error("論文搜尋至少需要兩個字");
  const u=new URL("https://api.openalex.org/works");
  u.searchParams.set("search",q);
- u.searchParams.set("per_page","8");
- u.searchParams.set("select","id,doi,title,publication_year,authorships,locations,is_retracted");
+ const cap=limit===100?100:8;
+ u.searchParams.set("per_page",String(cap));
+ u.searchParams.set("select","id,doi,title,publication_year,authorships,locations,is_retracted,type,referenced_works_count,primary_location");
  const response=await fetch(u.toString(),{mode:"cors",credentials:"omit",
   headers:{Accept:"application/json"},signal:AbortSignal.timeout(9000)});
  if(!response.ok)throw Error("OpenAlex HTTP "+response.status);
  const len=Number(response.headers.get("content-length")||"0");
- if(len>1500000)throw Error("OpenAlex 回應過大");
+ if(len>(cap===100?6000000:1500000))throw Error("OpenAlex 回應過大");
  const raw=await response.text();
- if(raw.length>1500000)throw Error("OpenAlex 回應過大");
- return parseOpenAlexHits(JSON.parse(raw),getScholarlyRankTable());
+ if(raw.length>(cap===100?6000000:1500000))throw Error("OpenAlex 回應過大");
+ return parseOpenAlexHits(JSON.parse(raw),getScholarlyRankTable(),cap);
 }

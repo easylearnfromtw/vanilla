@@ -1,0 +1,90 @@
+name: VANILLA Evidence 100 real articles
+on:
+  pull_request:
+    paths:
+      - 'src/search/vanilla-evidence.ts'
+      - 'src/search/scholarly-discovery.ts'
+      - 'src/academy/EvidenceCard.tsx'
+      - 'src/academy/XiahaiAcademy.tsx'
+      - 'training/scholarly/evidence_batch.py'
+      - 'tests/vanilla-evidence.test.mjs'
+      - 'tests/test_evidence_100.py'
+      - '.github/workflows/scholarly-evidence-100.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/search/vanilla-evidence.ts'
+      - 'src/search/scholarly-discovery.ts'
+      - 'training/scholarly/evidence_batch.py'
+      - 'tests/vanilla-evidence.test.mjs'
+      - 'tests/test_evidence_100.py'
+      - '.github/workflows/scholarly-evidence-100.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node --experimental-strip-types --test tests/vanilla-evidence.test.mjs
+      - run: python3 -m unittest discover -s tests -p 'test_evidence_100.py' -v
+
+  real-100-openalex:
+    needs: evidence-unit-tests
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve 100 real distinct works and compute 100 VANILLA Evidence cards
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          python3 training/scholarly/evidence_batch.py \
+            --query "machine learning" \
+            --output "$RUNNER_TEMP/vanilla-evidence-100" \
+            --execute
+      - name: Verify measured real-source count, distinct IDs and quality limits
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,json
+          root=Path(os.environ["RUNNER_TEMP"])
+          rep=json.loads((root/"vanilla-evidence-100.report.json").read_text(encoding="utf8"))
+          rows=[json.loads(x) for x in (root/"vanilla-evidence-100.evidence.jsonl").read_text(encoding="utf8").splitlines() if x.strip()]
+          assert rep["real_unique_articles_scored"]==100
+          assert len(rows)==100 and len({r["id"] for r in rows})==100
+          assert all(r["openalex_id"].startswith("https://openalex.org/W") for r in rows)
+          assert rep["fulltexts_read"]==0 and rep["llm_weight_updates"]==0
+          print("REAL 100 Evidence article cards:",len(rows))
+          print("REAL unique author IDs:",rep["unique_authors"])
+          print("Evidence source SHA256:",rep["score_dataset_sha256"])
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as w:
+            w.write("## VANILLA Evidence: 100 real OpenAlex articles\n")
+            w.write(f'- Verified unique sourced articles and VE IDs: {len(rows)}\n')
+            w.write(f'- Author profiles indexed: {rep["author_profiles_indexed"]}\n')
+            w.write(f'- Unique author IDs: {rep["unique_authors"]}\n')
+            w.write(f'- Score levels: {rep["score_levels"]}\n')
+            w.write('- Full-text QLoRA optimizer steps: **0** (100-source scoring exercise, not LLM training).\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-evidence-100-real-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/vanilla-evidence-100.report.json
+            ${{ runner.temp }}/vanilla-evidence-100.evidence.jsonl
+          retention-days: 14
+          if-no-files-found: error

@@ -73,3 +73,50 @@ python3 -m unittest discover -s tests -p 'test_octuber_gpu_sandbox.py'
 ~~~
 
 此測試不使用付費 GPU、不下載大型權重、不更新正式模型 manifest。GitHub Pages 是前端站點，不能在使用者未授權的 GPU 上悄悄執行訓練。
+
+
+## 虛擬主機排程與故障復原沙盤（新增）
+
+Vanilla 電腦／手機版：**設定 → AI 模型 → 虛擬 GPU 主機沙盤**。
+可選 24、48、96 GiB 單 GPU，以及 2×80、8×80 GiB 多卡虛擬主機，
+選取 30B / 60B，設定模擬步數與故障復原，產出標記為「純模擬」的 JSON 報告。
+
+在電腦上 clone Vanilla 原始碼後，使用 Python 3.10+ 執行更完整的
+**純標準庫、離線、零付費 GPU**虛擬機排程與檢查點流程：
+
+~~~bash
+# 預設 1x96 GiB 虛擬 GPU：兩個模型分開排程，每個模擬 20 步
+python3 training/octuber-gpu-sandbox/virtual_host.py \
+  --models all --host virtual-96 --steps 20 --fault-step 8
+
+# 模擬 1x24 GiB：30B/60B 都無法通過虛擬資源前篩
+python3 training/octuber-gpu-sandbox/virtual_host.py \
+  --models all --host desktop-24 --steps 20
+
+# 2x80 GiB 不等於 1x160 GiB；60B 在沒有模型分片下不能放置
+python3 training/octuber-gpu-sandbox/virtual_host.py \
+  --models all --host virtual-dual-80 --steps 20
+
+# 真正保存檢查紀錄（不是 checkpoint 模型權重）
+python3 training/octuber-gpu-sandbox/virtual_host.py \
+  --models all --host virtual-96 --steps 20 --fault-step 8 \
+  --output private/octuber-virtual-host-report.json
+~~~
+
+主要邏輯：
+
+- **虛擬資源閘門**：各模型按每張 GPU VRAM、RAM、磁碟需求的粗略實驗前篩；不是實測規格或採購保證。
+- **排程**：虛擬工作需要通過閘門才能放置到一個虛擬 GPU 插槽；同一插槽的工作 FIFO 排隊。
+- **工作步數**：只是計數器與事件，不執行 30B / 60B 的神經網路 forward/backward。
+- **故障注入**：在指定步數中斷、回到前一次「進度元資料」檢查點後續跑，清楚標註沒有 safetensors / optimizer-state checkpoint。
+- **60B 特別限制**：即使虛擬記憶體篩選通過，實際 60B MXFP4/PEFT 訓練器仍未驗證，故不能據此上線真正 60B 權重。
+- **經審核資料**：可以明確用 --dataset 傳入現有 consent/review JSONL，由同一個 SFT 驗證器檢查。沒提供資料時只模擬虛構工作量，絕不捏造訓練資料。
+- **回報**：永遠把 gpu_hardware_accessed、cuda_used、real_large_model_checkpoint_created、large_model_training_completed 標記 false。
+- **輸出**：不覆寫既存報告，不呼叫租雲端主機 API，沒有信用卡授權也不會產生費用。
+
+虛擬 GPU 主機不是你真實電腦的顯示卡，也不是遠端雲端資源。
+如果之後要做真正的 GPU 訓練，需另外提供已授權的 GPU 環境及人工審核資料。
+
+~~~bash
+python3 -m unittest discover -s tests -p 'test_octuber_virtual_host.py'
+~~~

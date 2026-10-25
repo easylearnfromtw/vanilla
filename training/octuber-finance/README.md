@@ -171,3 +171,58 @@ python3 training/octuber-finance/gdelt_import.py \
   --output private/octuber-finance/gdelt-unreviewed.jsonl \
   --max-records 5000
 ~~~
+
+
+## 2026-10-25 — Actual-data readiness and provider compliance
+
+This phase adds data-readiness audits and evidence intake, not completed 30-year model training. Real daily feeds, contractual rights records, and individually reviewed source material are required on an owner-authorized machine.
+
+### FRED AI-training exclusion (hard block)
+
+Current FRED Services Terms explicitly prohibit using FRED services or content in connection with the development or training of AI/ML, including LLMs. Therefore pipeline.py refuses feeds whose provider is FRED/ALFRED or whose source URL is on their domains, even if the user marks them approved. Obtain independently licensed underlying data directly from its separate legal owner and non-FRED source.
+
+Official terms: https://fred.stlouisfed.org/legal/ and https://fred.stlouisfed.org/legal/terms/
+
+### World Bank annual macro data: separately licensed and NOT OHLC
+
+The World Bank Data Catalog defaults to CC BY 4.0 for many datasets produced by the Bank, but third-party series may use different terms. Verify each series license and ownership before any ML use. Details: https://datacatalog.worldbank.org/public-licenses and https://www.worldbank.org/ext/en/legal/terms-conditions/datasets
+
+Country-level annual market capitalization indicator CM.MKT.LCAP.CD has a labeled CC BY 4.0 page at https://data.worldbank.org/indicator/CM.MKT.LCAP.CD . It is NOT a daily market index and cannot replace 20 licensed price feeds. Countries and historical dates may be missing.
+
+To import an owner-downloaded OFFLINE official World Bank API JSON response as unreviewed evidence:
+
+~~~bash
+python3 training/octuber-finance/worldbank_import.py \
+  --input private/octuber-finance/world-bank-export.json \
+  --indicator CM.MKT.LCAP.CD \
+  --license-review private/octuber-finance/world-bank-license-review.json \
+  --output private/octuber-finance/world-bank-unreviewed.jsonl
+~~~
+
+License-review manifest must name the exact indicator, provider "World Bank Data Catalog", verified_dataset_license_url and license_verified_by_owner:true (an actual human attestation of the individual series' rights). Imported records retain upstream hashes and training_approved:false. Do not feed the import directly into SFT.
+
+### Real price-history completeness audit
+
+~~~bash
+python3 training/octuber-finance/readiness.py \
+  --prices-dir private/octuber-finance/prices \
+  --rights private/octuber-finance/price-rights.json \
+  --output private/octuber-finance/readiness-report.json
+~~~
+
+This reports missing markets, observation bounds, monthly gaps, annual session counts and chronological split coverage. A strict research-window screen asks for >=180 daily points in every full year 1997–2025 and 1996/2026 boundary observations. This is diagnostic, not an exchange calendar, not a guarantee of lawful training, and it may be impossible for indices created after 1996. Shorter series must be correctly labeled, not fabricated.
+
+### Eight primary-source historical event references
+
+The local file training/octuber-finance/event_reference_seeds.json stores eight original short descriptions and official source URLs: Thai-baht 1997, China WTO 2001, Lehman 2008, UK referendum 2016, WHO pandemic 2020, Ukraine 2022, SVB 2023 and BOJ policy 2024.
+
+Every item has publication_timestamp_verified:false, reviewed_for_training:false and training_approved:false. Event date is not equivalent to the first public report time. None demonstrates a market return or sole cause. An authorized reviewer must separately verify what the market could have known at each time, the right to use the source, and its economic interpretation.
+
+### Synthetic CI
+
+~~~bash
+python3 -m unittest discover -s tests -p 'test_octuber_finance_readiness.py'
+python3 -m unittest discover -s tests -p 'test_octuber_worldbank_import.py'
+~~~
+
+No GPU, protected newspaper scraping, paid feed download or model training is performed by these checks.

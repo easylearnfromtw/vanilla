@@ -117,6 +117,55 @@ def _public_ip():
         return ""
 
 
+
+def pair_with_consent(*, server, label, secret, consent, role=None,
+                      geo_opt_in=False, shutdown_opt_in=False, public_ip=""):
+    """Shared, explicit pairing for desktop and CLI; never logs/returns token in UI text.
+
+    Save the one-time credential BEFORE checking heartbeat; a transient outage
+    must not force a user to consume another code.
+    """
+    role=role or _role()
+    if role!=_role() or role not in ("owner","friend"):
+        raise PermissionError("安裝版本與配對角色不符；請下載對應的 Owner／Friend 版本。")
+    server=_server(server)
+    label=label.strip() if isinstance(label,str) else ""
+    if not NAME.fullmatch(label):
+        raise ValueError("裝置名稱需為 1–64 個字，不能包含換行。")
+    secret=_invite(secret)
+    if not consent:
+        return None, False
+    geo_opt_in=geo_opt_in is True
+    shutdown_opt_in=shutdown_opt_in is True
+    compact=re.sub(r"[-\s]","",secret).upper()
+    short=bool(SHORT_CODE.fullmatch(compact))
+    endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
+    payload={"code":secret,"role":role,"label":label,
+             "geo_opt_in":geo_opt_in,"public_ip":public_ip if geo_opt_in else "",
+             "shutdown_opt_in":shutdown_opt_in} if short else {
+        "invite":secret,"role":role,"label":label,
+        "geo_opt_in":geo_opt_in,"public_ip":public_ip if geo_opt_in else "",
+        "shutdown_opt_in":shutdown_opt_in}
+    response=_http("POST",server+endpoint,payload,timeout=12)
+    token=response.get("token") if isinstance(response,dict) else None
+    nodeid=response.get("node_id") if isinstance(response,dict) else None
+    if (not isinstance(token,str) or not 32<=len(token)<=256 or
+        not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid)):
+        raise ValueError("配對服務尚未回傳有效憑證；未寫入設定，請先確認後端狀態。")
+    obj={"role":role,"server":server,"label":label,
+         "node_id":nodeid,"token":token,
+         "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
+    _save(obj)
+    try:
+        from slime_runner_agent import _heartbeat
+        state=_heartbeat(server,token)
+        if not isinstance(state,dict) or state.get("ok") is not True:
+            raise ValueError("HEARTBEAT_NOT_CONFIRMED")
+        verified=True
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError,TypeError):
+        verified=False
+    return obj, verified
+
 def setup():
     role=_role()
     previous=_load()
@@ -176,37 +225,16 @@ def setup():
         public_ip=_public_ip() if geo_opt_in else ""
         print("電源控制：預設停用。若核准，Telegram Owner 仍需二次確認才能關機。")
         shutdown_opt_in=_confirm("允許 Telegram Owner 遠端關閉本機電源？") if sys.stdin.isatty() else False
-    # The invite secret is sent only to the owner-controlled WeiGuo HTTPS backend.
-    compact=re.sub(r"[-\s]","",secret).upper()
-    short=bool(SHORT_CODE.fullmatch(compact))
-    endpoint="/v1/slime/node/pair" if short else "/v1/slime/node/join"
-    payload={"code":secret,"role":role,"label":label,
-             "geo_opt_in":geo_opt_in,"public_ip":public_ip,"shutdown_opt_in":shutdown_opt_in} if short else {
-        "invite":secret,"role":role,"label":label,
-        "geo_opt_in":geo_opt_in,"public_ip":public_ip,"shutdown_opt_in":shutdown_opt_in}
-    response=_http("POST",server+endpoint,payload,timeout=12)
-    token=response.get("token")
-    nodeid=response.get("node_id")
-    if (not isinstance(token,str) or not 32<=len(token)<=256 or
-        not isinstance(nodeid,str) or not re.fullmatch(r"[a-f0-9]{24}",nodeid)):
-        raise ValueError("WeiGuo 配對結果無效；沒有保存憑證")
-    obj={"role":role,"server":server,"label":label,
-         "node_id":nodeid,"token":token,
-         "geo_opt_in":geo_opt_in,"shutdown_opt_in":shutdown_opt_in}
-    # Save first: one-time invitations must never be lost when the immediate
-    # heartbeat fails because of a temporary network or server interruption.
-    _save(obj)
-    print("配對憑證已安全保存。裝置 ID："+nodeid)
-    try:
-        from slime_runner_agent import _heartbeat
-        state=_heartbeat(server,token)
-        if not state.get("ok"):
-            raise ValueError("heartbeat rejected")
+    obj, verified=pair_with_consent(
+        server=server,label=label,secret=secret,role=role,consent=True,
+        geo_opt_in=geo_opt_in,shutdown_opt_in=shutdown_opt_in,public_ip=public_ip)
+    print("配對憑證已安全保存。裝置 ID："+obj["node_id"])
+    if verified:
         print("✓ 配對已綁定 · WeiGuo 心跳已驗證")
         print("下一步：Telegram → Slime 節點確認在線；需要使用模型則另行核准。")
-    except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError,TypeError):
-        print("! 伺服器已回傳節點憑證，但首次心跳尚未確認。")
-        print("  請保持程式開啟或使用 --status 重試；不要重新消耗配對碼。")
+    else:
+        print("! 配對成功，首次心跳尚未確認。請保持程式開啟或使用 --status 重試。")
+        print("  不要重新消耗同一組一次性配對碼。")
     return obj
 
 
@@ -323,7 +351,7 @@ def status(settings):
 def main():
     try:
         flags=set(sys.argv[1:])
-        if flags-{"--setup","--status","--leave","--reward","--gecko","--fleet","--tools","--help"} or len(flags)>1:
+        if flags-{"--setup","--status","--leave","--reward","--gecko","--fleet","--tools","--help","--dashboard"} or len(flags)>1:
             raise ValueError("可用參數：--setup、--status、--leave、--reward、--gecko、--fleet、--tools")
         if "--help" in flags:
             print("Slime 下載 → 一次性邀請配對 → 授權後啟用 Ollama → Ctrl+C 停止共享")
@@ -332,6 +360,7 @@ def main():
             print("--gecko Owner 自願啟用同 LAN 安裝包鏡像和無 Telegram 配對")
             print("--fleet 由機房部署憑證將受管伺服器加入 Gecko，不輸入 Telegram 代碼")
             print("--tools 僅此 Owner 電腦開啟本機 AI 模型與沙盤管理介面")
+            print("--dashboard 開啟桌面配對精靈／節點狀態／開始與停止共享")
             return 0
         # A local desktop function, never a remotely dispatched Slime task.
         # Permit opening the offline Owner toolbox without pairing.
@@ -351,6 +380,15 @@ def main():
             except ImportError:
                 raise ValueError("SLIME_OWNER_TOOLS_NOT_BUNDLED") from None
             return run_owner_tools()
+        if "--dashboard" in flags or (not flags and getattr(sys,"frozen",False)):
+            try:
+                from slime_welcome import run_dashboard
+                return run_dashboard()
+            except (ImportError,RuntimeError) as exc:
+                if "--dashboard" in flags or not sys.stdin.isatty():
+                    print("桌面介面無法啟動，請確認系統有圖形桌面與 Tk 支援。",file=sys.stderr)
+                    return 2
+                print("圖形介面暫不可用，切換到原有文字操作模式。")
         config=_load()
         if "--reward" in flags and not config:
             print("請先完成 Slime 節點配對，才能領取 Google 獎勵。")

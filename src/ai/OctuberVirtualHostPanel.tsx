@@ -26,6 +26,7 @@ const MODEL_SCREENS:Record<ModelName,{vram:number;ram:number;disk:number;realDri
 /** Pure browser-side simulation preview. The CLI provides the detailed event log. */
 export function simulateVirtualHostPreview(hostName:HostName,models:ModelName[],steps:number,fault:boolean):VirtualRun{
  const host=HOSTS[hostName],used:number[]=[];
+ let faultTargetAssigned=false;
  const jobs:VirtualJob[]=models.map(model=>{
   const minimum=MODEL_SCREENS[model],reasons:string[]=[];
   if(host.perGpuVramGiB<minimum.vram)reasons.push("單張虛擬 GPU 記憶體未達沙盤篩選值");
@@ -33,10 +34,12 @@ export function simulateVirtualHostPreview(hostName:HostName,models:ModelName[],
   if(host.diskGiB<minimum.disk)reasons.push("虛擬磁碟未達沙盤篩選值");
   const slot=reasons.length?null:used.length%host.gpuCount;
   if(slot!==null)used.push(slot);
+  const virtualRecovery=fault&&reasons.length===0&&!faultTargetAssigned;
+  if(virtualRecovery)faultTargetAssigned=true;
   return {
    model,virtualResourceScreenPass:reasons.length===0,reasons,
    simulatedSteps:reasons.length?0:steps,virtualGpuSlot:slot,
-   virtualMetadataRecovery:fault&&reasons.length===0,
+   virtualMetadataRecovery:virtualRecovery,
    trainingDriverAvailable:minimum.realDriver,largeModelWeightsTrained:false
   };
  });

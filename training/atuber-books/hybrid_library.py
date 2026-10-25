@@ -225,7 +225,7 @@ def search(index,query,limit=8,ranker_file=None):
     ranker_weights=None
     if ranker_file is not None:
         parsed=json.loads(Path(ranker_file).read_text(encoding="utf-8"))
-        if parsed.get("version")!="atuber-fuzzy-book-ranker-v1" or not isinstance(parsed.get("weights"),list) or len(parsed["weights"])!=6:
+        if parsed.get("version")!="atuber-fuzzy-book-ranker-v1" or not isinstance(parsed.get("weights"),list) or len(parsed["weights"])!=7:
             raise ValueError("UNRECOGNIZED_BOOK_RELEVANCE_RANKER")
         ranker_weights=[float(w) for w in parsed["weights"]]
     qgrams=set().union(*(grams(item) for item in alt))

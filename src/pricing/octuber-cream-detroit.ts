@@ -56,7 +56,7 @@ export async function executeOctuberPriceCream(
     ![metric.mean,metric.median,metric.min,metric.max].every(Number.isFinite))
   throw Error("OCTUBER_CREAM_RECEIPT_INVALID");
  const now=options.now??Date.now();
- const unknownObservedAt=offers.filter(r=>r.observedAt===null||!Number.isFinite(r.observedAt)).length;
+ const unknownObservedAt=offers.filter(r=>typeof r.observedAt!=="number"||!Number.isFinite(r.observedAt)).length;
  const staleQuotes=offers.filter(r=>r.observedAt!==null&&now-r.observedAt>48*3600*1000).length;
  const warnings=[
   "僅統計使用者本機匯入的報價；未向 BigGo／飛比／LBJ 重新取得即時價格或授權驗證。",

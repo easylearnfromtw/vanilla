@@ -36,3 +36,16 @@ test("retired navigation entries remain tool-accessible rather than being delete
  assert.match(app,/href=\{BASE\+"slime\/"\}/);
  assert.match(app,/aria-label="新對話"/); // chat header retains the primary new-chat action
 });
+
+test("霞海書院 has its own deep link and content pane without expanding five-item sidebar",()=>{
+ const academy=readFileSync(new URL("../src/academy/XiahaiAcademy.tsx",import.meta.url),"utf8");
+ assert.match(app,/get\("academy"\)==="xiahai"/);
+ assert.match(app,/section==="xiahai"\?/);
+ assert.match(app,/vanilla-open-xiahai/);
+ assert.match(academy,/霞海書院/);
+ assert.match(academy,/searchOpenAlexWorks/);
+ assert.match(academy,/引自霞海書院（學術文獻索引）/);
+ assert.match(academy,/不代表下載或閱讀論文全文/);
+ assert.match(academy,/引用權重/);
+ assert.match(academy,/arxiv.org\/search/);
+});

@@ -1,0 +1,87 @@
+name: Scholarly real licensed pilot
+on:
+  pull_request:
+    paths:
+      - 'training/scholarly/**'
+      - 'tests/test_scholarly_live_ingest.py'
+      - '.github/workflows/scholarly-real-pilot.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/scholarly/**'
+      - 'tests/test_scholarly_live_ingest.py'
+      - '.github/workflows/scholarly-real-pilot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-license-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify scholarly rights, extraction and source policies
+        run: |
+          python3 -m unittest discover -s tests -p 'test_scholarly_live_ingest.py' -v
+          python3 -m unittest discover -s tests -p 'test_scholarly_priority.py' -v
+
+  live-licensed-paper:
+    # PR code from this repository only; public official upstream; no secrets on PR.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: offline-license-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PDF extraction dependency
+        run: python -m pip install 'pypdf>=5,<7'
+      - name: Real arXiv OAI-PMH license and fulltext pilot, plus small OpenAlex metadata query
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          python3 training/scholarly/live_ingest.py \
+            --arxiv-id 1410.6579 \
+            --with-openalex \
+            --output "$RUNNER_TEMP/scholarly-licensed-pilot" \
+            --execute
+      - name: Audit real corpus outputs and GPU readiness
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          temp=Path(os.environ["RUNNER_TEMP"])
+          report=temp/"scholarly-licensed-pilot.report.json"
+          if report.is_file():
+              r=json.loads(report.read_text())
+              print("Verified licensed fulltext papers:",r["arxiv_licensed_fulltexts_indexed"])
+              print("Verified real PDF paragraphs:",r["arxiv_fulltext_passages"])
+              print("OpenAlex metadata hit count:",r["openalex_metadata_records"])
+              print("LLM optimizer steps:",r["llm_optimizer_steps"])
+              print("GPU checkpoint created:",r["model_checkpoint_created"])
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as out:
+                  out.write("## Genuine scholarly corpus pilot\n")
+                  for key in ["arxiv_papers_attempted","arxiv_licensed_fulltexts_indexed",
+                              "arxiv_fulltext_passages","openalex_metadata_records","llm_optimizer_steps"]:
+                      out.write(f"- {key}: {r[key]}\n")
+                  out.write("- **Not GPU training**; no trained checkpoint yet.\n")
+          else:
+              print("No corpus report was produced; see preceding step's failure.")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scholarly-pilot-rights-audit-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/scholarly-licensed-pilot.report.json
+            ${{ runner.temp }}/scholarly-licensed-pilot.sqlite3
+          retention-days: 14
+          if-no-files-found: warn

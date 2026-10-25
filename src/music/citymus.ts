@@ -91,19 +91,39 @@ async function fetchWithTimeout(url:string,ms:number,signal?:AbortSignal):Promis
  finally {clearTimeout(timer);signal?.removeEventListener("abort",onAbort);}
 }
 /** Public database fallback keeps actual CITYMUS metadata, never synthetic track records. */
-/** CITYMUS GitHub Pages builds this library with 4,500 verified metadata rows.
- * The published script is parsed as JSON data. It is NEVER evaluated.
- * Root /catalog.js is not copied into Pages; the generated citymus-library.js is.
+/** The 4,500-entry public Pages artifact is optional until its licensed CJK audit passes.
+ * A published 2,500-entry source JSON is a second read-only fallback.
+ * Parsing is data-only (no eval or remote script execution).
  */
+let cachedCatalog:CitymusTrack[]|null=null;
+async function publicCatalog(signal?:AbortSignal):Promise<CitymusTrack[]>{
+ if(cachedCatalog)return cachedCatalog;
+ try{
+  const res=await fetchWithTimeout(WEB+"citymus-library.js",8500,signal);
+  if(!res.ok)throw Error("CITYMUS Pages HTTP "+res.status);
+  const js=await res.text(),prefix="window.CITYMUS_LIBRARY=";
+  const begin=js.indexOf(prefix),end=js.indexOf(";\nwindow.CITYMUS_LIBRARY_REPORT=",begin);
+  if(begin<0||end<=begin||end-begin>14000000)throw Error("CITYMUS Pages catalog format");
+  const rows:unknown=JSON.parse(js.slice(begin+prefix.length,end));
+  if(!Array.isArray(rows)||rows.length<100)throw Error("CITYMUS Pages catalog is empty");
+  const tracks=rows.map(normalizeTrack).filter((t):t is CitymusTrack=>Boolean(t));
+  if(tracks.length)cachedCatalog=tracks;
+  return tracks;
+ }catch(error){
+  if(signal?.aborted)throw error;
+  const raw="https://raw.githubusercontent.com/easylearnfromtw/musictown/main/data/legal_music_library.json";
+  const res=await fetchWithTimeout(raw,10000,signal);
+  if(!res.ok)throw Error("CITYMUS verified catalog unavailable: "+res.status);
+  const data:unknown=await res.json();
+  const rows=Array.isArray(data)?data:(data&&typeof data==="object"&&(data as {tracks?:unknown}).tracks);
+  if(!Array.isArray(rows)||!rows.length)throw Error("CITYMUS verified catalog empty");
+  const tracks=rows.map(normalizeTrack).filter((t):t is CitymusTrack=>Boolean(t));
+  if(tracks.length)cachedCatalog=tracks;
+  return tracks;
+ }
+}
 async function catalogFallback(query:string,signal?:AbortSignal):Promise<CitymusSearchResult>{
- const res=await fetchWithTimeout(WEB+"citymus-library.js",10000,signal);
- if(!res.ok)throw Error("CITYMUS 公開曲庫 HTTP "+res.status);
- const js=await res.text(),prefix="window.CITYMUS_LIBRARY=";
- const begin=js.indexOf(prefix),end=js.indexOf(";\nwindow.CITYMUS_LIBRARY_REPORT=",begin);
- if(begin<0||end<=begin||end-begin>14000000)throw Error("CITYMUS 公開曲庫格式不正確");
- const parsed:unknown=JSON.parse(js.slice(begin+prefix.length,end));
- if(!Array.isArray(parsed)||!parsed.length)throw Error("CITYMUS 公開曲庫目前沒有可讀取曲目");
- const items=parsed.map(normalizeTrack).filter((t):t is CitymusTrack=>Boolean(t));
+ const items=await publicCatalog(signal);
  const ranked=items.map(track=>({track,score:score(track,query)}))
   .filter(x=>x.score>0)
   .sort((a,b)=>b.score-a.score||a.track.title.localeCompare(b.track.title,"zh-Hant"));

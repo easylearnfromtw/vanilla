@@ -26,7 +26,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run offline library sandbox tests
-        run: python3 -m unittest discover -s tests -p 'test_atuber_books_sandbox.py' -v
+        run: |
+          python3 -m unittest discover -s tests -p 'test_atuber_books_sandbox.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_title_weight_sandbox.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_licensed_content.py' -v
       - name: Downloader dry run
         run: |
           python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/atuber-downloaded"
@@ -60,6 +63,32 @@ jobs:
       - name: Index 100k topics and 10k language extension targets
         run: |
           python3 training/atuber-books/catalog_sandbox.py --csv "$RUNNER_TEMP/nbinet-source/nbinet.csv" --source nbinet --output "$RUNNER_TEMP/atuber-book-index" --topic-target 100000 --language-target 10000 --execute
+      - name: Train tiny title-classifier weights for one million actual SGD steps
+        timeout-minutes: 15
+        run: |
+          python3 training/atuber-books/title_weight_sandbox.py --database "$RUNNER_TEMP/atuber-book-index/catalog.sqlite3" --output "$RUNNER_TEMP/title-weight-sandbox" --steps 1000000 --execute
+      - name: Assert actual small-model optimizer steps and distinguish LLM
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          r=json.loads((root/"title-weight-sandbox/training_report.json").read_text())
+          assert r["optimizer_steps_completed"]==1000000
+          assert r["scalar_parameter_updates"]>1000000
+          assert r["neural_llm_weight_updates"]==0 and r["full_text_books_read"]==0
+          assert r["title_drill"]["questions"]>0
+          print("Actual tiny-classifier SGD steps:",r["optimizer_steps_completed"])
+          print("Parameter scalar updates:",r["scalar_parameter_updates"])
+          print("Validation:",r["validation_final"]["accuracy"])
+          print("Holdout:",r["holdout_final"]["accuracy"])
+          print("Held-out factual title QA count:",r["title_drill"]["questions"])
+          with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as output:
+              output.write("\n## Actual tiny title-weight sandbox\n")
+              output.write(f'- SGD steps: {r["optimizer_steps_completed"]:,}\n')
+              output.write(f'- Validation accuracy: {r["validation_final"]["accuracy"]}\n')
+              output.write(f'- Holdout accuracy: {r["holdout_final"]["accuracy"]}\n')
+              output.write('- October/Qwen LLM steps: 0; full texts read: 0\n')
+          PY
       - name: Report measured records, never fake training
         run: |
           python3 - <<'PY'
@@ -92,5 +121,8 @@ jobs:
           path: |
             ${{ runner.temp }}/nbinet-source/download_provenance.json
             ${{ runner.temp }}/atuber-book-index/report.json
+            ${{ runner.temp }}/title-weight-sandbox/training_report.json
+            ${{ runner.temp }}/title-weight-sandbox/weights.json
+            ${{ runner.temp }}/title-weight-sandbox/title_holdout_questions.jsonl
           if-no-files-found: warn
           retention-days: 7

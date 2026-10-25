@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {trainFiveD,TRAIN_ROWS,EVAL_ROWS,FULL_UPDATES} from "../scripts/train-penteract-10m.mjs";
+import {trainFiveD,TRAIN_ROWS,EVAL_ROWS,SEALED_TEST_ROWS,FULL_UPDATES} from "../scripts/train-penteract-10m.mjs";
 import {assertLearnedFiveWeights,routeLearnedFive} from "../src/detroit/penteract-learned.ts";
 import {activateAtuberFiveDSandbox,clearAtuberFiveDSandbox,atuberFiveDSandboxActive} from "../src/detroit/atuber-5d-sandbox-bridge.ts";
 import {planAtuberReadOnly} from "../src/detroit/atuber-tool-plan.ts";
@@ -10,6 +10,7 @@ test("5D 10M pipeline is actual bounded CPU SGD, not a made-up training counter"
  assert.equal(FULL_UPDATES,10000000);
  assert.equal(TRAIN_ROWS,20000);
  assert.equal(EVAL_ROWS,240);
+ assert.equal(SEALED_TEST_ROWS,300);
  assert.throws(()=>trainFiveD({updates:1}),/UPDATES_REQUIRE/);
  assert.throws(()=>trainFiveD({updates:10000001}),/UPDATES_REQUIRE/);
  const {report,artifact}=trainFiveD({updates:TRAIN_ROWS});
@@ -25,6 +26,14 @@ test("5D 10M pipeline is actual bounded CPU SGD, not a made-up training counter"
  assert.equal(artifact.provenance.trainCount,20000);
  assert.equal(artifact.provenance.evalCount,240);
  assert.equal(artifact.provenance.epochs,1);
+ assert.equal(report.bestCheckpointStep,TRAIN_ROWS);
+ assert.equal(report.exportedWeightsCheckpointStep,TRAIN_ROWS);
+ assert.equal(report.sealedSyntheticTestRows,SEALED_TEST_ROWS);
+ assert.equal(report.sealedSyntheticTestNotUsedForCheckpointSelection,true);
+ assert.ok(report.syntheticValidationSelectedLoss<=report.syntheticValidationLastLoss);
+ assert.equal(report.syntheticValidationSelectedLoss,report.syntheticHoldoutFinalLoss);
+ assert.equal(report.additionalUpdatesAfterBest,0);
+ assert.match(report.artifactSha256,/^[0-9a-f]{64}$/);
  assert.equal(artifact.provenance.expertReviewed,false);
  assert.doesNotThrow(()=>assertLearnedFiveWeights(artifact));
  const result=routeLearnedFive("修復 Python API 程式錯誤",artifact);

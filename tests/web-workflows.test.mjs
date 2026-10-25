@@ -45,13 +45,17 @@ test("a deployed web worker requires origin + explicit bearer token",async()=>{
 });
 
 import {parseScholarlyRankCsv,parseOpenAlexHits,isScholarlyQuery} from "../src/search/scholarly-discovery.ts";
-test("academic intent routes scholarly questions, not ordinary online weather",()=>{
+test("academic intent routes scholarly questions, not ordinary weather",()=>{
  assert.equal(isScholarlyQuery("最新研究論文 經濟學"),true);
  assert.equal(isScholarlyQuery("arxiv artificial intelligence papers"),true);
  assert.equal(isScholarlyQuery("明天台北天氣"),false);
 });
-test("ranked OpenAlex hits retain arXiv preprint status, weight and no fulltext claim",()=>{
- const ranks=parseScholarlyRankCsv("ror,openalex_id,rank\\nhttps://ror.org/01abcde12,,100\\nhttps://ror.org/02abcde12,,350".replace(/\\n/g,"\\n"));
+test("ranked OpenAlex hits retain arXiv preprint status, weight, and metadata claims",()=>{
+ const ranks=parseScholarlyRankCsv([
+  "ror,openalex_id,rank",
+  "https://ror.org/01abcde12,,100",
+  "https://ror.org/02abcde12,,350"
+ ].join(String.fromCharCode(10)));
  const corpus={results:[
   {id:"https://openalex.org/W123",title:"Real Academic Paper",doi:"https://doi.org/10.1234/test",
    publication_year:2025,authorships:[{institutions:[{ror:"https://ror.org/01abcde12",type:"education",display_name:"Sample University"}]}],
@@ -69,10 +73,10 @@ test("ranked OpenAlex hits retain arXiv preprint status, weight and no fulltext 
  assert.match(result[0].snippet,/預印本/);
  assert.doesNotMatch(result[0].snippet,/已讀取全文/);
 });
-test("reject unreliable ranking CSV and permit lower tier citation",()=>{
- const ranks=parseScholarlyRankCsv("ror,openalex_id,rank\\nhttps://ror.org/01abcde12,,701".replace(/\\n/g,"\\n"));
+test("low ranked literature retained and malformed CSV refused",()=>{
+ const ranks=parseScholarlyRankCsv(["ror,openalex_id,rank","https://ror.org/01abcde12,,701"].join(String.fromCharCode(10)));
  const hits=parseOpenAlexHits({results:[{id:"https://openalex.org/W90",title:"Lower tier",
   authorships:[{institutions:[{ror:"https://ror.org/01abcde12",type:"education"}]}]}]},ranks);
  assert.equal(hits[0].citation_weight,1);
- assert.throws(()=>parseScholarlyRankCsv("ror,rank\\nhttps://ror.org/01abcde12,1-100".replace(/\\n/g,"\\n")));
+ assert.throws(()=>parseScholarlyRankCsv(["ror,rank","https://ror.org/01abcde12,1-100"].join(String.fromCharCode(10))));
 });

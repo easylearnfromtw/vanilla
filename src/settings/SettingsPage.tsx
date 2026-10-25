@@ -6,6 +6,7 @@ import ChatSyncSettings from "../vault/ChatSyncSettings";
 import SourceSettings from "../search/SourceSettings";
 import HermesSkillsPanel from "../hermes/HermesSkillsPanel";
 import ModelConnections from "../ai/ModelConnections";
+import OctuberModelTrainingStatus from "../ai/OctuberModelTrainingStatus";
 import OctuberConsumerApi from "../ai/OctuberConsumerApi";
 import HostedOctuberPanel from "../ai/HostedOctuberPanel";
 import PriceIntelligencePanel from "../pricing/PriceIntelligencePanel";

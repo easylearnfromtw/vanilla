@@ -1,0 +1,62 @@
+name: OCTUBER Detroit Atuber 5D 10M Sandbox
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/train-penteract-10m.mjs'
+      - 'src/detroit/atuber-5d-sandbox-bridge.ts'
+      - 'src/detroit/atuber-tool-coordinator.ts'
+      - 'src/detroit/PenteractFunnelPanel.tsx'
+      - 'tests/penteract-10m.test.mjs'
+      - '.github/workflows/octuber-penteract-10m.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/train-penteract-10m.mjs'
+      - 'src/detroit/atuber-5d-sandbox-bridge.ts'
+      - 'src/detroit/atuber-tool-coordinator.ts'
+      - 'src/detroit/PenteractFunnelPanel.tsx'
+      - '.github/workflows/octuber-penteract-10m.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-five-d-cpu-train:
+    name: 10M real 5D shadow SGD (synthetic only; no model tools)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 5D / Atuber / Detroit shadow bridge regression
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/penteract-10m.test.mjs
+      - name: Perform exactly ten million actual 5D shadow parameter SGD updates
+        run: node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs scripts/train-penteract-10m.mjs --steps 10000000 --out-dir "$RUNNER_TEMP/octuber-penteract-10m"
+      - name: Check 10M proof, provenance and absence of LLM/GPU/training claims
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/octuber-penteract-10m
+        run: |
+          node --input-type=module -e '
+          import {readFileSync} from "node:fs";
+          import {join} from "node:path";
+          const dir=process.env.EVIDENCE_DIR;
+          const r=JSON.parse(readFileSync(join(dir,"five-d-sandbox-report.json"),"utf8"));
+          const w=JSON.parse(readFileSync(join(dir,"five-d-weights.json"),"utf8"));
+          if(r.actualWeightUpdates!==10000000||r.trainableParameters!==1925||
+             r.syntheticHoldoutFinalLoss>=r.syntheticHoldoutInitialLoss||
+             r.cudaUsed!==false||r.atuber0_6BWeightsUpdated!==false||
+             r.detroitFactoryToolsDispatched!==false||r.productionRouterModified!==false||
+             w.provenance.epochs!==500||w.provenance.expertReviewed!==false)process.exit(2);
+          console.log("VERIFIED_10M_REAL_5D_SYNTHETIC_SGD_NO_LLM_WEIGHTS");
+          '
+      - name: Upload auditable local shadow weights and metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: octuber-detroit-atuber-5d-10m-synthetic-weights
+          path: ${{ runner.temp }}/octuber-penteract-10m/
+          if-no-files-found: error
+          retention-days: 14

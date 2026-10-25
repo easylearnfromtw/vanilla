@@ -163,7 +163,7 @@ export default function KnowledgeSources({mode,onNavigate}:{mode:Mode;onNavigate
      {busy&&<p className="knowledge-message" role="status">正在向原始書目／研究資料服務查詢…</p>}
      {error&&<p className="knowledge-message knowledge-error" role="alert">{error}。你仍可從 <a href={isBook?"https://openlibrary.org/search":"https://openalex.org/works"} target="_blank" rel="noopener noreferrer">來源網站</a>直接搜尋。</p>}
      {!busy&&!error&&results.length===0&&<p className="knowledge-message">{searched?"這次未取得可核對的來源，沒有生成虛構書目。":"輸入一個研究主題，開始查詢最新公開學術索引。"}</p>}
-     {isBook&&!searched&&<p className="knowledge-provider">100 本原文沙盤：共 ${LIUAN_INDEX_REPORT.textChunks.toLocaleString("en-US")} 段，正文不公開於網頁；原文核對及權利狀態請查看 <a href={LIUAN_INDEX_REPORT.baseEvidence} target="_blank" rel="noopener noreferrer">GitHub Actions 審核紀錄</a>。</p>}
+     {isBook&&!searched&&<p className="knowledge-provider">100 本原文沙盤：共 {LIUAN_INDEX_REPORT.textChunks.toLocaleString("en-US")} 段，正文不公開於網頁；原文核對及權利狀態請查看 <a href={LIUAN_INDEX_REPORT.baseEvidence} target="_blank" rel="noopener noreferrer">GitHub Actions 審核紀錄</a>。</p>}
      <div className="knowledge-results">{results.slice(0,shown).map(s=><Result source={s} mode={mode} key={s.id}/>)}</div>
      {shown<results.length&&<button type="button" className="knowledge-more" onClick={()=>setShown(n=>n+20)}>顯示更多來源（{results.length-shown} 筆未顯示）</button>}
    </section>

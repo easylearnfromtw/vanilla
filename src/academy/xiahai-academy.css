@@ -50,3 +50,33 @@
 .xiahai-footer{padding:46px 0 12px;text-align:center;color:#909a91;letter-spacing:.1em;font-size:11px}
 @media(max-width:600px){.xiahai{padding:21px 14px 34px}.xiahai-hero{padding:27px 0 24px}.xiahai h1{font-size:42px}.xiahai-search form{flex-wrap:wrap;padding:8px}.xiahai-search form input{flex:1 1 calc(100% - 46px)}.xiahai-search form button{width:100%;padding:10px}.xiahai-section-title{flex-wrap:wrap}.xiahai-section-title span{margin-left:0;width:100%;padding-left:26px}.xiahai-tiers span{font-size:11px;padding:4px 7px}}
 @media(prefers-reduced-motion:reduce){.xiahai *{scroll-behavior:auto}}
+
+
+.xiahai-batch-choice{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:15px;font:400 12px Inter,system-ui,sans-serif;color:var(--xia-muted)}
+.xiahai-batch-choice span{margin-right:8px}
+.xiahai-batch-choice button{padding:5px 10px;border:1px solid #c6cec5;background:#fff;color:#546357;border-radius:3px;font-size:12px}
+.xiahai-batch-choice button.selected{background:#496451;color:#fff;border-color:#496451}
+.xiahai-evidence-score-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:9px 12px;border:1px solid #dde5d8;background:#f8faf6}
+.xiahai-evidence-identity{display:flex;align-items:center;gap:8px;color:#4b6854;font:600 12px Inter,system-ui,sans-serif}
+.xiahai-evidence-identity code{overflow-wrap:anywhere;font:600 12px Inter,system-ui,sans-serif}
+.xiahai-evidence-number{display:flex;align-items:center;gap:12px;text-align:right;font:400 11px Inter,system-ui,sans-serif;color:#627466}
+.xiahai-evidence-number strong{font-size:20px;white-space:nowrap;color:#3a5e45}
+.xiahai-evidence-number small{font-size:11px}
+.xiahai-paper-authors{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:13px;font:400 12px Inter,system-ui,sans-serif}
+.xiahai-paper-authors strong{margin-right:8px;color:#4a6150}
+.xiahai-paper-authors button{display:flex;align-items:center;gap:3px;padding:4px 7px;color:#496451;border:1px solid #d4e0d3;background:#fff;border-radius:4px;font-size:12px}
+.xiahai-paper-authors button[aria-expanded="true"]{background:#edf3eb}
+.xiahai-author-pop{background:#f6f8f2;border:1px solid #d8e1d4;padding:15px;margin-top:12px;font:400 12px/1.8 Inter,system-ui,sans-serif}
+.xiahai-author-profile{display:flex;align-items:center;gap:9px}
+.xiahai-author-profile strong,.xiahai-author-profile small{display:block}
+.xiahai-author-profile small{font-size:10px;color:#8a9a8c;overflow-wrap:anywhere}
+.xiahai-author-links{display:flex;flex-wrap:wrap;gap:6px 15px;margin:10px 0}
+.xiahai-author-links a,.xiahai-author-events a{color:#396b4a;text-decoration:underline;text-underline-offset:2px}
+.xiahai-author-refresh{padding:7px 9px;border:1px solid #a7bfa7;background:#fff;color:#396b4a}
+.xiahai-author-refresh:disabled{opacity:.65}
+.xiahai-author-events{padding-top:8px}
+.xiahai-author-events ol{padding-left:20px}
+.xiahai-evidence-breakdown{margin-top:14px;font:400 12px/1.9 Inter,system-ui,sans-serif;color:#536557}
+.xiahai-evidence-breakdown summary{cursor:pointer;color:#3e684d;text-decoration:underline;text-underline-offset:3px}
+.xiahai-evidence-breakdown p{font-size:11px}
+@media(max-width:600px){.xiahai-evidence-score-row{align-items:flex-start;flex-direction:column}.xiahai-evidence-number{text-align:left}}

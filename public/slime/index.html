@@ -97,6 +97,16 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
    <p>Slime 專屬安裝與配對頁面。選擇裝置、下載官方版本、輸入一次性配對碼。模型工作只會在裝置持有人同意、且 Telegram Owner 核准推論後執行。</p>
    <div class="chips"><span class="chip">Windows · macOS · Linux</span><span class="chip">短碼 10 分鐘有效</span><span class="chip">私人模型 · Token 管制</span></div>
   </section>
+  <section class="card" aria-labelledby="first-run-title" style="margin-bottom:16px">
+    <div class="head"><div><div class="number">AFTER DOWNLOAD — FIRST RUN</div><h2 id="first-run-title">下載後，三步完成第一次連線</h2></div><span class="symbol" aria-hidden="true">✓</span></div>
+    <p class="desc">新版 Slime 首次開啟會顯示桌面配對引導，不必記住指令。請先確認下載的是自己的角色（Owner 或 Friend），再依序操作。</p>
+    <ol class="steps">
+      <li><span class="step-id">01</span><div><strong>啟動電腦版 Slime</strong><p>Windows 雙擊對應的 Slime-Owner.exe／Slime-Friend.exe；macOS、Linux 開啟壓縮包內的啟動檔。介面會自動判斷 Owner／Friend 角色。</p></div></li>
+      <li><span class="step-id">02</span><div><strong>貼上同一組 Telegram 配對碼</strong><p>在 Ceres /hub 取得十分鐘短碼，填入桌面配對精靈。完成前不會分享公開 IP、關機權限或下載模型，除非你另外勾選同意。</p></div></li>
+      <li><span class="step-id">03</span><div><strong>檢查連線 → 開始共享</strong><p>先確認「綁定」、「Owner 推論授權」和「本機 Ollama」的獨立狀態，再自行按「開始共享」。按「停止共享」或關閉視窗即可停止本次共享；不會自動刪除配對。</p></div></li>
+    </ol>
+    <div class="notice">若配對成功但心跳失敗：請勿重新使用已消耗的短碼。重新開啟 SLIME 後按「檢查網路與 Ollama」即可重試。裝置離線不等於配對失效。</div>
+  </section>
   <div class="flow" aria-label="安裝流程"><span>01 選裝置</span><span>02 下載</span><span>03 配對</span><span>04 上線</span></div>
   <div class="grid">
    <div class="cols">

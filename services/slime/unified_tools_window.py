@@ -7,8 +7,8 @@ from sandbox_window import open_sandbox_window
 from github_training_window import open_github_training_window
 from finance_training_window import open_finance_training_window
 
-def run_owner_tools()->int:
-    main=tk.Tk()
+def run_owner_tools(parent=None)->int:
+    main=tk.Toplevel(parent) if parent is not None else tk.Tk()
     main.title("SLIME Owner · 本機工具")
     main.geometry("620x395")
     main.minsize(540,310)
@@ -29,5 +29,6 @@ def run_owner_tools()->int:
                command=lambda:open_github_training_window(main,owner=True)).pack(fill="x",pady=4)
     ttk.Label(container,text="Friend 版與未經 Owner 確認的遠端工作均無權啟動。",
               wraplength=515).pack(anchor="w",pady=8)
-    main.mainloop()
+    if parent is None:
+        main.mainloop()
     return 0

@@ -6,6 +6,8 @@ on:
     paths:
       - 'services/slime/**'
       - 'services/weiguo/slime_desktop.py'
+      - 'services/weiguo/slime_welcome.py'
+      - 'tests/test_slime_first_run_gui.py'
       - 'deployment/slime/**'
       - 'tests/test_slime_sandbox_center.py'
       - 'tests/test_slime_sandbox_bundle.py'
@@ -49,8 +51,9 @@ jobs:
       - name: Verify source and build standalone executables
         shell: pwsh
         run: |
-          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
+          python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_welcome.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           python -m unittest discover -s tests -p test_slime_desktop.py
+          python -m unittest discover -s tests -p test_slime_first_run_gui.py
           python -m unittest discover -s tests -p test_slime_sandbox_center.py
           python -m unittest discover -s tests -p test_slime_local_model_tools.py
           python -m unittest discover -s tests -p test_slime_training_evidence.py
@@ -58,8 +61,8 @@ jobs:
           python -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
           python -m unittest discover -s tests -p test_slime_finance_training.py
           python -m pip install "pyinstaller==6.16.0"
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools --hidden-import github_training_window --hidden-import github_training_status --hidden-import finance_training_window --hidden-import finance_training services/weiguo/slime_desktop.py
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import slime_welcome --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools --hidden-import github_training_window --hidden-import github_training_status --hidden-import finance_training_window --hidden-import finance_training services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import slime_welcome --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
           Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
           Copy-Item deployment/slime/Slime-Owner-Tools.cmd dist/Slime-Owner-Tools.cmd
@@ -83,10 +86,11 @@ jobs:
       - name: Prepare macOS archive
         run: |
           python3 -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
+          python3 -m unittest discover -s tests -p test_slime_first_run_gui.py
           python3 -m unittest discover -s tests -p test_slime_finance_training.py
-          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
+          python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_welcome.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           mkdir -p dist
-          cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py dist/
+          cp services/weiguo/slime_desktop.py services/weiguo/slime_welcome.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py dist/
           cp deployment/slime/install-macos-autostart.sh dist/install-macos-autostart.sh
           mkdir -p dist/slime_tools
           cp services/slime/*.py dist/slime_tools/
@@ -97,12 +101,13 @@ jobs:
               cp deployment/slime/Slime-Owner-Tools.command dist/
               chmod +x dist/Slime-Owner-Tools.command
               cd dist
-              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" Slime-Owner-Tools.command slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
+              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" Slime-Owner-Tools.command slime_desktop.py slime_welcome.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
               cd ..
             else
               cd dist
-              rm -f slime_tools/finance_training.py slime_tools/finance_training_window.py
-              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
+              # Friend has no Owner toolbox, training modules or local shell entry.
+              rm -rf slime_tools
+              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_welcome.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh
               cd ..
             fi
           done
@@ -122,17 +127,19 @@ jobs:
         run: |
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           python3 -m unittest discover -s tests -p test_slime_desktop.py
+          python3 -m unittest discover -s tests -p test_slime_first_run_gui.py
           python3 -m unittest discover -s tests -p test_slime_sandbox_center.py
           python3 -m unittest discover -s tests -p test_slime_sandbox_bundle.py
           python3 -m unittest discover -s tests -p test_slime_local_model_tools.py
           python3 -m unittest discover -s tests -p test_slime_training_evidence.py
           python3 -m unittest discover -s tests -p test_slime_github_training_monitor.py
           python3 -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
+          python3 -m unittest discover -s tests -p test_slime_first_run_gui.py
           python3 -m unittest discover -s tests -p test_slime_finance_training.py
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
-            cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py "tmp-$role/"
+            cp services/weiguo/slime_desktop.py services/weiguo/slime_welcome.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py "tmp-$role/"
             role_lower=$(echo "$role" | tr '[:upper:]' '[:lower:]')
             cp "deployment/slime/launch-${role_lower}.sh" "tmp-$role/start-slime.sh"
             cp deployment/slime/install-linux-autostart.sh "tmp-$role/install-linux-autostart.sh"
@@ -143,7 +150,7 @@ jobs:
               cp deployment/slime/launch-owner-tools.sh "tmp-$role/start-slime-tools.sh"
               chmod +x "tmp-$role/start-slime-tools.sh"
             else
-              rm -f "tmp-$role/slime_tools/finance_training.py" "tmp-$role/slime_tools/finance_training_window.py"
+              rm -rf "tmp-$role/slime_tools"  # Friend never receives Owner tools
             fi
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done
@@ -173,6 +180,21 @@ jobs:
           cd release
           for item in Slime-Owner.exe Slime-Friend.exe Slime-Owner-Tools.cmd Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz Slime-Sandbox-Toolkit.zip; do
             test -s "$item"
+          done
+          # Reject any Owner local-tool module in a Friend release archive.
+          if unzip -Z1 Slime-Friend-macos.zip | grep -Eq '^slime_tools/'; then
+            echo "Owner toolbox leaked to Friend macOS" >&2
+            exit 1
+          fi
+          if tar -tzf Slime-Friend-linux.tar.gz | grep -Eq '^./slime_tools/'; then
+            echo "Owner toolbox leaked to Friend Linux" >&2
+            exit 1
+          fi
+          # The first-run dashboard must ship on both roles and the Owner
+          # finance tools must stay Owner-only.
+          for role in Owner Friend; do
+            unzip -Z1 "Slime-${role}-macos.zip" | grep -Fxq "slime_welcome.py"
+            tar -tzf "Slime-${role}-linux.tar.gz" | grep -Fxq "./slime_welcome.py"
           done
           # Verify Owner tools launchers exist only in Owner packages; Friend
           # must not offer a privileged launch shortcut.
@@ -218,12 +240,18 @@ jobs:
             target_args=(--target "$GITHUB_SHA")
           fi
           cat > /tmp/slime-release-notes.md <<'NOTES'
-          # SLIME · OCTUBER 全球金融訓練正式安裝版
+          # SLIME · 新版桌面首次使用與 OCTUBER 金融訓練
 
           此版本將 OCTUBER 1996–2026 全球 20 大市場的金融資料稽核、
           五種模型（0.6B、4B、14B、30B、32B）QLoRA 訓練介面整合到
           **SLIME Owner** 的本機工具中。
 
+          - **全新下載後體驗**：Windows/macOS/Linux 開啟 SLIME 即進入本機配對精靈及節點儀表板。
+          - 配對碼有效性、HTTPS 故障、心跳、Owner 推論許可與本機 Ollama 狀態分別顯示；
+            配對完成不再自動開啟 Google 獎勵頁，須使用者自行點選。
+          - 「開始共享／停止共享／解除配對」有明確授權與取消路徑，停止後不接收新的模型工作；
+            進階 CLI 與自願授權的自動啟動功能仍保留。
+          - 首次使用與疑難排解：https://github.com/easylearnfromtw/vanilla/blob/main/docs/SLIME_AFTER_INSTALL_GUIDE.md
           - Owner 可手動選擇授權行情與審核資料，檢查來源雜湊、時序切分、CUDA 與顯存。
           - 需要本人逐項同意 GPU 運算、資料權利及模型授權，才可啟動本機訓練。
           - Friend 不包含這兩個金融訓練模組；Telegram／網頁不能遠端派工訓練。

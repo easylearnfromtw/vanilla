@@ -1,0 +1,10 @@
+{
+  "source_db_sha256": "735fbe62b9d3ed34e330b7a2dc442732b89869672991d9d628a83659f626064f",
+  "manifest_sha256": "39a88c0265fb2d8f8eb7511855f4576503f0d908c03e9ed17feabeac32ef5d92",
+  "real_papers": 1000,
+  "fulltext_chunks_verified": 41796,
+  "public_excerpt_characters": 772868,
+  "shard_count": 10,
+  "qwen_optimizer_steps": 0,
+  "created_utc": "2026-10-25T07:45:46.601839+00:00"
+}

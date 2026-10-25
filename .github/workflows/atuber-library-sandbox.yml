@@ -30,6 +30,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_atuber_books_sandbox.py' -v
           python3 -m unittest discover -s tests -p 'test_atuber_title_weight_sandbox.py' -v
           python3 -m unittest discover -s tests -p 'test_atuber_licensed_content.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_content_weights.py' -v
       - name: Downloader dry run
         run: |
           python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/atuber-downloaded"
@@ -110,6 +111,30 @@ jobs:
               output.write(f'- Evidence chunks: {r["chunks_indexed"]}\n')
               output.write('- LLM gradient updates: 0; corpus not uploaded\n')
           PY
+      - name: One million actual lexical-content classifier SGD steps from two approved historical texts
+        timeout-minutes: 15
+        run: |
+          python3 training/atuber-books/content_weight_sandbox.py --index "$RUNNER_TEMP/atuber-public-domain-pilot/approved_content.sqlite3" --output "$RUNNER_TEMP/content-weight-sandbox" --steps 1000000 --execute
+      - name: Validate content-weight updates without claiming LLM training
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          r=json.loads((root/"content-weight-sandbox/report.json").read_text())
+          assert r["optimizer_steps_completed"]==1000000
+          assert r["books_training_source_count"]==2
+          assert r["scalar_parameter_updates"]>1000000
+          assert r["llm_optimizer_steps"]==0
+          print("Real tiny content model SGD steps:",r["optimizer_steps_completed"])
+          print("Scalar content weight updates:",r["scalar_parameter_updates"])
+          print("Unseen passage holdout accuracy:",r["holdout_final"]["accuracy"])
+          print("Unseen passage holdout baseline:",r["holdout_baseline"]["accuracy"])
+          with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as output:
+              output.write("\n## Actual tiny book-content lexical classifier SGD\n")
+              output.write(f'- SGD steps on two real books: {r["optimizer_steps_completed"]:,}\n')
+              output.write(f'- Heldout passage classification: {r["holdout_final"]["accuracy"]}\n')
+              output.write('- Qwen/October neural LLM weight updates: 0\n')
+          PY
       - name: Report measured records, never fake training
         run: |
           python3 - <<'PY'
@@ -146,5 +171,7 @@ jobs:
             ${{ runner.temp }}/title-weight-sandbox/weights.json
             ${{ runner.temp }}/title-weight-sandbox/title_holdout_questions.jsonl
             ${{ runner.temp }}/atuber-public-domain-pilot/pilot_report.json
+            ${{ runner.temp }}/content-weight-sandbox/report.json
+            ${{ runner.temp }}/content-weight-sandbox/content_weights.json
           if-no-files-found: warn
           retention-days: 7

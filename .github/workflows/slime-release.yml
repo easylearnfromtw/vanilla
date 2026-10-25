@@ -7,9 +7,8 @@ on:
       - 'services/slime/**'
       - 'services/weiguo/slime_desktop.py'
       - 'deployment/slime/**'
-      - 'services/slime/**'
       - 'tests/test_slime_sandbox_center.py'
-      - 'tests/test_slime_sandbox_center.py'
+      - 'tests/test_slime_sandbox_bundle.py'
       - '.github/workflows/slime-release.yml'
   push:
     branches: ['main']
@@ -22,6 +21,11 @@ on:
       - 'services/weiguo/gecko_lan.py'
       - 'services/weiguo/gecko_update.py'
       - 'deployment/slime/**'
+      - 'services/slime/**'
+      - 'training/atuber/**'
+      - 'training/atuber-books/**'
+      - 'training/octuber-gpu-sandbox/**'
+      - 'training/scholarly/**'
 env:
   PYTHONIOENCODING: utf-8
 permissions:
@@ -98,6 +102,7 @@ jobs:
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           python3 -m unittest discover -s tests -p test_slime_desktop.py
           python3 -m unittest discover -s tests -p test_slime_sandbox_center.py
+          python3 -m unittest discover -s tests -p test_slime_sandbox_bundle.py
           python3 -m unittest discover -s tests -p test_slime_local_model_tools.py
           mkdir -p dist
           for role in Owner Friend; do

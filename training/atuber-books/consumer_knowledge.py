@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import re
+import sqlite3
 import sys
 from collections import Counter
 from pathlib import Path
@@ -81,6 +82,26 @@ def read_approved(path:Path):
     return items,dict(refusals)
 
 
+def require_actual_evidence(items, content_index:Path|None):
+    """A reviewer flag alone is not a cryptographic proof of the original source."""
+    if content_index is None or not content_index.is_file():
+        raise ValueError("PRIVATE_RIGHTS_CLEARED_EVIDENCE_DATABASE_REQUIRED")
+    conn=sqlite3.connect(content_index.resolve().as_uri()+"?mode=ro",uri=True)
+    try:
+        for item in items:
+            match=conn.execute("""SELECT c.body,b.source_url
+              FROM chunks c JOIN books b ON b.id=c.book_id
+              WHERE c.book_id=? AND c.body_sha256=? LIMIT 1""",
+              (item["source_id"],item["evidence_hash"])).fetchone()
+            if match is None or match[1]!=item["source_url"]:
+                raise ValueError("FULLTEXT_EVIDENCE_NOT_PROVEN_"+item["id"])
+            actual=hashlib.sha256(match[0].encode()).hexdigest()
+            if actual!=item["evidence_hash"]:
+                raise ValueError("FULLTEXT_EVIDENCE_CONTENT_TAMPERED_"+item["id"])
+    finally:
+        conn.close()
+
+
 def to_sft(item):
     origin="《"+item["source_title"]+"》" if item["source_type"]=="book" else item["source_title"]
     author="、".join(item["authors"][:4])
@@ -104,7 +125,7 @@ def to_sft(item):
     }
 
 
-def produce(source:Path,output:Path,min_rows:int=100):
+def produce(source:Path,output:Path,min_rows:int=100,evidence_index:Path|None=None):
     if output.exists() or output.with_suffix(".provenance.json").exists():
         raise ValueError("REFUSE_OVERWRITE_REVIEWED_CONSUMER_DATASET")
     if not 100<=min_rows<=MAX_ROWS:
@@ -114,6 +135,7 @@ def produce(source:Path,output:Path,min_rows:int=100):
         return {"state":"not-ready-for-training","reviewed_findings":len(items),
                 "required":min_rows,"refused":rejected,
                 "language_model_updates":0,"dataset_saved":False}
+    require_actual_evidence(items,evidence_index)
     dataset=[to_sft(x) for x in items]
     target=output.parent
     target.mkdir(parents=True,exist_ok=True)
@@ -143,12 +165,13 @@ def main(argv=None):
     p=argparse.ArgumentParser(description="Real reviewed knowledge -> consumer QA SFT, no invented books or GPU")
     p.add_argument("--reviewed-jsonl",type=Path,required=True)
     p.add_argument("--output",type=Path,required=True)
+    p.add_argument("--approved-fulltext-index",type=Path)
     p.add_argument("--execute",action="store_true")
     a=p.parse_args(argv)
     if not a.execute:
         print(json.dumps({"state":"dry-run","model_updates":0,"review_required":True}))
         return 0
-    result=produce(a.reviewed_jsonl,a.output)
+    result=produce(a.reviewed_jsonl,a.output,evidence_index=a.approved_fulltext_index)
     print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result.get("dataset_saved",True) is not False else 2
 

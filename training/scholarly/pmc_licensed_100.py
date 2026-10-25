@@ -118,8 +118,14 @@ def parse_article_record(record):
  metadata=nested(front,"article-meta") if front is not None else None
  body=nested(art,"body")
  if metadata is None or body is None:return None,"missing-real-article-body"
- id_nodes=[x for x in metadata.iter() if tag_name(x)=="article-id" and x.attrib.get("pub-id-type")=="pmc"]
- pmcids=[re.sub(r"^PMC","",plain(x),flags=re.I) for x in id_nodes]
+ # PMC's current JATS emits "pmcid" (PMC123...), and older article
+ # versions may use "pmc" or "pmcaid". Match the value to the official
+ # OAI-PMH header rather than relying on any one historical field name.
+ id_nodes=[x for x in metadata.iter()
+           if tag_name(x)=="article-id" and x.attrib.get("pub-id-type") in
+           ("pmcid","pmc","pmcaid")]
+ pmcids=[re.sub(r"^PMC","",plain(x),flags=re.I).strip()
+         for x in id_nodes]
  if match.group(1) not in pmcids:return None,"jats-pmcid-mismatch"
  license_nodes=[x for x in metadata.iter() if tag_name(x)=="license"]
  valid=[normalized_license(n.attrib.get(XHREF) or n.attrib.get("href") or "") for n in license_nodes]

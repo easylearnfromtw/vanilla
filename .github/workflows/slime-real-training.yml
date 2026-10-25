@@ -64,7 +64,7 @@ jobs:
         run: |
           python training/atuber/human_shopper_sim.py \
             --input "$RUNNER_TEMP/slime-labs/ndc-history.csv" \
-            --mode ndc-official --episodes 2000000 \
+            --mode ndc-official --episodes 1000000 \
             --output "$RUNNER_TEMP/slime-labs/shopper"
       - name: Perform 1000 genuine neural Adam updates and independent heldout assessment
         run: |

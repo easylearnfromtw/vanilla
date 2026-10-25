@@ -3,7 +3,7 @@ import {Cpu,Download,WifiOff,CheckCircle2,AlertTriangle,HardDrive} from "lucide-
 import {LOCAL_MODELS,getLoadedLocalModel,isLocalModelSupported,localWorkerMode,setLocalWorkerMode,isLocalWorkerActive,diagnoseLocalModelDownload,type LocalModelId} from "./engine";
 import type {DownloadDiagnostic} from "./model-download-diagnostics";
 import {isIOSWebLLMDevice,needsMobileMemoryConfirmation} from "./mobile-safety";
-import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,octuberTierPreference,setOctuberTierPreference,type OctuberTierPreference} from "../ai/atuber-control-plane";
+import {ATUBER_SINGLE_DRIVER,ATUBER_LOCAL_MODEL,ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,OCTUBER_ADDITIONAL_SIZES,octuberTierPreference,setOctuberTierPreference,type OctuberTierPreference} from "../ai/atuber-control-plane";
 import {getOllamaConfig,probeAtuberModel,isOllamaModelVerified} from "../ai/ollama";
 import {installedTierModel,localOctuberBaseNames} from "../ai/octuber-local-runtimes";
 import {atuberModelStageLabel,ATUBER_HAS_INDEPENDENT_WEIGHTS} from "../ai/atuber-model-status";
@@ -78,7 +78,7 @@ export default function LocalModelPanel(props:Props){
    {ATUBER_SINGLE_DRIVER&&!ATUBER_HAS_INDEPENDENT_WEIGHTS&&<p className="local-model-note" role="status">目前運行的是未經專屬微調的 Qwen3 0.6B 基底權重。阿土伯可統一操作工具，但獨立模型權重須先完成審核資料訓練、合併與驗證；改名不等於完成訓練。</p>}
    {ATUBER_SINGLE_DRIVER&&<section className="local-model-tiers" aria-label="OCTUBER 模型級距">
     <p className="local-model-note" role="status"><strong>SUMPTUOUS 30B 獨立模型研發：</strong>{sumptuousManifest.training_completed?"訓練已記錄，仍需獨立權重驗證":"尚未訓練；目前僅能使用原始 Qwen3 30B 基底模型"}。模型版號 <code>{sumptuousManifest.model_id}</code>；程式與權重製作流程已建立，但不能把 API 連線或 Ollama 別名稱作完成微調。</p>
-    <p className="local-model-note"><strong>OCTUBER 三種規格</strong> · FLATTERING（手機 0.6B／電腦 4B）、MODEST（電腦 14B）、SUMPTUOUS（電腦 30B MoE／32B Dense）。可以直接使用已裝好的 <code>qwen3:30b</code>，不必建立自訂別名；大型權重放在你的電腦，不下載到 iPhone。</p>
+    <p className="local-model-note"><strong>OCTUBER 多尺寸本地模型</strong> · 手機 0.6B；自架 Ollama 可選 1.7B、4B、8B、14B、30B MoE、32B Dense。這些是模型級距與可用標籤，只有實際安裝並通過推論測試的模型才算就緒；尚未經專屬 LoRA 訓練。</p>
     <label className="local-model-note" htmlFor="octuber-tier-choice">運算規格偏好</label>
     <select id="octuber-tier-choice" value={tierChoice} onChange={event=>{const next=event.target.value as OctuberTierPreference;setTierChoice(next);setOctuberTierPreference(next);}}>
      <option value="auto">自動依任務選擇（預設）</option>
@@ -95,6 +95,19 @@ export default function LocalModelPanel(props:Props){
      </button>}
      {(()=>{const name=installedTierModel([...hostModels],t.tier,[t.model,t.publicAlias]);const result=name?tierProbe[name]:null;return result?<p role="status" aria-live="polite" className={result.ok?"local-model-status":"local-model-note"}>{result.note}</p>:null;})()}
     </div>)}
+    <div className="local-model-note" aria-label="新增的小型與中型本地模型">
+     <strong>新增規格：1.7B／8B</strong>
+     {OCTUBER_ADDITIONAL_SIZES.map(item=><div key={item.model} className="local-model-note">
+      {item.label} · <code>{item.base}</code> · 約 {item.approxDownloadGB} GB 下載檔案 ·
+      {(()=>{const model=[item.model,item.base].find(n=>hostModels.has(n));return model?(isOllamaModelVerified(model)?" 已通過實際推論":" 已設定，待實際推論測試"):" 尚未設定";})()}
+      {Boolean(getOllamaConfig().endpoint)&&[item.model,item.base].some(n=>hostModels.has(n))&&<button type="button"
+       disabled={probingTier!==null||!props.online}
+       onClick={()=>void runTierProbe([item.model,item.base].find(n=>hostModels.has(n))||item.base)}>
+       {probingTier===([item.model,item.base].find(n=>hostModels.has(n))||item.base)?"正在測試…":"實際推論測試"}
+      </button>}
+      {(()=>{const name=[item.model,item.base].find(n=>hostModels.has(n));const result=name?tierProbe[name]:null;return result?<p role="status" aria-live="polite">{result.note}</p>:null;})()}
+     </div>)}
+    </div>
     <p className="local-model-note">私密模式僅使用目前裝置端 0.6B；已授權的本地電腦 30B 屬於另一台裝置上的推論，會透過網路傳送內容，需在一般模式授權後使用。不會自行購買算力或轉用第三方模型。</p>
    </section>}
    {props.loading&&<progress max={100} value={Math.min(100,Math.max(0,props.progress))} aria-label="本地模型載入進度"/>}

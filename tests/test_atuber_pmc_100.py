@@ -17,7 +17,7 @@ def article_xml(number:int,license="https://creativecommons.org/licenses/by/4.0/
  <header><identifier>oai:pubmedcentral.nih.gov:{number}</identifier></header>
  <metadata><article><front><article-meta>
  <article-id pub-id-type="pmcid">PMC{number}</article-id>
- <title-group><article-title>Scientific Evaluation {number}</article-title></title-group>
+ <title-group><article-title>Scientific Evaluation {number}</article-title></title-group>\n <contrib-group><contrib contrib-type="author"><name><given-names>Ada</given-names><surname>Scholar</surname></name></contrib></contrib-group>
  <permissions><license xlink:href="{license}"/></permissions>
  </article-meta></front><body><sec><p>{text}</p></sec></body></article></metadata></record>'''
 class PmcLicensedTests(unittest.TestCase):
@@ -27,6 +27,7 @@ class PmcLicensedTests(unittest.TestCase):
   self.assertIsNone(error)
   self.assertEqual(item["pmcid"],"PMC12345")
   self.assertEqual(item["license"],"cc-by")
+  self.assertEqual(item["authors"],["Ada Scholar"])
   self.assertGreater(len(item["content"]),2000)
  def test_current_pmc_jats_nested_license_uri(self):
   import xml.etree.ElementTree as ET

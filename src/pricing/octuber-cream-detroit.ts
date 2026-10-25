@@ -2,7 +2,7 @@
  * Only executes after explicit user action. No scraping, model inference,
  * third-party data transport, publication, or repricing.
  */
-import {executeDetroitNative} from "../detroit/native-executors";
+import {executeDetroitCream} from "../detroit/cream-native";
 import type {CreamResult} from "../cream/core";
 import {priceProductKey,priceSellerLabel,type PriceRecord} from "./price-engine";
 
@@ -44,7 +44,7 @@ export async function executeOctuberPriceCream(
  const csv="賣家,價格_TWD\n"+offers.map(r=>quote(priceSellerLabel(r))+","+r.price.toFixed(2)).join("\n");
  const execute=options.executeCream??(
   (payload:{csv:string;source:string},context:{privateMode:boolean;signal?:AbortSignal})=>
-   executeDetroitNative<CreamResult>("cream",payload,context)
+   executeDetroitCream(payload,context)
  );
  const cream=await execute({csv,source:"October 價格頁面之本機已匯入報價"},{
   privateMode:options.privateMode,signal:options.signal

@@ -20,6 +20,7 @@ import {filenameFromQuestion} from "../local-ai/file-intent";
 import {linkReadingIntent} from "../search/web-reader";
 import {implicitResearchQuery} from "../search/search-evidence";
 import {planAppIntent} from "./intent-router";
+import {citymusIntent} from "../music/citymus";
 
 export const SEARCH_REQUEST=/^(?:(?:請幫我|請你幫我|請|請你|幫我|麻煩(?:你)?|可以(?:請你)?幫我)\s*)?(?:上網搜尋|網路搜尋|全網搜尋|Google\s*搜尋|搜尋(?:一下)?|上網查(?:一下)?|找資料|查網站|查一下|查詢(?:一下)?|幫我查(?:一下)?|幫我找資料|幫我找(?:一下)?|找一下)\s*[：:]?\s*(.{2,180})$/is;
 export const CODE_BUILDER=/^(?:(?:請|幫我|我要|讓\s*Vanilla|你可以|可以)\s*)?(?:自主迭代|自我優化|改進\s*(?:Vanilla|自己|你的)?\s*(?:的)?\s*(?:程式碼|原始碼)|修復\s*(?:Vanilla|自己的)?\s*(?:的)?\s*(?:bug|程式碼)|修改\s*(?:Vanilla|自己|你的)\s*(?:的)?\s*(?:程式碼|原始碼)|Self[- ]?Build\s*CODE|幫我改程式碼|改程式碼|程式碼自主開發)(?:\s*[：:]?\s*([\s\S]{0,1600}))?$/i;
@@ -44,6 +45,7 @@ export type OpenSection="xiahai"|"orchestra"|"email"|"weiguo"|"cream"|"projects"
 export type ChatRoute=
  |{kind:"diana";request:string;forcedTool:DianaTarget|null}
  |{kind:"go-research";role:GoRole}
+ |{kind:"citymus"}
  |{kind:"capability"}
  |{kind:"tool-knowledge"}
  |{kind:"python-discovery";query:string}
@@ -67,6 +69,8 @@ export type RouteContext={privateMode:boolean;hasCreamResult:boolean;hasModel?:b
 /** Ordered: deterministic local tools first, then explicit commands, then web, then the model. */
 export function routeMessage(question:string,ctx:RouteContext):ChatRoute{
  const q=question.trim();
+ // Explicit song lookup / recommendations use the CITYMUS licensed catalog before generic web search.
+ if(citymusIntent(q))return {kind:"citymus"};
  // Go comparisons consult real repository metadata, then a model can synthesize the answer.
  // Explicit open commands and @Awesome still open the UI; ordinary questions stay in chat.
  const goRole=goResearchIntent(q);

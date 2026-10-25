@@ -1,0 +1,137 @@
+name: Atuber Multidoc Licensed CPU LoRA
+on:
+  pull_request:
+    paths:
+      - 'training/scholarly/harvest_licensed_batch.py'
+      - 'training/atuber/multidoc_cpu_lora.py'
+      - 'tests/test_atuber_multidoc_real.py'
+      - '.github/workflows/atuber-multidoc-cpu.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/scholarly/harvest_licensed_batch.py'
+      - 'training/atuber/multidoc_cpu_lora.py'
+      - 'tests/test_atuber_multidoc_real.py'
+      - '.github/workflows/atuber-multidoc-cpu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source rights and complete-paper separation
+        run: |
+          python3 -m unittest discover -s tests -p 'test_atuber_multidoc_real.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_cpu_lora_pilot.py' -v
+
+  live-official-oai-probe:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: test-offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prove official arXiv OAI ListRecords returns rights-cleared article IDs
+        run: |
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0,'training/scholarly')
+          from harvest_licensed_batch import harvest
+          rows,details=harvest('2026-10-12','2026-10-20',10,1,3.1)
+          print('Real OAI license-approved article IDs:',len(rows))
+          print('OAI audit:',details)
+          assert len(rows)>=3, 'Live OAI feed did not return enough CC BY / CC0 records'
+          PY
+
+  train-verified-multi-paper:
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: test-offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 48
+    env:
+      HF_HOME: /tmp/atuber-multidoc-hf
+      TOKENIZERS_PARALLELISM: 'false'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PDF extraction dependency
+        run: python3 -m pip install --no-cache-dir 'pypdf>=5,<7'
+      - name: Real official arXiv license harvesting and up to 8 genuine PDFs
+        run: |
+          python3 -u training/scholarly/harvest_licensed_batch.py \
+            --from-date 2026-10-12 --until-date 2026-10-20 \
+            --licensed-target 100 --pdf-cap 8 --max-pages 8 \
+            --delay 3.1 --output "$RUNNER_TEMP/atuber-approved-multidoc" --execute
+      - name: Independently audit complete-document holdout before model download
+        run: |
+          python3 training/atuber/multidoc_cpu_lora.py \
+            --index "$RUNNER_TEMP/atuber-approved-multidoc.sqlite3" \
+            --output "$RUNNER_TEMP/atuber-multidoc-model" \
+            --min-papers 3 --audit-only
+      - name: Install PyTorch CPU-only and Hugging Face LoRA dependencies
+        run: |
+          python3 -m pip install --no-cache-dir 'torch==2.6.0+cpu' --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install --no-cache-dir 'transformers>=4.53,<5' 'peft>=0.17,<0.24' 'accelerate>=1.3,<2'
+      - name: Actually update Atuber Qwen3-0.6B trainable model weights
+        run: |
+          python3 -u training/atuber/multidoc_cpu_lora.py \
+            --index "$RUNNER_TEMP/atuber-approved-multidoc.sqlite3" \
+            --output "$RUNNER_TEMP/atuber-multidoc-model" \
+            --min-papers 3 --steps 8 --sequence-length 64 --train
+      - name: Verify train/held-out documents, actual optimizer steps and safetensors
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          corpus=json.loads((root/'atuber-approved-multidoc.report.json').read_text())
+          report=json.loads((root/'atuber-multidoc-model/training-provenance.json').read_text())
+          adapter=root/'atuber-multidoc-model/adapter/adapter_model.safetensors'
+          assert corpus['licensed_fulltexts_downloaded_and_indexed']>=3
+          assert report['audited_papers']==corpus['licensed_fulltexts_downloaded_and_indexed']
+          assert report['documents_in_train']>=2
+          assert report['documents_in_independent_holdout']>=1
+          assert not(set(report['train_document_ids']) & set(report['holdout_document_ids']))
+          assert report['actual_optimizer_steps']==8
+          assert report['weight_delta_verified'] is True
+          assert report['adapter_sha256']==hashlib.sha256(adapter.read_bytes()).hexdigest()
+          assert report['model_ready_for_public_release'] is False
+          print('ACTUAL MULTIDOC RIGHTS-CLEARED PAPERS:',report['audited_papers'])
+          print('ACTUAL DOC-HOLDOUT OPTIMIZER STEPS:',report['actual_optimizer_steps'])
+          print('ACTUAL ADAPTER SHA256:',report['adapter_sha256'])
+          with pathlib.Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as out:
+            out.write('## Actual independently held-out research-document CPU LoRA\n')
+            out.write(f'- Official arXiv rights-confirmed metadata records: {corpus["distinct_rights_confirmed_metadata_candidates"]}\n')
+            out.write(f'- Real licensed PDFs downloaded and indexed: {report["audited_papers"]}\n')
+            out.write(f'- Train documents: {report["documents_in_train"]}; independent heldout: {report["documents_in_independent_holdout"]}\n')
+            out.write(f'- Actual Qwen optimizer updates: {report["actual_optimizer_steps"]}\n')
+            out.write(f'- Adapter bytes: {adapter.stat().st_size}\n')
+            out.write(f'- Weight SHA256: {report["adapter_sha256"]}\n')
+            out.write('- Model has not passed a factual QA benchmark. 100 training FULLTEXT PDFs are **not yet** claimed.\n')
+          PY
+      - name: Keep verifiable model weights, rights and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-real-multidoc-cpu-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/atuber-multidoc-model/
+            ${{ runner.temp }}/atuber-approved-multidoc.report.json
+            ${{ runner.temp }}/atuber-approved-multidoc.licensed-metadata.jsonl
+          retention-days: 14
+          if-no-files-found: warn

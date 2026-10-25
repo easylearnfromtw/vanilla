@@ -37,8 +37,8 @@ export default function XiahaiAcademy(){
    if(!papers.length)setMessage("OpenAlex 未回傳可引用的論文；可改用英文關鍵詞，或開啟 arXiv 原站搜尋。");
   }catch(error){
    if(serial!==current.current)return;
-   setMessage("未能取得 OpenAlex 即時資料："+(error instanceof Error?error.message:"來源連線失敗")+
-    "。請使用下方原站連結查找；未取得的論文不會被假造。");
+   setMessage((researchMode==="body"?"霞海全文節錄查詢失敗：":"未能取得 OpenAlex 即時資料：")+(error instanceof Error?error.message:"來源連線失敗")+
+    "。請使用下方原站連結查找；未取得的原文與論文不會被假造。");
   }finally{if(serial===current.current)setBusy(false);}
  }
  return <div className="xiahai">
@@ -60,14 +60,14 @@ export default function XiahaiAcademy(){
    </form>
    <div className="xiahai-batch-choice">
     <span>證據來源</span>
-    <button type="button" className={researchMode==="body"?"selected":""} onClick={()=>setResearchMode("body")}>1,000 篇原文節錄</button>
-    <button type="button" className={researchMode==="metadata"?"selected":""} onClick={()=>setResearchMode("metadata")}>OpenAlex 即時書目</button>
+    <button type="button" className={researchMode==="body"?"selected":""} onClick={()=>{current.current++;setResearchMode("body");setSubmitted("");setResults([]);setEvidenceHits([]);setMessage("");}}>1,000 篇原文節錄</button>
+    <button type="button" className={researchMode==="metadata"?"selected":""} onClick={()=>{current.current++;setResearchMode("metadata");setSubmitted("");setResults([]);setEvidenceHits([]);setMessage("");}}>OpenAlex 即時書目</button>
    </div>
-   <div className="xiahai-batch-choice">
-    <span>單次檢索</span>
+   {researchMode==="metadata"&&<div className="xiahai-batch-choice">
+    <span>單次書目檢索</span>
     <button type="button" className={batchSize===8?"selected":""} onClick={()=>setBatchSize(8)}>8 篇 · 快速</button>
     <button type="button" className={batchSize===100?"selected":""} onClick={()=>setBatchSize(100)}>100 篇 · Evidence 批次練習</button>
-   </div>
+   </div>}
    <div className="xiahai-source-links">
     <span>學術來源</span>
     <a href="https://openalex.org/" target="_blank" rel="noopener noreferrer">OpenAlex <ArrowUpRight size={14}/></a>
@@ -86,7 +86,7 @@ export default function XiahaiAcademy(){
     <span role="listitem"><b>250,000</b> CPU 模型更新步數</span>
    </div>
    <p>已實際建立 1,000 篇開放授權論文的離線全文索引，使用原文片段訓練檢索小模型。每篇保留原始作者、DOI 與 CC BY 授權出處；尚未進行 Qwen 的 GPU 神經模型微調。</p>
-   <p className="xiahai-muted">本頁上方的即時搜尋仍使用 OpenAlex 書目資料，尚未直接連線至離線全文 SQLite。CPU 的 99.987% 分段匹配測試結果，不代表專業建議的正確率。</p>
+   <p className="xiahai-muted">「原文節錄」會查詢已驗證全文所產生的短片段快照，經段落相關性檢查才顯示；OpenAlex 模式則只讀取即時書目。網頁不提供整篇 SQLite 全文。先前 CPU 99.987% 分段匹配測試結果，不代表專業建議正確率。</p>
    <div className="xiahai-source-links"><a href="https://github.com/easylearnfromtw/vanilla/actions/runs/40168229489" target="_blank" rel="noopener noreferrer">查看原始訓練與來源驗證紀錄 <ArrowUpRight size={14}/></a></div>
   </section>
   <section className="xiahai-policy" aria-label="引用權重制度">
@@ -105,12 +105,12 @@ export default function XiahaiAcademy(){
    <div className="xiahai-section-title"><LibraryBig size={18}/><h2>{researchMode==="body"?"原文證據":"學術書目"}</h2>{submitted&&<span>「{submitted}」 · {researchMode==="body"?evidenceHits.length:results.length} 筆</span>}</div>
    {message&&<p className="xiahai-feedback" role="status">{message}</p>}
    {!busy&&!submitted&&!message&&<div className="xiahai-empty"><BookOpen size={26}/><p>從一個研究問題開始，查找可追溯的論文來源。</p><small>書院提供即時書目引用及 VANILLA Evidence 書目可追溯評級；全文模型訓練仍為獨立流程。</small></div>}
-   {evidenceHits.length>0&&<ol className="xiahai-list">{evidenceHits.map(({paper,passages},index)=>
+   {evidenceHits.length>0&&<ol className="xiahai-list">{evidenceHits.map(({paper,passages,matched_terms},index)=>
      <li key={paper.id} className="xiahai-paper">
       <div className="xiahai-paper-head"><span className="xiahai-index">{String(index+1).padStart(3,"0")}</span><span className="xiahai-provider">PMC · 已核對正文</span></div>
       <h3>{paper.title}</h3>
       <p>作者：{paper.authors.join("、")}　{paper.year||""}</p>
-      <p className="xiahai-muted">DOI：{paper.doi||"來源未提供"}　|　節錄段落：{passages.length} 段</p>
+      <p className="xiahai-muted">DOI：{paper.doi||"來源未提供"}　|　相關節錄：{passages.length} 段　|　文字匹配：{matched_terms.join("、")}</p>
       <blockquote><p>{passages[0].excerpt}</p></blockquote>
       <p className="xiahai-muted">原文段落：{passages[0].chunk_id} · SHA256：{passages[0].chunk_sha256.slice(0,16)}…</p>
       <div className="xiahai-actions"><a href={paper.source_url} target="_blank" rel="noopener noreferrer">原始全文 <ArrowUpRight size={14}/></a><a href={paper.license_url} target="_blank" rel="noopener noreferrer">授權：{paper.license} <ArrowUpRight size={14}/></a></div>

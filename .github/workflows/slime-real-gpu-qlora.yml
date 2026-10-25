@@ -31,6 +31,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   owner-cuda-qlora:
+    # Public repos must not dispatch jobs onto long-lived private GPU hosts.
+    # For the public Vanilla repo, copy the audited private-runner template
+    # into a separate PRIVATE repository with required environment approval.
+    if: ${{ github.event.repository.private && github.ref == 'refs/heads/main' }}
     # MUST be created and labelled by repository Owner. Ordinary ubuntu-latest
     # has no NVIDIA GPU. Will remain queued without a matching real GPU runner.
     runs-on: [self-hosted, linux, x64, slime-gpu]

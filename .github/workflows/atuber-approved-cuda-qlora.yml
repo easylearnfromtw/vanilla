@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   approved-cuda-only:
-    if: github.ref == 'refs/heads/main'
+    if: github.event.repository.private && github.ref == 'refs/heads/main'
     # Configure this environment to require explicit reviewer approval.
     environment: atuber-gpu-approval
     # A label for YOUR GPU runner. Can be a self-hosted Linux NVIDIA node, or a

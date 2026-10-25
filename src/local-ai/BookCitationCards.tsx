@@ -80,7 +80,7 @@ function BookCard({book}:{book:AtuberBookResult}){
    <div className="atuber-book-detail">
     <div className="atuber-book-title">{book.title}</div>
     {book.author&&<div className="atuber-book-author">{book.author}</div>}
-    <small>{bookIsFullText?"已檢索授權全文片段":"僅書目，尚無全文證據"}</small>
+    <small>{bookIsFullText?"附原文節錄（請核對來源）":"僅書目，尚無全文證據"}</small>
     {book.evidence&&bookIsFullText&&<blockquote className="atuber-book-excerpt">
       {book.evidence.excerpt}
      </blockquote>}
@@ -95,7 +95,7 @@ function BookCard({book}:{book:AtuberBookResult}){
 export default function BookCitationCards({books}:{books:AtuberBookResult[]}){
  return <section className="atuber-book-citations" aria-label="書籍引用與封面">
   <h4>相關書籍與出處</h4>
-  <p>封面依 ISBN 即時取得。標示「書目」的結果不代表已讀取全文；請依原始來源核對版次與內容。</p>
+  <p>封面依 ISBN 即時取得。卡片來自回答提供的結構化資料，並非自動完成獨立查證；請點開原始來源確認書目、版次與引文。</p>
   <div className="atuber-book-grid">
    {books.slice(0,MAX_CARDS).map(b=><BookCard key={b.book_id} book={b}/>)}
   </div>

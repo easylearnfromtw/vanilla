@@ -1,0 +1,92 @@
+name: OCTUBER Finance GPU (manual-only)
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Select a single QLoRA model"
+        required: true
+        type: choice
+        options: ["0.6b", "4b", "14b", "30b", "32b"]
+      base_revision:
+        description: "Upstream immutable 40-character commit hash"
+        required: true
+        type: string
+      authorization:
+        description: "Type YES_APPROVE_PRIVATE_GPU"
+        required: true
+        type: string
+      allow_model_download:
+        description: "Explicit consent to downloading large upstream model weights"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: octuber-finance-private-gpu
+  cancel-in-progress: false
+jobs:
+  one-private-adapter:
+    if: github.ref == 'refs/heads/main' && inputs.authorization == 'YES_APPROVE_PRIVATE_GPU'
+    environment: octuber-finance-gpu
+    runs-on: [self-hosted, linux, octuber-gpu]
+    timeout-minutes: 360
+    env:
+      TIER: ${{ inputs.tier }}
+      REVISION: ${{ inputs.base_revision }}
+      DOWNLOAD: ${{ inputs.allow_model_download }}
+      DATA: ${{ vars.OCTUBER_FINANCE_DATA_ROOT }}
+      OUTPUT: ${{ vars.OCTUBER_FINANCE_OUTPUT_ROOT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prove approved local inputs and real GPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$TIER" =~ ^(0\.6b|4b|14b|30b|32b)$ ]]
+          [[ "$DATA" = /* && "$OUTPUT" = /* ]]
+          command -v nvidia-smi
+          test -f "$DATA/approved/train.jsonl"
+          test -f "$DATA/approved/eval.jsonl"
+          test -f "$DATA/approved/test.jsonl"
+          test -f "$DATA/approved/approved-provenance.json"
+          test -d "$DATA/prices"
+          test -f "$DATA/price-rights.json"
+      - name: Check twenty sourced markets and chronological provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 training/octuber-finance/readiness.py --prices-dir "$DATA/prices" --rights "$DATA/price-rights.json" > /tmp/octuber-finance-audit.json
+          python3 - "$DATA" <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, "training/octuber-finance")
+          from train_tiers import validated_files
+          with open("/tmp/octuber-finance-audit.json", encoding="utf-8") as stream:
+              report=json.load(stream)
+          if report["market_count"] != 20:
+              raise SystemExit("TWENTY_LICENSED_MARKETS_REQUIRED")
+          p=Path(sys.argv[1])/"approved"
+          a,b,_=validated_files(p/"train.jsonl",p/"eval.jsonl",p/"approved-provenance.json")
+          print("REVIEWED_RECORDS",len(a),len(b))
+          print("STRICT_30Y_COMPLETE",report["complete_market_coverage"])
+          PY
+      - name: Run one real pinned-base QLoRA on self-hosted CUDA
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$OUTPUT/$GITHUB_RUN_ID-$TIER"
+          test ! -e "$DEST"
+          args=()
+          if [[ "$DOWNLOAD" == "true" ]]; then args+=(--allow-model-download); fi
+          python3 training/octuber-finance/train_tiers.py --tier "$TIER" --train --steps 180 \
+            --train-data "$DATA/approved/train.jsonl" \
+            --eval-data "$DATA/approved/eval.jsonl" \
+            --provenance "$DATA/approved/approved-provenance.json" \
+            --output "$DEST" --base-revision "$REVISION" \
+            --approve-gpu-compute --ack-model-license --ack-data-rights "${args[@]}"
+          test -s "$DEST/adapter/adapter_model.safetensors"
+          python3 training/octuber-finance/release_gate.py --approved-dir "$DATA/approved" --adapter "$TIER=$DEST"
+          echo "NOT_PRODUCTION_RELEASED; BLIND_BENCHMARK_STILL_REQUIRED"

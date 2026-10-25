@@ -1,6 +1,8 @@
 /** Read-only October tool execution boundary; receipts are evidence, never commands. */
 import {planPenteractFunnel} from "./penteract-5d";
 import {shadowPenteractRoute} from "./penteract-shadow";
+import {routeLearnedFive} from "./penteract-learned";
+import {activeAtuberFiveDSandbox} from "./atuber-5d-sandbox-bridge";
 import {detroitAvailability,findDetroitCapability} from "./capability-bus";
 import {summarizeCream,type CreamResult} from "../cream/core";
 import {wrapExternalText} from "../security/trust-boundary";
@@ -48,9 +50,17 @@ export async function executeAtuberReadOnly(
    if(typeof plan.subject!=="string"||plan.subject.length>800||plan.subject.length<2)throw Error("ATUBER_FIVE_D_LIMIT");
    const verdict=shadowPenteractRoute(plan.subject);
    const projection=planPenteractFunnel(plan.subject,{privateMode:true});
+   // Only the owner explicitly activating a syntactically checked 5D JSON
+   // enables this *advisory* comparison. No learned output dispatches tools.
+   const candidateWeights=activeAtuberFiveDSandbox();
+   const learned=candidateWeights?routeLearnedFive(plan.subject,candidateWeights):null;
    evidence="October 五維僅供諮詢、未校準的幾何評估，不是工具權限或語意正確率：\n"+
     JSON.stringify({verdict,ambiguity:projection.ambiguity,routes:projection.routes,
-     confidence:projection.confidence,modelInvoked:projection.modelInvoked}).slice(0,5000);
+     confidence:projection.confidence,modelInvoked:projection.modelInvoked,
+     learnedShadow:learned?{status:learned.status,candidateId:learned.candidateId,
+      reason:learned.reason,policy:learned.policy,modelInvoked:false,
+      training:"synthetic-sandbox-unreviewed",actualAtuberWeightsUpdated:false}:null,
+     productionRoutingChanged:false,toolPermissionGranted:false}).slice(0,5000);
    break;
   }
   default:throw Error("ATUBER_TOOL_NOT_ALLOWED");

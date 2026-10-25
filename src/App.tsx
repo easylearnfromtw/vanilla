@@ -30,9 +30,10 @@ const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 const XiahaiAcademy=lazy(()=>import("./academy/XiahaiAcademy"));
 const LiuanArchive=lazy(()=>import("./knowledge/KnowledgeSources"));
+const BlueStarNewsroom=lazy(()=>import("./bluestar/BlueStarNewsroom"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="liuan"|"xiahai"|"nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="bluestar"|"liuan"|"xiahai"|"nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 // Only these five destinations are exposed in the sidebar and mobile tab bar.
 // The other modules remain available through contextual chat actions and Detroit tool routing.
@@ -45,6 +46,7 @@ const items:NavItem[]=[
 ];
 // Section metadata for contextual tool handoffs, not separate navigation entries.
 const tools:NavItem[]=[
+ {id:"bluestar",label:"藍星報社",icon:Globe2,description:"五國即時新聞與 OCTUBER 2006–2026 年來源索引",tone:"blue"},
  {id:"liuan",label:"柳岸書城",icon:BookOpen,description:"書籍來源、作者、版本與合法全文狀態",tone:"ink"},
  {id:"xiahai",label:"霞海書院",icon:BookOpen,description:"OpenAlex／arXiv 論文來源與學術引用",tone:"ink"},
  {id:"projects",label:"PROJECT HUB",icon:Code2,description:"專案原始碼、API 與功能整合",tone:"yellow"},
@@ -64,7 +66,7 @@ export default function App(){
 // Legacy invitation deep links are redirected to a dedicated, lightweight
 // Slime pairing page. The fragment stays client-only; no login boot required.
 // Direct, read-only lab link for browser automation: /vanilla/?lab=5d.
-const [section,setSection]=useState<Section>(()=>{if(typeof window==="undefined")return "chat";const params=new URLSearchParams(window.location.search);return params.get("archive")==="liuan"?"liuan":params.get("academy")==="xiahai"?"xiahai":params.get("lab")==="5d"?"detroit":"chat";});
+const [section,setSection]=useState<Section>(()=>{if(typeof window==="undefined")return "chat";const params=new URLSearchParams(window.location.search);return params.get("press")==="bluestar"?"bluestar":params.get("archive")==="liuan"?"liuan":params.get("academy")==="xiahai"?"xiahai":params.get("lab")==="5d"?"detroit":"chat";});
 useEffect(()=>{
  const hash=window.location.hash;
  if(/^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)){
@@ -74,7 +76,7 @@ useEffect(()=>{
 useEffect(()=>{
  const sync=()=>{
   const q=new URLSearchParams(window.location.search);
-  setSection(q.get("archive")==="liuan"?"liuan":q.get("academy")==="xiahai"?"xiahai":"chat");
+  setSection(q.get("press")==="bluestar"?"bluestar":q.get("archive")==="liuan"?"liuan":q.get("academy")==="xiahai"?"xiahai":"chat");
  };
  window.addEventListener("popstate",sync);
  return()=>window.removeEventListener("popstate",sync);
@@ -115,7 +117,7 @@ useEffect(()=>{
   setEditFeatureId(null);setSection("builder");setMenuOpen(false);
  };
  const handlers:Array<[string,(e:Event)=>void]>=[
-  ["vanilla-open-xiahai",go("xiahai")],["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
+  ["vanilla-open-bluestar",go("bluestar")],["vanilla-open-xiahai",go("xiahai")],["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
   ["vanilla-open-weiguo",go("weiguo")],
   ["vanilla-open-erya",(event:Event)=>{
    const body=(event as CustomEvent<{body?:string}>).detail?.body;
@@ -166,9 +168,10 @@ function navigate(next:Section){
   window.location.assign(BASE+"slime/");
   return;
  }
- if(next==="liuan"||next==="xiahai"||section==="liuan"||section==="xiahai"){
+ if(next==="liuan"||next==="xiahai"||next==="bluestar"||section==="liuan"||section==="xiahai"||section==="bluestar"){
   const url=new URL(window.location.href);
-  url.searchParams.delete("archive");url.searchParams.delete("academy");
+  url.searchParams.delete("archive");url.searchParams.delete("academy");url.searchParams.delete("press");
+  if(next==="bluestar")url.searchParams.set("press","bluestar");
   if(next==="liuan")url.searchParams.set("archive","liuan");
   if(next==="xiahai")url.searchParams.set("academy","xiahai");
   window.history.pushState(null,"",url.toString());
@@ -201,7 +204,8 @@ return <div className="shell">
 <header className="topbar">
 <div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?<span className="topbar-wordmark">VANILLA AI</span>:selected.label}</div></div>
 <div className="topbar-trailing">
- <div className="knowledge-toplinks" aria-label="書籍與論文來源">
+ <div className="knowledge-toplinks" aria-label="新聞、書籍與論文來源">
+  <button type="button" onClick={()=>navigate("bluestar")} title="藍星報社 · 五國新聞來源">藍星報社</button>
   <button type="button" onClick={()=>navigate("liuan")} title="柳岸書城來源索引">柳岸書城</button>
   <button type="button" onClick={()=>navigate("xiahai")} title="霞海書院研究來源">霞海書院</button>
  </div>
@@ -211,7 +215,8 @@ return <div className="shell">
 </header>
 {section==="chat"?<LocalChat key={chatKey} onNavigate={s=>navigate(s)}/>:
 <Suspense fallback={<Loading/>}>
-{section==="liuan"?<LiuanArchive mode="book" onNavigate={where=>navigate(where==="book"?"liuan":"xiahai")}/>:
+{section==="bluestar"?<div className="workspace-page"><BlueStarNewsroom/></div>:
+section==="liuan"?<LiuanArchive mode="book" onNavigate={where=>navigate(where==="book"?"liuan":"xiahai")}/>:
 section==="xiahai"?<div className="workspace-page"><XiahaiAcademy/></div>:
 section==="cream"?<div className="workspace-page"><CreamLongitudinal/></div>:
 section==="projects"?<div className="workspace-page"><ProjectHub/></div>:

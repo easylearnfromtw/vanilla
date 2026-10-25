@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {trainFiveD,TRAIN_ROWS,EVAL_ROWS,SEALED_TEST_ROWS,FULL_UPDATES} from "../scripts/train-penteract-10m.mjs";
+import {verifySyntheticFiveDBundle} from "../src/detroit/penteract-sandbox-receipt.ts";
 import {assertLearnedFiveWeights,routeLearnedFive} from "../src/detroit/penteract-learned.ts";
 import {activateAtuberFiveDSandbox,clearAtuberFiveDSandbox,atuberFiveDSandboxActive} from "../src/detroit/atuber-5d-sandbox-bridge.ts";
 import {planAtuberReadOnly} from "../src/detroit/atuber-tool-plan.ts";
@@ -64,4 +66,22 @@ test("Atuber and Detroit only use manually opted-in learned 5D weights in explic
  const gone=await executeAtuberReadOnly(plan,{privateMode:true});
  assert.match(gone.evidence,/learnedShadow/);
  assert.match(gone.evidence,/null/);
+});
+
+test("5D bridge rejects 20k smoke-test report as proof of 10M synthetic training",async()=>{
+ const {report,artifact}=trainFiveD({updates:TRAIN_ROWS});
+ assert.equal(report.actualWeightUpdates,20000);
+ const raw=JSON.stringify(artifact)+"\\n";
+ await assert.rejects(()=>verifySyntheticFiveDBundle(raw,report),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
+ await assert.rejects(()=>verifySyntheticFiveDBundle(raw,{...report,actualWeightUpdates:10000000}),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
+ await assert.rejects(()=>verifySyntheticFiveDBundle(raw,{...report,artifactSha256:"0".repeat(64)}),/5D_TRAINING_REPORT_NOT_ACCEPTED/);
+});
+
+test("5D training preview cannot quietly grant Detroit or Atuber tool permissions",()=>{
+ const studio=readFileSync(new URL("../src/detroit/PenteractFunnelPanel.tsx",import.meta.url),"utf8");
+ const bridge=readFileSync(new URL("../src/detroit/atuber-5d-sandbox-bridge.ts",import.meta.url),"utf8");
+ assert.match(studio,/verifySyntheticFiveDBundle/);
+ assert.match(studio,/disabled=\\{!atuberBridgeEnabled&&!verifiedReceipt\\}/);
+ assert.match(studio,/clearAtuberFiveDSandbox\\(\\);setAtuberBridgeEnabled\\(false\\)/);
+ assert.doesNotMatch(bridge,/fetch\\(|localStorage|sessionStorage|eval\\(/);
 });

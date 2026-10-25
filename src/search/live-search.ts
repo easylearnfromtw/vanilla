@@ -1,8 +1,9 @@
+import {isScholarlyQuery,searchOpenAlexWorks} from "./scholarly-discovery";
 import {inspectExternalText} from "../security/trust-boundary";
 import {getSearchBridge,fetchSearchBridge} from "./search-bridge";
 import {getScoutsRegion} from "./scouts-region";
 import {canSearchViaWeiGuo,getWeiGuoScoutsStatus,searchWeiGuoScouts} from "../weiguo/api";
-export type LiveSearchResult={title:string;url:string;snippet:string;provider:"Wikipedia"|"Crossref"|"自訂搜尋"|"Brave"|"Tavily";excerpt?:string;regionSpecific?:boolean;kind?:"full"|"snippet"};
+export type LiveSearchResult={title:string;url:string;snippet:string;provider:"Wikipedia"|"Crossref"|"OpenAlex"|"arXiv"|"自訂搜尋"|"Brave"|"Tavily";excerpt?:string;regionSpecific?:boolean;kind?:"full"|"snippet"};
 export type LiveSearchReport={results:LiveSearchResult[];errors:string[]};
 const safe=(value:unknown,max=450):string=>{
  const txt=String(value??"").replace(/<[^>]*>/g," ").replace(/&(?:quot|amp|lt|gt|nbsp|#39);/gi," ").replace(/\s+/g," ").trim().slice(0,max);
@@ -24,6 +25,15 @@ export async function searchLiveWeb(query:string):Promise<LiveSearchReport>{
  if(q.length<2)throw Error("搜尋需要至少兩個字");
  const errors:string[]=[];
  const jobs:Array<{name:string;run:()=>Promise<LiveSearchResult[]>}>=[];
+ // Scholarly queries search the main academic index first. This fetches metadata,
+ // not full texts. Limit to five so web sources retain visible search slots.
+ if(isScholarlyQuery(q))jobs.push({name:"OpenAlex／arXiv",run:async()=>
+  (await searchOpenAlexWorks(q)).slice(0,5).map(hit=>({
+   title:safe(hit.title,160),url:hit.url,snippet:safe(hit.snippet),
+   provider:hit.provider,kind:"snippet" as const
+  }))
+ });
+
  // Independent authenticated family search comes first; its providers and
  // quotas are entirely separate from Gemini / Google grounding.
  if(canSearchViaWeiGuo())jobs.push({name:"衞國 Scouts",run:async()=>{

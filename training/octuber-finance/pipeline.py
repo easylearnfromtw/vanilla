@@ -90,7 +90,7 @@ def rights_check(obj):
     import re
     provider = obj["provider"].lower()
     source_url = str(obj.get("source_url", "")).lower()
-    if (re.search(r"\\b(?:fred|alfred)\\b", provider)
+    if (re.search(r"\b(?:fred|alfred)\b", provider)
         or "fred.stlouisfed.org" in source_url
         or "alfred.stlouisfed.org" in source_url):
         fail("FRED_AI_TRAINING_TERMS_PROHIBIT_INGESTION")

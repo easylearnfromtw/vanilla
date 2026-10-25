@@ -91,3 +91,19 @@ test("do not let unsupported marketplace names be mislabeled as a known platform
   product:"A",merchant:"B",marketplace:"飛比",source:"feebee",price:100
  }]),STAMP),/不支援/);
 });
+
+test("a comparison-portal name is never treated as an independent retail seller",()=>{
+ const rows=parsePriceRecords(JSON.stringify([
+  {product:"同款商品",sku:"SKU-9",merchant:"BigGo",source:"biggo",price:999},
+  {product:"同款商品",sku:"SKU-9",merchant:"店家A",marketplace:"shopee",source:"feebee",price:1200},
+  {product:"同款商品",sku:"SKU-9",merchant:"店家B",marketplace:"coupang",source:"lbj",price:1290}
+ ]),STAMP);
+ assert.equal(priceSellerLabel(rows[0]),"實際販售商家未確認");
+ assert.equal(priceSellerLabel({...rows[0],marketplace:"shopee"}),"蝦皮購物");
+ const summary=comparePrices(rows,priceProductKey(rows[0]),{
+   currentPrice:1500,cost:800,minimumMargin:.2,now:STAMP
+ });
+ assert.equal(summary.vendors,2);
+ assert.equal(summary.min,1200);
+ assert.ok(summary.notes.some(note=>note.includes("比價站")));
+});

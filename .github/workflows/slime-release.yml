@@ -26,6 +26,9 @@ on:
       - 'training/atuber-books/**'
       - 'training/octuber-gpu-sandbox/**'
       - 'training/scholarly/**'
+      - 'training/octuber-finance/**'
+      - 'services/slime/finance_training.py'
+      - 'services/slime/finance_training_window.py'
 env:
   PYTHONIOENCODING: utf-8
 permissions:
@@ -53,8 +56,9 @@ jobs:
           python -m unittest discover -s tests -p test_slime_training_evidence.py
           python -m unittest discover -s tests -p test_slime_github_training_monitor.py
           python -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
+          python -m unittest discover -s tests -p test_slime_finance_training.py
           python -m pip install "pyinstaller==6.16.0"
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools --hidden-import github_training_window --hidden-import github_training_status services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools --hidden-import github_training_window --hidden-import github_training_status --hidden-import finance_training_window --hidden-import finance_training services/weiguo/slime_desktop.py
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
           Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
@@ -79,6 +83,7 @@ jobs:
       - name: Prepare macOS archive
         run: |
           python3 -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
+          python3 -m unittest discover -s tests -p test_slime_finance_training.py
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           mkdir -p dist
           cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py dist/
@@ -96,6 +101,7 @@ jobs:
               cd ..
             else
               cd dist
+              rm -f slime_tools/finance_training.py slime_tools/finance_training_window.py
               zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
               cd ..
             fi
@@ -122,6 +128,7 @@ jobs:
           python3 -m unittest discover -s tests -p test_slime_training_evidence.py
           python3 -m unittest discover -s tests -p test_slime_github_training_monitor.py
           python3 -m unittest discover -s tests -p test_slime_owner_tools_shortcuts.py
+          python3 -m unittest discover -s tests -p test_slime_finance_training.py
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
@@ -135,6 +142,8 @@ jobs:
             if [ "$role" = "Owner" ]; then
               cp deployment/slime/launch-owner-tools.sh "tmp-$role/start-slime-tools.sh"
               chmod +x "tmp-$role/start-slime-tools.sh"
+            else
+              rm -f "tmp-$role/slime_tools/finance_training.py" "tmp-$role/slime_tools/finance_training_window.py"
             fi
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done

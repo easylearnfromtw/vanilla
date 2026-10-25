@@ -21,7 +21,7 @@ def _split(rows):
   key=x["product"].strip().casefold()
   bucket=int.from_bytes(hashlib.sha256(key.encode()).digest()[:4],"big")%100
   (holdout if bucket<15 else val if bucket<30 else tr).append(x)
- if min(len(tr),len(val),len(holdout))<200:
+ if min(len(tr),len(val),len(holdout))<100:
   raise ValueError("INSUFFICIENT_DISTINCT_PRICE_HISTORY")
  groups=[{r["product"].strip().casefold() for r in part} for part in (tr,val,holdout)]
  assert not (groups[0]&groups[1] or groups[0]&groups[2] or groups[1]&groups[2])

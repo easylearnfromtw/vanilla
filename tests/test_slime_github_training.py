@@ -9,7 +9,7 @@ GPU=(ROOT/".github/workflows/slime-real-gpu-qlora.yml").read_text(encoding="utf8
 
 class TestSlimeTrainingOnGithub(unittest.TestCase):
  def test_cpu_updates_are_real_and_explicit_not_qwen(self):
-  self.assertIn("--episodes 2000000",CPU)
+  self.assertIn("--episodes 1000000",CPU)
   self.assertIn("--steps 1000",CPU)
   self.assertIn("--steps 20000",CPU)
   self.assertIn("policy[\"actual_optimizer_steps\"]==1000",CPU)

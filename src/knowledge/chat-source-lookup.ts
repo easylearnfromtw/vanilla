@@ -1,4 +1,4 @@
-import {gdeltNewsUrl,parseLiveNews,type NewsMarket} from "../bluestar/news-source";
+import {gdeltNewsUrl,parseLiveNews,type NewsMarket} from "../bluestar/news-source.ts";
 /** Explicit only: source search routed from chat to 柳岸書城／霞海書院／藍星報社.
  * Public metadata is not evidence of having read the full book or paper.
  */

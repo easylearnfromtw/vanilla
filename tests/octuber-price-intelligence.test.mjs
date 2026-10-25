@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parsePriceRecords,comparePrices,priceProductKey,priceSearchSources} from "../src/pricing/price-engine.ts";
+import {parsePriceRecords,comparePrices,priceProductKey,priceSearchSources,priceMarketplace,priceSellerLabel} from "../src/pricing/price-engine.ts";
 import {ATUBER_TIERS,OCTUBER_HIGH_CAPACITY,ATUBER_LOCAL_MODEL,octuberTierPreference,setOctuberTierPreference} from "../src/ai/atuber-control-plane.ts";
 const STAMP=Date.parse("2026-10-24T11:00:00+08:00");
 const FEED=[
@@ -62,4 +62,32 @@ test("manual size preference defaults safely and only accepts known tiers",()=>{
  assert.equal(octuberTierPreference(),"auto");
  setOctuberTierPreference("mid-large");
  assert.equal(octuberTierPreference(),"auto"); // no browser storage in node
+});
+
+
+test("comparison source stays audit-only while shopping platform is the user-facing label",()=>{
+ const rows=parsePriceRecords(JSON.stringify([
+  {product:"耳機 A",sku:"A-001",merchant:"優選數位店",source:"feebee",marketplace:"蝦皮",price:1299,url:"https://example.org/authorized/1"},
+  {product:"耳機 A",sku:"A-001",merchant:"酷澎自營",source:"biggo",platform:"coupang",price:1499,url:"https://example.org/authorized/2"},
+  {product:"耳機 A",sku:"A-001",merchant:"原始店家",source:"lbj",price:1399},
+  {product:"耳機 A",sku:"A-001",merchant:"PChome 官方",source:"authorized-feed",channel:"PChome24h",price:1599}
+ ]),STAMP);
+ assert.equal(rows[0].source,"feebee");
+ assert.equal(rows[1].source,"biggo");
+ assert.equal(rows[2].source,"lbj");
+ assert.equal(priceSellerLabel(rows[0]),"蝦皮購物 · 優選數位店");
+ assert.equal(priceSellerLabel(rows[1]),"酷澎 · 酷澎自營");
+ assert.equal(priceSellerLabel(rows[2]),"原始店家"); // no fabricated marketplace
+ assert.equal(priceSellerLabel(rows[3]),"PChome 24h · PChome 官方");
+ assert.ok(rows.every(row=>!/(?:feebee|biggo|lbj)/.test(priceSellerLabel(row))));
+ assert.equal(priceMarketplace("酷澎"),"coupang");
+ assert.equal(priceMarketplace("蝦皮購物"),"shopee");
+ assert.equal(priceMarketplace(""),null);
+});
+test("do not let unsupported marketplace names be mislabeled as a known platform",()=>{
+ assert.throws(()=>priceMarketplace("feebee"),/不支援/);
+ assert.throws(()=>priceMarketplace("BigGo"),/不支援/);
+ assert.throws(()=>parsePriceRecords(JSON.stringify([{
+  product:"A",merchant:"B",marketplace:"飛比",source:"feebee",price:100
+ }]),STAMP),/不支援/);
 });

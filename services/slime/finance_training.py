@@ -26,7 +26,12 @@ TIERS = {
 }
 BLOCKED_60B = "UNVERIFIED_60B_MXFP4_MOE_FINETUNE"
 REVISION = re.compile(r"^[a-fA-F0-9]{40}$")
-MAX_DATA_FILE = 128 * 1024 * 1024
+MAX_DATA_FILE = 16_000_000  # The current training/atuber/dataset.py trainer limit
+ALLOWED_SFT_FIELDS = {"id", "user", "assistant", "domain", "reviewed", "source", "consent"}
+ALLOWED_SFT_DOMAINS = {"general", "code", "research", "writing", "tool-use", "abstention", "taiwan-pragmatics", "pricing"}
+SFT_ID = re.compile(r"^[a-zA-Z0-9_-]{3,80}$")
+SFT_EMAIL = re.compile(r"(?<![\\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")
+SFT_SECRET = re.compile(r"(?:sk-proj-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{25,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?i:password|api[_ -]?key|secret|bearer)\\s*[:=]\\s*[^\\s]{8,})")
 MIN_TRAIN = 100
 MIN_EVAL = 100
 MAX_STEPS = 5000
@@ -89,14 +94,19 @@ def _reviewed_rows(path, *, at_least):
             if not line.strip():
                 continue
             record = json.loads(line)
-            if (not isinstance(record, dict)
+            if (not isinstance(record, dict) or set(record) != ALLOWED_SFT_FIELDS
                 or record.get("reviewed") is not True
                 or record.get("consent") is not True
-                or not isinstance(record.get("source"), str) or not record["source"].strip()
-                or not isinstance(record.get("id"), str) or not record["id"].strip()
-                or not isinstance(record.get("user"), str) or not record["user"].strip()
-                or not isinstance(record.get("assistant"), str) or not record["assistant"].strip()):
+                or record.get("source") not in ("authored", "consented")
+                or record.get("domain") not in ALLOWED_SFT_DOMAINS
+                or not isinstance(record.get("id"), str)
+                or not SFT_ID.fullmatch(record["id"])):
                 raise ValueError("SLIME_FINANCE_UNREVIEWED_OR_INVALID_SAMPLE")
+            for field in ("user", "assistant"):
+                text = record.get(field)
+                if (not isinstance(text, str) or not 3 <= len(text.strip()) <= 2500
+                    or "\x00" in text or SFT_EMAIL.search(text) or SFT_SECRET.search(text)):
+                    raise ValueError("SLIME_FINANCE_UNSAFE_OR_INVALID_SFT_TEXT")
             rid = record["id"]
             prompt = hashlib.sha256(record["user"].strip().casefold().encode()).hexdigest()
             if rid in identifiers or prompt in prompts:

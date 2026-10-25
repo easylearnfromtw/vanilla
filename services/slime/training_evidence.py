@@ -148,7 +148,9 @@ def inspect_sandbox_report(report_path:str|Path)->dict:
         return {"status":"sandbox-receipt-not-llm","kind":"simulated-human-shopper",
                 "episodes":report.get("episodes",0),"qwen_optimizer_steps":0}
     if report.get("status")=="verified-cpu-training-only":
+        if report.get("qwen_llm_optimizer_steps")!=0:
+            raise ValueError("SLIME_SANDBOX_QWEN_COUNTER_CONTRADICTS_CPU_RECEIPT")
         return {"status":"sandbox-receipt-not-llm","kind":"slime-cpu-sandbox",
                 "episodes":report.get("simulated_shopper_decisions",0),
-                "qwen_optimizer_steps":report.get("qwen_llm_optimizer_steps",0)}
+                "qwen_optimizer_steps":0}
     raise ValueError("SLIME_UNKNOWN_SANDBOX_RECEIPT_TYPE")

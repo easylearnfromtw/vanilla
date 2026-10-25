@@ -2,6 +2,7 @@ import {useState,useEffect,useRef,lazy,Suspense} from "react";
 import type {OrchestraChart} from "./orchestra/cream-chart";
 import {orchestraComposePrompt,type OrchestraHandoff} from "./orchestra/ai-handoff";
 import {makeHumanizeRequest} from "./erya/humanize";
+import "./knowledge/toplinks.css";
 import LocalChat from "./local-ai/LocalChat";
 // Eager load the small offline schedule panel with the app shell; no first-visit network required.
 import NotionSchedulePanel from "./notion/NotionSchedulePanel";
@@ -28,9 +29,10 @@ const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
 const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 const XiahaiAcademy=lazy(()=>import("./academy/XiahaiAcademy"));
+const LiuanArchive=lazy(()=>import("./knowledge/KnowledgeSources"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="xiahai"|"nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="liuan"|"xiahai"|"nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 // Only these five destinations are exposed in the sidebar and mobile tab bar.
 // The other modules remain available through contextual chat actions and Detroit tool routing.
@@ -43,6 +45,7 @@ const items:NavItem[]=[
 ];
 // Section metadata for contextual tool handoffs, not separate navigation entries.
 const tools:NavItem[]=[
+ {id:"liuan",label:"柳岸書城",icon:BookOpen,description:"書籍來源、作者、版本與合法全文狀態",tone:"ink"},
  {id:"xiahai",label:"霞海書院",icon:BookOpen,description:"OpenAlex／arXiv 論文來源與學術引用",tone:"ink"},
  {id:"projects",label:"PROJECT HUB",icon:Code2,description:"專案原始碼、API 與功能整合",tone:"yellow"},
  {id:"library",label:"對話圖片與資料",icon:Images,description:"聊天附件、圖片預覽、更新與刪除",tone:"yellow"},
@@ -61,12 +64,20 @@ export default function App(){
 // Legacy invitation deep links are redirected to a dedicated, lightweight
 // Slime pairing page. The fragment stays client-only; no login boot required.
 // Direct, read-only lab link for browser automation: /vanilla/?lab=5d.
-const [section,setSection]=useState<Section>(()=>{if(typeof window==="undefined")return "chat";const params=new URLSearchParams(window.location.search);return params.get("academy")==="xiahai"?"xiahai":params.get("lab")==="5d"?"detroit":"chat";});
+const [section,setSection]=useState<Section>(()=>{if(typeof window==="undefined")return "chat";const params=new URLSearchParams(window.location.search);return params.get("archive")==="liuan"?"liuan":params.get("academy")==="xiahai"?"xiahai":params.get("lab")==="5d"?"detroit":"chat";});
 useEffect(()=>{
  const hash=window.location.hash;
  if(/^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)){
   window.location.replace(BASE+"slime/"+hash);
  }
+},[]);
+useEffect(()=>{
+ const sync=()=>{
+  const q=new URLSearchParams(window.location.search);
+  setSection(q.get("archive")==="liuan"?"liuan":q.get("academy")==="xiahai"?"xiahai":"chat");
+ };
+ window.addEventListener("popstate",sync);
+ return()=>window.removeEventListener("popstate",sync);
 },[]);
 const [menuOpen,setMenuOpen]=useState(false);
 const [chatKey,setChatKey]=useState(0);
@@ -155,6 +166,13 @@ function navigate(next:Section){
   window.location.assign(BASE+"slime/");
   return;
  }
+ if(next==="liuan"||next==="xiahai"||section==="liuan"||section==="xiahai"){
+  const url=new URL(window.location.href);
+  url.searchParams.delete("archive");url.searchParams.delete("academy");
+  if(next==="liuan")url.searchParams.set("archive","liuan");
+  if(next==="xiahai")url.searchParams.set("academy","xiahai");
+  window.history.pushState(null,"",url.toString());
+ }
  setSection(next);setMenuOpen(false);
 }
 async function newChat(){
@@ -183,13 +201,18 @@ return <div className="shell">
 <header className="topbar">
 <div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?<span className="topbar-wordmark">VANILLA AI</span>:selected.label}</div></div>
 <div className="topbar-trailing">
+ <div className="knowledge-toplinks" aria-label="書籍與論文來源">
+  <button type="button" onClick={()=>navigate("liuan")} title="柳岸書城來源索引">柳岸書城</button>
+  <button type="button" onClick={()=>navigate("xiahai")} title="霞海書院研究來源">霞海書院</button>
+ </div>
  {section==="chat"&&<button type="button" className="topbar-icon" aria-label="新對話" title="新對話" onClick={()=>void newChat()}><SquarePen size={19}/></button>}
  <div className="topbar-account">{signedIn?<button type="button" className="account-avatar" title={"登入帳號："+signedIn.email} aria-label={"帳號 "+signedIn.email} onClick={()=>navigate("settings")}>{initial}</button>:<button type="button" disabled={loginBusy} onClick={()=>void connectAccount()} className="google-login">{loginBusy?"連線中…":"Google 登入"}</button>}{loginNotice&&<span className="sr-only" role="status">{loginNotice}</span>}</div>
 </div>
 </header>
 {section==="chat"?<LocalChat key={chatKey} onNavigate={s=>navigate(s)}/>:
 <Suspense fallback={<Loading/>}>
-{section==="xiahai"?<div className="workspace-page"><XiahaiAcademy/></div>:
+{section==="liuan"?<LiuanArchive mode="book" onNavigate={where=>navigate(where==="book"?"liuan":"xiahai")}/>:
+section==="xiahai"?<div className="workspace-page"><XiahaiAcademy/></div>:
 section==="cream"?<div className="workspace-page"><CreamLongitudinal/></div>:
 section==="projects"?<div className="workspace-page"><ProjectHub/></div>:
 section==="library"?<div className="workspace-page"><ConversationLibrary onFiles={()=>navigate("files")}/></div>:

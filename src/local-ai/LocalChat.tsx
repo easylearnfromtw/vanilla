@@ -9,6 +9,8 @@ import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
 import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
+import {parseKnowledgeLookup,findKnowledgeSources} from "../knowledge/chat-source-lookup";
+import {consumerGuidance} from "../knowledge/evidence";
 import {venusPresentationGuidance} from "../venus/presentation";
 import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
@@ -115,6 +117,8 @@ function restoreMerlinPending(turns:ChatTurn[]):MerlinClarification|null{
 }
 const TOOL={
  merlin:{id:"merlin-clarify",label:"Merlin · 需求釐清"},
+ books:{id:"liuan-book-lookup",label:"柳岸書城 · 書籍來源"},
+ research:{id:"xiahai-paper-lookup",label:"霞海書院 · 論文來源"},
  capability:{id:"capability",label:"功能實況"},venus:{id:"venus",label:"Venus · 圖片搜尋"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
@@ -731,6 +735,20 @@ async function send(value=draft):Promise<void>{
  }
  let question=raw||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
  if(!question||busy||comparison||assetBusy)return;
+ const sourceLookup=!image&&!fileName&&!fileContext?parseKnowledgeLookup(question):null;
+ if(sourceLookup){
+  if(privateMode){toolReply(question,"私密模式不會將查詢傳送至外部來源網站。","privacy");return;}
+  if(!online){toolReply(question,"目前離線，不能宣稱已取得即時圖書或學術來源。","web");return;}
+  setBusy(true);setLastRoute("正在核對柳岸書城／霞海書院原始來源…");
+  try{
+   const answer=await findKnowledgeSources(sourceLookup);
+   toolReply(question,answer,sourceLookup.kind==="book"?"books":"research");
+  }catch(error){
+   toolReply(question,"來源查詢失敗，未生成虛構引用："+String(error instanceof Error?error.message:error),
+     sourceLookup.kind==="book"?"books":"research");
+  }finally{setBusy(false);}
+  return;
+ }
  setDetroitPlan(null);
  let visibleClarificationAnswer:string|undefined;
  // Explicit slash commands take priority over pending Merlin clarifications.
@@ -1406,7 +1424,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
  const trustedToolGrounding=!humanize&&!toolEvidence?.startsWith("Awesome Go 實際查核回條")?toolKnowledgeGuidance(question):"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding+factGuidance;
+ const consumerEvidencePolicy=/(推薦|建議|購買|理財|股票|投資|醫療|健康|診所|醫美|用藥|心理|療程|風險|recommend|purchase|invest)/i.test(question)
+  ?"\n[柳岸書城／霞海書院專業建議證據規範]"+consumerGuidance([],question).systemGuidance:"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding+factGuidance+consumerEvidencePolicy;
  const compose=(candidate:ModelCandidate)=>{
   const budget=promptBudgetFor(candidate,task);
   // Small local/Ollama models need evidence, not 1K+ words of tool and style instructions.
@@ -1414,7 +1434,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const compact=candidate.source==="local"||candidate.source==="ollama"?
    compileSmallModelInput({question:modelQuestion,model:candidate.model,task,contexts,budgetTokens:budget,
     tableRequested:tableExpected,artifactRequested:Boolean(nativeOrchestra||nativeArtifact),
-    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):"",evidenceGuidance:factGuidance}):null;
+    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):"",evidenceGuidance:factGuidance+consumerEvidencePolicy}):null;
   const prepared=compact?.reduced?compact:null;
   const finalGuidance=prepared?.guidance??(
    guidance+

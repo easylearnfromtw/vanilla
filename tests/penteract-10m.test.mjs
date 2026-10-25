@@ -80,8 +80,9 @@ test("5D bridge rejects 20k smoke-test report as proof of 10M synthetic training
 test("5D training preview cannot quietly grant Detroit or Atuber tool permissions",()=>{
  const studio=readFileSync(new URL("../src/detroit/PenteractFunnelPanel.tsx",import.meta.url),"utf8");
  const bridge=readFileSync(new URL("../src/detroit/atuber-5d-sandbox-bridge.ts",import.meta.url),"utf8");
- assert.match(studio,/verifySyntheticFiveDBundle/);
- assert.match(studio,/disabled=\\{!atuberBridgeEnabled&&!verifiedReceipt\\}/);
- assert.match(studio,/clearAtuberFiveDSandbox\\(\\);setAtuberBridgeEnabled\\(false\\)/);
- assert.doesNotMatch(bridge,/fetch\\(|localStorage|sessionStorage|eval\\(/);
+ assert.ok(studio.includes("verifySyntheticFiveDBundle"));
+ assert.ok(studio.includes("disabled={!atuberBridgeEnabled&&!verifiedReceipt}"));
+ assert.ok(studio.includes("clearAtuberFiveDSandbox();setAtuberBridgeEnabled(false)"));
+ for(const forbidden of ["fetch(","localStorage","sessionStorage","eval("])
+  assert.equal(bridge.includes(forbidden),false,forbidden);
 });

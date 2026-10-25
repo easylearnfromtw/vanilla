@@ -133,7 +133,8 @@ def open_local_model_window(parent: tk.Tk, *, owner: bool) -> None:
             return ("訓練條件已達檢查門檻；尚未執行。"
                     if result["status"] == "preflight-eligible-untrained"
                     else "CUDA／基底權重／合法資料或固定版本不足，不允許訓練。")
-        background(lambda: audit_training(*requested), done)
+        permitted_download = allow_download.get()
+        background(lambda: audit_training(*requested, allow_download=permitted_download), done)
 
     def train_view():
         if active[0]:

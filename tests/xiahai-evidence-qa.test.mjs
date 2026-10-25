@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  rankXiahaiPapers,retrieveXiahaiEvidence,parseXiahaiEvidenceQuestion,
- xiahaiPromptContext,formatXiahaiEvidence,scoreXiahaiPassage
+ xiahaiPromptContext,formatXiahaiEvidence,scoreXiahaiPassage,xiahaiVerifiedSourceFooter
 } from '../src/academy/xiahai-evidence.ts';
 
 const papers=Array.from({length:1000},(_,i)=>({
@@ -89,4 +89,18 @@ test('strict passage coverage rejects loose and unrelated matches',()=>{
  assert.equal(scoreXiahaiPassage('heart failure','An unrelated paper about heart-shaped leaves documented routine measurements and control groups.'),null);
  assert.equal(scoreXiahaiPassage('shared decision surgery','A discussion about surgery focused on other measurements and references without talking about patient preferences.'),null);
  assert.equal(scoreXiahaiPassage('cardiac risk','Multiple unrelated imaging datasets recorded numerical variation across instruments and settings.'),null);
+});
+
+test('Traditional Chinese controlled aliases are real passage matches, not blind translation',()=>{
+ const excerpt='MODY is a hereditary form of diabetes which may affect patients who are diagnosed later in adulthood; identifying gene variants requires specialist review.';
+ assert.ok(scoreXiahaiPassage('糖尿病 MODY',excerpt)?.matched_terms.includes('diabetes'));
+ const title={...papers[8],title:'Persistent Infection Study',terms:['virus']};
+ assert.deepEqual(rankXiahaiPapers([title],'stent'),[],'stent must never match persistent');
+ const quote=xiahaiVerifiedSourceFooter([{
+  paper:papers[8],passages:[good],score:20,matched_terms:['shared','decision']
+ }]);
+ assert.ok(quote.includes('引用自霞海書院'));
+ assert.ok(quote.includes('https://pmc.ncbi.nlm.nih.gov/articles/PMC12000008/'));
+ assert.ok(quote.includes('CC BY 授權'));
+ assert.ok(quote.includes('程式核對'));
 });

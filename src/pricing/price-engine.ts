@@ -35,11 +35,13 @@ export function priceMarketplace(value:unknown):Marketplace|null{
  if(!platform)throw new Error("不支援的販售平台；請留空或使用蝦皮、酷澎、momo、PChome、Yahoo、樂天");
  return platform;
 }
+const AGGREGATOR_LABELS=new Set(["biggo","比個夠","feebee","飛比","飛比價格","lbj","比價撿便宜"]);
+const isAggregatorNotSeller=(name:string)=>AGGREGATOR_LABELS.has(normalizedProduct(name).replace(/\s+/g,""));
 export function priceSellerLabel(record:Pick<PriceRecord,"merchant"|"marketplace">):string{
  const retailer=record.marketplace?MARKETPLACES[record.marketplace]:null;
- const merchant=record.merchant.trim();
- // Do not falsely name an aggregator as a retailer. Unknown marketplace remains the seller label.
- return retailer?(!merchant||merchant===retailer?retailer:retailer+" · "+merchant):merchant;
+ const merchant=isAggregatorNotSeller(record.merchant)?"":record.merchant.trim();
+ // Never pretend an aggregator is a store or fabricate a marketplace.
+ return retailer?(!merchant||merchant===retailer?retailer:retailer+" · "+merchant):merchant||"實際販售商家未確認";
 }
 const normalize=(value:unknown)=>String(value??"").normalize("NFKC").trim();
 const normalizedProduct=(value:string)=>normalize(value).replace(/\s+/g," ").toLocaleLowerCase("zh-TW");
@@ -126,7 +128,10 @@ export function comparePrices(records:PriceRecord[],selectedKey:string,opts:{
  const notes:string[]=[];
  const marginValid=Number.isFinite(opts.minimumMargin)&&opts.minimumMargin>=0&&opts.minimumMargin<1;
  const floorPrice=marginValid&&Number.isFinite(opts.cost)&&opts.cost>=0?Math.ceil(opts.cost/(1-opts.minimumMargin)):0;
- const valid=records.filter(x=>priceProductKey(x)===selectedKey&&x.price>0);
+ const valid=records.filter(x=>priceProductKey(x)===selectedKey&&x.price>0&&!isAggregatorNotSeller(x.merchant));
+ if(records.some(x=>priceProductKey(x)===selectedKey&&isAggregatorNotSeller(x.merchant))){
+  notes.push("已排除無法確認實際販售商家的彙整站報價，避免將比價站誤當獨立賣家");
+ }
  // Suppress duplicated listings from the same merchant; keep the lowest quoted offer.
  const byMerchant=new Map<string,PriceRecord>();
  for(const record of valid){

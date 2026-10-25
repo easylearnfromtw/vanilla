@@ -180,6 +180,7 @@ def train(index:Path,output:Path,required:int,steps:int,max_length:int)->dict:
        **report,
        "status":"actual-rights-approved-book-fulltext-cuda-qlora-completed",
        "base_model":BASE_MODEL,
+       "llm_optimizer_steps_completed":steps,
        "neural_optimizer_steps_completed":steps,
        "training_passages_indexed":len(train_rowids),
        "evaluation_passages_sampled_from_heldout_books":len(eval_rowids),

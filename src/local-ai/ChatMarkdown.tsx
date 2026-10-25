@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import VenusBlocks from "../venus/VenusBlocks";
 import BookCitationCards,{parseBookCitationPayload} from "./BookCitationCards";
+import PaperCitationCards,{parsePaperRefs} from "./PaperCitationCards";
 import {parseVenusMessage} from "../venus/presentation";
 
 /** Native safe Markdown. No raw HTML plugin, injected markup, or external code highlighter. */
@@ -44,6 +45,10 @@ function BookRefsPanel({children}:{children?:ReactNode}){
  const codeNode=Children.toArray(children).find(node=>isValidElement(node));
  const classes=isValidElement<{className?:string}>(codeNode)?codeNode.props.className||"":"";
  const raw=collectText(children).trim();
+ if(/(?:^|\s)language-paperrefs(?:\s|$)/.test(classes)){
+  const papers=parsePaperRefs(raw);
+  if(papers)return <PaperCitationCards papers={papers}/>;
+ }
  if(/(?:^|\s)language-bookrefs(?:\s|$)/.test(classes)){
   const records=parseBookCitationPayload(raw);
   if(records)return <BookCitationCards books={records}/>;

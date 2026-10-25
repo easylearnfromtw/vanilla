@@ -765,6 +765,11 @@ async function send(value=draft):Promise<void>{
   }catch(error){
    toolReply(question,"霞海全文證據未能取得，未向模型提供虛構原文："+String(error instanceof Error?error.message:error),"research");return;
   }finally{setBusy(false);}
+  // Explicit, fully retrieved scholarly evidence bypasses unrelated tool routes.
+  // A normal model answers, with only bounded real excerpts in its context.
+  if(!canReply){toolReply(question,"霞海已核對到論文證據，但目前沒有就緒的 AI 模型來解釋。請先載入阿土伯或連接已授權模型。","research");return;}
+  await answerWithModel(actualResearchQuestion,{inlineFileContext:"",webContext:"",webSources:[],xiahaiGrounding},question);
+  return;
  }
  setDetroitPlan(null);
  let visibleClarificationAnswer:string|undefined;
@@ -1272,8 +1277,8 @@ async function send(value=draft):Promise<void>{
  await answerWithModel(question,{inlineFileContext,webContext,webSources,toolEvidence:goEvidence||undefined,factGuidance},visibleClarificationAnswer);
 }
 
-async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string},visibleQuestion?:string){
- const {inlineFileContext,webContext,webSources,toolEvidence,factGuidance=""}=found;
+async function answerWithModel(question:string,found:{inlineFileContext:string;webContext:string;webSources:WebCitation[];toolEvidence?:string;factGuidance?:string;xiahaiGrounding?:string},visibleQuestion?:string){
+ const {inlineFileContext,webContext,webSources,toolEvidence,factGuidance="",xiahaiGrounding=""}=found;
  const detroit=merlinParse(question,{image:Boolean(image),file:Boolean(fileContext||found.inlineFileContext),privateMode,deepRequested:deepAnalysis});
  const nativeArtifact=!image?planDianaNativeArtifact(question):null;
  const nativeOrchestra=!image&&!nativeArtifact?planOrchestraAutoDraft(question):null;

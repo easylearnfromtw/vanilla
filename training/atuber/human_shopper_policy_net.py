@@ -13,6 +13,20 @@ import numpy as np
 from human_shopper_sim import read_official_ndc
 
 CLASSES=["below-published-range","within-published-range","above-published-range"]
+MIN_HOLDOUT_ACCURACY=0.92
+
+def check_release_gate(report, threshold=MIN_HOLDOUT_ACCURACY):
+ """Strict, testable holdout gate for the *narrow* range-classification task."""
+ if not 0.92<=threshold<=1.0:
+  raise ValueError("ACCURACY_GATE_CANNOT_BE_BELOW_92_PERCENT")
+ actual=float(report.get("range_decision_true_heldout_accuracy",float("nan")))
+ baseline=float(report.get("majority_baseline_validation_accuracy",float("nan")))
+ if not math.isfinite(actual) or not math.isfinite(baseline):
+  raise ValueError("ACCURACY_MEASUREMENT_INVALID")
+ if int(report.get("test_examples_from_unseen_product_names",0))<1000:
+  raise ValueError("HOLDOUT_NOT_LARGE_ENOUGH")
+ return actual>=threshold and actual>baseline
+
 
 def _split(rows):
  # Group by product name across every historical date and every category.
@@ -92,6 +106,15 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
  # Final heldout product labels have NEVER been used for optimizer or checkpoint selection.
  holdout_pred=np.argmax(np.tanh(holdout_x@best_weights[0]+best_weights[1])@best_weights[2]+best_weights[3],axis=1)
  holdout_accuracy=float(np.mean(holdout_pred==holdout_labels))
+ # A simple three-way comparison of budget against the given bounds is
+ # perfectly solvable without machine learning. Use it as a strict oracle
+ # to keep the 92% result in proper context.
+ deterministic_rule=np.where(holdout_x[:,0]<0,0,
+                            np.where(holdout_x[:,1]>0,2,1))
+ deterministic_accuracy=float(np.mean(deterministic_rule==holdout_labels))
+ class_support={CLASSES[i]:int(np.sum(holdout_labels==i)) for i in range(len(CLASSES))}
+ class_recall={CLASSES[i]:round(float(np.mean(holdout_pred[holdout_labels==i]==i)),6)
+               if class_support[CLASSES[i]] else None for i in range(len(CLASSES))}
  trained_change=float(np.sqrt(sum(np.sum((a-b)**2) for a,b in zip(best_weights,first))))
  if trained_change<=0:raise RuntimeError("NEURAL_WEIGHTS_NOT_UPDATED")
  output=Path(output)
@@ -120,6 +143,11 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
   "weight_change_l2":round(trained_change,6),
   "range_decision_validation_accuracy":round(best_accuracy,6),
   "range_decision_true_heldout_accuracy":round(holdout_accuracy,6),
+  "heldout_by_class_support":class_support,
+  "heldout_by_class_recall":class_recall,
+  "deterministic_rule_baseline_accuracy":round(deterministic_accuracy,6),
+  "accuracy_target":MIN_HOLDOUT_ACCURACY,
+  "accuracy_target_scope":"simulated-budget historical-price-range classification only",
   "majority_baseline_validation_accuracy":round(baseline_acc,6),
   "validation_used_for_checkpoint_selection":True,
   "holdout_not_used_for_training_or_checkpoint_selection":True,
@@ -128,9 +156,11 @@ def learn(path,output,*,train_cases=50000,eval_cases=15000,steps=1000):
   "qwen_gradient_updates":0,
   "merchant_purchase_recommendation_enabled":False,
   "current_taiwan_price_estimator_enabled":False,
-  "important":"Labels compare SYNTHETIC buyer budgets to REAL HISTORICAL published ranges; this does not teach 2026 marketplace prices.",
+  "important":"Labels compare SYNTHETIC buyer budgets to REAL HISTORICAL published ranges; this does not teach 2026 marketplace prices. A non-neural deterministic comparison is expected to reach 100%, so this test alone does not prove market pricing skill.",
   "checkpoint_sha256":hashlib.sha256(model_file.read_bytes()).hexdigest()
  }
+ report["accuracy_gate_passed"]=check_release_gate(report)
+ report["production_price_forecasting_92pct_proven"]=False
  (output/"policy-training-report.json").write_text(
    json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  print("OCTUBER_REAL_POLICY_WEIGHTS",json.dumps(report,ensure_ascii=False))
@@ -144,7 +174,9 @@ def main(argv=None):
  p.add_argument("--validation-cases",type=int,default=15000)
  p.add_argument("--steps",type=int,default=1000)
  a=p.parse_args(argv)
- learn(a.input,a.output,train_cases=a.train_cases,
+ report=learn(a.input,a.output,train_cases=a.train_cases,
      eval_cases=a.validation_cases,steps=a.steps)
+ if not report["accuracy_gate_passed"]:
+  raise SystemExit("HOLDOUT_92_PERCENT_ACCURACY_GATE_FAILED")
 
 if __name__=="__main__":main()

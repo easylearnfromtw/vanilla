@@ -46,7 +46,8 @@ function normalizeTrack(v:unknown,i:number):CitymusTrack|null{
  const t=v as Record<string,unknown>;
  const title=text(t.title||t.name||t.song||t.track);
  if(!title)return null;
- const genre=[t.genre,t.genres,t.mood,t.vibe,t.tags,t.theme,t.category,t.style,t.city]
+ const lang=text(t.language);
+ const genre=[...(lang==="ja"?["Japanese","Japan","日文","日本"]:lang==="zh"?["Chinese","Mandarin","中文","華語"]:[]),t.genre,t.genres,t.mood,t.vibe,t.tags,t.theme,t.category,t.style,t.city,t.culture,t.origin,t.language]
    .flatMap(x=>Array.isArray(x)?x:x==null?[]:[x]).map(x=>text(x,120)).filter(Boolean).join(" · ");
  const rawAudio=safeHttp(t.audioUrl||t.audio_url||t.download||t.preview||t.audioSrc);
  const audioUrl=rawAudio&&/\.(?:mp3|m4a|aac|ogg|oga|opus|wav|flac)(?:[?#]|$)/i.test(rawAudio)?rawAudio:null;
@@ -90,31 +91,22 @@ async function fetchWithTimeout(url:string,ms:number,signal?:AbortSignal):Promis
  finally {clearTimeout(timer);signal?.removeEventListener("abort",onAbort);}
 }
 /** Public database fallback keeps actual CITYMUS metadata, never synthetic track records. */
-/** Stable public CITYMUS catalog (checked into musictown/catalog.js).
- * It contains licensed published music metadata but not account playlists.
- * Do not evaluate downloaded JS; parse just the known JSON assignment.
+/** CITYMUS GitHub Pages builds this library with 4,500 verified metadata rows.
+ * The published script is parsed as JSON data. It is NEVER evaluated.
+ * Root /catalog.js is not copied into Pages; the generated citymus-library.js is.
  */
 async function catalogFallback(query:string,signal?:AbortSignal):Promise<CitymusSearchResult>{
- const res=await fetchWithTimeout(WEB+"catalog.js",9000,signal);
+ const res=await fetchWithTimeout(WEB+"citymus-library.js",10000,signal);
  if(!res.ok)throw Error("CITYMUS 公開曲庫 HTTP "+res.status);
- const js=await res.text(),prefix="window.MUSIC_DATA = ";
- const begin=js.indexOf(prefix),last=js.lastIndexOf("];");
- if(begin<0||last<=begin||last-begin>3000000)throw Error("CITYMUS 公開曲庫格式不正確");
- const sections:unknown=JSON.parse(js.slice(begin+prefix.length,last+1));
- if(!Array.isArray(sections))throw Error("CITYMUS 音樂目錄格式不正確");
- const values:unknown[]=sections.flatMap(section=>{
-  if(!section||typeof section!=="object")return [];
-  const entry=section as {t?:unknown;key?:unknown;tracks?:unknown};
-  const theme=text(entry.t,100),keywords=text(entry.key,150);
-  if(!Array.isArray(entry.tracks))return [];
-  return entry.tracks.map(track=>track&&typeof track==="object"?
-   {...(track as Record<string,unknown>),genre:[theme,keywords,text((track as Record<string,unknown>).vibe,150)].filter(Boolean).join(" · ")}:
-   track);
- });
- if(!values.length)throw Error("CITYMUS 公開曲庫沒有曲目");
- const items=values.map(normalizeTrack).filter((t):t is CitymusTrack=>Boolean(t));
- const ranked=items.map(track=>({track,score:score(track,query)})).filter(x=>x.score>0)
-   .sort((a,b)=>b.score-a.score||a.track.title.localeCompare(b.track.title,"zh-Hant"));
+ const js=await res.text(),prefix="window.CITYMUS_LIBRARY=";
+ const begin=js.indexOf(prefix),end=js.indexOf(";\nwindow.CITYMUS_LIBRARY_REPORT=",begin);
+ if(begin<0||end<=begin||end-begin>14000000)throw Error("CITYMUS 公開曲庫格式不正確");
+ const parsed:unknown=JSON.parse(js.slice(begin+prefix.length,end));
+ if(!Array.isArray(parsed)||!parsed.length)throw Error("CITYMUS 公開曲庫目前沒有可讀取曲目");
+ const items=parsed.map(normalizeTrack).filter((t):t is CitymusTrack=>Boolean(t));
+ const ranked=items.map(track=>({track,score:score(track,query)}))
+  .filter(x=>x.score>0)
+  .sort((a,b)=>b.score-a.score||a.track.title.localeCompare(b.track.title,"zh-Hant"));
  const broad=isBroad(query);
  return {query,total:items.length,matched:ranked.length,fallback:!ranked.length&&broad,
   tracks:(ranked.length?ranked.map(x=>x.track):broad?items:[]).slice(0,6),
@@ -126,7 +118,9 @@ export async function searchCitymus(query:string,signal?:AbortSignal):Promise<Ci
  try{
   const res=await fetchWithTimeout(endpoint,7000,signal);
   if(!res.ok)throw Error("CITYMUS API HTTP "+res.status);
-  return jsonResult(await res.json(),query);
+  const primary=jsonResult(await res.json(),query);
+  if(primary.tracks.length)return primary;
+  try{const extended=await catalogFallback(query,signal);return extended.tracks.length?extended:primary;}catch{return primary;}
  }catch(error){
   if(signal?.aborted)throw error;
   try{return await catalogFallback(query,signal);}

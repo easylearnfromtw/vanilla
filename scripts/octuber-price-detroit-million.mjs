@@ -5,7 +5,6 @@
 import {writeFileSync,mkdirSync} from "node:fs";
 import {planAtuberReadOnly} from "../src/detroit/atuber-tool-plan.ts";
 import {executeAtuberReadOnly} from "../src/detroit/atuber-tool-coordinator.ts";
-import {executeDetroitNative} from "../src/detroit/native-executors.ts";
 import {parsePriceRecords,priceProductKey} from "../src/pricing/price-engine.ts";
 import {executeOctuberPriceCream} from "../src/pricing/octuber-cream-detroit.ts";
 const total=1_000_000;

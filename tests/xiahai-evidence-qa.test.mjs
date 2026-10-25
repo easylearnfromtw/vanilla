@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  rankXiahaiPapers,retrieveXiahaiEvidence,parseXiahaiEvidenceQuestion,
- xiahaiPromptContext,formatXiahaiEvidence
+ xiahaiPromptContext,formatXiahaiEvidence,rankXiahaiPassages
 } from '../src/academy/xiahai-evidence.ts';
 
 const papers=Array.from({length:1000},(_,i)=>({
@@ -13,7 +13,7 @@ const papers=Array.from({length:1000},(_,i)=>({
  shard:Math.floor(i/100),terms:i===8?['decision','shared','surgery']:['fictional','research']
 }));
 const good={chunk_id:'paper_'+'a'.repeat(26),chunk_sha256:'a'.repeat(64),position:100,
- excerpt:'Observed differences were heterogeneous and need additional, independent confirmation before applying them to clinical recommendations.'};
+ excerpt:'Shared decision making in surgery requires careful explanation of benefits, harms and uncertainties for individual patients before consenting to treatment.'};
 const evidence=(id)=>({id,evidence:[good,{...good,chunk_id:'paper_'+'b'.repeat(26),position:200}]});
 
 test('RAG uses only the 1000 real source-linked records and never fabricates sources',async()=>{
@@ -56,4 +56,14 @@ test('input activates actual fulltext only by explicit 霞海 command',()=>{
  assert.equal(parseXiahaiEvidenceQuestion('霞海書院 psychology'),null);
  const spoof={...papers[8],source_url:'https://evil.invalid/article'};
  assert.deepEqual(rankXiahaiPapers([spoof],'shared decision'),[]);
+});
+
+test('passage grounder refuses substring and title-only false positives',()=>{
+ const relevant={...good,excerpt:'Shared decision making in surgery requires informed consent and discussing uncertainties before recommending treatment.'};
+ const unrelated={...good,chunk_id:'paper_'+('c'.repeat(26)),excerpt:'Observations concern persistent viral infections and household heating systems that have no relationship to cardiac device placement.'};
+ assert.equal(rankXiahaiPassages('shared decision', [unrelated,relevant]).length,1);
+ assert.equal(rankXiahaiPassages('stent', [unrelated]).length,0,'stent must not match persistent');
+ assert.equal(rankXiahaiPassages('diabetes MODY',[relevant]).length,0);
+ assert.equal(rankXiahaiPassages('shared decision',[relevant])[0].overlap,2);
+ assert.equal(rankXiahaiPassages('shared unrelated',[relevant]).length,0,'a one-word mention cannot ground a two-term research question');
 });

@@ -34,7 +34,7 @@ const NON_SEARCH=/(?:製作|設計|建立|開發|部署|寫|編輯|生成|產生
 export function citymusIntent(question:string):boolean{
  const q=question.trim();
  if(q.length<2||q.length>220||NON_SEARCH.test(q)||/citymus.{0,20}(?:api|網站|部署|串接|資料庫|設定|整合|功能|後台)/i.test(q))return false;
- return KEYWORD.test(q)||/^(?:推薦音樂|推薦歌曲|找音樂|查音樂|音樂推薦|找歌|查歌|找歌手|查歌手|查專輯|歌單推薦|播放音樂|音樂搜尋|推薦幾首|音樂|歌曲|music|citymus)[！!。.?？\s]*$/i.test(q);
+ return /(?:查詢|搜尋|找|推薦|查).{0,25}(?:歌手|專輯|歌名|的歌|唱的歌|台語歌|英文歌|日本歌|韓文歌)|(?:唱過|唱的).{0,18}(?:什麼歌|哪些歌)/i.test(q)||KEYWORD.test(q)||/^(?:推薦音樂|推薦歌曲|找音樂|查音樂|音樂推薦|找歌|查歌|找歌手|查歌手|查專輯|歌單推薦|播放音樂|音樂搜尋|推薦幾首|音樂|歌曲|music|citymus)[！!。.?？\s]*$/i.test(q);
 }
 function text(v:unknown,max=160){return typeof v==="string"?v.trim().slice(0,max):"";}
 function safeHttp(v:unknown){
@@ -108,7 +108,7 @@ async function catalogFallback(query:string,signal?:AbortSignal):Promise<Citymus
   const theme=text(entry.t,100),keywords=text(entry.key,150);
   if(!Array.isArray(entry.tracks))return [];
   return entry.tracks.map(track=>track&&typeof track==="object"?
-   {...track as Record<string,unknown>,genre:[theme,keywords,text((track as Record<string,unknown>).vibe,150)].filter(Boolean).join(" · ")}:
+   {...(track as Record<string,unknown>),genre:[theme,keywords,text((track as Record<string,unknown>).vibe,150)].filter(Boolean).join(" · ")}:
    track);
  });
  if(!values.length)throw Error("CITYMUS 公開曲庫沒有曲目");

@@ -4,6 +4,7 @@
  *   on iPhone and desktop; only explicit compatibility mode uses the main thread.
  * - Prompts, sampling and context budgets come from ai/model-profiles for each model size.
  */
+import type {CitymusSearchResult} from "../music/citymus";
 import type {SheetPreviewData} from "./sheet-preview-model";
 import type {CreamResult} from "../cream/core";
 import {streamDisplayInterval,shouldPublishStream} from "./stream-performance";
@@ -32,7 +33,7 @@ export const LOCAL_MODEL=DEFAULT_LOCAL_MODEL;
 export const LOCAL_MODELS=LOCAL_CATALOG.map(x=>({id:x.id,label:x.label,description:x.description,vramMB:x.vramMB,recommended:Boolean(x.recommended)}));
 export type WebCitation={title:string;url:string;kind:"full"|"snippet"};
 export type ToolInfo={id:string;label:string;status:"ok"|"partial"|"error";detail?:string};
-export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"octuber-hosted"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult;webSources?:WebCitation[];
+export type ChatTurn={role:"user"|"assistant";content:string;id?:string;createdAt?:number;source?:"local"|"ollama"|"octuber-hosted"|"gemini"|"deepseek"|"openai"|"anthropic"|"openrouter";model?:string;rating?:"up"|"down";sheet?:SheetPreviewData;cream?:CreamResult;music?:CitymusSearchResult;webSources?:WebCitation[];
  /** The originating user message ID when Merlin is waiting for clarification; no duplicated prompt. */
  clarificationOriginalId?:string;
  /** Which Vanilla tool produced this message (search, CREAM, files…). */

@@ -77,6 +77,8 @@ class FirstRunExperienceTests(unittest.TestCase):
         self.assertIn("HTTPS",welcome.explain_failure(URLError("secret url")))
         self.assertNotIn("my-token",welcome.explain_failure(ValueError("my-token")))
         self.assertIn("Owner",welcome.explain_failure(PermissionError("secret")))
+        self.assertIn("裝置授權無效",welcome.explain_failure(welcome.NodeAuthorizationRevoked()))
+        self.assertNotIn("配對碼無效",welcome.explain_failure(welcome.NodeAuthorizationRevoked()))
 
     def test_frozen_first_open_routes_to_desktop_not_cli_or_pairing(self):
         fake=types.ModuleType("slime_welcome")

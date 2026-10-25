@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 BASE="Qwen/Qwen3-0.6B"
-MAX_STEPS=125
+MAX_STEPS=1250
 MAX_LENGTH=128
 ID=re.compile(r"^pmc-(\d+)$")
 CC={"cc-by":"https://creativecommons.org/licenses/by/",
@@ -32,9 +32,9 @@ def sha(path:Path):
 def bucket(pmc_id:str)->str:
  return "holdout" if int(hashlib.sha256(pmc_id.encode()).hexdigest()[:8],16)%10==0 else "training"
 def audit(path:Path,minimum=100):
- if not path.is_file() or path.stat().st_size>250_000_000:
+ if not path.is_file() or path.stat().st_size>1_000_000_000:
   raise ValueError("LICENSED_PMC_SQLITE_REQUIRED")
- if not 20<=minimum<=100:raise ValueError("MINIMUM_LICENSED_PAPERS_OUT_OF_BOUNDS")
+ if not 20<=minimum<=1000:raise ValueError("MINIMUM_LICENSED_PAPERS_OUT_OF_BOUNDS")
  with sqlite3.connect(path.resolve().as_uri()+"?mode=ro",uri=True) as db:
   db.execute("PRAGMA query_only=ON")
   papers=db.execute("""SELECT id,rights_basis,rights_reference,reviewer,
@@ -155,8 +155,8 @@ def train(path:Path,output:Path,steps:int=100,max_length:int=96,min_papers:int=1
  if not weights.is_file() or weights.stat().st_size<1000 or not (adapter/"adapter_config.json").is_file():
   raise RuntimeError("NO_REAL_SAFETENSORS_ADAPTER")
  result={
-  **report,"training_state":"real-100-paper-cpu-lora-trained-not-release-ready",
-  "model":BASE,"method":"float32 CPU LoRA r4 q_proj,v_proj",
+  **report,"training_state":"real-multi-paper-cpu-lora-trained-not-release-ready",
+  "model":BASE,"method":"float32 CPU LoRA r4 q_proj,v_proj","requested_papers":min_papers,
   "actual_optimizer_steps":steps,"sequence_length":max_length,
   "unique_training_papers_touched":len(touches),
   "independent_heldout_papers_evaluated":len(eval_documents),
@@ -184,7 +184,7 @@ def train(path:Path,output:Path,steps:int=100,max_length:int=96,min_papers:int=1
  }),flush=True)
  return result
 def main():
- p=argparse.ArgumentParser(description="100 real explicitly licensed PMC papers -> CPU LoRA weights")
+ p=argparse.ArgumentParser(description="20 to 1000 real explicitly licensed PMC papers -> CPU LoRA weights")
  p.add_argument("--index",type=Path,required=True)
  p.add_argument("--output",type=Path)
  p.add_argument("--required-papers",type=int,default=100)

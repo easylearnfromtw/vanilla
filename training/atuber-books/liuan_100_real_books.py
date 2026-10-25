@@ -225,6 +225,7 @@ def book_row(row):
     if not isinstance(title,str) or not 5<=len(title)<=300 or not isinstance(body,str):
         return None
     if EXCLUDE.search(title):return None
+    if re.search(r"^\s*index of\b|\bindex of the project gutenberg\b",title,re.I):return None
     if not MIN_CHARS<=len(body)<=MAX_CHARS:return None
     # Reject partial snippet, unreadable/corrupt/OCR-only text and duplicate hash.
     if body.count(" ")<2500 or "\ufffd" in body or len(tidy(body[:2000]))<300:
@@ -235,7 +236,7 @@ def book_row(row):
        "source_url":"https://www.gutenberg.org/ebooks/"+str(ident),
        "dataset_source":"https://huggingface.co/datasets/"+DATASET,
        "text_sha256":sha,"text_length":len(body),
-       "category":"historical_nonfiction_candidate" if NONFICTION.search(title) else "historical_other",
+       "category":"historical_topic_keyword_match" if NONFICTION.search(title) else "historical_other",
        "rights_status":"jurisdiction-and-edition-review-required",
        "training_permission":False,"body":body}
 
@@ -252,7 +253,7 @@ def stable_select(rows,limit=TARGET):
         seen_sha.add(book["text_sha256"])
     # Choose longform nonfiction first but ensure breadth and no author monopoly.
     ordered=sorted(by_title.values(),key=lambda b:(
-      0 if b["category"]=="historical_nonfiction_candidate" else 1,
+      0 if b["category"]=="historical_topic_keyword_match" else 1,
       b["author"],b["gutenberg_id"]))
     picked=[]
     counts=Counter()
@@ -357,7 +358,7 @@ def index_real_books(books,index,catalog_json,report_json,shards,bytes_downloade
           "status":"100-real-books-fulltext-staging-index-not-Qwen-finetuned",
           "target":TARGET,"real_books_indexed":len(books),"distinct_gutenberg_ids":title_urls,
           "actual_fulltext_chunks":chunks_count,"source_text_characters":book_length,
-          "historical_nonfiction_candidates":sum(b["category"]=="historical_nonfiction_candidate" for b in books),
+          "historical_topic_keyword_matches":sum(b["category"]=="historical_topic_keyword_match" for b in books),
           "historical_other_books":sum(b["category"]=="historical_other" for b in books),
           "shards_processed":shards,"bytes_downloaded":bytes_downloaded,
           "copyright_training_grant":"NOT VERIFIED - PUBLIC DOMAIN ORIGINAL AUTHOR IS NOT AN EDITION/COUNTRY/LICENSE REVIEW",

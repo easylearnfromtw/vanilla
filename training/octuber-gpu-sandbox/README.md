@@ -120,3 +120,46 @@ python3 training/octuber-gpu-sandbox/virtual_host.py \
 ~~~bash
 python3 -m unittest discover -s tests -p 'test_octuber_virtual_host.py'
 ~~~
+
+
+## 100,000 次阿土伯式核心沙盤（2026-10-25）
+
+本次為 OCTUBER 30B 和 60B 各執行 **100,000 次微型替身模型的實際 CPU 梯度更新**，
+另擴充虛擬主機排程到每個大型模型目標 100,000 個模擬步。
+兩者皆不能直接證明 0.6B/30B/60B 神經網路權重訓練完成。
+
+訓練核心與阿土伯 0.6B 保持相同 LoRA 政策來源：
+training/atuber/core_contract.py 統一 rank=8、alpha=16、dropout=0.05、
+至少 100 筆審核同意的 SFT 資料、至少 5 筆獨立留出樣本及資料來源雜湊。
+Atuber 0.6B、OCTUBER 30B 既有訓練器現在都從此政策讀取 LoRA 設定。
+**60B 真正 MXFP4/PEFT 模型微調器仍未 CUDA 驗證。**
+
+### 可獨立重現的兩種 100k 演練
+
+~~~bash
+# 純排程：30B 和 60B 各 100,000 個模擬步；第 55,005 步故障、續跑
+python3 training/octuber-gpu-sandbox/virtual_host.py \
+  --models all --host virtual-96 --steps 100000 --fault-step 55005 \
+  --output private/octuber-virtual-100k.json
+
+# 真正更新參數：30B / 60B 各一個 72 參數 CPU LoRA 替身模型，各 100,000 次
+python3 training/octuber-gpu-sandbox/core_sandbox.py \
+  --model all --steps 100000 --output private/octuber-surrogate-100k.json
+
+# 正式語言模型 SFT 仍需自己準備人工授權與審核通過的資料
+python3 training/octuber-sumptuous/train.py \
+  --dataset private/reviewed-sumptuous-30b.jsonl --validate-only
+~~~
+
+### 必須明確區分的結果
+
+- 虛擬主機 100k 訓練排程 **不執行神經網路計算**，沒有使用實體 GPU。
+- CPU 100k 梯度測試會真實計算並更新一個 **8 特徵／72 參數**的 LoRA-style 分類替身；使用獨立留出集及合成數值資料，只用來測試核心機制。
+- 72 參數的損失下降不是 LLM 能力評測，也不是 0.6B、30B 或 60B 真正的模型權重微調；不得將合成資料誤標為人工核准的訓練資料。
+- 核心測試會紀錄更新次數、留出損失、替身 adapter SHA-256，但不下載 Qwen、沒有 CUDA 調度與外部費用。
+- 網站的 100,000 選項只執行瀏覽器的排程預覽，不進行 100,000 次大型或小型模型反向傳播。
+- 三個正式模型 manifest 皆維持未訓練狀態；真實獨立權重仍需授權資料、GPU 和驗證過的架構訓練器。
+
+~~~bash
+python3 -m unittest discover -s tests -p 'test_octuber_core_100k.py'
+~~~

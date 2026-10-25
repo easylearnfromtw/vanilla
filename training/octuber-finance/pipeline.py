@@ -83,6 +83,17 @@ def rights_check(obj):
         fail("RIGHTS_ATTESTATION_REQUIRED")
     if not isinstance(obj.get("provider"), str) or not obj["provider"].strip():
         fail("PROVIDER_REQUIRED")
+    # FRED's current Services Terms explicitly prohibit using FRED Services
+    # or FRED Content to train AI/ML systems, even if an individual series
+    # appears freely downloadable. Acquire independently licensed underlying
+    # data DIRECTLY from the original authorized source instead.
+    import re
+    provider = obj["provider"].lower()
+    source_url = str(obj.get("source_url", "")).lower()
+    if (re.search(r"\\b(?:fred|alfred)\\b", provider)
+        or "fred.stlouisfed.org" in source_url
+        or "alfred.stlouisfed.org" in source_url):
+        fail("FRED_AI_TRAINING_TERMS_PROHIBIT_INGESTION")
 
 def load_prices(folder, rights_path, *, allow_partial=False):
     _, markets = read_catalog()

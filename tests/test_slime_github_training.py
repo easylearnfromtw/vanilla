@@ -9,18 +9,18 @@ GPU=(ROOT/".github/workflows/slime-real-gpu-qlora.yml").read_text(encoding="utf8
 
 class TestSlimeTrainingOnGithub(unittest.TestCase):
  def test_cpu_updates_are_real_and_explicit_not_qwen(self):
-  self.assertIn("--episodes 1000000",CPU)
+  self.assertIn("--episodes 2000000",CPU)
   self.assertIn("--steps 1000",CPU)
-  self.assertIn("--steps 10000",CPU)
+  self.assertIn("--steps 20000",CPU)
   self.assertIn("policy[\"actual_optimizer_steps\"]==1000",CPU)
-  self.assertIn('detroit["actualWeightUpdates"]==10000',CPU)
+  self.assertIn('detroit["actualWeightUpdates"]==20000',CPU)
   self.assertIn("price_range_heldout_accuracy",CPU)
   self.assertIn("historical_government_data_not_current_quotes",CPU)
   self.assertIn("qwen_llm_optimizer_steps",CPU)
   self.assertIn("production_price_forecasting_92pct_proven",CPU)
   self.assertIn("actions/upload-artifact@v4",CPU)
   self.assertIn("runs-on: ubuntu-latest",CPU)
-  self.assertNotIn("gpuCudaWeightTrainingSteps: 10000",CPU)
+  self.assertNotIn("gpuCudaWeightTrainingSteps: 20000",CPU)
  def test_gpu_never_runs_on_cpu_or_pr_and_requires_real_runner(self):
   self.assertIn("workflow_dispatch:",GPU)
   self.assertNotIn("  pull_request:",GPU)

@@ -8,7 +8,7 @@ export type CitymusSearchResult={
   via:"api"|"public-catalog";attribution:{label:string;url:string;required:true};
 };
 const WEB="https://easylearnfromtw.github.io/musictown/";
-const API=(import.meta.env.VITE_CITYMUS_API_BASE||"https://citymus-production.vercel.app").replace(/\/+$/,"");
+const API=(import.meta.env?.VITE_CITYMUS_API_BASE||"https://citymus-production.vercel.app").replace(/\/+$/,"");
 const ATTRIBUTION={label:"Powered by CITYMUS",url:WEB,required:true} as const;
 const MOODS:Record<string,string[]>={
  "讀書":["study","focus","lofi","lo-fi","piano","ambient","calm"],

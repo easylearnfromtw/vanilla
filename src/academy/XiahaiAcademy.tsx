@@ -76,7 +76,7 @@ export default function XiahaiAcademy(){
    </div>
    <p className="xiahai-note">{researchMode==="body"?
     "全文模式只向本站請求固定的 1,000 篇論文短節錄；原文片段可追溯，但尚未做臨床證據評讀，也不會公開整篇原文。":
-    "即時書目模式才會將關鍵字傳送給 OpenAlex；書目結果不是已讀取的全文。"}</p>
+    "即時書目模式才會將關鍵字傳送給 OpenAlex；書目檢索不代表下載或閱讀論文全文。"}</p>
   </section>
   <section className="xiahai-policy" aria-label="1,000 篇學術全文訓練的實測報告">
    <div className="xiahai-policy-heading"><BookOpen size={18}/><strong>真實全文知識庫 · 1,000 篇</strong></div>

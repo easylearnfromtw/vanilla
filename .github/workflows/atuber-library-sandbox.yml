@@ -5,6 +5,7 @@ on:
       - 'training/atuber-books/**'
       - 'tests/test_atuber_books_sandbox.py'
       - 'tests/test_atuber_hybrid_relevance.py'
+      - 'tests/test_atuber_bulk_fulltext_ingest.py'
       - '.github/workflows/atuber-library-sandbox.yml'
   workflow_dispatch:
     inputs:
@@ -33,6 +34,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_atuber_licensed_content.py' -v
           python3 -m unittest discover -s tests -p 'test_atuber_content_weights.py' -v
           python3 -m unittest discover -s tests -p 'test_atuber_hybrid_relevance.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_bulk_fulltext_ingest.py' -v
       - name: Downloader dry run
         run: |
           python3 training/atuber-books/download_public_catalogue.py --output "$RUNNER_TEMP/atuber-downloaded"

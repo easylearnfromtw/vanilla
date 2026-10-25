@@ -1,0 +1,133 @@
+name: SLIME Real GPU Qwen3 QLoRA (Owner Approval)
+run-name: Qwen3 ${{ inputs.model_size }} / ${{ inputs.steps }} GPU optimizer steps
+on:
+  workflow_dispatch:
+    inputs:
+      model_size:
+        description: "Actual official Qwen3 size; choose 0.6b or 1.7b first"
+        type: choice
+        required: true
+        default: "0.6b"
+        options: ["0.6b","1.7b","4b","8b","14b","30b","32b"]
+      base_revision:
+        description: "Immutable 40-character official Hugging Face model commit"
+        type: string
+        required: true
+      steps:
+        description: "Real optimizer steps, not simulated episodes"
+        type: choice
+        required: true
+        default: "16"
+        options: ["16","32","64"]
+      allow_download:
+        description: "Allow downloading official pinned model only after Owner approval"
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: slime-real-gpu-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  owner-cuda-qlora:
+    # MUST be created and labelled by repository Owner. Ordinary ubuntu-latest
+    # has no NVIDIA GPU. Will remain queued without a matching real GPU runner.
+    runs-on: [self-hosted, linux, x64, slime-gpu]
+    environment: slime-gpu-training
+    timeout-minutes: 90
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      PYTHONIOENCODING: utf-8
+      MODEL_SIZE: ${{ inputs.model_size }}
+      BASE_REVISION: ${{ inputs.base_revision }}
+      OPTIMIZER_STEPS: ${{ inputs.steps }}
+      SLIME_APPROVED_LOCAL_DATASET: ${{ vars.SLIME_GPU_DATASET_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fail closed if dataset, immutable base revision, GPU or limits are missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "ONLY_OWNER_MAIN_MAY_TRAIN" >&2; exit 2; }
+          [[ "$BASE_REVISION" =~ ^[a-fA-F0-9]{40}$ ]] || { echo "PINNED_MODEL_SHA_REQUIRED" >&2; exit 2; }
+          [[ "$OPTIMIZER_STEPS" =~ ^(16|32|64)$ ]] || { echo "GPU_STEP_BUDGET_EXCEEDED" >&2; exit 2; }
+          [[ "$MODEL_SIZE" =~ ^(0[.]6b|1[.]7b|4b|8b|14b|30b|32b)$ ]] || exit 2
+          [[ "$SLIME_APPROVED_LOCAL_DATASET" = /* && -f "$SLIME_APPROVED_LOCAL_DATASET" ]] || {
+            echo "CONFIGURE_APPROVED_JSONL_IN_OWNER_CONTROLLED_SLIME_GPU_DATASET_PATH" >&2
+            exit 2
+          }
+          command -v nvidia-smi
+          nvidia-smi
+          python3 - <<'PY'
+          import torch
+          assert torch.cuda.is_available(), "NO_REAL_CUDA_GPU_AVAILABLE"
+          p=torch.cuda.get_device_properties(0)
+          print("ACTUAL_NVIDIA_GPU",torch.cuda.get_device_name(0))
+          print("REAL_CUDA_VRAM_GIB",round(p.total_memory/2**30,2))
+          PY
+          python3 training/atuber/multisize_train.py \
+            --model-size "$MODEL_SIZE" \
+            --dataset "$SLIME_APPROVED_LOCAL_DATASET" \
+            --base-revision "$BASE_REVISION" \
+            --steps "$OPTIMIZER_STEPS" \
+            --max-length 512 --validate-only
+      - name: Launch real CUDA gradient updates into local Owner-owned persistent folder
+        shell: bash
+        env:
+          DOWNLOAD_OK: ${{ inputs.allow_download }}
+        run: |
+          set -euo pipefail
+          umask 077
+          dir="$HOME/.vanilla/slime/gpu-training/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${MODEL_SIZE}"
+          mkdir -p "$dir"
+          [ -z "$(ls -A "$dir")" ] || { echo "DO_NOT_OVERWRITE_ANY_EXISTING_WEIGHTS" >&2; exit 2; }
+          args=(
+            python3 training/atuber/multisize_train.py
+            --model-size "$MODEL_SIZE"
+            --dataset "$SLIME_APPROVED_LOCAL_DATASET"
+            --base-revision "$BASE_REVISION"
+            --steps "$OPTIMIZER_STEPS"
+            --max-length 512
+            --output "$dir"
+            --train
+          )
+          if [ "$DOWNLOAD_OK" = "true" ]; then args+=(--allow-download); fi
+          "${args[@]}"
+          echo "SLIME_OWNER_GPU_OUTPUT=$dir" >> "$GITHUB_ENV"
+      - name: Verify actual LoRA adapter, GPU steps, and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          p=pathlib.Path(os.environ["SLIME_OWNER_GPU_OUTPUT"])
+          report=json.loads((p/"training-provenance.json").read_text(encoding="utf8"))
+          model=p/"adapter/adapter_model.safetensors"
+          assert model.is_file() and model.stat().st_size>1000
+          assert report["actual_optimizer_steps"]==int(os.environ["OPTIMIZER_STEPS"])
+          assert report["adapter_sha256"]==hashlib.sha256(model.read_bytes()).hexdigest()
+          assert report["adapter_trained"] is True and report["weights_created"] is True
+          assert report["qwen_lora_adapter_updated"] is True
+          assert report["merged_or_ollama_model_registered"] is False
+          assert report["base_revision"].lower()==os.environ["BASE_REVISION"].lower()
+          print("VERIFIED_REAL_QWEN_GPU_LORA",{
+            "size":report["model_size"],"steps":report["actual_optimizer_steps"],
+            "gpu":report["gpu_name"],"sha256":report["adapter_sha256"],
+            "train_loss":report["train_loss"],"eval_loss":report["eval_loss"]
+          })
+          # Public Actions logs must not expose training examples or raw dataset.
+          with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a",encoding="utf8") as f:
+              f.write("## Verified actual NVIDIA CUDA QLoRA adapter (not deployed)\n")
+              f.write(f"- Qwen3 size: {report['model_size']}\n")
+              f.write(f"- Optimizer steps: {report['actual_optimizer_steps']}\n")
+              f.write(f"- GPU: {report['gpu_name']}\n")
+              f.write(f"- Adapter SHA-256: {report['adapter_sha256']}\n")
+              f.write("- Weights remain **only on the Owner GPU runner**. No upload or production deployment.\n")
+          PY
+      # Intentionally do not upload weights or potentially sensitive training
+      # data to publicly accessible repo artifacts. Owner decides whether to
+      # export the checkpoint after independent evaluation and privacy review.

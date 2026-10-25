@@ -1,0 +1,129 @@
+name: SLIME Actual CPU Sandbox Training
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/slime-real-training.yml"
+      - "training/atuber/human_shopper_policy_net.py"
+      - "training/atuber/human_shopper_sim.py"
+      - "scripts/train-penteract-10m.mjs"
+      - "tests/test_slime_github_training.py"
+      - "docs/SLIME_GITHUB_REAL_TRAINING.md"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/slime-real-training.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: slime-cpu-labs-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verified-cpu-learning:
+    name: Real SGD on historical NDC + Detroit tiny 5D
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify training workflow and GPU authorization regression rules
+        run: python -m unittest discover -s tests -p test_slime_github_training.py -v
+      - name: Install CPU-only math dependency (no fake CUDA)
+        run: |
+          python -m pip install --no-cache-dir 'numpy>=1.26,<3'
+          python - <<'PY'
+          import numpy
+          print("NUMPY_CPU",numpy.__version__)
+          PY
+      - name: Retrieve pinned first-party NDC historical data with integrity checks
+        env:
+          SOURCE_URL: https://ws.ndc.gov.tw/001/administrator/10/relfile/0/9862/17300d07-7b9f-4c88-a1ab-0e406342def4.csv
+        run: |
+          mkdir -p "$RUNNER_TEMP/slime-labs"
+          curl --fail --location --retry 3 --max-time 180 \
+            "$SOURCE_URL" -o "$RUNNER_TEMP/slime-labs/ndc-history.csv"
+          python - <<'PY'
+          import csv,os,pathlib
+          path=pathlib.Path(os.environ["RUNNER_TEMP"])/"slime-labs/ndc-history.csv"
+          size=path.stat().st_size
+          assert 1_000_000 <= size <= 150_000_000, f"unexpected NDC file size: {size}"
+          with path.open(encoding="utf-8-sig",newline="") as file:
+              reader=csv.reader(file)
+              head=next(reader)
+          assert 4<=len(head)<=25, f"invalid NDC CSV header: {head}"
+          print("OFFICIAL_HISTORICAL_NDC_BYTES",size,"FIELDS",len(head))
+          PY
+      - name: Execute one million simulated shoppers — not language weight updates
+        run: |
+          python training/atuber/human_shopper_sim.py \
+            --input "$RUNNER_TEMP/slime-labs/ndc-history.csv" \
+            --mode ndc-official --episodes 1000000 \
+            --output "$RUNNER_TEMP/slime-labs/shopper"
+      - name: Perform 1000 genuine neural Adam updates and independent heldout assessment
+        run: |
+          python training/atuber/human_shopper_policy_net.py \
+            --input "$RUNNER_TEMP/slime-labs/ndc-history.csv" \
+            --output "$RUNNER_TEMP/slime-labs/policy" \
+            --train-cases 50000 --validation-cases 12000 --steps 1000
+      - name: Perform 20000 genuine Detroit tiny 5D SGD updates (not Qwen)
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs \
+            scripts/train-penteract-10m.mjs \
+            --steps 20000 --out-dir "$RUNNER_TEMP/slime-labs/detroit"
+      - name: Verify exact optimizer steps, data and artifact checksums
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"slime-labs"
+          shopper=json.loads((root/"shopper/summary.json").read_text(encoding="utf8"))
+          policy=json.loads((root/"policy/policy-training-report.json").read_text(encoding="utf8"))
+          detroit=json.loads((root/"detroit/five-d-sandbox-report.json").read_text(encoding="utf8"))
+          assert shopper["episodes"]==1_000_000
+          assert shopper["qwen_model_weights_changed"] is False
+          assert policy["actual_optimizer_steps"]==1000 and policy["weight_change_l2"]>0
+          assert policy["accuracy_gate_passed"] is True
+          assert policy["production_price_forecasting_92pct_proven"] is False
+          assert detroit["actualWeightUpdates"]==20000 and detroit["cudaUsed"] is False
+          assert detroit["atuber0_6BWeightsUpdated"] is False
+          sha=hashlib.sha256((root/"policy/historical-shopper-range-policy.npz").read_bytes()).hexdigest()
+          assert policy["checkpoint_sha256"]==sha
+          summary={
+            "status":"verified-cpu-training-only",
+            "simulated_shopper_decisions":shopper["episodes"],
+            "price_range_neural_optimizer_steps":policy["actual_optimizer_steps"],
+            "price_range_heldout_accuracy":policy["range_decision_true_heldout_accuracy"],
+            "detroit_five_d_optimizer_steps":detroit["actualWeightUpdates"],
+            "gpu_cuda_training_steps":0,
+            "qwen_llm_optimizer_steps":0,
+            "genuine_human_price_training_labels":0,
+            "historical_government_data_not_current_quotes":True,
+            "price_policy_sha256":sha,
+            "detroit_artifact_sha256":detroit["artifactSha256"]
+          }
+          (root/"slime-real-training-receipt.json").write_text(
+            json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf8")
+          print("SLIME_REAL_CPU_TRAINING_RECEIPT",json.dumps(summary,ensure_ascii=False))
+          with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a",encoding="utf8") as out:
+              out.write("## Actual CPU training, not GPU or Qwen\n\n")
+              for key,value in summary.items():
+                  out.write(f"- {key}: {value}\n")
+          PY
+      - name: Upload verified, non-sensitive small-model artifacts and receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: slime-real-cpu-training-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/slime-labs/slime-real-training-receipt.json
+            ${{ runner.temp }}/slime-labs/policy/policy-training-report.json
+            ${{ runner.temp }}/slime-labs/policy/historical-shopper-range-policy.npz
+            ${{ runner.temp }}/slime-labs/detroit/five-d-sandbox-report.json
+            ${{ runner.temp }}/slime-labs/detroit/five-d-weights.json

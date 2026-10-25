@@ -55,6 +55,8 @@ jobs:
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
           Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
+          Copy-Item deployment/slime/Slime-Owner-Tools.cmd dist/Slime-Owner-Tools.cmd
+          if (!(Test-Path dist/Slime-Owner-Tools.cmd)) { throw 'SLIME_OWNER_TOOLS_LAUNCHER_MISSING' }
       - uses: actions/upload-artifact@v4
         with:
           name: slime-windows-build
@@ -62,6 +64,7 @@ jobs:
             dist/Slime-Owner.exe
             dist/Slime-Friend.exe
             dist/Slime-Windows-Autostart.ps1
+            dist/Slime-Owner-Tools.cmd
           if-no-files-found: error
 
   macos:
@@ -81,9 +84,17 @@ jobs:
           for role in Owner Friend; do
             cp "deployment/slime/Slime-${role}.command" "dist/Slime-${role}.command"
             chmod +x "dist/Slime-${role}.command"
-            cd dist
-            zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
-            cd ..
+            if [ "$role" = "Owner" ]; then
+              cp deployment/slime/Slime-Owner-Tools.command dist/
+              chmod +x dist/Slime-Owner-Tools.command
+              cd dist
+              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" Slime-Owner-Tools.command slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
+              cd ..
+            else
+              cd dist
+              zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
+              cd ..
+            fi
           done
       - uses: actions/upload-artifact@v4
         with:
@@ -114,6 +125,10 @@ jobs:
             mkdir -p "tmp-$role/slime_tools"
             cp services/slime/*.py "tmp-$role/slime_tools/"
             chmod +x "tmp-$role/start-slime.sh"
+            if [ "$role" = "Owner" ]; then
+              cp deployment/slime/launch-owner-tools.sh "tmp-$role/start-slime-tools.sh"
+              chmod +x "tmp-$role/start-slime-tools.sh"
+            fi
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done
           python3 deployment/slime/build-unified-toolkit.py --output dist/Slime-Sandbox-Toolkit.zip
@@ -140,9 +155,21 @@ jobs:
       - name: Check assets and hashes
         run: |
           cd release
-          for item in Slime-Owner.exe Slime-Friend.exe Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz Slime-Sandbox-Toolkit.zip; do
+          for item in Slime-Owner.exe Slime-Friend.exe Slime-Owner-Tools.cmd Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz Slime-Sandbox-Toolkit.zip; do
             test -s "$item"
           done
+          # Verify Owner tools launchers exist only in Owner packages; Friend
+          # must not offer a privileged launch shortcut.
+          unzip -Z1 Slime-Owner-macos.zip | grep -qx "Slime-Owner-Tools.command"
+          if unzip -Z1 Slime-Friend-macos.zip | grep -q "Slime-Owner-Tools.command"; then
+            echo "Owner tools shortcut leaked into Friend macOS package" >&2
+            exit 1
+          fi
+          tar -tzf Slime-Owner-linux.tar.gz | grep -Eq "^[.]/start-slime-tools.sh$"
+          if tar -tzf Slime-Friend-linux.tar.gz | grep -q "start-slime-tools.sh"; then
+            echo "Owner tools shortcut leaked into Friend Linux package" >&2
+            exit 1
+          fi
           sha256sum Slime-* > SHA256SUMS.txt
       - name: Publish GitHub release assets
         env:

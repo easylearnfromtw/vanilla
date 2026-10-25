@@ -30,8 +30,8 @@ MAX_DATA_FILE = 16_000_000  # The current training/atuber/dataset.py trainer lim
 ALLOWED_SFT_FIELDS = {"id", "user", "assistant", "domain", "reviewed", "source", "consent"}
 ALLOWED_SFT_DOMAINS = {"general", "code", "research", "writing", "tool-use", "abstention", "taiwan-pragmatics", "pricing"}
 SFT_ID = re.compile(r"^[a-zA-Z0-9_-]{3,80}$")
-SFT_EMAIL = re.compile(r"(?<![\\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")
-SFT_SECRET = re.compile(r"(?:sk-proj-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{25,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?i:password|api[_ -]?key|secret|bearer)\\s*[:=]\\s*[^\\s]{8,})")
+SFT_EMAIL = re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+SFT_SECRET = re.compile(r"(?:sk-proj-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{25,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?i:password|api[_ -]?key|secret|bearer)\s*[:=]\s*[^\s]{8,})")
 MIN_TRAIN = 100
 MIN_EVAL = 100
 MAX_STEPS = 5000

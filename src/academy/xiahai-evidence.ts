@@ -28,8 +28,10 @@ export function rankXiahaiPassages(question:string,passages:Passage[]):Array<{pa
      !Number.isInteger(p.position))return [];
   const available=new Set(words(p.excerpt));
   const overlap=query.filter(t=>lexicalMatch(t,available)).length;
-  // No original excerpt matches, no evidence returned to an LLM.
-  return overlap?[{passage:p,overlap}]:[];
+  // For multi-term research questions require at least TWO terms within the
+  // same physically published excerpt, not scattered around a whole paper.
+  const minimum=query.length>1?2:1;
+  return overlap>=minimum?[{passage:p,overlap}]:[];
  }).sort((a,b)=>b.overlap-a.overlap||a.passage.position-b.passage.position);
 }
 function asset(name:string):string{

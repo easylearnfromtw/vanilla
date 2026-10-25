@@ -30,7 +30,7 @@ export function attribution(record:SourceRecord):string{
  const brand=BRAND[record.kind];
  const author=record.authors.filter(Boolean).slice(0,3).join("、")||"作者待核對";
  return "引用自"+brand+"（來源索引）｜"+author+"，《"+record.title+"》"+
-   (record.year?"，"+record.year:"")+"｜原始出處："+record.sourceName;
+   (record.year?"，"+record.year:"")+"｜原始出處："+record.sourceName+"："+record.originalUrl;
 }
 export function evidenceLabel(tier:EvidenceTier):string{
  if(tier==="metadata")return "只核對書目／論文元資料，不能據此聲稱理解全文";

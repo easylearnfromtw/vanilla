@@ -56,13 +56,13 @@ export async function executeOctuberPriceCream(
     ![metric.mean,metric.median,metric.min,metric.max].every(Number.isFinite))
   throw Error("OCTUBER_CREAM_RECEIPT_INVALID");
  const now=options.now??Date.now();
- const unknownObservedAt=offers.filter(r=>typeof r.observedAt!=="number"||!Number.isFinite(r.observedAt)).length;
+ const unknownObservedAt=matching.filter(r=>r.currency==="TWD"&&Number.isFinite(r.price)&&r.price>0&&\n  validSeller(r.merchant)&& (typeof r.observedAt!=="number"||!Number.isFinite(r.observedAt))).length;
  const staleQuotes=offers.filter(r=>r.observedAt!==null&&now-r.observedAt>48*3600*1000).length;
  const warnings=[
   "僅統計使用者本機匯入的報價；未向 BigGo／飛比／LBJ 重新取得即時價格或授權驗證。",
   "尚未核對運費、折扣、稅費、商品完整規格及庫存；不得直接作為購買或自動調價依據。",
   ...(offers.length<2?["只有一間已確認賣家，不能推論市場行情。"]:[]),
-  ...(unknownObservedAt?["有 "+unknownObservedAt+" 間賣家缺少可驗證的觀察時間。"]:[]),
+  ...(unknownObservedAt?["有 "+unknownObservedAt+" 筆匯入報價缺少可驗證的觀察時間（含同賣家重複資料）。"]:[]),
   ...(staleQuotes?["有 "+staleQuotes+" 筆報價超過 48 小時。"]:[]),
   ...cream.warnings
  ];

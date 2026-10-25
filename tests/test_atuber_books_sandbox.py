@@ -66,6 +66,19 @@ class LibrarySandboxTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"REFUSE_OVERWRITE"):
                 sandbox.create_sandbox([csvfile],out,"nbinet",5,2)
 
+    def test_nbinet_2026_q2_header_aliases(self):
+        row = {
+            "ISBN (020$a$c)": "9789571234567",
+            "書名 (245$a$b)": "股票投資與交易",
+            "編著者 (245$c)": "研究者",
+            "出版年 (008/07-10)": "2026",
+            "NBI紀錄號 (907$a)": "NBI-T2",
+        }
+        self.assertEqual(sandbox.get(row, "title"), "股票投資與交易")
+        self.assertEqual(sandbox.get(row, "isbn"), "9789571234567")
+        self.assertEqual(sandbox.get(row, "record"), "NBI-T2")
+        self.assertIn("stocks", sandbox.classify(sandbox.get(row, "title"), ""))
+
     def test_language_and_endpoint_safety(self):
         self.assertEqual(sandbox.detect_language("jpn","日本旅行日記")[0],"unknown")
         self.assertEqual(sandbox.detect_language("eng","中文標題")[0],"en")

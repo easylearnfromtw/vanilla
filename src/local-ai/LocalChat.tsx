@@ -9,6 +9,7 @@ import {readNoodles,recordNoodles} from "../noodles/storage";
 import {recordClientFault} from "../luca/client-diagnostics";
 import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
+import {parseKnowledgeLookup,findKnowledgeSources} from "../knowledge/chat-source-lookup";
 import {venusPresentationGuidance} from "../venus/presentation";
 import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
@@ -115,6 +116,8 @@ function restoreMerlinPending(turns:ChatTurn[]):MerlinClarification|null{
 }
 const TOOL={
  merlin:{id:"merlin-clarify",label:"Merlin · 需求釐清"},
+ books:{id:"liuan-book-lookup",label:"柳岸書城 · 書籍來源"},
+ research:{id:"xiahai-paper-lookup",label:"霞海書院 · 論文來源"},
  capability:{id:"capability",label:"功能實況"},venus:{id:"venus",label:"Venus · 圖片搜尋"},cream:{id:"cream",label:"CREAM 分析"},search:{id:"search",label:"網路搜尋"},
  web:{id:"web",label:"網頁閱讀"},memory:{id:"memory",label:"雲端記憶"},files:{id:"files",label:"檔案"},
  sheets:{id:"sheets",label:"Vanilla 表格"},project:{id:"project",label:"專案"},tone:{id:"tone",label:"語氣設定"},
@@ -731,6 +734,20 @@ async function send(value=draft):Promise<void>{
  }
  let question=raw||(image?"請分析這張圖片":fileName?"請協助整理這個附件":"");
  if(!question||busy||comparison||assetBusy)return;
+ const bookOrPaperLookup=!image&&!fileName&&!fileContext?parseKnowledgeLookup(question):null;
+ if(bookOrPaperLookup){
+  if(privateMode){toolReply(question,"私密模式不會將提問傳送給外部圖書或論文索引。","privacy");return;}
+  if(!online){toolReply(question,"目前離線，不能宣稱已查到最新書目或論文。","web");return;}
+  setBusy(true);setLastRoute("正在核對原始圖書／學術索引…");
+  try{
+   const answer=await findKnowledgeSources(bookOrPaperLookup);
+   toolReply(question,answer,bookOrPaperLookup.kind==="book"?"books":"research");
+  }catch(error){
+   toolReply(question,"來源查詢失敗，未生成虛構引用："+String(error instanceof Error?error.message:error),
+     bookOrPaperLookup.kind==="book"?"books":"research");
+  }finally{setBusy(false);}
+  return;
+ }
  setDetroitPlan(null);
  let visibleClarificationAnswer:string|undefined;
  // Explicit slash commands take priority over pending Merlin clarifications.

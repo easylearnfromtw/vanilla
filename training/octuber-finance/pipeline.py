@@ -363,6 +363,9 @@ def approve(args):
             "test": len(split_rows["test"]), "candidate_file_sha256": file_sha(Path(args.candidates)),
             "approvals_file_sha256": file_sha(Path(args.approvals)),
             "date_boundaries": [str(TRAIN_END), str(EVAL_END)],
+            "train_sha256": file_sha(directory / "train.jsonl"),
+            "eval_sha256": file_sha(directory / "eval.jsonl"),
+            "test_sha256": file_sha(directory / "test.jsonl"),
             "trained": False}
     write_new(directory / "approved-provenance.json", [meta])
     print(json.dumps(meta, ensure_ascii=False, indent=2))

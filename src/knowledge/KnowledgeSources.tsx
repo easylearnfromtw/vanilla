@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {BookOpen,LibraryBig,GraduationCap,ExternalLink,Search,ShieldCheck,BookMarked,Copy,Check,ArrowRight} from "lucide-react";
+import {LIUAN_VERIFIED_HISTORICAL_BOOKS,LIUAN_INDEX_REPORT} from "./liuan-historical-100";
 import {BRAND,BOOK_SEEDS,attribution,citationPriority,evidenceLabel,validSourceUrl,type SourceRecord} from "./evidence";
 import "./knowledge.css";
 
@@ -63,7 +64,8 @@ function Result({source,mode}:{source:SourceRecord;mode:Mode}){
    <div className="knowledge-entry-meta">{source.authors.join("、")||"作者待核對"}{source.year?" · "+source.year:""} · {source.sourceName}</div>
    {source.description&&<p className="knowledge-desc">{source.description}</p>}
    <p className="knowledge-evidence"><ShieldCheck size={14}/>{evidenceLabel(source.tier)}</p>
-   {mode==="paper"&&<p className="knowledge-weight">引用優先權重 {priority}/5{!source.institutionRank?" · 大學排名未提供認證對照表，暫按預設權重 1":""} · {source.openAccess?"標示開放取用":"未確認開放取用"}</p>}
+   {mode==="book"&&source.id.startsWith("pg_")&&<p className="knowledge-weight">已建歷史全文索引；原文、AI 訓練使用權及專業適用性尚需另行審核。</p>}
+ {mode==="paper"&&<p className="knowledge-weight">引用優先權重 {priority}/5{!source.institutionRank?" · 大學排名未提供認證對照表，暫按預設權重 1":""} · {source.openAccess?"標示開放取用":"未確認開放取用"}</p>}
    <div className="knowledge-entry-actions">
     <a href={source.originalUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={14}/> 原始來源</a>
     <button type="button" onClick={()=>{void navigator.clipboard?.writeText(attribution(source)).then(()=>setCopied(true)).catch(()=>setCopied(false));}}>
@@ -73,19 +75,37 @@ function Result({source,mode}:{source:SourceRecord;mode:Mode}){
   </div>
  </article>;
 }
+const stagedBooks:SourceRecord[]=LIUAN_VERIFIED_HISTORICAL_BOOKS.map(([id,title,author])=>({
+ id:"pg_"+id,kind:"book",title,authors:[author],
+ sourceName:"Project Gutenberg（原作品連結）",
+ originalUrl:"https://www.gutenberg.org/ebooks/"+id,
+ tier:"metadata",verified:true,
+ description:"本書長篇正文已在柳岸書城離線沙盤建立來源雜湊及全文檢索；網站不提供原文；版次、使用地區的權利及 AI 訓練授權仍待逐本審核。"
+}));
+const sourceBooks:SourceRecord[]=[...BOOK_SEEDS,...stagedBooks];
 const seedQueries={book:["行為經濟學","股票投資心理","哲學 倫理"],paper:["behavioral economics consumer decisions","risk communication finance","clinical decision making"]};
 export default function KnowledgeSources({mode,onNavigate}:{mode:Mode;onNavigate:(next:"book"|"paper")=>void}){
  const [query,setQuery]=useState("");
- const [results,setResults]=useState<SourceRecord[]>(mode==="book"?BOOK_SEEDS:[]);
+ const [results,setResults]=useState<SourceRecord[]>(mode==="book"?sourceBooks:[]);
+ const [shown,setShown]=useState(20);
  const [searched,setSearched]=useState(false);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const controller=useRef<AbortController|null>(null);
- useEffect(()=>{controller.current?.abort();setQuery("");setResults(mode==="book"?BOOK_SEEDS:[]);setSearched(false);setBusy(false);setError("");},[mode]);
+ useEffect(()=>{controller.current?.abort();setQuery("");setResults(mode==="book"?sourceBooks:[]);setShown(20);setSearched(false);setBusy(false);setError("");},[mode]);
  useEffect(()=>()=>controller.current?.abort(),[]);
  async function search(q:string){
   if(!q.trim())return;
   controller.current?.abort();
+  setShown(20);
+  if(mode==="book"){
+   const lower=q.trim().toLocaleLowerCase();
+   const matched=sourceBooks.filter(book=>book.title.toLocaleLowerCase().includes(lower)
+       ||book.authors.some(a=>a.toLocaleLowerCase().includes(lower)));
+   if(matched.length){
+    setBusy(false);setError("");setSearched(true);setResults(matched);return;
+   }
+  }
   const ctrl=new AbortController();controller.current=ctrl;
   setBusy(true);setError("");setSearched(true);setResults([]);
   try{
@@ -121,7 +141,7 @@ export default function KnowledgeSources({mode,onNavigate}:{mode:Mode;onNavigate
     <h1>{BRAND[mode]}</h1>
     <p className="knowledge-subheading">{isBook?"萬卷藏思，循書問理。":"循證求真，與學術對話。"}</p>
     <p className="knowledge-intro">{isBook?
-      "專門索引書名、作者、版次與原始圖書來源。阿土伯用經審核的知識解釋原理，不整本轉貼電子書。":
+      "已新增 "+LIUAN_INDEX_REPORT.books+" 本具有實際長篇原文的歷史圖書沙盤索引，另保留先前兩本古典全文試點。此頁顯示來源書目，不公開整本原文；專業知識及權利核准須另行審查。":
       "以 OpenAlex／arXiv 等學術資料為研究入口，整理作者、發表年份、期刊與 DOI；有證據才能轉化成專業建議。"}
     </p>
    </header>
@@ -133,17 +153,19 @@ export default function KnowledgeSources({mode,onNavigate}:{mode:Mode;onNavigate
      <button type="submit" disabled={busy||!query.trim()}>{busy?"搜尋中":"搜尋來源"}</button>
     </form>
     <div className="knowledge-chips">{seedQueries[mode].map(q=><button type="button" key={q} onClick={()=>{setQuery(q);void search(q);}}>{q}</button>)}</div>
-    <p className="knowledge-provider">來源：{isBook?"Open Library 即時公共書目／已驗證古典書試點":"OpenAlex 即時論文元資料"}。即時搜尋不代表已取得全文或取得 AI 訓練授權。</p>
+    <p className="knowledge-provider">來源：{isBook?"柳岸書城本機 100 本歷史來源清單＋兩本試點；查不到時連接 Open Library 即時公共書目":"OpenAlex 即時論文元資料"}。即時搜尋不代表已取得全文或取得 AI 訓練授權。</p>
    </section>
    <section className="knowledge-records" aria-live="polite">
      <div className="knowledge-heading">
-       <h2>{searched?"查詢結果":isBook?"已核對的全文試點":"研究資料索引"}</h2>
-       <span>{results.length} 筆顯示結果</span>
+       <h2>{searched?"查詢結果":isBook?"歷史圖書來源與全文沙盤索引":"研究資料索引"}</h2>
+       <span>共 {results.length} 筆來源 · 目前顯示 {Math.min(shown,results.length)} 筆</span>
      </div>
      {busy&&<p className="knowledge-message" role="status">正在向原始書目／研究資料服務查詢…</p>}
      {error&&<p className="knowledge-message knowledge-error" role="alert">{error}。你仍可從 <a href={isBook?"https://openlibrary.org/search":"https://openalex.org/works"} target="_blank" rel="noopener noreferrer">來源網站</a>直接搜尋。</p>}
      {!busy&&!error&&results.length===0&&<p className="knowledge-message">{searched?"這次未取得可核對的來源，沒有生成虛構書目。":"輸入一個研究主題，開始查詢最新公開學術索引。"}</p>}
-     <div className="knowledge-results">{results.map(s=><Result source={s} mode={mode} key={s.id}/>)}</div>
+     {isBook&&!searched&&<p className="knowledge-provider">100 本原文沙盤：共 ${LIUAN_INDEX_REPORT.textChunks.toLocaleString("en-US")} 段，正文不公開於網頁；原文核對及權利狀態請查看 <a href={LIUAN_INDEX_REPORT.baseEvidence} target="_blank" rel="noopener noreferrer">GitHub Actions 審核紀錄</a>。</p>}
+     <div className="knowledge-results">{results.slice(0,shown).map(s=><Result source={s} mode={mode} key={s.id}/>)}</div>
+     {shown<results.length&&<button type="button" className="knowledge-more" onClick={()=>setShown(n=>n+20)}>顯示更多來源（{results.length-shown} 筆未顯示）</button>}
    </section>
    <footer className="knowledge-footer">
     <div className="knowledge-footer-mark"><LibraryBig size={22}/><strong>知識用於理解，不用於冒充權威。</strong></div>

@@ -27,7 +27,7 @@ HOSTS = {
 RAM_SCREENS = {"30b": 64, "60b": 128}
 DISK_SCREENS = {"30b": 180, "60b": 320}
 CHECKPOINT_INTERVAL = 5
-MAX_STEPS = 1000
+MAX_STEPS = 100000
 
 
 def assess_resources(model: str, host: dict) -> dict:
@@ -69,6 +69,7 @@ def simulate(*, model_names: list[str], host_name: str, steps: int,
         raise ValueError("INVALID_STEP_COUNT")
     if fault_step is not None and not 1 <= fault_step <= steps:
         raise ValueError("FAULT_STEP_OUTSIDE_SIMULATION")
+    checkpoint_interval = CHECKPOINT_INTERVAL if steps <= 1000 else max(1000, steps // 100)
     host = HOSTS[host_name].copy()
     dataset_check = assess_dataset(dataset)
     jobs = {}
@@ -96,7 +97,7 @@ def simulate(*, model_names: list[str], host_name: str, steps: int,
     total_attempts = 0
     injected = False
     target_for_fault = waiting[0] if waiting else None
-    max_attempts = len(waiting) * (steps + CHECKPOINT_INTERVAL + 1)
+    max_attempts = len(waiting) * (steps + checkpoint_interval + 1)
     while waiting or active:
         for slot in sorted(available):
             if not waiting:
@@ -131,7 +132,7 @@ def simulate(*, model_names: list[str], host_name: str, steps: int,
             job["simulated_step_attempts"] += 1
             total_attempts += 1
             job["simulated_steps_completed"] += 1
-            if job["simulated_steps_completed"] % CHECKPOINT_INTERVAL == 0:
+            if job["simulated_steps_completed"] % checkpoint_interval == 0:
                 job["virtual_metadata_checkpoints"].append(job["simulated_steps_completed"])
                 events.append({"tick": tick, "event": "virtual_checkpoint_metadata",
                                "model": name, "step": job["simulated_steps_completed"],
@@ -154,6 +155,7 @@ def simulate(*, model_names: list[str], host_name: str, steps: int,
         "host_specification": host,
         "requested_models": model_names,
         "requested_virtual_steps_per_model": steps,
+        "virtual_metadata_checkpoint_interval_steps": checkpoint_interval,
         "injected_virtual_failure_at_step": fault_step,
         "reviewed_dataset": dataset_check,
         "jobs": jobs,

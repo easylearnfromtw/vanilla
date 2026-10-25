@@ -20,6 +20,8 @@ product,sku,merchant,marketplace,source,price,observed_at,url,currency
 
 **上面是純格式範例，價格不是任何真實網站報價，不得加入實價訓練。** 也接受 JSON array。商家名稱 `merchant` 保留；`marketplace` 可填 `shopee`（蝦皮）、`coupang`（酷澎）、`momo`、`pchome`、`yahoo`、`rakuten`，或對應中文平台名。缺資料可留空，無法確認不可猜測。`source` 值仍使用 `biggo`、`feebee`、`lbj`、`authorized-feed` 等取價記錄。
 
+**避免錯誤商家判斷：** 若匯入列把 `merchant` 寫成 `BigGo`、`Feebee`、`飛比`、`LBJ` 等彙整站名稱，而非實際賣家，介面只會呈現「實際販售商家未確認」，並將該筆排除出依獨立店家計算的參考價；即使有平台欄位也不能將彙整站偽裝成平台上的獨立賣家。
+
 ## 與真實價格感訓練的區別
 
 這次變更只負責**顯示規則、匯入資料規格與測試**，沒有自動呼叫 BigGo、飛比、LBJ，也沒有假稱已完成新的台灣商品價格權重訓練。大量 CSV/API 訓練仍需實際可取得的授權報價、SKU／規格對齊、不同商家去重、觀察時間與獨立測試；不得因取得網站名稱就假造一百萬筆商品記錄。

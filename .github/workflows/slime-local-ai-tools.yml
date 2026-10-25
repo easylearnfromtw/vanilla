@@ -7,6 +7,8 @@ on:
       - "services/slime/local_model_tools.py"
       - "services/slime/local_model_window.py"
       - "tests/test_slime_local_model_tools.py"
+      - "services/slime/training_evidence.py"
+      - "tests/test_slime_training_evidence.py"
       - ".github/workflows/slime-local-ai-tools.yml"
       - ".github/workflows/slime-desktop.yml"
   workflow_dispatch:
@@ -30,8 +32,9 @@ jobs:
       - name: Verify local Owner-only tool and QLoRA security gates without a GPU
         shell: bash
         run: |
-          python -m py_compile services/slime/local_model_tools.py services/slime/local_model_window.py services/slime/desktop.py
+          python -m py_compile services/slime/local_model_tools.py services/slime/local_model_window.py services/slime/desktop.py services/slime/training_evidence.py
           python -m unittest discover -s tests -p "test_slime_local_model_tools.py" -v
+          python -m unittest discover -s tests -p "test_slime_training_evidence.py" -v
       - name: Validate existing Owner / Friend Slime onboarding stays intact
         shell: bash
         run: |

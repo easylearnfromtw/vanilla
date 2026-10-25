@@ -2,6 +2,7 @@ import {useState,useEffect,useRef,lazy,Suspense} from "react";
 import type {OrchestraChart} from "./orchestra/cream-chart";
 import {orchestraComposePrompt,type OrchestraHandoff} from "./orchestra/ai-handoff";
 import {makeHumanizeRequest} from "./erya/humanize";
+import "./knowledge/toplinks.css";
 import LocalChat from "./local-ai/LocalChat";
 const KnowledgeSources=lazy(()=>import("./knowledge/KnowledgeSources"));
 // Eager load the small offline schedule panel with the app shell; no first-visit network required.

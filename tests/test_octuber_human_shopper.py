@@ -33,7 +33,7 @@ class HumanShoppingSandbox(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,"SECONDARY_RESEARCH"):
     load_prices(input,"published-range")
    rows,digest,count=load_prices(input,"published-range",research_secondary=True)
-   decisions,cats,examples=simulate(rows,episodes=20000,sample_limit=10,now=NOW)
+   decisions,cats,reference_checks,examples=simulate(rows,episodes=20000,sample_limit=10,now=NOW)
    self.assertEqual(count,2)
    self.assertEqual(decisions["total"],20000)
    self.assertEqual(decisions["seek-verified-offers"],20000)
@@ -52,7 +52,7 @@ class HumanShoppingSandbox(unittest.TestCase):
    rows,_,count=load_prices(input,"retail-offers",ack_authorized=True)
    self.assertEqual(len(rows),1)
    self.assertEqual(len(rows[0]["quotes"]),2)  # same seller re-listed via another aggregator
-   counts,_,example=simulate(rows,episodes=2000,sample_limit=100,now=NOW)
+   counts,_,reference_checks,example=simulate(rows,episodes=2000,sample_limit=100,now=NOW)
    self.assertEqual(counts["total"],2000)
    self.assertGreater(counts["would-buy"],0)
    buys=[x for x in example if x["decision"]=="would-buy"]
@@ -64,7 +64,7 @@ class HumanShoppingSandbox(unittest.TestCase):
    write(file,[offer("a","biggo","shopee",120,freight=""),
                offer("b","feebee","coupang",110,freight="")])
    rows,_,_=load_prices(file,"retail-offers",ack_authorized=True)
-   counts,_,preview=simulate(rows,episodes=10000,now=NOW)
+   counts,_,reference_checks,preview=simulate(rows,episodes=10000,now=NOW)
    self.assertEqual(counts["verify-more-stores"],10000)
    self.assertTrue(all(x["shop_choice"] is None for x in preview))
  def test_unlicensed_and_incomplete_quotes_are_rejected(self):
@@ -81,12 +81,30 @@ class HumanShoppingSandbox(unittest.TestCase):
    file=Path(tmp)/"prices.csv";write(file,[ref("Milk A")])
    rows,_,_=load_prices(file,"published-range",research_secondary=True)
    original=json.dumps(rows,sort_keys=True)
-   counts,_,sample=simulate(rows,episodes=100000,seed=33)
+   counts,_,reference_checks,sample=simulate(rows,episodes=100000,seed=33)
    self.assertEqual(counts["total"],100000)
    self.assertEqual(original,json.dumps(rows,sort_keys=True))
    self.assertEqual(len(sample),250)
    with self.assertRaisesRegex(ValueError,"EPISODE_LIMIT"):
     simulate(rows,episodes=1000001)
+
+ def test_actual_official_ndc_csv_is_a_reference_not_fake_shopee_offers(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   filename=Path(tmp)/"ndc.csv"
+   filename.write_text("日期,商品類別,商品名稱,最低價格,最高價格\n"
+     "2024-11-10,米,天生好米-300g,100,150\n"
+     "2024-11-10,米,天生好米-300g,100,150\n"
+     "2024-11-09,鮮乳,光泉鮮乳 936ml,92,115\n"
+     "2024-11-09,奶粉,無價產品,N/A,N/A\n",encoding="utf8")
+   records,_,raw=load_prices(filename,"ndc-official")
+   self.assertEqual(raw,4)
+   self.assertEqual(len(records),2)
+   self.assertFalse(records[0]["quotes"])
+   counts,_,ranges,samples=simulate(records,episodes=1200,now=NOW)
+   self.assertEqual(counts["seek-verified-offers"],1200)
+   self.assertEqual(sum(ranges.values()),1200)
+   self.assertTrue(all(x["shop_choice"] is None for x in samples))
+
  def test_cli_summary_distinguishes_behaviour_from_model_training(self):
   with tempfile.TemporaryDirectory() as tmp:
    file=Path(tmp)/"prices.csv";write(file,[ref("Milk A")])

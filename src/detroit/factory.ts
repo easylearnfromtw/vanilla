@@ -6,6 +6,9 @@ export type DetroitFactoryTool={
  status:"adapter"|"planned";enabledByDefault:boolean;description:string;
 };
 export const DETROIT_FACTORY_TOOLS:readonly DetroitFactoryTool[]=[
+ {id:"penteract-5d-shadow",label:"Penteract 5D · 阿土伯唯讀訓練沙盤",engine:"Atuber / Detroit Penteract",provider:"Vanilla local synthetic 5D projector",
+  status:"adapter",enabledByDefault:false,
+  description:"可手動載入經格式驗證的 1,000 萬步 5D 合成沙盤權重，只在阿土伯明確五維唯讀請求中比對影子候選。不是外部工具、不是 0.6B 微調，絕不授權正式工具或自動發送"},
  {id:"medusa",label:"Medusa",engine:"JENSEN HUANG / CREAM",provider:"Judge0",
   status:"adapter",enabledByDefault:false,
   description:"Judge0、Cloud Run 或內建 Medusa Lite（受限 Python 語法）；管理者白名單、逐次同意，預設停用"},

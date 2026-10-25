@@ -373,3 +373,12 @@ test("Gemini 3 Google 429 can recover from independent 2.5 Flash-Lite grounding 
   if(previousWindow===undefined)delete globalThis.window;else globalThis.window=previousWindow;
  }
 });
+
+test("霞海書院 conversational opening is routed to the independent academic page",()=>{
+ for(const text of ["開啟霞海書院","進入霞海書院","前往 霞海學術書院"]){
+  const route=routeMessage(text,ctx);
+  assert.deepEqual(route,{kind:"open",section:"xiahai"},text);
+ }
+ const chat=readFileSync(new URL("../src/local-ai/LocalChat.tsx",import.meta.url),"utf8");
+ assert.match(chat,/xiahai:"vanilla-open-xiahai"/);
+});

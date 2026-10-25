@@ -10,7 +10,7 @@ import {loadFeatures,type FeatureSpec} from "./builder/feature-schema";
 import {connectWorkspaceDrive,driveSession} from "./workspace/cloud-drive";
 import {chatSyncEnabled,initializeChatSync,stopChatSync} from "./vault/chat-sync";
 import {startNewConversation} from "./local-ai/chat-session";
-import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,SquarePen,Mail,Server} from "lucide-react";
+import {Code2,BarChart3,MessageCircle,Settings2,Menu,X,Table2,FolderOpen,Images,WandSparkles,Globe2,Puzzle,SquarePen,Mail,Server,BookOpen} from "lucide-react";
 
 // Heavy sections load on demand so the chat opens fast on iPhone.
 const CreamLongitudinal=lazy(()=>import("./cream/CreamLongitudinal"));
@@ -27,9 +27,10 @@ const OrchestraStudio=lazy(()=>import("./orchestra/OrchestraStudio"));
 const LunaStudio=lazy(()=>import("./luna/LunaStudio"));
 const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 const EmailStudio=lazy(()=>import("./email/EmailStudio"));
+const XiahaiAcademy=lazy(()=>import("./academy/XiahaiAcademy"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="xiahai"|"nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 // Only these five destinations are exposed in the sidebar and mobile tab bar.
 // The other modules remain available through contextual chat actions and Detroit tool routing.
@@ -42,6 +43,7 @@ const items:NavItem[]=[
 ];
 // Section metadata for contextual tool handoffs, not separate navigation entries.
 const tools:NavItem[]=[
+ {id:"xiahai",label:"霞海書院",icon:BookOpen,description:"OpenAlex／arXiv 論文來源與學術引用",tone:"ink"},
  {id:"projects",label:"PROJECT HUB",icon:Code2,description:"專案原始碼、API 與功能整合",tone:"yellow"},
  {id:"library",label:"對話圖片與資料",icon:Images,description:"聊天附件、圖片預覽、更新與刪除",tone:"yellow"},
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
@@ -59,7 +61,7 @@ export default function App(){
 // Legacy invitation deep links are redirected to a dedicated, lightweight
 // Slime pairing page. The fragment stays client-only; no login boot required.
 // Direct, read-only lab link for browser automation: /vanilla/?lab=5d.
-const [section,setSection]=useState<Section>(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("lab")==="5d"?"detroit":"chat");
+const [section,setSection]=useState<Section>(()=>{if(typeof window==="undefined")return "chat";const params=new URLSearchParams(window.location.search);return params.get("academy")==="xiahai"?"xiahai":params.get("lab")==="5d"?"detroit":"chat";});
 useEffect(()=>{
  const hash=window.location.hash;
  if(/^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)){
@@ -102,7 +104,7 @@ useEffect(()=>{
   setEditFeatureId(null);setSection("builder");setMenuOpen(false);
  };
  const handlers:Array<[string,(e:Event)=>void]>=[
-  ["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
+  ["vanilla-open-xiahai",go("xiahai")],["vanilla-open-sheet",openSheet],["vanilla-open-builder",openBuilder],
   ["vanilla-open-weiguo",go("weiguo")],
   ["vanilla-open-erya",(event:Event)=>{
    const body=(event as CustomEvent<{body?:string}>).detail?.body;
@@ -187,7 +189,8 @@ return <div className="shell">
 </header>
 {section==="chat"?<LocalChat key={chatKey} onNavigate={s=>navigate(s)}/>:
 <Suspense fallback={<Loading/>}>
-{section==="cream"?<div className="workspace-page"><CreamLongitudinal/></div>:
+{section==="xiahai"?<div className="workspace-page"><XiahaiAcademy/></div>:
+section==="cream"?<div className="workspace-page"><CreamLongitudinal/></div>:
 section==="projects"?<div className="workspace-page"><ProjectHub/></div>:
 section==="library"?<div className="workspace-page"><ConversationLibrary onFiles={()=>navigate("files")}/></div>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:

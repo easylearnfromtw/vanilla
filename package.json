@@ -40,6 +40,7 @@
     "test:octuber-native": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-native-local.test.mjs",
     "test:octuber-pricing": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-price-intelligence.test.mjs",
     "preflight:atuber": "node scripts/atuber-runtime-preflight.mjs",
+    "test:octuber-multisize": "node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-multisize-local.test.mjs && python3 -m unittest discover -s tests -p 'test_atuber_multisize.py'",
     "test:atuber-model": "python3 -m unittest discover -s tests -p 'test_atuber_independent_model.py' && python3 -m unittest discover -s tests -p 'test_taiwan_pragmatics_dataset.py'",
     "test:octuber-weights": "python3 -m unittest discover -s tests -p 'test_octuber_sumptuous_30b.py'",
     "test:hermes-firecrawl": "node --experimental-strip-types --test tests/hermes-firecrawl.test.mjs && python3 -m unittest discover -s tests -p 'test_octuber_knowledge_ingest.py'",

@@ -21,7 +21,7 @@ function stored():OllamaConfig{
   const raw=localStorage.getItem(KEY);
   if(!raw)return {endpoint:"",model:"",models:[]};
   const value=JSON.parse(raw) as Partial<OllamaConfig>;
-  return {endpoint:typeof value.endpoint==="string"?value.endpoint:"",model:typeof value.model==="string"?value.model:"",models:Array.isArray(value.models)?value.models.filter((m):m is string=>typeof m==="string").slice(0,4):[]};
+  return {endpoint:typeof value.endpoint==="string"?value.endpoint:"",model:typeof value.model==="string"?value.model:"",models:Array.isArray(value.models)?value.models.filter((m):m is string=>typeof m==="string").slice(0,10):[]};
  }catch{return {endpoint:"",model:"",models:[]};}
 }
 let config=stored();
@@ -43,7 +43,7 @@ export function setOllamaConfig(next:OllamaConfig,accessToken?:string){
  if(endpoint!==config.endpoint&&accessToken===undefined)token="";
  if(endpoint!==config.endpoint||(accessToken!==undefined&&accessToken.trim()!==token))verifiedLocalModels.clear();
  const names=[model,...(next.models||[])].filter(Boolean);
- config={endpoint,model,models:[...new Set(names)].slice(0,4)};
+ config={endpoint,model,models:[...new Set(names)].slice(0,10)};
  if(accessToken!==undefined)token=accessToken.trim();
  try{
   localStorage.setItem(KEY,JSON.stringify(config));

@@ -5,8 +5,8 @@
  * Never infer capacity from arbitrary user-supplied labels or substrings.
  */
 export const OCTUBER_LOCAL_BASES=[
- {tier:"mid-small",brand:"OCTUBER FLATTERING",models:["qwen3:4b"]},
- {tier:"mid-large",brand:"OCTUBER MODEST",models:["qwen3:14b"]},
+ {tier:"mid-small",brand:"OCTUBER FLATTERING",models:["qwen3:4b","qwen3:1.7b"]},
+ {tier:"mid-large",brand:"OCTUBER MODEST",models:["qwen3:14b","qwen3:8b"]},
  {tier:"large",brand:"OCTUBER SUMPTUOUS",models:["qwen3:30b","qwen3:30b-a3b","qwen3:30b-a3b-instruct-2507","qwen3-coder:30b"]},
  {tier:"ultra",brand:"OCTUBER SUMPTUOUS",models:["qwen3:32b"]}
 ] as const;
@@ -23,7 +23,7 @@ export function localOctuberBaseNames(tier:LocalBaseTier):readonly string[]{
 }
 export function recognizedLocalModelName(model:string):boolean{
  return Boolean(localOctuberBaseTier(model))||
- ["october:sm","october:ml","october:lg","octuber:flattering","octuber:modest","octuber:sumptuous","octuber:sumptuous-32b"].includes(model.trim().toLowerCase());
+ ["october:sm","october:ml","october:lg","octuber:flattering","octuber:modest","octuber:sumptuous","octuber:sumptuous-32b","octuber:compact-1.7b","octuber:balanced-8b"].includes(model.trim().toLowerCase());
 }
 export function installedTierModel(names:readonly string[],tier:LocalBaseTier,aliases:readonly string[]):string|null{
  const available=new Set(names.map(x=>x.trim().toLowerCase()));

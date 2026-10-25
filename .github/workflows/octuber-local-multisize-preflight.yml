@@ -1,0 +1,84 @@
+name: October Qwen3 seven-size local CPU preflight
+on:
+  pull_request:
+    branches: [main, feature/octuber-language-qlora-price-cream-detroit-20261025]
+    paths:
+      - "training/atuber/multisize_registry.py"
+      - "training/atuber/multisize_train.py"
+      - "training/atuber/actual_gpu_execution_gate.py"
+      - "tests/test_atuber_gpu_execution_gate.py"
+      - "src/ai/octuber-local-runtimes.ts"
+      - "src/ai/atuber-control-plane.ts"
+      - "src/ai/ollama.ts"
+      - "src/local-ai/LocalModelPanel.tsx"
+      - "scripts/atuber-runtime-preflight.mjs"
+      - "tests/test_atuber_multisize.py"
+      - "tests/octuber-multisize-local.test.mjs"
+      - "package.json"
+      - ".github/workflows/octuber-local-multisize-preflight.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-seven-sizes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate no implicit full-model weight downloads or unauthorized training
+        run: |
+          python -m py_compile training/atuber/multisize_registry.py training/atuber/multisize_train.py
+          python -m unittest discover -s tests -p 'test_atuber_multisize.py' -v
+          python -m unittest discover -s tests -p 'test_atuber_gpu_execution_gate.py' -v
+          python -m unittest discover -s tests -p 'test_atuber_price_tool_sft.py' -v
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          m=json.loads(Path("models/atuber/manifest.json").read_text())
+          assert m["release_state"]=="bootstrap-only"
+          assert m["standalone_weights"] is None
+          print("VALID_QWEN3_LOCAL_SIZES",7)
+          print("ACTUAL_QWEN_LORA_UPDATES",0)
+          print("ADAPTER_WEIGHTS_CREATED",0)
+          PY
+      - name: Execute real local-training readiness audit for all seven model sizes
+        run: |
+          mkdir -p artifacts/atuber-local-execution-audit
+          for size in 0.6b 1.7b 4b 8b 14b 30b 32b; do
+            python training/atuber/actual_gpu_execution_gate.py \
+              --model-size "$size" \
+              --output "artifacts/atuber-local-execution-audit/$size.json"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          reports=[json.loads(x.read_text()) for x in sorted(Path("artifacts/atuber-local-execution-audit").glob("*.json"))]
+          assert len(reports)==7
+          assert all(r["status"]=="blocked-untrained" for r in reports)
+          assert all(r["actual_qwen_optimizer_steps"]==0 for r in reports)
+          assert all(not r["new_lora_adapter_created"] for r in reports)
+          print("MODEL_SIZES_CHECKED",len(reports))
+          print("ACTUAL_QWEN_LORA_TRAINED",0)
+          print("DATA_AND_GPU_PREREQUISITES_MISSING",True)
+          PY
+      - name: Verify front-end local model probes, exact tag matching and hardware estimates
+        run: |
+          npm install --no-audit --no-fund
+          npm run test:octuber-multisize
+          npm run test:octuber-native
+          npm run test:atuber-preflight
+          npm run build
+      - name: Archive honest blocked execution receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-seven-models-execution-preflight-not-weights
+          retention-days: 14
+          if-no-files-found: warn
+          path: artifacts/atuber-local-execution-audit/*.json

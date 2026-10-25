@@ -34,6 +34,14 @@ export const OCTUBER_HIGH_CAPACITY={
  tier:"ultra",model:"octuber:sumptuous-32b",publicAlias:"octuber:sumptuous-32b",
  brand:"OCTUBER SUMPTUOUS",base:"qwen3:32b",label:"OCTUBER SUMPTUOUS · 32B Dense",approxDownloadGB:20
 } as const;
+/** Opt-in smaller intermediate compute profiles. No model is considered installed
+ * or fine-tuned merely because this list exists. */
+export const OCTUBER_ADDITIONAL_SIZES=[
+ {tier:"mid-small",model:"octuber:compact-1.7b",base:"qwen3:1.7b",
+  label:"OCTUBER FLATTERING · 1.7B",approxDownloadGB:1.4},
+ {tier:"mid-large",model:"octuber:balanced-8b",base:"qwen3:8b",
+  label:"OCTUBER MODEST · 8B",approxDownloadGB:5.2}
+] as const;
 export type AtuberTier="phone"|"mid-small"|"mid-large"|"large"|"ultra"|"custom";
 export function atuberTier(candidate:ModelCandidate):AtuberTier|null{
  if(candidate.source==="local")return candidate.model===ATUBER_LOCAL_MODEL?"phone":null;
@@ -46,6 +54,8 @@ export function atuberTier(candidate:ModelCandidate):AtuberTier|null{
  const found=ATUBER_TIERS.find(t=>t.model===model||t.publicAlias===model);
  if(found)return found.tier;
  if(model===OCTUBER_HIGH_CAPACITY.model)return "ultra";
+ const intermediate=OCTUBER_ADDITIONAL_SIZES.find(x=>x.model===model);
+ if(intermediate&&isOllamaModelVerified(candidate.model))return intermediate.tier;
  // Real locally installed Ollama model weights are valid drivers without an
  // owner-created model alias. The runtime list and inference proof are separate.
  const native=localOctuberBaseTier(model);

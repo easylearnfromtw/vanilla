@@ -266,14 +266,19 @@ def _execute(request):
     return {"ok":True,"text":content,"prompt_tokens":a,"completion_tokens":b}
 
 
-def _handle_power(server,token):
+def _handle_power(server,token,stop_event=None):
     if os.getenv("SLIME_ALLOW_POWER_OFF")!="1":
         return
     response=_http("POST",server+"/v1/slime/node/power/poll",authorization=token)
     if response.get("command")!="shutdown":
         return
     print("Owner 已核准關機。60 秒後關閉本機；按 Ctrl+C 可中止。",flush=True)
-    time.sleep(60)
+    if stop_event is not None:
+        if stop_event.wait(60):
+            print("使用者已停止共享；取消本次關機要求。")
+            return
+    else:
+        time.sleep(60)
     system=platform.system()
     try:
         if system=="Windows":
@@ -289,15 +294,31 @@ def _handle_power(server,token):
         print("系統拒絕關機；不提升權限也不繞過系統保護。")
 
 
-def run():
-    server=_server()
-    token=_token()
+def run(*, server=None, token=None, stop_event=None, allow_power_off=None):
+    """Run opt-in node service; an interactive dashboard may stop it cleanly."""
+    server=_server() if server is None else server
+    token=_token() if token is None else token
+    # Explicit settings always come from an already validated, local pairing.
+    if not isinstance(server,str) or not server.startswith("https://"):
+        raise ValueError("INVALID_SLIME_HTTPS_SERVER")
+    if not isinstance(token,str) or not 32<=len(token)<=256:
+        raise ValueError("INVALID_SLIME_DEVICE_TOKEN")
+    can_power=(os.getenv("SLIME_ALLOW_POWER_OFF")=="1" if allow_power_off is None
+               else allow_power_off is True)
+    def pause(seconds):
+        if stop_event is None:
+            time.sleep(seconds)
+            return False
+        return stop_event.wait(seconds)
     print("Slime Model Runner started (outbound HTTPS + local Ollama only).")
     last_register=0
     last_model_scan=0
     # Spread cache checks across the fleet to avoid reconnect bursts.
     gecko_next=time.monotonic()+secrets.randbelow(900) if os.getenv("GECKO_FLEET_NODE")=="true" else None
     while True:
+        if stop_event is not None and stop_event.is_set():
+            print("Slime 已停止共享（本機請求）。")
+            return
         try:
             # Heartbeats and model capabilities are always self-reported; Server
             # Owner policy must grant inference separately.
@@ -307,13 +328,15 @@ def run():
                 from gecko_update import sync_best_effort
                 threading.Thread(target=sync_best_effort,args=(server,token),
                                  daemon=True,name="GeckoReleasePrefetch").start()
-            if os.getenv("SLIME_ALLOW_POWER_OFF")=="1":
-                _handle_power(server,token)
+            if can_power:
+                _handle_power(server,token,stop_event)
+                if stop_event is not None and stop_event.is_set():
+                    return
             if not state.get("owner_enabled") or not state.get("inference_enabled"):
                 if last_register:
                     print("Slime 推論權限已關閉；仍可回報節點心跳。")
                 last_register=0
-                time.sleep(20)
+                if pause(20): return
                 continue
             now=time.monotonic()
             if now-last_register>=50:
@@ -322,7 +345,7 @@ def run():
                 except (HTTPError,URLError,TimeoutError,OSError,ValueError,TypeError):
                     print("Ollama 本地模型尚未就緒；30 秒後重試，不影響 Slime 心跳。")
                     last_register=0
-                    time.sleep(30)
+                    if pause(30): return
                     continue
                 if not models:
                     print("Ollama 沒有已下載的模型；30 秒後重試，不輪詢遠端任務。")
@@ -335,10 +358,12 @@ def run():
                     print("已偵測本機 Ollama 模型數："+str(len(models)))
                     last_model_scan=now
             for _ in range(20):
+                if stop_event is not None and stop_event.is_set():
+                    return
                 polled=_http("GET",server+"/v1/slime/node/runner/poll",authorization=token)
                 job=polled.get("job")
                 if not job:
-                    time.sleep(3)
+                    if pause(3): return
                     continue
                 payload={"job_id":job["id"],"ok":False}
                 try:
@@ -350,14 +375,14 @@ def run():
                 # Duty-cycle moderation, not GPU power-limit control.
                 duty=max(10,min(100,int(state.get("max_load_pct",100))))
                 delay=round((100-duty)*0.3,1)
-                if delay:time.sleep(delay)
+                if delay and pause(delay): return
                 # A single local runner executes one job at a time by design.
         except KeyboardInterrupt:
             print("Runner stopped.")
             return
         except (ValueError,TypeError,KeyError,HTTPError,URLError,TimeoutError):
             print("Slime connection/consent unavailable; retrying without printing credentials.")
-            time.sleep(5)
+            if pause(5): return
 
 
 if __name__=="__main__":

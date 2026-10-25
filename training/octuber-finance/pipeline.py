@@ -197,25 +197,22 @@ def monthly_samples(market, records, provenance):
     month_ends = {}
     for rec in records:
         month_ends[(rec["date"].year, rec["date"].month)] = rec
+    months = sorted(month_ends)
     results = []
-    previous_month_close = None
-    previous_month_key = None
-    for month_key, rec in sorted(month_ends.items()):
-        # A calendar-month return requires a price from the adjacent prior
-        # month. Missing months are data gaps, not a made-up monthly return.
-        adjacent = previous_month_key is not None and (
-            month_key[0] * 12 + month_key[1] - previous_month_key[0] * 12 - previous_month_key[1] == 1
-        )
-        month_return = (100 * (rec["close"] / previous_month_close - 1)
-                        if adjacent and previous_month_close is not None else None)
-        previous_month_close, previous_month_key = rec["close"], month_key
-        if month_return is None:
+    for index in range(1, len(months)):
+        year, month = months[index]
+        prior_year, prior_month = months[index - 1]
+        if year * 12 + month - (prior_year * 12 + prior_month) != 1:
+            continue   # missing full month: never fabricate a month-on-month return
+        rec, prev = month_ends[months[index]], month_ends[months[index - 1]]
+        if rec["ret"] is None:
             continue
         day = rec["date"]
+        monthly = 100 * (rec["close"] / prev["close"] - 1)
         user = (f"截至 {day} 收盤，分析 {market['exchange']} 的"
                 f"{market['representative_index']}；只根據當時已知行情判讀風險，不預測未來股價。")
         answer = (f"截至 {day}，指數收盤 {rec['close']:.4f}（原始指數點數）。"
-                  f"相較前一個月末交易日報酬 {fmt(month_return)}；"
+                  f"相較前一個月末交易日報酬 {fmt(monthly)}；"
                   f"當日相較前一個交易日報酬 {fmt(rec['ret'])}；"
                   f"過去約20交易日年化波動率 {fmt(rec['vol20'])}；"
                   f"相對近252筆觀測高點回撤 {fmt(rec['drawdown'])}。"
@@ -229,25 +226,22 @@ def monthly_samples(market, records, provenance):
     return results
 
 def first_reaction(market, records, event, provenance):
-    # Without an authoritative exchange session calendar, never guess closing
-    # times or decide an intraday headline was known before a particular close.
-    # Select the FIRST full local market day strictly AFTER publication date.
-    published_local = event["_utc"].astimezone(ZoneInfo(market["tz"])).date()
-    if not START <= published_local <= END:
-        return None
+    # Use first complete local-day session strictly AFTER the publication day.
+    # This conservative attribution avoids treating intraday price formation as
+    # a full-day event response. Pre-open articles may be aligned a day late.
+    published = event["_utc"]
+    zone = ZoneInfo(market["tz"])
+    first_eligible_day = published.astimezone(zone).date()
     for idx, rec in enumerate(records):
-        if rec["date"] <= published_local:
+        if rec["date"] <= first_eligible_day:
             continue
         if rec["ret"] is None or idx + 5 >= len(records):
             return None
-        # Do not associate old headlines with arbitrarily distant sessions.
-        if (rec["date"] - published_local).days > 8:
+        if (rec["date"] - first_eligible_day).days > 8:
             return None
         horizon = records[idx+5]
-        # Chronological time split applies to publication, first informed day
-        # AND last outcome day. Never allow split-boundary event leakage.
-        if len({split_for(published_local), split_for(rec["date"]),
-                split_for(horizon["date"])}) != 1:
+        # An event near a split boundary cannot use a future split label.
+        if split_for(rec["date"]) != split_for(horizon["date"]):
             return None
         return rec, horizon
     return None

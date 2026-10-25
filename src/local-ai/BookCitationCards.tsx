@@ -1,3 +1,4 @@
+import "./book-citations.css";
 import {useState} from "react";
 
 export type AtuberBookResult={

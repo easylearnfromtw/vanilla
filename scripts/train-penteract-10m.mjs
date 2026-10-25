@@ -36,8 +36,8 @@ function sample(index,evalMode=false){
  const a=pool[(n*3+label)%8],b=pool[(n*5+2)%8];
  const c=pool[(n*7+4)%8];
  const text=evalMode
-  ?\`請針對\${a}和\${c}進行具體說明，提供這項\${b}需求的注意事項，驗證序號 H\${n}。\`
-  :\`我需要\${a}和\${b}的協助，請以\${c}的角度整理問題；範例 T\${n}。\`;
+  ? "請針對"+a+"和"+c+"進行具體說明，提供這項"+b+"需求的注意事項，驗證序號 H"+n+"。"
+  : "我需要"+a+"和"+b+"的協助，請以"+c+"的角度整理問題；範例 T"+n+"。";
  return {text,label};
 }
 function sparse(text){

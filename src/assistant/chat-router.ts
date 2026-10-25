@@ -28,6 +28,7 @@ export const BUILD_REQUEST=/^(?:新增功能|製作功能|建立功能|功能需
 const CONVERSATIONAL_BUILD=/^(?:(?:我想|我要|幫我|幫Vanilla|請|讓Vanilla).{0,25})?(?:新增|建立|製作|做一個|設計一個).{2,150}(?:功能|模組|小工具|工具)$/i;
 const END="[！!。.?？\\s]*$";
 const OPEN:Array<{section:OpenSection;re:RegExp}>=[
+ {section:"xiahai",re:/^(?:開啟|打開|查看|前往|進入)\s*(?:霞海書院|霞海學術書院)(?:[！!。.?？\s]*)$/i},
  {section:"weiguo",re:new RegExp("^(?:開啟|打開|查看|前往)\\s*(?:衞國|衛國|Weiguo)(?:\\s*系統)?"+END,"i")},
  {section:"orchestra",re:new RegExp("^(?:(?:開啟|打開|查看|前往)\\s*(?:Vanilla\\s*)?)?(?:Orchestra(?:\\s*Studio)?|跨格式製作工作室|管弦工作室)"+END,"i")},
  {section:"email",re:new RegExp("^(?:(?:開啟|打開|查看|前往)\\s*(?:Vanilla\\s*)?)?(?:Janus|Email\\s*Studio|郵件工作室|郵件編輯器|電子郵件設計)"+END,"i")},
@@ -38,7 +39,7 @@ const OPEN:Array<{section:OpenSection;re:RegExp}>=[
  {section:"builder",re:new RegExp("^(?:開啟|打開|前往)\\s*(?:Vanilla\\s*)?(?:Self[- ]?Build|自建功能|功能工作室)(?:Studio)?"+END,"i")},
  {section:"library",re:new RegExp("^(?:開啟|打開|前往|查看)\\s*(?:對話圖片與資料|附件庫|我的附件)"+END,"i")}
 ];
-export type OpenSection="orchestra"|"email"|"weiguo"|"cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
+export type OpenSection="xiahai"|"orchestra"|"email"|"weiguo"|"cream"|"projects"|"sheets"|"files"|"builder"|"library"|"settings";
 
 export type ChatRoute=
  |{kind:"diana";request:string;forcedTool:DianaTarget|null}

@@ -23,7 +23,7 @@ const PLATFORM_ALIASES:Record<string,Marketplace>={
  shopee:"shopee","蝦皮":"shopee","蝦皮購物":"shopee",
  coupang:"coupang","酷澎":"coupang",
  momo:"momo","momo購物":"momo","momo購物網":"momo",
- pchome:"pchome","pchome24h":"pchome","pchome24h購物":"pchome","pchome":"pchome",
+ pchome:"pchome","pchome24h":"pchome","pchome24h購物":"pchome" ,
  yahoo:"yahoo","yahoo購物":"yahoo","yahoo購物中心":"yahoo",
  rakuten:"rakuten","樂天市場":"rakuten"
 };

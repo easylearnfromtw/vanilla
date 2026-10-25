@@ -389,6 +389,13 @@ def main():
                     print("桌面介面無法啟動，請確認系統有圖形桌面與 Tk 支援。",file=sys.stderr)
                     return 2
                 print("圖形介面暫不可用，切換到原有文字操作模式。")
+            except Exception:
+                # Some Linux/macOS installations lack a graphical display;
+                # do not dump traceback paths or invitation details.
+                if "--dashboard" in flags or not sys.stdin.isatty():
+                    print("未偵測到可用的桌面顯示環境；可在終端機執行 --setup。",file=sys.stderr)
+                    return 2
+                print("桌面圖形環境無法使用，切換到原有文字操作模式。")
         config=_load()
         if "--reward" in flags and not config:
             print("請先完成 Slime 節點配對，才能領取 Google 獎勵。")

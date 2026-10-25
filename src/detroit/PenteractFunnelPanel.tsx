@@ -5,6 +5,7 @@ import {cameraProject3D,DEFAULT_ORBIT_CAMERA,type OrbitCamera} from "./penteract
 import {sectionPenteract5D,type FiveSlice} from "./penteract-section";
 import {shadowPenteractRoute} from "./penteract-shadow";
 import {routeLearnedFive,assertLearnedFiveWeights,type LearnedFiveWeights} from "./penteract-learned";
+import {activateAtuberFiveDSandbox,clearAtuberFiveDSandbox,atuberFiveDSandboxActive} from "./atuber-5d-sandbox-bridge";
 import {latestOctoberFunnelObservation,subscribeOctoberFunnelObservation} from "./penteract-telemetry";
 import "./penteract-5d.css";
 
@@ -20,6 +21,7 @@ export default function PenteractFunnelPanel(){
  const [showSlice,setShowSlice]=useState(false);
  const [learnedArtifact,setLearnedArtifact]=useState<LearnedFiveWeights|null>(null);
  const [learnedError,setLearnedError]=useState("");
+ const [atuberBridgeEnabled,setAtuberBridgeEnabled]=useState(false);
  const [slice,setSlice]=useState<FiveSlice>({w:0,v:0});
  const [orbit,setOrbit]=useState<OrbitCamera>({...DEFAULT_ORBIT_CAMERA});
  const [measured,setMeasured]=useState(latestOctoberFunnelObservation);
@@ -126,7 +128,7 @@ export default function PenteractFunnelPanel(){
    </div>
    <section className="october-5d-learned" aria-label="可訓練五維投影器的本機影子模式">
     <h3>03 · 可訓練五維投影器 <small>本機載入權重 / 不執行工具</small></h3>
-    <p>可從 GitHub Actions 下載「october-penteract-learned-cpu-v0.1」中的權重 JSON，再於此頁本機載入。僅顯示比較結果，不會切換正式路由、傳送檔案或開啟新模型。</p>
+    <p>可從 GitHub Actions 下載最新「OCTUBER 5D · 10M」沙盤產生的權重 JSON，再於此頁本機載入。僅顯示比較結果，不會切換正式路由、傳送檔案或開啟新模型。</p>
     <label className="october-5d-file">讀取 CPU 訓練權重（JSON，不超過 180 KB）
      <input aria-label="Upload local five-dimensional projector weights" type="file" accept=".json,application/json" onChange={async e=>{
       const selected=e.currentTarget.files?.[0];
@@ -144,6 +146,16 @@ export default function PenteractFunnelPanel(){
      }}/>
     </label>
     {learnedError&&<p role="alert">{learnedError}</p>}
+    {learnedArtifact&&<div className="october-5d-controls">
+     <button type="button" onClick={()=>{
+      if(atuberBridgeEnabled||atuberFiveDSandboxActive()){
+       clearAtuberFiveDSandbox();setAtuberBridgeEnabled(false);
+      }else{
+       activateAtuberFiveDSandbox(learnedArtifact);setAtuberBridgeEnabled(true);
+      }
+     }}>{atuberBridgeEnabled?"停止串聯阿土伯五維影子建議":"啟用阿土伯 × Detroit 唯讀影子串聯（本頁工作階段）"}</button>
+     <small>只在你明確輸入「阿土伯：五維分析 ...」時比對；不會修改主模型、授權工具或保存聊天內容。重新整理網頁即清除。</small>
+    </div>}
     {learnedPreview?<div className="october-5d-learning-grid">
      <div><strong>{learnedPreview.status==="candidate"?learnedPreview.candidateId:"選擇棄權"}</strong><small>實際訓練 5D 投影 · 影子候選</small></div>
      <div><strong>{shadow.status==="candidate"?shadow.candidateId:"選擇棄權"}</strong><small>原有幾何啟發式 · 基準</small></div>

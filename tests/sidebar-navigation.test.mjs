@@ -44,7 +44,10 @@ test("霞海書院 has its own deep link and content pane without expanding five
  assert.match(app,/vanilla-open-xiahai/);
  assert.match(academy,/霞海書院/);
  assert.match(academy,/searchOpenAlexWorks/);
- assert.match(academy,/引自霞海書院（學術文獻索引）/);
+ const evidenceCard=readFileSync(new URL("../src/academy/EvidenceCard.tsx",import.meta.url),"utf8");
+ assert.match(academy,/EvidenceCard/);
+ assert.match(evidenceCard,/引自霞海書院 VANILLA Evidence/);
+ assert.match(evidenceCard,/paper\.evidence\.id/);
  assert.match(academy,/不代表下載或閱讀論文全文/);
  assert.match(academy,/引用權重/);
  assert.match(academy,/arxiv.org\/search/);

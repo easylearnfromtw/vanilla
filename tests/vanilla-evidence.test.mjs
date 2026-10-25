@@ -29,7 +29,7 @@ test("Verified same-author research identity changes only bounded scores",()=>{
 test("Author profile URLs use disambiguated sources; no fabricated Wikipedia page",()=>{
  const x=normalizeAuthor({id:"https://openalex.org/A1234",display_name:"Example Scholar",orcid:"https://orcid.org/0000-0000-0000-000X"});
  assert.equal(x?.id,"https://openalex.org/A1234");
- const urls=authorReferenceLinks(x!);
+ const urls=authorReferenceLinks(x);
  assert.match(urls.wikipedia,/index\.php\?search=/);
  assert.match(urls.news,/news\.google\.com\/search/);
  assert.equal(urls.personal,urls.orcid);

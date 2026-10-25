@@ -3,6 +3,7 @@ import type {OrchestraChart} from "./orchestra/cream-chart";
 import {orchestraComposePrompt,type OrchestraHandoff} from "./orchestra/ai-handoff";
 import {makeHumanizeRequest} from "./erya/humanize";
 import LocalChat from "./local-ai/LocalChat";
+const KnowledgeSources=lazy(()=>import("./knowledge/KnowledgeSources"));
 // Eager load the small offline schedule panel with the app shell; no first-visit network required.
 import NotionSchedulePanel from "./notion/NotionSchedulePanel";
 import TabBar from "./ui/TabBar";
@@ -29,7 +30,7 @@ const WeiGuoConsole=lazy(()=>import("./weiguo/WeiGuoConsole"));
 const EmailStudio=lazy(()=>import("./email/EmailStudio"));
 
 const BASE=import.meta.env.BASE_URL;
-type Section="nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
+type Section="liuan"|"xiahai"|"nodes"|"luna"|"email"|"orchestra"|"weiguo"|"detroit"|"chat"|"cream"|"projects"|"library"|"sheets"|"files"|"builder"|"feature"|"settings";
 type NavItem={id:Section;label:string;icon:typeof MessageCircle;description:string;tone:"blue"|"red"|"yellow"|"ink"};
 // Only these five destinations are exposed in the sidebar and mobile tab bar.
 // The other modules remain available through contextual chat actions and Detroit tool routing.
@@ -42,6 +43,8 @@ const items:NavItem[]=[
 ];
 // Section metadata for contextual tool handoffs, not separate navigation entries.
 const tools:NavItem[]=[
+ {id:"liuan",label:"柳岸書城",icon:Images,description:"書籍索引、原始出處與全文權利狀態",tone:"ink"},
+ {id:"xiahai",label:"霞海書院",icon:Globe2,description:"論文索引、DOI 與學術證據來源",tone:"blue"},
  {id:"projects",label:"PROJECT HUB",icon:Code2,description:"專案原始碼、API 與功能整合",tone:"yellow"},
  {id:"library",label:"對話圖片與資料",icon:Images,description:"聊天附件、圖片預覽、更新與刪除",tone:"yellow"},
  {id:"weiguo",label:"衞國系統",icon:Globe2,description:"瀏覽器自動化與自訂外部工具整合",tone:"blue"},
@@ -59,7 +62,22 @@ export default function App(){
 // Legacy invitation deep links are redirected to a dedicated, lightweight
 // Slime pairing page. The fragment stays client-only; no login boot required.
 // Direct, read-only lab link for browser automation: /vanilla/?lab=5d.
-const [section,setSection]=useState<Section>(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("lab")==="5d"?"detroit":"chat");
+const [section,setSection]=useState<Section>(()=>{
+  if(typeof window==="undefined")return "chat";
+  const params=new URLSearchParams(window.location.search);
+  const archive=params.get("archive");
+  if(archive==="liuan"||archive==="xiahai")return archive;
+  return params.get("lab")==="5d"?"detroit":"chat";
+ });
+ useEffect(()=>{
+  const onBack=()=>{
+   const archive=new URLSearchParams(window.location.search).get("archive");
+   if(archive==="liuan"||archive==="xiahai")setSection(archive);
+   else setSection("chat");
+  };
+  window.addEventListener("popstate",onBack);
+  return()=>window.removeEventListener("popstate",onBack);
+ },[]);
 useEffect(()=>{
  const hash=window.location.hash;
  if(/^#slime=(?:[A-Za-z0-9_-]{24,160}|[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){2})$/.test(hash)){
@@ -153,6 +171,12 @@ function navigate(next:Section){
   window.location.assign(BASE+"slime/");
   return;
  }
+ if(next==="liuan"||next==="xiahai"||section==="liuan"||section==="xiahai"){
+  const url=new URL(window.location.href);
+  if(next==="liuan"||next==="xiahai")url.searchParams.set("archive",next);
+  else url.searchParams.delete("archive");
+  window.history.pushState(null,"",url.toString());
+ }
  setSection(next);setMenuOpen(false);
 }
 async function newChat(){
@@ -181,13 +205,18 @@ return <div className="shell">
 <header className="topbar">
 <div className="topbar-leading"><button className="menu-toggle" aria-label="開啟選單" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="topbar-title">{section==="chat"?<span className="topbar-wordmark">VANILLA AI</span>:selected.label}</div></div>
 <div className="topbar-trailing">
+ <div className="knowledge-toplinks" aria-label="知識來源頁面">
+  <button type="button" onClick={()=>navigate("liuan")} title="柳岸書城｜書籍來源索引">柳岸書城</button>
+  <button type="button" onClick={()=>navigate("xiahai")} title="霞海書院｜學術論文來源索引">霞海書院</button>
+ </div>
  {section==="chat"&&<button type="button" className="topbar-icon" aria-label="新對話" title="新對話" onClick={()=>void newChat()}><SquarePen size={19}/></button>}
  <div className="topbar-account">{signedIn?<button type="button" className="account-avatar" title={"登入帳號："+signedIn.email} aria-label={"帳號 "+signedIn.email} onClick={()=>navigate("settings")}>{initial}</button>:<button type="button" disabled={loginBusy} onClick={()=>void connectAccount()} className="google-login">{loginBusy?"連線中…":"Google 登入"}</button>}{loginNotice&&<span className="sr-only" role="status">{loginNotice}</span>}</div>
 </div>
 </header>
 {section==="chat"?<LocalChat key={chatKey} onNavigate={s=>navigate(s)}/>:
 <Suspense fallback={<Loading/>}>
-{section==="cream"?<div className="workspace-page"><CreamLongitudinal/></div>:
+{section==="liuan"||section==="xiahai"?<KnowledgeSources mode={section==="liuan"?"book":"paper"} onNavigate={where=>navigate(where==="book"?"liuan":"xiahai")}/>:
+section==="cream"?<div className="workspace-page"><CreamLongitudinal/></div>:
 section==="projects"?<div className="workspace-page"><ProjectHub/></div>:
 section==="library"?<div className="workspace-page"><ConversationLibrary onFiles={()=>navigate("files")}/></div>:
 section==="sheets"?<div className="workspace-page"><Sheets/></div>:

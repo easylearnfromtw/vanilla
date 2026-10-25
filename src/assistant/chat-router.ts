@@ -138,6 +138,7 @@ export const SLASH_COMMANDS:SlashCommand[]=[
  {cmd:"/Janus",label:"Janus · Detroit 郵件工具",hint:"本機產製 HTML／JSON、選用拖曳編輯",example:"/Janus",tone:"yellow"},
  {cmd:"/郵件",label:"Janus 郵件設計",hint:"相容舊版 Email Studio 指令",example:"/郵件",tone:"yellow"},
  {cmd:"/衞國",label:"衞國瀏覽器工具",hint:"管理 Playwright 與自訂工具",example:"/衞國",tone:"blue"},
+ {cmd:"/音樂",label:"CITYMUS 音樂搜尋",hint:"從真實授權曲庫找歌曲、歌手及推薦",example:"/音樂 推薦適合讀書的爵士樂",tone:"blue"},
  {cmd:"/搜尋",label:"網路搜尋",hint:"查資料、讀前幾篇並附來源",example:"/搜尋 2026 健保部分負擔",tone:"blue"},
  {cmd:"/讀",label:"讀取檔案或網址",hint:"已保存的檔案名稱，或貼上網址",example:"/讀 報告.pdf",tone:"blue"},
  {cmd:"/記住",label:"存進雲端記憶",hint:"需要 Google 登入",example:"/記住 週三晚上游泳課",tone:"yellow"},
@@ -178,6 +179,7 @@ export function expandSlashCommand(input:string):SlashResult|null{
   case "Janus":case "janus":case "郵件":case "email":return {text:"開啟 Janus"};
   case "潤稿":case "humanize":return arg?{text:makeHumanizeRequest(arg)}:missing("潤稿","/潤稿 請修改這段文章");
   case "衞國":case "衛國":return {text:"開啟 衞國系統"};
+  case "音樂":case "歌曲":case "music":case "citymus":return {text:arg?("CITYMUS 搜尋音樂："+arg):"推薦音樂"};
   case "搜尋":case "search":return arg.length>=2?{text:"搜尋："+arg}:missing("搜尋","/搜尋 2027 PGY 招募");
   case "讀":case "讀取":case "read":
    if(!arg)return missing("讀","/讀 report.pdf");

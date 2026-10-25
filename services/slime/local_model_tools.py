@@ -129,12 +129,15 @@ def _python_executable() -> str:
 
 
 def audit_training(repo: str | Path, data: str | Path, size: str,
-                   revision: str, *, python_exe: str | None = None) -> dict:
+                   revision: str, *, python_exe: str | None = None,
+                   allow_download: bool = False) -> dict:
     """Run existing QLoRA preflight locally. No training or downloads."""
     root, dataset, _, gate = _trainer_paths(repo, data, size, revision)
     python = python_exe or _python_executable()
     cmd = [python, str(gate), "--model-size", size,
            "--dataset", str(dataset), "--base-revision", revision]
+    if allow_download:
+        cmd.append("--allow-download")
     result = subprocess.run(cmd, cwd=str(root), capture_output=True,
                             text=True, encoding="utf8", errors="replace", timeout=60,
                             check=False)
@@ -161,7 +164,8 @@ def launch_owner_training(repo: str | Path, data: str | Path, size: str,
         raise PermissionError("SLIME_LOCAL_OWNER_EXPLICIT_CONFIRMATION_REQUIRED")
     root, dataset, trainer, _ = _trainer_paths(repo, data, size, revision)
     python = python_exe or _python_executable()
-    check = audit_training(root, dataset, size, revision, python_exe=python)
+    check = audit_training(root, dataset, size, revision,
+                           python_exe=python, allow_download=allow_download)
     if check["status"] != "preflight-eligible-untrained":
         raise RuntimeError("SLIME_TRAINING_BLOCKED_BY_GPU_DATA_OR_WEIGHT_GATE")
     base = (Path(output_root) if output_root is not None

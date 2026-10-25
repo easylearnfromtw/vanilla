@@ -1,0 +1,124 @@
+name: October simulated human shopping with public Taiwan price facts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "training/atuber/human_shopper_sim.py"
+      - "tests/test_octuber_human_shopper.py"
+      - "training/atuber/human_shopper_policy_net.py"
+      - "tests/test_octuber_human_shopper_policy.py"
+      - "src/pricing/octuber-cream-detroit.ts"
+      - "src/pricing/PriceIntelligencePanel.tsx"
+      - "tests/octuber-price-detroit-cream.test.mjs"
+      - "scripts/octuber-price-detroit-million.mjs"
+      - ".github/workflows/octuber-human-shopper-prices.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-price-synthetic-shopper-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Prepare native Detroit and CREAM TypeScript test runtime
+        run: npm install --no-audit --no-fund
+      - name: Verify real Detroit -> CREAM price tool handoff and million intent checks
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs --test tests/octuber-price-detroit-cream.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs scripts/octuber-price-detroit-million.mjs
+      - name: Verify simulator and authorization gates (synthetic fixtures are never market quotations)
+        run: |
+          python -m py_compile training/atuber/human_shopper_sim.py
+          python -m unittest discover -s tests -p 'test_octuber_human_shopper.py' -v
+      - name: Obtain official first-party Taiwanese public historical price ranges
+        run: |
+          curl --fail --show-error --location --retry 2 --connect-timeout 20 --max-time 180 \
+            "https://ws.ndc.gov.tw/001/administrator/10/relfile/0/9862/17300d07-7b9f-4c88-a1ab-0e406342def4.csv" \
+            --output /tmp/official-ndc-retail.csv
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          f=Path("/tmp/official-ndc-retail.csv")
+          assert 10000 < f.stat().st_size < 100_000_000
+          assert f.open("rb").read(70).startswith("日期,商品類別,商品名稱,最低價格,最高價格".encode())
+          print("OFFICIAL_NDC_CSV_BYTES",f.stat().st_size)
+          print("OFFICIAL_NDC_CSV_SHA256",hashlib.sha256(f.read_bytes()).hexdigest())
+          PY
+      - name: Run 1 million distinct simulated shopping journeys on historical TWD facts
+        run: |
+          python training/atuber/human_shopper_sim.py \
+            --input /tmp/official-ndc-retail.csv \
+            --mode ndc-official \
+            --episodes 1000000 \
+            --output artifacts/octuber-human-shopper
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          summary=json.loads(Path("artifacts/octuber-human-shopper/summary.json").read_text())
+          assert summary["episodes"]==1_000_000
+          assert summary["observed_source_rows"]>300_000
+          assert summary["distinct_seed_products"]>300
+          assert summary["counts"]["total"]==1_000_000
+          assert summary["counts"]["seek-verified-offers"]==1_000_000
+          assert summary["model_optimizer_steps"]==0
+          assert summary["live_web_access_calls"]==0
+          assert summary["decisions_are_not_real_orders"] is True
+          assert summary["prices_do_not_identify_shopee_or_coupang"] is True
+          assert summary["latest_observed_price_date"]<"2026-10-01"
+          print("PROVEN_TRUE_HISTORICAL_PRICE_SOURCE_ROWS",summary["observed_source_rows"])
+          print("PROVEN_DIFFERENT_PRODUCTS",summary["distinct_seed_products"])
+          print("SIMULATED_BUYER_JOURNEYS",summary["episodes"])
+          print("REAL_RETAILER_PRICE_ROWS",0)
+          print("REAL_LLM_GRADIENT_UPDATES",0)
+          PY
+      - name: Train a separate neural shopping-range policy with REAL NDC bounds and SYNTHETIC buyer preferences
+        run: |
+          python -m pip install --disable-pip-version-check --no-input "numpy>=1.26,<3"
+          python -m unittest discover -s tests -p "test_octuber_human_shopper_policy.py" -v
+          python training/atuber/human_shopper_policy_net.py \
+            --input /tmp/official-ndc-retail.csv \
+            --output artifacts/octuber-human-shopper-policy \
+            --train-cases 50000 \
+            --validation-cases 12000 \
+            --steps 1000
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("artifacts/octuber-human-shopper-policy/policy-training-report.json").read_text())
+          assert r["actual_optimizer_steps"]==1000
+          assert r["weight_change_l2"]>0
+          assert r["accuracy_target"]==0.92
+          assert r["accuracy_gate_passed"] is True, "92% range-classification holdout gate not passed"
+          assert r["range_decision_true_heldout_accuracy"]>=0.92
+          assert r["test_examples_from_unseen_product_names"]>=1000
+          assert r["deterministic_rule_baseline_accuracy"]>=0.999
+          assert r["production_price_forecasting_92pct_proven"] is False
+          assert r["source_distinct_products"]>300
+          assert r["holdout_not_used_for_training_or_checkpoint_selection"] is True
+          assert r["qwen_gradient_updates"]==0
+          assert r["genuine_human_labels"]==0
+          assert r["actual_biggo_feebee_lbj_training_quotes"]==0
+          assert not r["merchant_purchase_recommendation_enabled"]
+          print("REAL_NEURAL_POLICY_UPDATES",r["actual_optimizer_steps"])
+          print("HISTORICAL_RANGE_HELDOUT_ACCURACY",r["range_decision_true_heldout_accuracy"])
+          PY
+      - name: Upload small redacted behavioral receipts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octuber-human-shopper-1m-ndc-history
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/octuber-human-shopper/summary.json
+            artifacts/octuber-human-shopper/sample-human-trajectories.jsonl
+            artifacts/octuber-human-shopper-policy/policy-training-report.json
+            artifacts/octuber-human-shopper-policy/historical-shopper-range-policy.npz
+            artifacts/octuber-cream-detroit-routing-audit.json

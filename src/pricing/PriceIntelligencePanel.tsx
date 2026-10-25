@@ -1,10 +1,11 @@
 import {useMemo,useState} from "react";
 import "./price-intelligence.css";
 import {ArrowUpRight,BarChart3,Download,RefreshCw,ShieldCheck} from "lucide-react";
-import {comparePrices,parsePriceRecords,priceProductKey,priceSearchSources,type PriceRecord} from "./price-engine";
+import {comparePrices,parsePriceRecords,priceProductKey,priceSearchSources,priceSellerLabel,type PriceRecord} from "./price-engine";
+import {executeOctuberPriceCream,type OctuberCreamPriceReceipt} from "./octuber-cream-detroit";
 
 const KEY="vanilla.octuber.prices.v1";
-const EXAMPLE="product,sku,merchant,source,price,observed_at\n藍牙耳機 ABC,ABC-001,商家甲,biggo,1590,2026-10-24T10:00:00+08:00\n藍牙耳機 ABC,ABC-001,商家乙,feebee,1690,2026-10-24T10:10:00+08:00";
+const EXAMPLE="product,sku,merchant,marketplace,source,price,observed_at\n藍牙耳機 ABC,ABC-001,示範賣家甲,shopee,biggo,1590,2026-10-24T10:00:00+08:00\n藍牙耳機 ABC,ABC-001,示範賣家乙,coupang,feebee,1690,2026-10-24T10:10:00+08:00";
 function loadStoredPrices():PriceRecord[]{
  try{
   const value:unknown=JSON.parse(localStorage.getItem(KEY)||"[]");
@@ -24,13 +25,15 @@ export default function PriceIntelligencePanel(){
  const [manualSku,setManualSku]=useState("");
  const [manualMerchant,setManualMerchant]=useState("");
  const [manualPrice,setManualPrice]=useState("");
- const [manualSource,setManualSource]=useState("merchant");
+ const [manualMarketplace,setManualMarketplace]=useState("");
  const [manualUrl,setManualUrl]=useState("");
  const [status,setStatus]=useState("尚未載入報價。請提供你有權使用的 CSV／JSON 價格資料。");
  const [selected,setSelected]=useState("");
  const [current,setCurrent]=useState("");
  const [cost,setCost]=useState("");
  const [margin,setMargin]=useState("20");
+ const [creamReport,setCreamReport]=useState<OctuberCreamPriceReceipt|null>(null);
+ const [creamBusy,setCreamBusy]=useState(false);
  const products=useMemo(()=>{
   const map=new Map<string,string>();
   rows.forEach(x=>map.set(priceProductKey(x),x.product+(x.sku?" · "+x.sku:"")));
@@ -44,6 +47,7 @@ export default function PriceIntelligencePanel(){
   currentPrice:Number(current),cost:Number(cost),minimumMargin,maxChangeRate:0.1
  }):null;
  function updateRows(items:PriceRecord[]){
+  setCreamReport(null);
   const next=[...rows,...items].slice(-500);
   try{localStorage.setItem(KEY,JSON.stringify(next));setRows(next);setStatus("匯入 "+items.length+" 筆報價，僅儲存在此裝置。資料未經來源網站即時驗證。");}
   catch{setStatus("本機空間不足，未儲存報價；請清理瀏覽器儲存空間後重試。");}
@@ -54,14 +58,23 @@ export default function PriceIntelligencePanel(){
  }
  function captureManualPrice(){
   try{
-   const source=manualSource;
    const records=parsePriceRecords(JSON.stringify([{
-    product:manualProduct,sku:manualSku,merchant:manualMerchant,source,
+    product:manualProduct,sku:manualSku,merchant:manualMerchant,source:"manual",marketplace:manualMarketplace,
     price:manualPrice,url:manualUrl,observed_at:new Date().toISOString(),currency:"TWD"
    }]));
    updateRows(records);
    setManualMerchant("");setManualPrice("");setManualUrl("");
   }catch(error){setStatus("價格紀錄無法保存："+String(error instanceof Error?error.message:error));}
+ }
+ async function analyzeCurrentWithCream(){
+  if(creamBusy)return;
+  setCreamBusy(true);setCreamReport(null);
+  try{
+   const receipt=await executeOctuberPriceCream(rows,selectedKey,{explicitUserAction:true,privateMode:true});
+   setCreamReport(receipt);
+   setStatus("Detroit 已呼叫 CREAM 完成 "+receipt.analyzedQuotes+" 筆本機報價的唯讀統計；無外網請求。");
+  }catch(error){setStatus("CREAM／Detroit 統計未完成："+String(error instanceof Error?error.message:error));}
+  finally{setCreamBusy(false);}
  }
  function exportPrices(){
   const data=JSON.stringify(rows,null,2);
@@ -76,29 +89,29 @@ export default function PriceIntelligencePanel(){
   <div className="octuber-price-sites">
    {priceSearchSources().map(site=><a key={site.id} href={site.url} target="_blank" rel="noopener noreferrer">{site.label} <ArrowUpRight size={13}/></a>)}
   </div>
-  <p className="octuber-pricing-note"><ShieldCheck size={14}/> 以上為外部人工比價入口，並非已連接的 API。飛比禁止未授權自動化蒐集，樂天比價網也有網站驗證；取得合法 API／資料授權後才可接入自動同步。</p>
+  <p className="octuber-pricing-note"><ShieldCheck size={14}/> 上方是人工比價入口，商品報價僅顯示實際販售平台／店鋪，不以查價網站命名。原始取得管道仍保留供內部稽核並遵守合作條款；正式串接應依授權範圍執行。</p>
   <div className="octuber-pricing-upload">
    <strong>快速擷取一筆價格</strong>
-   <p className="octuber-pricing-note">從上方比價網站查看商品後，填入當下看到的真實商家與售價。這是使用者確認的手動紀錄，系統不會聲稱自動讀取網站。</p>
+   <p className="octuber-pricing-note">填入商品實際店鋪、販售平台（例如蝦皮或酷澎）與售價；只有已核實的平台才標示。這是手動紀錄，不會聲稱自動讀取網站。</p>
    <div className="octuber-pricing-grid">
     <label>商品名稱<input value={manualProduct} onChange={e=>setManualProduct(e.target.value)} placeholder="商品名稱與完整規格"/></label>
     <label>SKU／型號<input value={manualSku} onChange={e=>setManualSku(e.target.value)} placeholder="最好提供精確型號"/></label>
-    <label>賣家名稱<input value={manualMerchant} onChange={e=>setManualMerchant(e.target.value)} placeholder="商家名稱"/></label>
+    <label>實際賣家／店鋪名稱<input value={manualMerchant} onChange={e=>setManualMerchant(e.target.value)} placeholder="商家名稱"/></label>
     <label>售價（NT$）<input type="number" inputMode="decimal" min="1" value={manualPrice} onChange={e=>setManualPrice(e.target.value)} placeholder="1599"/></label>
-    <label>資料來源<select value={manualSource} onChange={e=>setManualSource(e.target.value)}><option value="merchant">商家官網</option><option value="biggo">BigGo</option><option value="feebee">飛比</option><option value="lbj">樂天比價網</option><option value="authorized-feed">授權資料</option></select></label>
+    <label>實際販售平台<select value={manualMarketplace} onChange={e=>setManualMarketplace(e.target.value)}><option value="">未確認平台</option><option value="shopee">蝦皮購物</option><option value="coupang">酷澎</option><option value="momo">momo購物網</option><option value="pchome">PChome 24h</option><option value="yahoo">Yahoo購物</option><option value="rakuten">樂天市場</option></select></label>
     <label>原始商品網址（選填）<input type="url" value={manualUrl} onChange={e=>setManualUrl(e.target.value)} placeholder="https://..."/></label>
    </div>
    <div className="octuber-pricing-actions"><button type="button" className="primary" disabled={!manualProduct.trim()||!manualMerchant.trim()||!manualPrice.trim()} onClick={captureManualPrice}>儲存這筆報價</button></div>
   </div>
   <div className="octuber-pricing-upload">
    <label htmlFor="octuber-feed">匯入授權來源價格資料（CSV 或 JSON）</label>
-   <textarea id="octuber-feed" rows={4} value={feed} onChange={e=>setFeed(e.target.value)} placeholder={"product,sku,merchant,source,price,observed_at\n商品型號,SKU-123,商家甲,biggo,1599,2026-10-24T10:00:00+08:00"}/>
+   <textarea id="octuber-feed" rows={4} value={feed} onChange={e=>setFeed(e.target.value)} placeholder={"product,sku,merchant,marketplace,source,price,observed_at\n商品型號,SKU-123,示範店鋪,shopee,biggo,1599,2026-10-24T10:00:00+08:00"}/>
    <div className="octuber-pricing-actions">
     <label className="octuber-file-label">選擇檔案<input type="file" accept=".csv,.json,text/csv,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void file.text().then(setFeed).catch(()=>setStatus("無法讀取檔案"));e.target.value="";}}/></label>
     <button type="button" onClick={()=>setFeed(EXAMPLE)}>填入格式範例</button>
     <button type="button" className="primary" onClick={importPrices} disabled={!feed.trim()}>驗證並匯入</button>
    </div>
-   <p className="octuber-pricing-note">資料欄位：product、sku、merchant、source、price、observed_at（ISO 8601）；幣別固定 TWD。請只提供有權使用的報價，不要貼入網站帳密或 API Key。</p>
+   <p className="octuber-pricing-note">商品欄位 product、sku、merchant、marketplace、price、observed_at；source 僅供內部來源稽核，不會作為商品報價顯示名稱。marketplace 可填 shopee、coupang 等。請只匯入已授權報價，不要貼帳密或 API Key。</p>
   </div>
   <div className="octuber-pricing-actions">
    <strong>已儲存 {rows.length} 筆報價</strong>
@@ -107,7 +120,7 @@ export default function PriceIntelligencePanel(){
   </div>
   <p role="status" aria-live="polite" className="octuber-pricing-note">{status}</p>
   {products.length>0&&<div className="octuber-pricing-analysis">
-   <label htmlFor="octuber-product">比較同一規格商品<select id="octuber-product" value={selectedKey} onChange={e=>setSelected(e.target.value)}>{products.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label>
+   <label htmlFor="octuber-product">比較同一規格商品<select id="octuber-product" value={selectedKey} onChange={e=>{setSelected(e.target.value);setCreamReport(null);}}>{products.map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label>
    <div className="octuber-pricing-grid">
     <label>目前售價（NT$）<input inputMode="decimal" type="number" min="1" value={current} onChange={e=>setCurrent(e.target.value)} placeholder="例如 1890"/></label>
     <label>商品完全成本（NT$）<input inputMode="decimal" type="number" min="0" value={cost} onChange={e=>setCost(e.target.value)} placeholder="例如 1200"/></label>
@@ -119,8 +132,22 @@ export default function PriceIntelligencePanel(){
     <div><span>最低毛利售價</span><strong>{money(summary.floorPrice)}</strong></div>
     <div><span>建議參考售價</span><strong>{summary.targetPrice===null?"資料不足":money(summary.targetPrice)}</strong></div>
    </div>:<p className="octuber-pricing-note">輸入目前售價與完全成本，才會計算限制單次 ±10% 的定價建議。建議值不會自動發布。</p>}
-   <div className="octuber-pricing-table"><table><thead><tr><th>來源／商家</th><th>價格</th><th>觀察時間</th><th>證據</th></tr></thead>
-    <tbody>{selectedRows.map(record=><tr key={record.id}><td>{record.source} · {record.merchant}</td><td>{money(record.price)}</td><td>{record.observedAt?new Date(record.observedAt).toLocaleString("zh-TW"):"未提供"}</td><td>{record.url?<a href={record.url} target="_blank" rel="noopener noreferrer">來源頁面</a>:"人工匯入"}</td></tr>)}</tbody>
+   <div className="octuber-pricing-actions">
+    <button type="button" disabled={creamBusy} onClick={()=>void analyzeCurrentWithCream()}>{creamBusy?"CREAM 統計中…":"交給 Detroit → CREAM 統計報價"}</button>
+   </div>
+   {creamReport&&creamReport.productKey===selectedKey&&<div className="octuber-pricing-upload" aria-live="polite">
+    <strong>CREAM 已驗證統計 · Detroit 本機唯讀回條</strong>
+    <div className="octuber-pricing-metrics">
+     <div><span>確認賣家數</span><strong>{creamReport.merchants}</strong></div>
+     <div><span>報價平均</span><strong>{money(creamReport.stats.mean)}</strong></div>
+     <div><span>報價中位數</span><strong>{money(creamReport.stats.median)}</strong></div>
+     <div><span>最低報價</span><strong>{money(creamReport.stats.min)}</strong></div>
+    </div>
+    <p className="octuber-pricing-note">{creamReport.insights.join("；")}</p>
+    <p className="octuber-pricing-note">{creamReport.warnings.join("；")}</p>
+   </div>}
+   <div className="octuber-pricing-table"><table><thead><tr><th>販售平台／店鋪</th><th>價格</th><th>觀察時間</th><th>證據</th></tr></thead>
+    <tbody>{selectedRows.map(record=><tr key={record.id}><td>{priceSellerLabel(record)}</td><td>{money(record.price)}</td><td>{record.observedAt?new Date(record.observedAt).toLocaleString("zh-TW"):"未提供"}</td><td>{record.url?<a href={record.url} target="_blank" rel="noopener noreferrer">查看商品</a>:"人工匯入"}</td></tr>)}</tbody>
    </table></div>
    {summary&&<p className="octuber-pricing-note">{summary.notes.join("；")}。本功能只計算參考價，不呼叫商家的商品修改 API。</p>}
   </div>}

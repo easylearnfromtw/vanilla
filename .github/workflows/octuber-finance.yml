@@ -5,6 +5,8 @@ on:
       - "training/octuber-finance/**"
       - "training/atuber/multitier_*.py"
       - "tests/test_octuber_finance_pipeline.py"
+      - "tests/test_octuber_finance_release_gate.py"
+      - "tests/test_octuber_finance_release_gate.py"
       - "tests/test_octuber_finance.py"
       - "tests/test_atuber_multitier_qlora.py"
       - "tests/test_octuber_multitier.py"
@@ -41,6 +43,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_octuber_finance_pipeline.py' -v
           python3 -m unittest discover -s tests -p 'test_octuber_finance.py' -v
           python3 training/octuber-finance/train_tiers.py --tier all
+      - name: Finance adapter provenance and release refusal
+        run: python3 -m unittest discover -s tests -p 'test_octuber_finance_release_gate.py' -v
       - name: CPU-only multi-tier training safety and permissions
         run: |
           python3 -m unittest discover -s tests -p 'test_atuber_multitier_qlora.py' -v

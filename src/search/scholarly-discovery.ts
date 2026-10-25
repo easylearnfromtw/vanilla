@@ -64,7 +64,8 @@ function cleanAuthority(entry:unknown):Authority|null{
  const category=row.category;
  const evidence_url=String(row.evidence_url||"").trim();
  const reviewer=String(row.reviewer||"").trim();
- if(match_id.length>130||!(/^(?:doi:10\\.\\d{4,9}\\/\\S+|arxiv:\\d{4}\\.\\d{4,5}|openalex:w\\d+|orcid:\\d{4}-\\d{4}-\\d{4}-[\\dx]{4})$/i).test(match_id)||
+ const validId=/^(?:doi:10\.\d{4,9}\/\S+|arxiv:\d{4}\.\d{4,5}|openalex:w\d+|orcid:\d{4}-\d{4}-\d{4}-[\dx]{4})$/i.test(match_id);
+ if(match_id.length>130||!validId||
   !["industry_leader","authoritative_expert","established_theory"].includes(String(category))||
   row.verified!==true||!reviewer||reviewer.length>150)return null;
  try{const u=new URL(evidence_url);if(u.protocol!=="https:"||!u.hostname.includes(".")||u.username||u.password)return null;}catch{return null;}

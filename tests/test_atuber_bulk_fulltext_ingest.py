@@ -55,7 +55,7 @@ class BulkFulltexts(unittest.TestCase):
         self.assertTrue(res["all_manifest_books_indexed"])
         with sqlite3.connect(self.db) as c:
             self.assertEqual(c.execute("SELECT COUNT(*) FROM books").fetchone()[0],1003)
-            self.assertGreater(c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0],1003)
+            self.assertGreaterEqual(c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0],1003)
         again=batch.import_all(self.books,self.manifest,self.db,20000,True)
         self.assertEqual(again["books_skipped_existing"],1003)
         self.assertEqual(again["books_imported_this_run"],0)

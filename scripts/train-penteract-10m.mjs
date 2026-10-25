@@ -19,6 +19,7 @@ import {FIVE_SIMPLEX} from "../src/detroit/penteract-5d.ts";
 
 export const TRAIN_ROWS=20000;
 export const EVAL_ROWS=240;
+export const SEALED_TEST_ROWS=300;
 export const FULL_UPDATES=10000000;
 const SAMPLE_TERMS=[
  ["投資","股票","ETF","營收","現金流","股息","銀行","報酬"],
@@ -39,6 +40,14 @@ function sample(index,evalMode=false){
   ? "請針對"+a+"和"+c+"進行具體說明，提供這項"+b+"需求的注意事項，驗證序號 H"+n+"。"
   : "我需要"+a+"和"+b+"的協助，請以"+c+"的角度整理問題；範例 T"+n+"。";
  return {text,label};
+}
+/** Synthetic OUT-OF-TEMPLATE test set. Labels are never read while picking
+ * the best checkpoint; neither this nor validation is human reviewed.
+ */
+function sealedTestSample(index){
+ const label=index%6,n=Math.floor(index/6),pool=SAMPLE_TERMS[label];
+ const a=pool[(n*7+3)%8],b=pool[(n*5+5)%8],c=pool[(n*3+6)%8];
+ return {label,text:"請協助確認"+c+"所涉及的"+a+"程序，並核對"+b+"的主要限制；封存情境 S"+n+"。"};
 }
 function sparse(text){
  const dense=fiveSpaceFeatures(text);
@@ -66,7 +75,7 @@ export function trainFiveD({updates=FULL_UPDATES}={}){
  if(!Number.isSafeInteger(updates)||updates<TRAIN_ROWS||updates>FULL_UPDATES||updates%TRAIN_ROWS!==0)
   throw Error("FIVE_D_UPDATES_REQUIRE_EXACT_MULTIPLE_OF_20000_AND_MAX_10000000");
  const digest=createHash("sha256");
- const train=[],evalRows=[];
+ const train=[],evalRows=[],sealedTestRows=[];
  for(let i=0;i<TRAIN_ROWS;i++){
   const row=sample(i);
   digest.update(String(row.label)+"\t"+row.text+"\n","utf8");
@@ -76,9 +85,15 @@ export function trainFiveD({updates=FULL_UPDATES}={}){
   const row=sample(i,true);
   evalRows.push({x:sparse(row.text),label:row.label});
  }
+ for(let i=0;i<SEALED_TEST_ROWS;i++){
+  const row=sealedTestSample(i);
+  sealedTestRows.push({x:sparse(row.text),label:row.label});
+ }
  const weights=new Float64Array(5*LEARNED_5D_FEATURES),bias=new Float64Array(5);
  const initial=heldoutLoss(evalRows,weights,bias);
  const checkpoints=[],started=performance.now();
+ let bestValidationLoss=initial.loss,bestValidationStep=0;
+ let bestWeights=null,bestBias=null;
  const checkpointStride=Math.max(TRAIN_ROWS,Math.floor(updates/10/TRAIN_ROWS)*TRAIN_ROWS);
  // This is a genuine training loop: every step calculates a loss gradient and
  // updates 5x384 trainable weights (sparse updates) and 5 biases.
@@ -101,20 +116,33 @@ export function trainFiveD({updates=FULL_UPDATES}={}){
    checkpoints.push({step:step+1,synthetic_holdout_loss:score.loss,
     synthetic_holdout_matches:score.correct,synthetic_holdout_rows:score.rows,
     neural_checkpoint_written:false});
+   if(score.loss<bestValidationLoss){
+    bestValidationLoss=score.loss;
+    bestValidationStep=step+1;
+    bestWeights=new Float64Array(weights);
+    bestBias=new Float64Array(bias);
+   }
   }
  }
  const final=heldoutLoss(evalRows,weights,bias);
- if(!(Number.isFinite(final.loss)&&final.loss<initial.loss))
+ if(!bestWeights||!bestBias||!(bestValidationLoss<initial.loss)||
+  !(Number.isFinite(final.loss)&&final.loss<initial.loss))
   throw Error("FIVE_D_SYNTHETIC_HOLDOUT_DID_NOT_IMPROVE");
+ // Train all requested SGD updates, but export only the lowest-validation-loss
+ // snapshot; late overfitting is a failure of checkpoint selection, NOT success.
+ const chosenValidation=heldoutLoss(evalRows,bestWeights,bestBias);
+ const sealedBest=heldoutLoss(sealedTestRows,bestWeights,bestBias);
+ const sealedLast=heldoutLoss(sealedTestRows,weights,bias);
  const artifact={
   architecture:"october-linear-five-space-v1",inputFeatures:LEARNED_5D_FEATURES,
   outputDimensions:5,expertIds:[...LEARNED_5D_IDS],
-  weights:Array.from({length:5},(_,k)=>Array.from(weights.subarray(k*LEARNED_5D_FEATURES,(k+1)*LEARNED_5D_FEATURES))),
-  bias:Array.from(bias),
+  weights:Array.from({length:5},(_,k)=>Array.from(bestWeights.subarray(k*LEARNED_5D_FEATURES,(k+1)*LEARNED_5D_FEATURES))),
+  bias:Array.from(bestBias),
   provenance:{trainCount:TRAIN_ROWS,trainSha256:digest.digest("hex"),evalCount:EVAL_ROWS,
-   expertReviewed:false,trainedOn:"GPT-authored-synthetic",epochs:updates/TRAIN_ROWS,seed:20261025}
+   expertReviewed:false,trainedOn:"GPT-authored-synthetic",epochs:bestValidationStep/TRAIN_ROWS,seed:20261025}
  };
  assertLearnedFiveWeights(artifact);
+ const artifactSha256=createHash("sha256").update(JSON.stringify(artifact)+"\n").digest("hex");
  const report={
   schema:1,kind:"detroit-atuber-penteract-five-d-training-sandbox",
   modelFamily:"october-linear-five-space-v1",
@@ -126,13 +154,29 @@ export function trainFiveD({updates=FULL_UPDATES}={}){
   trainExamples:TRAIN_ROWS,holdoutExamples:EVAL_ROWS,
   syntheticHoldoutInitialLoss:initial.loss,syntheticHoldoutFinalLoss:final.loss,
   syntheticHoldoutMatches:final.correct,syntheticHoldoutOnly:true,
+  syntheticValidationSelectedLoss:chosenValidation.loss,
+  syntheticValidationSelectedMatches:chosenValidation.correct,
+  syntheticValidationLastLoss:final.loss,
+  syntheticValidationLastMatches:final.correct,
+  checkpointSelection:"lowest-synthetic-validation-loss-across-periodic-checkpoints",
+  bestCheckpointStep:bestValidationStep,
+  exportedWeightsCheckpointStep:bestValidationStep,
+  additionalUpdatesAfterBest:updates-bestValidationStep,
+  overfitWarning:final.loss>chosenValidation.loss,
+  sealedSyntheticTestRows:SEALED_TEST_ROWS,
+  sealedSyntheticTestSelectedLoss:sealedBest.loss,
+  sealedSyntheticTestSelectedMatches:sealedBest.correct,
+  sealedSyntheticTestLastLoss:sealedLast.loss,
+  sealedSyntheticTestLastMatches:sealedLast.correct,
+  sealedSyntheticTestNotUsedForCheckpointSelection:true,
   checkpoints,artifactTrainingDataSha256:artifact.provenance.trainSha256,
+  artifactSha256,
   elapsedMs:Math.round(performance.now()-started),
   hardware:"cpu",cudaUsed:false,atuber0_6BWeightsUpdated:false,
   octuber30BWeightsUpdated:false,octuber60BWeightsUpdated:false,
   detroitFactoryToolsDispatched:false,productionRouterModified:false,
   permissionsGranted:false,expertReviewed:false,blindHumanBenchmarkAvailable:false,
-  warning:"10 million actual updates are of a 1,925-parameter 5D SHADOW projector, not Qwen, Atuber 0.6B, OCTUBER 30B/60B or a validated production router."
+  warning:"10 million actual updates are of a 1,925-parameter 5D SHADOW projector; only the best earlier synthetic-validation checkpoint is exported. The sealed test is also synthetic, not a human blind benchmark. None of these are Qwen, Atuber 0.6B, OCTUBER 30B/60B or a validated production router."
  };
  return {report,artifact};
 }

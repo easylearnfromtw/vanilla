@@ -1,0 +1,160 @@
+name: Atuber 1000 Real Licensed Fulltext Training
+
+on:
+  pull_request:
+    paths:
+      - 'training/scholarly/pmc_licensed_100.py'
+      - 'training/scholarly/pmc_export_manifest.py'
+      - 'training/atuber/multi_paper_cpu_lora.py'
+      - 'tests/test_atuber_pmc_1000.py'
+      - '.github/workflows/atuber-1000-real-fulltext-train.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'training/scholarly/pmc_licensed_100.py'
+      - 'training/scholarly/pmc_export_manifest.py'
+      - 'training/atuber/multi_paper_cpu_lora.py'
+      - 'tests/test_atuber_pmc_1000.py'
+      - '.github/workflows/atuber-1000-real-fulltext-train.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atuber-licensed-1000-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-1000-license-and-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independently test 1000 synthetic fixtures, rights policy and document holdout
+        run: |
+          python3 -m unittest discover -s tests -p 'test_atuber_pmc_1000.py' -v
+          python3 -m unittest discover -s tests -p 'test_atuber_pmc_100.py' -v
+
+  train-1000-genuine-papers:
+    needs: test-1000-license-and-holdout
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 165
+    env:
+      HF_HOME: /tmp/atuber-1000-hf-model
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record actual CPU and storage before high-volume ingestion
+        run: |
+          python3 - <<'PY'
+          import os,shutil,platform
+          total,used,free=shutil.disk_usage(os.environ["RUNNER_TEMP"])
+          print("CPU architecture:",platform.machine(),"threads:",os.cpu_count(),
+                "disk GiB:",round(free/2**30,2))
+          assert free>5*2**30,"NOT_ENOUGH_DISK_FOR_1000_RESEARCH_ARTICLES"
+          PY
+      - name: Stream 1000 actual official PMC JATS articles and check per-article CC BY or CC0 rights
+        run: |
+          python3 -u training/scholarly/pmc_licensed_100.py \
+            --output "$RUNNER_TEMP/atuber-pmc-licensed-1000" \
+            --target 1000 --from-date 2026-09-01 \
+            --max-pages 450 --min-delay 0.75 --execute
+      - name: Refuse unverifiable or duplicate PDFs, inspect real complete-article holdout
+        run: |
+          python3 training/atuber/multi_paper_cpu_lora.py \
+            --index "$RUNNER_TEMP/atuber-pmc-licensed-1000.sqlite3" \
+            --required-papers 1000 --audit-only
+      - name: Export 1000 stable VANILLA Evidence source IDs and CC attribution (metadata only)
+        run: |
+          python3 training/scholarly/pmc_export_manifest.py \
+            --index "$RUNNER_TEMP/atuber-pmc-licensed-1000.sqlite3" \
+            --output "$RUNNER_TEMP/vanilla-evidence-1000.jsonl" --expected 1000
+      - name: Install CPU-only open source model training dependencies
+        run: |
+          python3 -m pip install --no-cache-dir 'torch==2.6.0+cpu' --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install --no-cache-dir 'transformers>=4.53,<5' 'peft>=0.17,<0.24' 'accelerate>=1.3,<2'
+      - name: Train Qwen3-0.6B with actual 1000 optimizer steps (distinct held-out papers)
+        run: |
+          python3 -u training/atuber/multi_paper_cpu_lora.py \
+            --index "$RUNNER_TEMP/atuber-pmc-licensed-1000.sqlite3" \
+            --output "$RUNNER_TEMP/atuber-trained-1000" \
+            --required-papers 1000 --steps 1000 --sequence-length 96 --train
+      - name: Require real-source, training-step, unseen-document and weight-file evidence
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          source=json.loads((root/"atuber-pmc-licensed-1000.report.json").read_text())
+          report=json.loads((root/"atuber-trained-1000/training-provenance.json").read_text())
+          manifest=json.loads((root/"vanilla-evidence-1000.report.json").read_text())
+          weights=root/"atuber-trained-1000/adapter/adapter_model.safetensors"
+          assert source["licensed_fulltexts_indexed"]==1000
+          assert source["distinct_pmcids"]==1000
+          assert report["audited_licensed_papers"]==1000
+          assert report["actual_optimizer_steps"]==1000
+          assert report["unique_training_papers_touched"]==report["train_papers"]
+          assert report["independent_heldout_papers_evaluated"]==report["heldout_papers"]>=2
+          assert report["weight_delta_verified"] is True
+          assert report["adapter_sha256"]==hashlib.sha256(weights.read_bytes()).hexdigest()
+          assert manifest["manifest_records"]==1000 and manifest["metadata_only_no_article_fulltext"] is True
+          assert report["model_release_approved"] is False
+          print("VERIFIED_ATUBER_1000_REAL_FULLTEXT_PAPERS",report["audited_licensed_papers"])
+          print("VERIFIED_ATUBER_1000_REAL_OPTIMIZER_STEPS",report["actual_optimizer_steps"])
+          print("VERIFIED_ATUBER_1000_HOLDOUT_PAPERS",report["heldout_papers"])
+          print("VERIFIED_ATUBER_1000_ADAPTER_SHA256",report["adapter_sha256"])
+          print("HELDOUT_LOSS_BEFORE",report["pretraining_holdout_next_token_loss"])
+          print("HELDOUT_LOSS_AFTER",report["posttraining_holdout_next_token_loss"])
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+            f.write("## Real Atuber Qwen3-0.6B 1000 explicitly licensed PMC papers\n")
+            for key in ("audited_licensed_papers","audited_text_passages","train_papers",
+                        "heldout_papers","actual_optimizer_steps",
+                        "unique_training_papers_touched",
+                        "pretraining_holdout_next_token_loss",
+                        "posttraining_holdout_next_token_loss",
+                        "holdout_loss_improved","adapter_sha256"):
+              f.write(f"- {key}: {report[key]}\n")
+            f.write("- All 1000 citations preserved in metadata-only evidence manifest.\n")
+            f.write("- **Not validated for scientific QA correctness or consumer release.**\n")
+          PY
+      - name: Always report measured ingestion and training results, never assume target
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          for name in ["atuber-pmc-licensed-1000.report.json",
+                       "atuber-trained-1000/training-provenance.json"]:
+            path=root/name
+            if path.is_file():
+              report=json.loads(path.read_text())
+              print("REAL_1000_JOB_REPORT",name,{
+                k:report.get(k) for k in ["target_fulltexts","licensed_fulltexts_indexed",
+                "licensed_chunks_indexed","stop_reason","actual_optimizer_steps",
+                "adapter_sha256"] if k in report})
+            else:print("REPORT_NOT_CREATED",name)
+          PY
+      - name: Save actual adapter and attribution manifest, not public copies of all articles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atuber-1000-pmc-lora-rights-audit-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/atuber-pmc-licensed-1000.report.json
+            ${{ runner.temp }}/vanilla-evidence-1000.jsonl
+            ${{ runner.temp }}/vanilla-evidence-1000.report.json
+            ${{ runner.temp }}/atuber-trained-1000/training-provenance.json
+            ${{ runner.temp }}/atuber-trained-1000/adapter/
+          retention-days: 60
+          compression-level: 6
+          if-no-files-found: warn

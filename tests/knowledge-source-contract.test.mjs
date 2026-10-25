@@ -26,3 +26,42 @@ test("consumer advice refuses paper abstract as established actionable evidence"
  assert.equal(outcome.knowledgeSuitableForAdvice,false);
  assert.match(evidenceLabel(paper.tier),/摘要/);
 });
+
+import {parseKnowledgeLookup,findKnowledgeSources} from "../src/knowledge/chat-source-lookup.ts";
+
+test("chat lookup is explicit; default questions do not secretly call third parties",()=>{
+ assert.deepEqual(parseKnowledgeLookup("柳岸書城 行為經濟學"),{kind:"book",query:"行為經濟學"});
+ assert.deepEqual(parseKnowledgeLookup("霞海書院 behavioral economics"),{kind:"paper",query:"behavioral economics"});
+ assert.equal(parseKnowledgeLookup("請幫我比較理財方法"),null);
+});
+
+test("book lookup only formats actually returned book source metadata",async()=>{
+ const previous=globalThis.fetch;
+ globalThis.fetch=async()=>({ok:true,json:async()=>({docs:[
+   {key:"/works/OL123W",title:"Verified Book",author_name:["Real Author"],isbn:["9780385533225"]}
+ ]})});
+ try{
+  const response=await findKnowledgeSources({kind:"book",query:"Verified Book"});
+  assert.match(response,/柳岸書城/);
+  assert.match(response,/Verified Book/);
+  assert.match(response,/https:\/\/openlibrary.org\/works\/OL123W/);
+  assert.match(response,/"availability":"metadata-only"/);
+  assert.doesNotMatch(response,/\"evidence\":\{.+\"excerpt\"/);
+ }finally{globalThis.fetch=previous;}
+});
+
+test("paper lookup requires OpenAlex ID/DOI and does not claim reviewed findings",async()=>{
+ const previous=globalThis.fetch;
+ globalThis.fetch=async()=>({ok:true,json:async()=>({results:[
+  {id:"https://openalex.org/W12345",display_name:"Sample Economic Paper",publication_year:2025,
+   doi:"https://doi.org/10.1016/real",authorships:[{author:{display_name:"Scholar"}}]}
+ ]})});
+ try{
+  const response=await findKnowledgeSources({kind:"paper",query:"economic paper"});
+  assert.match(response,/霞海書院/);
+  assert.match(response,/Sample Economic Paper/);
+  assert.match(response,/https:\/\/doi.org\/10.1016\/real/);
+  assert.match(response,/"evidence_scope":"metadata-only"/);
+  assert.match(response,/"priority":1/);
+ }finally{globalThis.fetch=previous;}
+});

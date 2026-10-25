@@ -222,6 +222,12 @@ def search(index,query,limit=8,ranker_file=None):
     if not index.is_file() or not 2<=len(query.strip())<=MAX_QUERY or not 1<=limit<=MAX_RESULTS:
         raise ValueError("LIBRARY_INDEX_QUERY_OR_LIMIT_INVALID")
     alt=variants(query)
+    ranker_weights=None
+    if ranker_file is not None:
+        parsed=json.loads(Path(ranker_file).read_text(encoding="utf-8"))
+        if parsed.get("version")!="atuber-fuzzy-book-ranker-v1" or not isinstance(parsed.get("weights"),list) or len(parsed["weights"])!=6:
+            raise ValueError("UNRECOGNIZED_BOOK_RELEVANCE_RANKER")
+        ranker_weights=[float(w) for w in parsed["weights"]]
     qgrams=set().union(*(grams(item) for item in alt))
     candidates={}
     db=sqlite3.connect(index.resolve().as_uri()+"?mode=ro",uri=True)
@@ -291,6 +297,10 @@ def search(index,query,limit=8,ranker_file=None):
         match=grouped.get(ident)
         # Unambiguous full text evidence wins without pretending metadata has full text.
         score=lexical+ (2.0+match["score"] if match else 0)
+        if ranker_weights is not None:
+            from fuzzy_relevance_train import vec,score as learned_score
+            score+=2.0*max(learned_score(ranker_weights,vec(v,title,author or "",topic or ""))
+                           for v in alt)
         if score<0.3:
             continue
         item={
@@ -331,12 +341,13 @@ def main(argv=None):
     p.add_argument("--query",default="")
     p.add_argument("--limit",type=int,default=8)
     p.add_argument("--markdown-cards",action="store_true")
+    p.add_argument("--ranker",type=Path)
     p.add_argument("--execute",action="store_true")
     a=p.parse_args(argv)
     if a.query:
         if not a.index:
             p.error("--index required for search")
-        result=search(a.index,a.query,a.limit)
+        result=search(a.index,a.query,a.limit,a.ranker)
         print(markdown_cards(result) if a.markdown_cards else json.dumps(result,ensure_ascii=False,indent=2))
         return 0
     if not a.output:

@@ -42,8 +42,8 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           root=Path("services/slime")
-          assert "if ROLE == \"owner\"" in (root/"desktop.py").read_text()
-          models=(root/"local_model_tools.py").read_text()
+          assert "if ROLE == \"owner\"" in (root/"desktop.py").read_text(encoding="utf-8")
+          models=(root/"local_model_tools.py").read_text(encoding="utf-8")
           assert "preflight-eligible-untrained" in models
           assert "actual_model_weights_verified" in models
           assert "ProxyHandler({})" in models

@@ -3,16 +3,44 @@
  * feeds or manually observed prices. No crawler, scraping, third-party requests
  * or merchant repricing side effects.
  */
-export type PriceSource="biggo"|"feebee"|"lbj"|"merchant"|"authorized-feed";
+export type PriceSource="biggo"|"feebee"|"lbj"|"merchant"|"authorized-feed"|"manual";
+export type Marketplace="shopee"|"coupang"|"momo"|"pchome"|"yahoo"|"rakuten";
 export type PriceRecord={
  id:string;product:string;sku:string;merchant:string;source:PriceSource;
+ /** Retail platform shown to shoppers; acquisition source remains audit-only. */
+ marketplace?:Marketplace|null;
  price:number;currency:"TWD";url:string;observedAt:number|null;importedAt:number;
 };
 export type PriceSummary={
  offers:number;vendors:number;min:number;max:number;median:number;
  targetPrice:number|null;floorPrice:number;referenceOnly:true;notes:string[];
 };
-const SOURCES=new Set<PriceSource>(["biggo","feebee","lbj","merchant","authorized-feed"]);
+const SOURCES=new Set<PriceSource>(["biggo","feebee","lbj","merchant","authorized-feed","manual"]);
+const MARKETPLACES:Record<Marketplace,string>={
+ shopee:"蝦皮購物",coupang:"酷澎",momo:"momo購物網",pchome:"PChome 24h",yahoo:"Yahoo購物",rakuten:"樂天市場"
+};
+const PLATFORM_ALIASES:Record<string,Marketplace>={
+ shopee:"shopee","蝦皮":"shopee","蝦皮購物":"shopee",
+ coupang:"coupang","酷澎":"coupang",
+ momo:"momo","momo購物":"momo","momo購物網":"momo",
+ pchome:"pchome","pchome24h":"pchome","pchome24h購物":"pchome","pchome":"pchome",
+ yahoo:"yahoo","yahoo購物":"yahoo","yahoo購物中心":"yahoo",
+ rakuten:"rakuten","樂天市場":"rakuten"
+};
+/** Exact explicitly supplied marketplace identity; acquisition aggregators are NEVER retailers. */
+export function priceMarketplace(value:unknown):Marketplace|null{
+ const label=String(value??"").normalize("NFKC").trim().replace(/\s+/g,"").toLocaleLowerCase("zh-TW");
+ if(!label)return null;
+ const platform=PLATFORM_ALIASES[label];
+ if(!platform)throw new Error("不支援的販售平台；請留空或使用蝦皮、酷澎、momo、PChome、Yahoo、樂天");
+ return platform;
+}
+export function priceSellerLabel(record:Pick<PriceRecord,"merchant"|"marketplace">):string{
+ const retailer=record.marketplace?MARKETPLACES[record.marketplace]:null;
+ const merchant=record.merchant.trim();
+ // Do not falsely name an aggregator as a retailer. Unknown marketplace remains the seller label.
+ return retailer?(!merchant||merchant===retailer?retailer:retailer+" · "+merchant):merchant;
+}
 const normalize=(value:unknown)=>String(value??"").normalize("NFKC").trim();
 const normalizedProduct=(value:string)=>normalize(value).replace(/\s+/g," ").toLocaleLowerCase("zh-TW");
 export function priceProductKey(record:Pick<PriceRecord,"sku"|"product">):string{
@@ -66,6 +94,7 @@ export function parsePriceRecords(raw:string,now=Date.now()):PriceRecord[]{
  return rows.map((row,index)=>{
   const product=normalize(row.product??row.title);
   const merchant=normalize(row.merchant??row.seller);
+  const marketplace=priceMarketplace(row.marketplace??row.platform??row.channel);
   const priceText=normalize(row.price).replace(/(?:NT\$|NTD|TWD|[,$\s])/gi,"");
   const price=Number(priceText);
   const sku=normalize(row.sku??row.model);
@@ -88,7 +117,7 @@ export function parsePriceRecords(raw:string,now=Date.now()):PriceRecord[]{
    if(!Number.isFinite(d)||d>now+300000)throw new Error("第 "+(index+1)+" 筆觀察時間不正確");
    observedAt=d;
   }
-  return {id:String(now)+"-"+index,product,sku,merchant,source,price,currency:"TWD" as const,url,observedAt,importedAt:now};
+  return {id:String(now)+"-"+index,product,sku,merchant,source,marketplace,price,currency:"TWD" as const,url,observedAt,importedAt:now};
  });
 }
 export function comparePrices(records:PriceRecord[],selectedKey:string,opts:{
@@ -102,6 +131,7 @@ export function comparePrices(records:PriceRecord[],selectedKey:string,opts:{
  const byMerchant=new Map<string,PriceRecord>();
  for(const record of valid){
   const key=normalizedProduct(record.merchant);
+  // Dedupe by real seller, not by which comparison/aggregation site listed them.
   if(!byMerchant.has(key)||byMerchant.get(key)!.price>record.price)byMerchant.set(key,record);
  }
  const offers=[...byMerchant.values()].sort((a,b)=>a.price-b.price);

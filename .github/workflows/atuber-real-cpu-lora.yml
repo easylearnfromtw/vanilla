@@ -65,12 +65,12 @@ jobs:
             --arxiv-id 1410.6579 \
             --output "$RUNNER_TEMP/verified-scholarly-fulltext" \
             --execute
-      - name: Train real Qwen3-0.6B adapter on CPU
+      - name: Run four actual Qwen3-0.6B CPU LoRA optimizer steps (single-paper proof)
         run: |
           python3 -u training/atuber/cpu_lora_pilot.py \
             --index "$RUNNER_TEMP/verified-scholarly-fulltext.sqlite3" \
             --output "$RUNNER_TEMP/atuber-real-cpu-lora" \
-            --steps 2 --sequence-length 64 --train
+            --steps 4 --sequence-length 64 --train
       - name: Verify real gradients, adapter weights and document limits
         run: |
           python3 - <<'PY'
@@ -79,7 +79,7 @@ jobs:
           report=json.loads((root/"training-provenance.json").read_text(encoding="utf8"))
           model=root/"adapter/adapter_model.safetensors"
           h=hashlib.sha256(model.read_bytes()).hexdigest()
-          assert report["trained"] is True and report["actual_optimizer_steps"] == 2
+          assert report["trained"] is True and report["actual_optimizer_steps"] == 4
           assert report["weight_delta_verified"] is True
           assert report["adapter_sha256"] == h
           assert report["cuda_used"] is False and report["cpu_only"] is True

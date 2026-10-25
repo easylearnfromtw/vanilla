@@ -200,3 +200,82 @@ python3 training/atuber-books/hybrid_library.py \
 真實更新一個使用 7 個特徵（含偏置）的輕量相關性排序模型，產生 ranker.json、權重 SHA256、訓練前後測試結果與 optimizer step 紀錄。訓練資料是基於已取得書名／作者的字詞、前綴、錯字與相關詞彙生成的合成配對，並用未見過的書目 ID 做保留集測試；測試分數不等於真實使用者搜尋表現。中英詞彙包括通膨/inflation、股票/stock、勞動分工/division of labour 等，但不宣稱任何詞語都一定找得到證據。
 
 這一百萬次是「小型書籍搜尋排序器」的真實 SGD 訓練，不是阿土伯 0.6B／4B／14B／30B 大語言模型的梯度更新，也不是已理解兩萬本書的論證。若要真正提升書本知識問答，要在已授權全文上建有引用證據的 Q&A、人工核對、LLM LoRA 微調及獨立書籍測試。
+
+
+## 新增：大批真實全文索引和 Qwen3-0.6B 正文 QLoRA
+
+截至此階段，19,552 筆 NBINet 是書目而不是可訓練的 19,552 本原文。過去僅兩本古典英文公版作品建立全文檢索索引，不能杜撰其餘作品正文或授權。以下路徑可接收最高 25,000 本已由權利持有人允許用於 AI 學習的本地電子書，實際有多少本，以資料及報告為準。
+
+### 1. 建立本地逐本授權證據清單
+
+支援本地 UTF-8 TXT、無 DRM EPUB、有文字層的 PDF。PDF 需在私有電腦安裝 pypdf；掃描版 PDF 沒有可擷取原文時會拒收，不會默默當成已讀取。
+
+在不受 Git 追蹤的 training/data/approved-books.jsonl 放置一行一筆 JSON，必要欄位包括 id、title、author、source_url、content_file、content_sha256、rights_basis、rights_reference、reviewer、rights_reviewed=true、training_permission=true，可加 isbn。這些欄位必須對應實際經核准使用的電子書，不能只靠書目設定核准。以下只示範欄位，不代表真的取得這本書的授權。
+
+~~~json
+{"id":"approved_001","title":"有訓練授權的教材","author":"作者","source_url":"https://example.org/edition","content_file":"books/approved-001.epub","content_sha256":"需替換成檔案真正的64碼SHA256","rights_basis":"permission","rights_reference":"真實的書面訓練授權證明","reviewer":"審核者","rights_reviewed":true,"training_permission":true}
+~~~
+
+~~~bash
+# 純預覽，零次讀取書籍
+python3 training/atuber-books/bulk_fulltext_ingest.py \
+  --root training/data/book-files \
+  --manifest-jsonl training/data/approved-books.jsonl \
+  --index training/data/all-approved-fulltexts.sqlite3
+
+# 真正批次讀取、核對雜湊與授權、逐本交易地索引全部提供的已核准文字
+python3 training/atuber-books/bulk_fulltext_ingest.py \
+  --root training/data/book-files \
+  --manifest-jsonl training/data/approved-books.jsonl \
+  --index training/data/all-approved-fulltexts.sqlite3 --max-books 20000 --execute
+
+# 中斷後可安全續傳，已完成且檔案雜湊沒改變的書會跳過
+python3 training/atuber-books/bulk_fulltext_ingest.py \
+  --root training/data/book-files \
+  --manifest-jsonl training/data/approved-books.jsonl \
+  --index training/data/all-approved-fulltexts.sqlite3 --max-books 20000 --resume --execute
+~~~
+
+如有任一本被拒收，工具會列出原因與真實成功筆數、回傳非零狀態碼。完整正文只存於私人 SQLite，不發布於 GitHub。支援每本內容確認、SHA256、EPUB 章節順序、PDF 文字層、分段位置及雜湊。
+
+### 2. 待取得全文清單及多本書全文檢索
+
+~~~bash
+python3 training/atuber-books/fulltext_coverage.py \
+  --catalogue training/data/atuber-hybrid-library.sqlite3 \
+  --content-index training/data/all-approved-fulltexts.sqlite3 \
+  --output training/data/missing-fulltexts.jsonl --execute
+
+python3 training/atuber-books/hybrid_library.py \
+  --raw-csv training/data/nbinet.csv \
+  --content-index training/data/all-approved-fulltexts.sqlite3 \
+  --output training/data/all-approved-search.sqlite3 --execute
+~~~
+
+覆蓋率僅以 ISBN 完全相符辨識可能對應的版次，書名相同不足以證明是同一個譯本、更不代表訓練使用權。只有授權全文索引會帶原文片段引用。若沒有提供某本電子書，即保留待取得狀態。
+
+### 3. 真正更新 Qwen3-0.6B 語言模型權重
+
+training/atuber-books/approved_fulltext_qlora.py 新增模型 continued-pretraining：只讀取上述已通過權利、雜湊驗證的完整正文資料庫，在已核准 CUDA GPU 上執行下一 token QLoRA 更新，依整本書分隔訓練與保留集，並產出真實 adapter_model.safetensors 與 train/eval loss。不是模擬次數，也不是純 RAG。預設至少 20 本不同已授權書，避免少量書重複百萬遍卻誤稱學會所有知識。
+
+~~~bash
+# CPU 可先做所有文本/來源雜湊與保留集驗證，不執行神經網路訓練
+python3 training/atuber-books/approved_fulltext_qlora.py \
+  --index training/data/all-approved-fulltexts.sqlite3 \
+  --required-approved-books 20 --audit-only
+
+# 僅已配置 CUDA / 安裝 training/atuber/requirements.txt 的私有主機可執行
+python3 training/atuber-books/approved_fulltext_qlora.py \
+  --index training/data/all-approved-fulltexts.sqlite3 \
+  --required-approved-books 20 \
+  --output training/outputs/atuber-fulltext-qlora-v1 \
+  --steps 180 --max-length 512 --train
+~~~
+
+只有實際產生權重檔案並完成有限數值的訓練及保留集損失，才會回報模型參數更新。單次 QLoRA 訓練步數限 16–5000；超過此範圍需要另行設計並確保資料量/品質足夠。此工具的基底是 Qwen3-0.6B；4B、14B、30B 不會自動獲得新的權重。完成後仍要跑真正的專業問答、來源引用及幻覺率評估，訓練損失下降不等於正確回答一本書的內容。
+
+### 著作權及站方政策
+
+臺灣著作權法一般著作財產權為作者終身加死亡後 50 年（另有例外和譯本獨立權利），https://law.moj.gov.tw/LawClass/LawAll.aspx?PCode=J0070017 。Project Gutenberg 指定大量下載應使用官方鏡像或離線來源，不可自動大量抓主站；美國公版作品在臺灣不一定無著作權，https://www.gutenberg.org/policy/terms_of_use.html 。
+
+重要：**本階段程式和沙盤單元測試完成，不代表補齊 19,550 本未確認全文，也不代表已在 GPU 上執行真正 Qwen 權重更新。**

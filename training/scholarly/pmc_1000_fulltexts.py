@@ -53,10 +53,20 @@ def license_url(article):
  perm=tagged(permissions,"permissions")
  if perm is None:return None
  for license_node in children(perm,"license"):
-  href=(license_node.get(XLINK+"href") or license_node.get("href") or "").strip().lower()
-  canonical=href.split("?",1)[0].rstrip("/")+"/"
-  if canonical in ACCEPT_LICENSES:
-   return {"license":ACCEPT_LICENSES[canonical],"license_url":canonical}
+  candidates=[license_node.get(XLINK+"href"),license_node.get("href")]
+  # Several JATS editions place the Creative Commons URL in an ext-link
+  # nested in license-p; never accept arbitrary unlicensed article links.
+  for descendant in license_node.iter():
+   if local(descendant.tag)=="ext-link":
+    candidates.extend([descendant.get(XLINK+"href"),descendant.get("href")])
+  for candidate in candidates:
+   if not isinstance(candidate,str):continue
+   u=urllib.parse.urlsplit(candidate.strip())
+   if u.scheme not in ("http","https") or u.hostname!="creativecommons.org" or u.username or u.password:
+    continue
+   canonical="https://creativecommons.org"+u.path.lower().rstrip("/")+"/"
+   if canonical in ACCEPT_LICENSES:
+    return {"license":ACCEPT_LICENSES[canonical],"license_url":canonical}
  return None
 
 def paper_data(article):

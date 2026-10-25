@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.09-liuan-xiahai-knowledge",
-  "description": "柳岸書城 book source archive and existing 霞海書院 paper archive; grounded author/DOI/ISBN source cards and reviewed knowledge-to-consumer advice audit. Not fulltext Qwen GPU trained. Includes previously merged Penteract sandbox work."
+  "build": "2026.10.25.10-liuan-100-indexed-books",
+  "description": "柳岸書城獨立檢索頁顯示新批次 100 本可追溯的歷史圖書來源，正文已建立 37,950 段私有沙盤索引（不可在網站讀取全文）。版次/法律權利尚需審核、Qwen 神經模型並未因此微調。霞海書院維持原功能。"
 }

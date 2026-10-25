@@ -182,8 +182,20 @@ def parse_article_record(record):
  if len(content)>MAX_DOCUMENT_CHARS:content=content[:MAX_DOCUMENT_CHARS]
  doi_nodes=[x for x in metadata.iter() if tag_name(x)=="article-id" and x.attrib.get("pub-id-type")=="doi"]
  doi=plain(doi_nodes[0])[:200] if doi_nodes else ""
+ # CC-BY attribution: preserve contributor names, not just a bare DOI.
+ authors=[]
+ for contrib in metadata.iter():
+  if tag_name(contrib)!="contrib" or contrib.attrib.get("contrib-type")!="author":continue
+  name=nested(contrib,"name")
+  if name is not None:
+   given=plain(nested(name,"given-names"))
+   family=plain(nested(name,"surname"))
+   display=" ".join(p for p in (given,family) if p)
+  else:
+   display=plain(nested(contrib,"collab"))
+  if display and display not in authors:authors.append(display[:160])
  return {"id":"pmc-"+match.group(1),"pmcid":"PMC"+match.group(1),
-  "title":title,"doi":doi,"content":content,"license":license_name,"rights_reference":license_url,
+  "title":title,"doi":doi,"authors":authors[:100],"content":content,"license":license_name,"rights_reference":license_url,
   "source_url":"https://pmc.ncbi.nlm.nih.gov/articles/PMC"+match.group(1)+"/",
   "fulltext_source_url":BASE+"?"+urllib.parse.urlencode({
    "verb":"GetRecord","metadataPrefix":"pmc","identifier":raw_id
@@ -198,7 +210,7 @@ def create_db(path):
   id TEXT PRIMARY KEY,title TEXT NOT NULL,rights_basis TEXT NOT NULL,
   rights_reference TEXT NOT NULL,reviewer TEXT NOT NULL,content_sha256 TEXT NOT NULL,
   source_url TEXT NOT NULL,fulltext_source_url TEXT NOT NULL,
-  license TEXT NOT NULL,doi TEXT,pmcid TEXT NOT NULL UNIQUE,
+  license TEXT NOT NULL,doi TEXT,pmcid TEXT NOT NULL UNIQUE,authors_json TEXT NOT NULL,
   citation_weight INTEGER NOT NULL DEFAULT 1
  );
  CREATE TABLE chunks(
@@ -212,11 +224,11 @@ def store(db,item):
  parts=list(chunked(item["content"]))
  if len(parts)<2:raise ValueError("INSUFFICIENT_AUTHORIZED_PASSAGES")
  with db:
-  db.execute("INSERT INTO books VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",(
+  db.execute("INSERT INTO books VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",(
    item["id"],item["title"],"compatible-license",item["rights_reference"],
    "PMC-OAI-PMH-JATS-explicit-license",sha(item["content"]),
    item["source_url"],item["fulltext_source_url"],item["license"],
-   item["doi"],item["pmcid"],1
+   item["doi"],item["pmcid"],json.dumps(item["authors"],ensure_ascii=False),1
   ))
   db.executemany("INSERT INTO chunks VALUES(?,?,?,?)",[
    (item["id"]+"-"+str(n).zfill(5),item["id"],body,sha(body))
@@ -264,7 +276,7 @@ def collect(target:int,output:Path,from_date:str,max_pages:int,delay:float,
     if len(examples)<5:examples.append({
      "id":article["id"],"title":article["title"],
      "license":article["license"],"rights_reference":article["rights_reference"],
-     "source_url":article["source_url"],"passages":count
+     "source_url":article["source_url"],"authors":article["authors"][:5],"passages":count
     })
     print("LICENSED_PMC_FULLTEXT_INDEXED",accepted,article["id"],count,flush=True)
     if accepted>=target:break

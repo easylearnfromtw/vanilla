@@ -1,6 +1,16 @@
 name: Slime Installer Release
 on:
   workflow_dispatch:
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'services/slime/**'
+      - 'services/weiguo/slime_desktop.py'
+      - 'deployment/slime/**'
+      - 'services/slime/**'
+      - 'tests/test_slime_sandbox_center.py'
+      - 'tests/test_slime_sandbox_center.py'
+      - '.github/workflows/slime-release.yml'
   push:
     branches: ['main']
     tags: ['slime-v*']
@@ -12,6 +22,8 @@ on:
       - 'services/weiguo/gecko_lan.py'
       - 'services/weiguo/gecko_update.py'
       - 'deployment/slime/**'
+env:
+  PYTHONIOENCODING: utf-8
 permissions:
   contents: read
 
@@ -32,8 +44,10 @@ jobs:
         run: |
           python -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           python -m unittest discover -s tests -p test_slime_desktop.py
+          python -m unittest discover -s tests -p test_slime_sandbox_center.py
+          python -m unittest discover -s tests -p test_slime_local_model_tools.py
           python -m pip install "pyinstaller==6.16.0"
-          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Owner --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo --paths services/slime --hidden-import unified_tools_window --hidden-import sandbox_window --hidden-import local_model_window --hidden-import sandbox_center --hidden-import local_model_tools services/weiguo/slime_desktop.py
           python -m PyInstaller --noconfirm --clean --onefile --console --name Slime-Friend --hidden-import gecko_lan --hidden-import gecko_update --paths services/weiguo services/weiguo/slime_desktop.py
           if (!(Test-Path dist/Slime-Owner.exe) -or !(Test-Path dist/Slime-Friend.exe)) { throw "Missing executables" }
           Copy-Item deployment/slime/install-windows-autostart.ps1 dist/Slime-Windows-Autostart.ps1
@@ -58,11 +72,13 @@ jobs:
           mkdir -p dist
           cp services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/slime_success.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py dist/
           cp deployment/slime/install-macos-autostart.sh dist/install-macos-autostart.sh
+          mkdir -p dist/slime_tools
+          cp services/slime/*.py dist/slime_tools/
           for role in Owner Friend; do
             cp "deployment/slime/Slime-${role}.command" "dist/Slime-${role}.command"
             chmod +x "dist/Slime-${role}.command"
             cd dist
-            zip -q "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh
+            zip -qr "Slime-${role}-macos.zip" "Slime-${role}.command" slime_desktop.py slime_runner_agent.py slime_success.py gecko_lan.py gecko_update.py install-macos-autostart.sh slime_tools
             cd ..
           done
       - uses: actions/upload-artifact@v4
@@ -81,6 +97,8 @@ jobs:
         run: |
           python3 -m py_compile services/weiguo/slime_desktop.py services/weiguo/slime_runner_agent.py services/weiguo/gecko_lan.py services/weiguo/gecko_update.py
           python3 -m unittest discover -s tests -p test_slime_desktop.py
+          python3 -m unittest discover -s tests -p test_slime_sandbox_center.py
+          python3 -m unittest discover -s tests -p test_slime_local_model_tools.py
           mkdir -p dist
           for role in Owner Friend; do
             mkdir -p "tmp-$role"
@@ -88,13 +106,18 @@ jobs:
             role_lower=$(echo "$role" | tr '[:upper:]' '[:lower:]')
             cp "deployment/slime/launch-${role_lower}.sh" "tmp-$role/start-slime.sh"
             cp deployment/slime/install-linux-autostart.sh "tmp-$role/install-linux-autostart.sh"
+            mkdir -p "tmp-$role/slime_tools"
+            cp services/slime/*.py "tmp-$role/slime_tools/"
             chmod +x "tmp-$role/start-slime.sh"
             tar -czf "dist/Slime-${role}-linux.tar.gz" -C "tmp-$role" .
           done
+          python3 deployment/slime/build-unified-toolkit.py --output dist/Slime-Sandbox-Toolkit.zip
       - uses: actions/upload-artifact@v4
         with:
           name: slime-linux-build
-          path: dist/*-linux.tar.gz
+          path: |
+            dist/*-linux.tar.gz
+            dist/Slime-Sandbox-Toolkit.zip
           if-no-files-found: error
 
   publish:
@@ -112,7 +135,7 @@ jobs:
       - name: Check assets and hashes
         run: |
           cd release
-          for item in Slime-Owner.exe Slime-Friend.exe Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz; do
+          for item in Slime-Owner.exe Slime-Friend.exe Slime-Windows-Autostart.ps1 Slime-Owner-macos.zip Slime-Friend-macos.zip Slime-Owner-linux.tar.gz Slime-Friend-linux.tar.gz Slime-Sandbox-Toolkit.zip; do
             test -s "$item"
           done
           sha256sum Slime-* > SHA256SUMS.txt

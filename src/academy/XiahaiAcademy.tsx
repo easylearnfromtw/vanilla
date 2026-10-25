@@ -4,13 +4,6 @@ import EvidenceCard from "./EvidenceCard";
 import {getScholarlyRankTable,getScholarlyAuthorityLedger,searchOpenAlexWorks,type AcademicHit} from "../search/scholarly-discovery";
 import "./xiahai-academy.css";
 
-/** 霞海書院 — source-level scholarly references, not a PDF reader or a trained checkpoint. */
-function citationText(paper:AcademicHit):string{
- const line=paper.doi?"DOI: "+paper.doi:"索引識別碼: "+paper.source_id;
- return "引自霞海書院（學術文獻索引）｜"+paper.title+"\n原始索引："+paper.provider+
-  "\n"+line+"\n論文來源："+paper.url+
-  "\n引用優先級："+paper.citation_weight+"/5（不等同研究真確性或全文閱讀）";
-}
 export default function XiahaiAcademy(){
  const [query,setQuery]=useState("");
  const [submitted,setSubmitted]=useState("");

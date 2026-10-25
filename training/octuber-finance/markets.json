@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "ranking_basis": "WFE domestic market capitalisation; February 2026, USD millions, as reported in April 2026 Focus issue",
+  "ranking_as_of": "2026-02-28",
+  "ranking_source": "https://focus.world-exchanges.org/issue/april-2026/market-statistics",
+  "research_start": "1996-10-25",
+  "research_end": "2026-10-25",
+  "note": "Ranks apply to 2026 snapshot only, not every past year. Representative index is not identical to all stocks listed on an exchange; region-only proxies are explicitly identified. India and mainland China have multiple exchanges; index levels cannot be compared across currencies. Source/rights for historical price series must be separately validated.",
+  "markets": [
+    {
+      "rank": 1,
+      "id": "nasdaq_us",
+      "exchange": "Nasdaq - US",
+      "market": "US",
+      "representative_index": "NASDAQ Composite",
+      "ticker_hint_unverified": "^IXIC",
+      "tz": "America/New_York",
+      "market_cap_usd_millions_feb_2026": 36942114.76
+    },
+    {
+      "rank": 2,
+      "id": "nyse",
+      "exchange": "NYSE",
+      "market": "US",
+      "representative_index": "NYSE Composite",
+      "ticker_hint_unverified": "^NYA",
+      "tz": "America/New_York",
+      "market_cap_usd_millions_feb_2026": 31861989.26
+    },
+    {
+      "rank": 3,
+      "id": "shanghai",
+      "exchange": "Shanghai Stock Exchange",
+      "market": "CN",
+      "representative_index": "SSE Composite",
+      "ticker_hint_unverified": "000001.SS",
+      "tz": "Asia/Shanghai",
+      "market_cap_usd_millions_feb_2026": 9942364.88
+    },
+    {
+      "rank": 4,
+      "id": "japan",
+      "exchange": "Japan Exchange Group",
+      "market": "JP",
+      "representative_index": "Nikkei 225",
+      "ticker_hint_unverified": "^N225",
+      "tz": "Asia/Tokyo",
+      "market_cap_usd_millions_feb_2026": 8794504.56
+    },
+    {
+      "rank": 5,
+      "id": "euronext",
+      "exchange": "Euronext",
+      "market": "EU",
+      "representative_index": "CAC 40 (France-only proxy)",
+      "ticker_hint_unverified": "^FCHI",
+      "tz": "Europe/Paris",
+      "market_cap_usd_millions_feb_2026": 8448152.02
+    },
+    {
+      "rank": 6,
+      "id": "shenzhen",
+      "exchange": "Shenzhen Stock Exchange",
+      "market": "CN",
+      "representative_index": "SZSE Component",
+      "ticker_hint_unverified": "399001.SZ",
+      "tz": "Asia/Shanghai",
+      "market_cap_usd_millions_feb_2026": 6679042.24
+    },
+    {
+      "rank": 7,
+      "id": "hong_kong",
+      "exchange": "Hong Kong Exchanges and Clearing",
+      "market": "HK",
+      "representative_index": "Hang Seng Index",
+      "ticker_hint_unverified": "^HSI",
+      "tz": "Asia/Hong_Kong",
+      "market_cap_usd_millions_feb_2026": 6375567.05
+    },
+    {
+      "rank": 8,
+      "id": "bse_india",
+      "exchange": "BSE India Limited",
+      "market": "IN",
+      "representative_index": "BSE SENSEX",
+      "ticker_hint_unverified": "^BSESN",
+      "tz": "Asia/Kolkata",
+      "market_cap_usd_millions_feb_2026": 5082107.17
+    },
+    {
+      "rank": 9,
+      "id": "nse_india",
+      "exchange": "National Stock Exchange of India",
+      "market": "IN",
+      "representative_index": "NIFTY 50",
+      "ticker_hint_unverified": "^NSEI",
+      "tz": "Asia/Kolkata",
+      "market_cap_usd_millions_feb_2026": 5075425.56
+    },
+    {
+      "rank": 10,
+      "id": "tmx",
+      "exchange": "TMX Group",
+      "market": "CA",
+      "representative_index": "S&P/TSX Composite",
+      "ticker_hint_unverified": "^GSPTSE",
+      "tz": "America/Toronto",
+      "market_cap_usd_millions_feb_2026": 5025983.8
+    },
+    {
+      "rank": 11,
+      "id": "korea",
+      "exchange": "Korea Exchange",
+      "market": "KR",
+      "representative_index": "KOSPI",
+      "ticker_hint_unverified": "^KS11",
+      "tz": "Asia/Seoul",
+      "market_cap_usd_millions_feb_2026": 4017797.67
+    },
+    {
+      "rank": 12,
+      "id": "taiwan",
+      "exchange": "Taiwan Stock Exchange",
+      "market": "TW",
+      "representative_index": "TAIEX",
+      "ticker_hint_unverified": "^TWII",
+      "tz": "Asia/Taipei",
+      "market_cap_usd_millions_feb_2026": 3695845.8
+    },
+    {
+      "rank": 13,
+      "id": "deutsche",
+      "exchange": "Deutsche Boerse AG",
+      "market": "DE",
+      "representative_index": "DAX",
+      "ticker_hint_unverified": "^GDAXI",
+      "tz": "Europe/Berlin",
+      "market_cap_usd_millions_feb_2026": 3020733.49
+    },
+    {
+      "rank": 14,
+      "id": "swiss",
+      "exchange": "SIX Swiss Exchange",
+      "market": "CH",
+      "representative_index": "Swiss Market Index",
+      "ticker_hint_unverified": "^SSMI",
+      "tz": "Europe/Zurich",
+      "market_cap_usd_millions_feb_2026": 2764796.31
+    },
+    {
+      "rank": 15,
+      "id": "nasdaq_nordic",
+      "exchange": "Nasdaq Nordic and Baltics",
+      "market": "SE",
+      "representative_index": "OMX Stockholm 30 (Sweden-only proxy)",
+      "ticker_hint_unverified": "^OMX",
+      "tz": "Europe/Stockholm",
+      "market_cap_usd_millions_feb_2026": 2454551.15
+    },
+    {
+      "rank": 16,
+      "id": "saudi",
+      "exchange": "Saudi Exchange (Tadawul)",
+      "market": "SA",
+      "representative_index": "Tadawul All Share Index",
+      "ticker_hint_unverified": "TASI",
+      "tz": "Asia/Riyadh",
+      "market_cap_usd_millions_feb_2026": 2441965.97
+    },
+    {
+      "rank": 17,
+      "id": "australia",
+      "exchange": "ASX Australian Securities Exchange",
+      "market": "AU",
+      "representative_index": "S&P/ASX 200",
+      "ticker_hint_unverified": "^AXJO",
+      "tz": "Australia/Sydney",
+      "market_cap_usd_millions_feb_2026": 2291049.06
+    },
+    {
+      "rank": 18,
+      "id": "johannesburg",
+      "exchange": "Johannesburg Stock Exchange",
+      "market": "ZA",
+      "representative_index": "FTSE/JSE All Share",
+      "ticker_hint_unverified": "J203",
+      "tz": "Africa/Johannesburg",
+      "market_cap_usd_millions_feb_2026": 1465202.3
+    },
+    {
+      "rank": 19,
+      "id": "spain",
+      "exchange": "BME Spanish Exchanges",
+      "market": "ES",
+      "representative_index": "IBEX 35",
+      "ticker_hint_unverified": "^IBEX",
+      "tz": "Europe/Madrid",
+      "market_cap_usd_millions_feb_2026": 1363406.08
+    },
+    {
+      "rank": 20,
+      "id": "brazil",
+      "exchange": "B3 - Brasil Bolsa Balcão",
+      "market": "BR",
+      "representative_index": "Ibovespa",
+      "ticker_hint_unverified": "^BVSP",
+      "tz": "America/Sao_Paulo",
+      "market_cap_usd_millions_feb_2026": 1068429.26
+    }
+  ]
+}

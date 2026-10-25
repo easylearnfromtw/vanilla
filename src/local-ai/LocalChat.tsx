@@ -10,6 +10,7 @@ import {recordClientFault} from "../luca/client-diagnostics";
 import {recordLucaFeedback} from "../luca/feedback-journal";
 import ChatMarkdown from "./ChatMarkdown";
 import {parseKnowledgeLookup,findKnowledgeSources} from "../knowledge/chat-source-lookup";
+import {consumerGuidance} from "../knowledge/evidence";
 import {venusPresentationGuidance} from "../venus/presentation";
 import {imageSearchQuery,searchCommonsImages} from "../venus/image-search";
 import MessageArtifacts from "./MessageArtifacts";
@@ -1423,7 +1424,9 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
  const evidenceErya=webSources.length?"\n[爾雅 Erya｜搜尋證據校閱] 請先依 Scouts 實際取得的來源核對事實，再自然化台灣繁體中文的最終答覆。保留來源編號、網址、數字、日期、醫學術語和不確定性；正文與 Google 引用摘要須嚴格分開，來源不足三篇或沒有台灣相關來源時明確告知，不得補造第四篇。回答末尾請列出來源，避免模板化空話。":"";
  const artifactGuidance=nativeOrchestra||nativeArtifact?"\n[Detroit 文件製作] 請直接撰寫可用於匯出的完整繁體中文 Markdown 正文，避免只說明做法或承諾會製作。不得虛構數字、引用、照片或執行結果；真正的檔案由本機工具在答案完成後才產生。":"";
  const trustedToolGrounding=!humanize&&!toolEvidence?.startsWith("Awesome Go 實際查核回條")?toolKnowledgeGuidance(question):"";
- const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding+factGuidance;
+ const consumerAdviceRule=/(推薦|建議|買|購買|投資|理財|股票|金融|醫療|健康|診所|醫美|用藥|心理|療程|風險|recommend|purchase|invest)/i.test(question)
+  ?"\n[柳岸書城／霞海書院消費者建議證據規範]"+consumerGuidance([],question).systemGuidance:"";
+ const guidance=tableInstruction+noodlesExtra+teacherExtra+taiwanEvidenceGuidance(taiwanTopic)+cloudDetroitBrief(detroit)+merlin.guidance+evidenceErya+artifactGuidance+(humanize?.guidance||"")+trustedToolGrounding+factGuidance+consumerAdviceRule;
  const compose=(candidate:ModelCandidate)=>{
   const budget=promptBudgetFor(candidate,task);
   // Small local/Ollama models need evidence, not 1K+ words of tool and style instructions.
@@ -1431,7 +1434,7 @@ async function answerWithModel(question:string,found:{inlineFileContext:string;w
   const compact=candidate.source==="local"||candidate.source==="ollama"?
    compileSmallModelInput({question:modelQuestion,model:candidate.model,task,contexts,budgetTokens:budget,
     tableRequested:tableExpected,artifactRequested:Boolean(nativeOrchestra||nativeArtifact),
-    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):"",evidenceGuidance:factGuidance}):null;
+    toolGuidance:candidate.source==="local"?(merlin.pragmaticsGuidance+"\n"+trustedToolGrounding).slice(0,360):"",evidenceGuidance:factGuidance+consumerAdviceRule}):null;
   const prepared=compact?.reduced?compact:null;
   const finalGuidance=prepared?.guidance??(
    guidance+

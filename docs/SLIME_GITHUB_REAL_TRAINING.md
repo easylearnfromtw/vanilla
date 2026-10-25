@@ -24,9 +24,13 @@
 
 工作流：[`SLIME Real GPU Qwen3 QLoRA (Owner Approval)`](https://github.com/easylearnfromtw/vanilla/actions/workflows/slime-real-gpu-qlora.yml)。此流程**只允許手動 Workflow Dispatch**，不會因為推送程式、PR、Telegram 訊息或 SLIME Friend 配對而自動租用 GPU。
 
-### Owner 一次性設定
+### 安全更新：GPU 務必改用另一個私有訓練倉庫（2026-10-25）
 
-1. 準備真正具備 NVIDIA CUDA 的**自己或已授權的** Linux x64 GPU 伺服器。可用 GitHub Self-hosted Actions Runner，手動登記到 `easylearnfromtw/vanilla`，標籤同時包含 `self-hosted`、`linux`、`x64`、`slime-gpu`。**不能只是把 CPU 主機貼上 GPU 標籤**；工作流還會呼叫 `nvidia-smi` 及 `torch.cuda.is_available()` 真正驗證。
+**原始 `easylearnfromtw/vanilla` 是公開倉庫，切勿把長駐自架 NVIDIA GPU 主機直接登記到公開 repo。** 這個原有 GitHub GPU workflow 現在對公開倉庫明確停用，以防公開 PR 攻擊私有算力與私有資料。請使用 `deployment/slime/private-gpu-qlora.workflow.yml` 複製到另外的**私有 GitHub 倉庫**執行，並照 `docs/SLIME_PRIVATE_GPU_REAL_TRAINING.md` 設置 Runner、environment approvals、審核資料及固定模型來源。下方是原先的技術參考，**不能直接套用到公開 repo**。GitHub 官方警示：https://docs.github.com/en/actions/reference/security/secure-use 。
+
+### Owner 一次性設定（僅適用私有部署）
+
+1. 準備真正具備 NVIDIA CUDA 的**自己或已授權的** Linux x64 GPU 伺服器。將 Self-hosted Actions Runner 登記到**另一個 Owner 控制的私有訓練 repo**，使用 `self-hosted`、`linux`、`x64`、`slime-private-gpu` 標籤；**不要登記到公開 `easylearnfromtw/vanilla`**。不能只是把 CPU 主機貼上 GPU 標籤；私有工作流仍會驗證真實 `nvidia-smi`、`torch.cuda.is_available()`。
 2. 在 GitHub Repository → Settings → Environments 建立 `slime-gpu-training`，建議設定 Required Reviewers、允許 `main` 分支執行並設定計算費用上限。工作流每次僅允許 16、32 或 64 個真實 optimizer steps，最多 90 分鐘。
 3. 將至少 100 筆**獲得資料使用權且經人工審核**的 JSONL 放在 GPU 主機上的絕對路徑（不放 Git 倉庫、GitHub Artifact 或公開工作日誌）。在 GitHub Repository → Settings → Actions → Variables 加入 `SLIME_GPU_DATASET_PATH`，其值為主機上的實際檔案絕對路徑，例如 `/home/owner/private/atuber-reviewed.jsonl`。
 4. 確認 GPU 主機有 Python、CUDA PyTorch、PEFT、TRL、bitsandbytes、Transformers 等依賴；推薦在固定的 Python 虛擬環境中啟動該 Runner。確認 Qwen3 官方 Hugging Face 模型的**完整 40 位 commit SHA**，避免版本漂移。大尺寸 30B／32B 需要遠高於一般 16 GiB 顯存的硬體；單張 Tesla T4 只適合從 0.6B／1.7B 或符合實測記憶體的小模型開始，且不能保證成功。

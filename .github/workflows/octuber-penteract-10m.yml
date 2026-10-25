@@ -43,15 +43,26 @@ jobs:
           node --input-type=module -e '
           import {readFileSync} from "node:fs";
           import {join} from "node:path";
+          import {createHash} from "node:crypto";
           const dir=process.env.EVIDENCE_DIR;
           const r=JSON.parse(readFileSync(join(dir,"five-d-sandbox-report.json"),"utf8"));
           const w=JSON.parse(readFileSync(join(dir,"five-d-weights.json"),"utf8"));
+          const raw=readFileSync(join(dir,"five-d-weights.json"));
+          const sha=createHash("sha256").update(raw).digest("hex");
           if(r.actualWeightUpdates!==10000000||r.trainableParameters!==1925||
              r.syntheticHoldoutFinalLoss>=r.syntheticHoldoutInitialLoss||
+             r.syntheticValidationSelectedLoss>r.syntheticValidationLastLoss||
+             !(r.bestCheckpointStep>=1&&r.bestCheckpointStep<=10000000)||
+             r.exportedWeightsCheckpointStep!==r.bestCheckpointStep||
+             r.additionalUpdatesAfterBest!==10000000-r.bestCheckpointStep||
+             r.sealedSyntheticTestRows!==300||
+             r.sealedSyntheticTestNotUsedForCheckpointSelection!==true||
+             r.artifactSha256!==sha||
              r.cudaUsed!==false||r.atuber0_6BWeightsUpdated!==false||
              r.detroitFactoryToolsDispatched!==false||r.productionRouterModified!==false||
-             w.provenance.epochs!==500||w.provenance.expertReviewed!==false)process.exit(2);
-          console.log("VERIFIED_10M_REAL_5D_SYNTHETIC_SGD_NO_LLM_WEIGHTS");
+             w.provenance.epochs!==r.bestCheckpointStep/20000||
+             w.provenance.expertReviewed!==false)process.exit(2);
+          console.log("VERIFIED_10M_REAL_5D_SYNTHETIC_SGD_BEST_CHECKPOINT_NO_LLM_WEIGHTS");
           '
       - name: Upload auditable local shadow weights and metrics
         uses: actions/upload-artifact@v4

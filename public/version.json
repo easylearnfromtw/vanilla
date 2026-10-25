@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.25.07-detroit-atuber-5d-10m",
-  "description": "10M genuine CPU SGD updates to 1,925-parameter synthetic 5D shadow projector, opt-in Detroit Factory/Atuber read-only integration; Atuber 0.6B and OCTUBER 30B/60B remain untrained."
+  "build": "2026.10.25.08-penteract-10m-best-checkpoint",
+  "description": "10M actual CPU SGD updates to a 1925-parameter 5D shadow projector, choose lowest synthetic-validation checkpoint; sealed synthetic test and pairwise SHA256 local receipt. NOT language model fine-tuning, model rights or signed provenance."
 }

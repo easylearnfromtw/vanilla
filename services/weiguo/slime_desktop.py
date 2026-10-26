@@ -209,7 +209,7 @@ def setup():
         except (OSError,ValueError,HTTPError,URLError,TimeoutError):
             print("Gecko 授權暫時不可用；仍可使用一般配對。")
     if secret is None:
-        print("請向 Ceres Telegram Owner 取得 10 分鐘有效的短配對碼。")
+        print("請至 SignWell Sale Telegram @VanillaAPIStore_bot 發送 /slime 取得 Owner 核發的 10 分鐘短配對碼。")
         secret=_invite(input("配對碼（例如 XXXX-XXXX-XXXX，亦可貼連結）："))
     if not _confirm("是否同意加入 Slime、回報硬體狀態並可隨時退出？"):
         print("未取得同意，沒有建立任何配對。")

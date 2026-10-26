@@ -26,7 +26,7 @@ def explain_failure(error):
         return "已儲存的裝置授權無效或已撤銷。請聯絡 Telegram Ceres Owner 確認節點授權；不要再次提交舊配對碼。"
     if isinstance(error, HTTPError):
         if error.code in (401, 403):
-            return "配對碼無效、已使用或已逾期。請在 Telegram Ceres /hub 重新取得一次性配對碼。"
+            return "配對碼無效、已使用或已逾期。請在 SignWell Sale Telegram（@VanillaAPIStore_bot）輸入 /slime 取得新的配對碼（僅 Owner 能核發）。"
         if error.code == 404:
             return "目前後端沒有配對服務。請檢查所選 WeiGuo 伺服器網址或部署版本。"
         if error.code == 429:
@@ -128,7 +128,7 @@ class Dashboard:
     def _unpaired(self, card):
         ttk.Label(card, text="① 第一次使用 · 連結你的電腦", style="Paper.TLabel",
                   font=("Arial", 16, "bold")).pack(anchor="w")
-        ttk.Label(card, text="1. 開啟 Telegram Ceres /hub → Slime → 取得 10 分鐘配對碼\n"
+        ttk.Label(card, text="1. 開啟 SignWell Sale Telegram @VanillaAPIStore_bot → /slime → 產生 10 分鐘配對碼\n"
                   "2. 為這台電腦取名並貼上短碼\n"
                   "3. 閱讀授權後按下「安全配對」；成功後再自行啟動共享",
                   style="Muted.TLabel", wraplength=620).pack(anchor="w", pady=(8, 4))
@@ -252,7 +252,7 @@ class Dashboard:
         code = self.code.get().strip()
         server = self.server.get().strip()
         if not label or not code:
-            self.message.set("請填入裝置名稱，以及 Telegram Ceres 提供的一次性配對碼。")
+            self.message.set("請填入裝置名稱，以及 SignWell Sale Telegram 核發的一次性配對碼。")
             return
         if not self.advanced.get():
             server = self.desktop.DEFAULT_SERVER

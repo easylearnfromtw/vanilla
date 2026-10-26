@@ -102,7 +102,7 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
     <p class="desc">新版 Slime 首次開啟會顯示桌面配對引導，不必記住指令。請先確認下載的是自己的角色（Owner 或 Friend），再依序操作。</p>
     <ol class="steps">
       <li><span class="step-id">01</span><div><strong>啟動電腦版 Slime</strong><p>Windows 雙擊對應的 Slime-Owner.exe／Slime-Friend.exe；macOS、Linux 開啟壓縮包內的啟動檔。介面會自動判斷 Owner／Friend 角色。</p></div></li>
-      <li><span class="step-id">02</span><div><strong>貼上同一組 Telegram 配對碼</strong><p>在 Ceres /hub 取得十分鐘短碼，填入桌面配對精靈。完成前不會分享公開 IP、關機權限或下載模型，除非你另外勾選同意。</p></div></li>
+      <li><span class="step-id">02</span><div><strong>貼上同一組 Telegram 配對碼</strong><p>在 SignWell Sale Telegram（@VanillaAPIStore_bot）輸入 /slime，由 Owner 取得十分鐘短碼，填入桌面配對精靈。完成前不會分享公開 IP、關機權限或下載模型，除非你另外勾選同意。</p></div></li>
       <li><span class="step-id">03</span><div><strong>檢查連線 → 開始共享</strong><p>先確認「綁定」、「Owner 推論授權」和「本機 Ollama」的獨立狀態，再自行按「開始共享」。按「停止共享」或關閉視窗即可停止本次共享；不會自動刪除配對。</p></div></li>
     </ol>
     <div class="notice">若配對成功但心跳失敗：請勿重新使用已消耗的短碼。重新開啟 SLIME 後按「檢查網路與 Ollama」即可重試。裝置離線不等於配對失效。</div>
@@ -132,11 +132,11 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
     </section>
     <section class="card" aria-labelledby="pair-title">
      <div class="head"><div><div class="number">STEP 02 — PAIR</div><h2 id="pair-title">查看 Telegram 配對碼</h2></div><span class="symbol" aria-hidden="true">⌘</span></div>
-     <p class="desc">這是 Telegram Ceres 核發的<strong>同一組</strong>配對碼的唯讀顯示區，不會在網頁右側另外產生第二組。從 Owner 私聊中的專屬連結開啟，即可查看並複製。</p>
+     <p class="desc">這是 SignWell Sale Telegram 或 Ceres Owner 私聊核發的<strong>同一組</strong>配對碼的唯讀顯示區，不會在網頁右側另外產生第二組。從 Owner 私聊中的專屬連結開啟，即可查看並複製。</p>
      <div class="pair-box" aria-live="polite">
-      <span class="tiny" id="code-label">來源：Telegram Ceres（唯一核發處）</span>
+      <span class="tiny" id="code-label">來源：SignWell Sale Telegram（Owner 核發）；Ceres Owner 仍相容</span>
       <strong id="code" class="pair-code pair-placeholder">尚未收到配對碼</strong>
-      <span class="tiny" id="code-hint">前往 Telegram /hub → Slime → 產生配對碼，再點選「在獨立網頁開啟配對」</span>
+      <span class="tiny" id="code-hint">至 @VanillaAPIStore_bot 傳送 /slime → 由 Owner 核發短碼；亦可從邀請連結開啟本頁</span>
      </div>
      <button type="button" class="primary" id="copy-code" disabled>複製同一組配對碼至 Windows Slime</button>
      <button type="button" class="secondary" id="copy-link" hidden>複製備用邀請連結</button>
@@ -218,7 +218,7 @@ h1 span{color:#898991}h2{letter-spacing:-.04em;font-size:22px;margin:3px 0 0;fon
   $("copy-code").disabled=false;
  }else if(legacy){
   $("code").textContent="這是舊版邀請連結";
-  $("code-hint").textContent="舊版連結不是新版 12 位短碼。請回 Telegram /hub 重新產生 Slime 配對碼。";
+  $("code-hint").textContent="舊版連結不是新版 12 位短碼。請在 SignWell Sale Telegram 傳送 /slime 由 Owner 重新核發。";
  }
  var safeLink=code?location.origin+location.pathname+"#slime="+code:"";
  if(safeLink){$("copy-link").hidden=false;}

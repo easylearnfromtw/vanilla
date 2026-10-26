@@ -11,7 +11,7 @@
 
 新版桌面引導自動顯示 Owner／Friend 身分：
 
-1. 從 Telegram Ceres `/hub` → SLIME 取得單次、10 分鐘有效的配對碼。
+1. 從 [SignWell Sale Telegram（@VanillaAPIStore_bot）](https://t.me/VanillaAPIStore_bot) 發送 `/slime`，由已驗證的 Owner 按「產生一次性 SLIME 配對碼」（單次有效 10 分鐘）。非 Owner 使用者需向 Owner 索取邀請碼。
 2. 為電腦命名並貼上 **同一組配對碼**。預設 WeiGuo 後端已填入，只有自行部署後端的進階使用者需要修改 HTTPS 網址。
 3. 公開 IP／位置分享、可關機權限預設關閉。只有想使用時才逐一勾選；閱讀節點用途後另勾選加入授權。
 4. 按 **安全配對**。成功會將憑證留在本機並檢查第一個心跳。短碼用過就不能再次使用；若心跳暫失敗，重新開啟後按檢查即可。
@@ -28,7 +28,7 @@
 
 | 畫面顯示 | 處理方式 |
 | --- | --- |
-| 短碼失效／HTTP 401、403 | 回 Ceres `/hub` 取得新的短碼，不要貼 API key 或舊 Node Token。 |
+| 短碼失效／HTTP 401、403 | 回 SignWell Sale Telegram 輸入 `/slime`，由 Owner 取得新短碼，不要貼 API key 或舊 Node Token。 |
 | HTTP 429 | 稍後再試，避免連續重送。 |
 | 後端 HTTP 5xx | 查看後端狀態，保留目前畫面、等網路恢復。 |
 | 配對成功但心跳尚未確認 | 不要重新消耗短碼；重新開啟按「檢查網路與 Ollama」。 |

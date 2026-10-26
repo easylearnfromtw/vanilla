@@ -2,7 +2,7 @@
 
 ## 先辨別 Bot 身分
 
-- [公開 Vanilla API Store / Academy](https://t.me/VanillaAPIStore_bot)：`CERES_STORE_*`，Webhook `/v1/ceres/store/telegram/webhook`。歡迎畫面顯示 `VANILLA / AI PLATFORM`。
+- [公開 Vanilla API Store / Academy](https://t.me/VanillaAPIStore_bot)：`CERES_STORE_*`，Webhook `/v1/ceres/store/telegram/webhook`。歡迎畫面顯示 `VANILLA / AI PLATFORM`；已驗證 Owner 可使用 `/slime` 取得一次性節點配對碼，一般使用者不得核發。
 - [Owner Ceres 管理中心](https://t.me/SignWell_bot)：`CERES_TELEGRAM_*`，Webhook `/v1/ceres/telegram/webhook`。兩個 Bot 的 token、secret、Webhook 不可混用。
 
 **GitHub Pages 只發布 Vanilla 前端，更新 GitHub 不會自動更新後端 Telegram Bot。**
@@ -25,7 +25,7 @@
 ## 驗收操作
 
 1. 在 Telegram 開啟 [`@VanillaAPIStore_bot`](https://t.me/VanillaAPIStore_bot)，點 **Start** 或私聊輸入 `/start`。
-2. 畫面應有 `VANILLA / AI PLATFORM`、真正分行的歡迎詞與 Academy 等互動按鈕，不應看到印在同一行的 `\n`。
+2. 畫面應有 `VANILLA / AI PLATFORM`、真正分行的歡迎詞與 Academy、SLIME 等互動按鈕，不應看到印在同一行的 `\n`。
 3. 點選 **Academy · 學習中心**，應收到課程等級選單；再點模型或返回主選單，確認 callback 正常。
 4. 若沒有任何回覆：檢查後端程序是否執行、Webhook 註冊狀態、Telegram webhook 最近錯誤、後端是否收到路徑 `/v1/ceres/store/telegram/webhook` 的 POST，以及是否回覆 HTTP 2xx。
 5. 若有回覆但內容仍出現 `\n`：確認目前部署包含 `ceres_store_bot._hub_display` 的程式碼，而不是僅更新前端；再確認 `sendMessage.text` 使用真正的 LF 而非跳脫字元。
@@ -35,6 +35,7 @@
 ```sh
 python3 -m unittest discover -s services/weiguo -p 'test_ceres_store_connection.py'
 python3 -m unittest discover -s services/weiguo -p 'test_ceres_academy.py'
+python3 -m unittest discover -s services/weiguo -p 'test_ceres_store_slime_pair.py'
 ```
 
 不能透過 GitHub Pages 的部署成功，推論 Telegram Webhook 已經成功連線；必須另查後端日誌及 Telegram 實際對話。

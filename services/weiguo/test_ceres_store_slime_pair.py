@@ -94,32 +94,53 @@ class StoreSlimePairTests(unittest.TestCase):
         with self.assertRaises(HTTPException):
             pair(PairRequest(code=matched.group(1),label="Replay",role="friend"),request)
 
+    @staticmethod
+    def _request(update):
+        data=json.dumps(update).encode("utf-8")
+        async def receive():
+            return {"type":"http.request","body":data,"more_body":False}
+        return Request({
+            "type":"http","method":"POST",
+            "headers":[(b"content-type",b"application/json")]
+        },receive=receive)
+
     def test_group_forward_and_spoofed_sender_do_not_issue_codes(self):
+        async def ack(*a,**kw):
+            return None
         with patch.object(bot,"_config",return_value=("token","secret","https://example.test")), \
              patch.object(bot,"_slime_store_issue") as issue, \
+             patch.object(bot,"_tg",ack), \
              patch.object(bot,"_claim",return_value=True):
             for update in (
-                {"update_id": 101, "message":{"chat":{"type":"supergroup","id":-1},"from":{"id":OWNER},"text":"/slime code"}},
-                {"update_id": 102, "message":{"chat":{"type":"private","id":OWNER},"from":{"id":MEMBER},"text":"/slime code"}},
-                {"update_id": 103, "message":{"chat":{"type":"private","id":OWNER},"from":{"id":OWNER,"is_bot":True},"text":"/slime code"}},
-                {"update_id": 104, "callback_query":{"id":"cb","from":{"id":MEMBER},"message":{"chat":{"id":OWNER,"type":"private"}},"data":"slime:code"}},
+                {"update_id":101,"message":{"chat":{"type":"supergroup","id":-1},"from":{"id":OWNER},"text":"/slime code"}},
+                {"update_id":102,"message":{"chat":{"type":"private","id":OWNER},"from":{"id":MEMBER},"text":"/slime code"}},
+                {"update_id":103,"message":{"chat":{"type":"private","id":OWNER},"from":{"id":OWNER,"is_bot":True},"text":"/slime code"}},
+                {"update_id":104,"callback_query":{"id":"cb","from":{"id":MEMBER},"message":{"chat":{"id":OWNER,"type":"private"}},"data":"slime:code"}}
             ):
-                async def body(): return json.dumps(update).encode()
-                req = Request({"type":"http","method":"POST","headers":[(b"content-type",b"application/json")]}, receive=lambda: None)
-                req.body=body
-                result=asyncio.run(bot.store_webhook(req,x_telegram_bot_api_secret_token="secret"))
+                result=asyncio.run(bot.store_webhook(
+                    self._request(update),x_telegram_bot_api_secret_token="secret"))
                 self.assertEqual(result,{"ok":True})
             issue.assert_not_called()
 
-    def test_explicit_command_and_callback_need_once_only_webhook_update(self):
+    def test_private_store_command_and_callback_issue_once_per_update(self):
+        async def ack(*a,**kw):
+            return None
         with patch.object(bot,"_config",return_value=("token","secret","https://example.test")), \
-             patch.object(bot,"_tg",return_value=None), \
-             patch.object(bot,"_slime_store_issue",side_effect=AssertionError("should not run for non-owner")):
-            # The actual issue handler is explicitly exercised above. Here check
-            # unrecognized commands cannot fall into it and no outside chat gets a code.
-            self.assertNotIn("slime:code", str(bot._hub_keyboard()))
-        for action in ["/slime", "/slime code"]:
-            self.assertIn("slime", action)
+             patch.object(bot,"_tg",ack):
+            one={"update_id":901,"message":{"chat":{"type":"private","id":OWNER},
+                "from":{"id":OWNER,"is_bot":False},"text":"/slime code"}}
+            asyncio.run(bot.store_webhook(self._request(one),x_telegram_bot_api_secret_token="secret"))
+            self.assertIn("一次性配對碼",self.sent[-1][1])
+            # Telegram retries the exact same update: no second code.
+            asyncio.run(bot.store_webhook(self._request(one),x_telegram_bot_api_secret_token="secret"))
+            self.assertEqual(len(self.sent),1)
+            two={"update_id":902,"callback_query":{"id":"cb2",
+                "from":{"id":OWNER,"is_bot":False},
+                "message":{"chat":{"id":OWNER,"type":"private"}},"data":"slime:code"}}
+            asyncio.run(bot.store_webhook(self._request(two),x_telegram_bot_api_secret_token="secret"))
+            self.assertEqual(len(self.sent),2)
+            self.assertIn("一次性配對碼",self.sent[-1][1])
+
 
 
 if __name__ == "__main__":

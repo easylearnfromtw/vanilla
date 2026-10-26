@@ -164,10 +164,81 @@ def _hub_display(text: str) -> str:
             .replace(r"\r\n", "\n").replace(r"\n", "\n"))
 
 
+
+def _slime_store_owner(chat_id: int) -> str | None:
+    """Gate a public Store chat against the SAME verified Ceres owner identity.
+
+    Store usernames, arbitrary chat IDs and forwarded messages are not proof of
+    ownership. Never share a pairing code with an unlinked public Store user.
+    """
+    if type(chat_id) is not int:
+        return None
+    try:
+        from ceres_gateway import _allowed_chat_ids
+        from slime_telegram import _owner_subject
+        if chat_id not in _allowed_chat_ids():
+            return None
+        links = json.loads(os.getenv("CERES_FAMILY_LINKS_JSON", "{}"))
+        if not isinstance(links, dict):
+            return None
+        sub = links.get(str(chat_id))
+        if not isinstance(sub, str) or not _owner_subject(chat_id, sub):
+            return None
+        return sub
+    except (ValueError, TypeError, KeyError, ImportError, HTTPException):
+        return None
+
+
+async def _slime_store_menu(chat_id: int) -> None:
+    """No secret on opening the menu: user must request a code explicitly."""
+    if _slime_store_owner(chat_id) is None:
+        await _send(
+            chat_id,
+            "SLIME / 節點配對\n━━━━━━━━━━━━\n\n"
+            "配對碼只能由已驗證的 SLIME Owner 核發。\n"
+            "請向節點管理者索取一次性邀請碼，再到 SLIME 桌面程式輸入。"
+            "公開 Sale Bot 不會對一般帳號核發裝置邀請或管理權限。",
+            _buttons([[("◉ 返回主選單", "hub:home")]])
+        )
+        return
+    await _send(
+        chat_id,
+        "SLIME / Owner 配對中心\n━━━━━━━━━━━━\n\n"
+        "你已通過原有 Ceres Telegram ID 與 Google Owner 權限驗證。\n"
+        "下方會核發一次性配對碼（有效 10 分鐘、只能使用一次）。\n"
+        "這只是加入電腦的邀請碼，並非登入密碼或長期 API 金鑰。\n"
+        "請勿轉傳至公開群組；使用 Friend 電腦前須取得持有人同意。",
+        _buttons([
+            [("＋ 產生一次性 SLIME 配對碼", "slime:code")],
+            [("◉ 返回主選單", "hub:home")]
+        ])
+    )
+
+
+async def _slime_store_issue(chat_id: int) -> None:
+    """Only verified private Owner DMs may issue a Slime short pairing code."""
+    sub = _slime_store_owner(chat_id)
+    if sub is None:
+        await _slime_store_menu(chat_id)
+        return
+    from slime_telegram import _invite
+    # Existing origin/TTL/active-invite quota, digest-at-rest and audit log
+    # remain authoritative. No new code table or Store-specific backdoor.
+    result = _invite(sub, chat_id)
+    await _send(
+        chat_id, result,
+        _buttons([
+            [("＋ 重新產生（舊碼仍受 10 分鐘限制）", "slime:code")],
+            [("◉ 返回主選單", "hub:home")]
+        ])
+    )
+
+
 def _hub_keyboard():
     return _buttons([
         [("◈ Academy · 學習中心","hub:academy"),("◇ Models · 模型","hub:models")],
         [("⌘ API Store","hub:api"),("▤ Usage · 用量","hub:usage")],
+        [("🖥 SLIME · 裝置配對","hub:slime")],
         [("◉ Account · 帳戶","hub:account"),("⚙ Settings","hub:settings")]
     ])
 
@@ -181,6 +252,9 @@ async def _hub(chat_id,section="home"):
         "settings":("SETTINGS  /  偏好設定","可在 Academy 選擇學習程度。\n其他設定將在後端權限與儲存機制完成後開放。")
     }
     heading,body=pages.get(section,pages["home"])
+    if section=="slime":
+        await _slime_store_menu(chat_id)
+        return
     if section=="api":
         await _send(chat_id,"API STORE  /  邀請制測試\n━━━━━━━━━━━━\n\n目前僅接受白名單測試，模型推論尚未開放。\n請勿在聊天室傳送 API Key。",_buttons([[("✦ 測試資格說明","api:apply")],[("〈 返回主選單","hub:home")]]))
         return
@@ -337,10 +411,12 @@ async def store_webhook(request: Request,
         if (chat.get("type") == "private" and type(chat_id) is int
                 and sender.get("id") == chat_id and not sender.get("is_bot")
                 and isinstance(data, str) and len(data) <= 64
-                and data.startswith(("learn:", "hub:", "api:"))):
+                and data.startswith(("learn:", "hub:", "api:", "slime:"))):
             if _claim(update["update_id"]):
                 try:
-                    if data == "api:apply":
+                    if data == "slime:code":
+                        await _slime_store_issue(chat_id)
+                    elif data == "api:apply":
                         await _send(chat_id,
                             "API ACCESS / 申請說明\n\n目前尚未啟用申請，請勿傳送金鑰。",
                             _buttons([[("〈 返回主選單", "hub:home")]]))
@@ -378,12 +454,20 @@ async def store_webhook(request: Request,
                 raise HTTPException(503, "Telegram lesson delivery failed") from None
         return {"ok":True}
     command = message.get("text", "").split(maxsplit=1)[0].split("@")[0].lower() if isinstance(message.get("text"), str) else ""
-    if command not in ("/start", "/help", "/menu", "/academy", "/lesson", "/progress", "/catalog"):
+    if command not in ("/start", "/help", "/menu", "/academy", "/lesson", "/progress", "/catalog", "/slime"):
         return {"ok": True}
     if not _claim(update["update_id"]):
         return {"ok": True}
     try:
-        if command == "/academy":
+        if command == "/slime":
+            requested = user_text.split(maxsplit=1)
+            if len(requested) == 1:
+                await _slime_store_menu(chat_id)
+            elif requested[1].strip().lower() in ("code", "pair", "invite", "配對碼", "邀請碼"):
+                await _slime_store_issue(chat_id)
+            else:
+                await _slime_store_menu(chat_id)
+        elif command == "/academy":
             await _learn(chat_id, "start")
         elif command == "/progress":
             await _learn(chat_id, "view")
